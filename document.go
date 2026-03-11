@@ -2,10 +2,17 @@ package ragy
 
 import "github.com/skosovsky/ragy/filter"
 
+// Media represents a binary attachment (e.g. image, PDF) for multimodal documents and search.
+type Media struct {
+	MimeType string // e.g. "image/jpeg", "application/pdf"
+	Data     []byte
+}
+
 // Document is the basic unit of knowledge: a chunk of text with metadata and optional score.
 type Document struct {
 	ID       string
 	Content  string
+	Media    []Media        // For multimodal documents (images, etc.)
 	Metadata map[string]any // e.g. TenantID, ParentID, Author, Source, CreatedAt
 	Score    float32        // Final relevance score (e.g. after reranking)
 }
@@ -34,10 +41,12 @@ type RetrievalResult struct {
 
 // SearchRequest carries the query, optional pre-computed vectors, pagination, and filter.
 // DenseVector is filled by BaseVectorRetriever/HyDERetriever; TensorVector by ColBERTRetriever.
+// Media enables image/similarity search when used with MultimodalEmbedder.
 // Adapters read vectors from here (type-safe). Offset is for pagination; adapters for ANN
 // typically request Limit+Offset and slice in Go.
 type SearchRequest struct {
 	Query        string
+	Media        []Media     // Image(s) for similarity search (e.g. photo of symptoms)
 	DenseVector  []float32   // Pre-computed by BaseVectorRetriever / HyDERetriever
 	TensorVector [][]float32 // Pre-computed by ColBERTRetriever (per-token vectors for one query)
 	Limit        int

@@ -1,4 +1,5 @@
-// Package obs provides OpenTelemetry tracing decorators for ragy Retriever, VectorStore, GraphStore, and Reranker.
+// Package obs provides OpenTelemetry tracing decorators for all ragy interfaces:
+// DenseEmbedder, TensorEmbedder, MultimodalEmbedder, VectorStore, GraphStore, Retriever, QueryTransformer, and Reranker.
 package obs
 
 import (
@@ -187,4 +188,133 @@ func (t *tracedReranker) Rerank(ctx context.Context, query string, docs []ragy.D
 		span.RecordError(err)
 	}
 	return out, err
+}
+
+// TracedDenseEmbedder wraps a DenseEmbedder with tracing.
+func TracedDenseEmbedder(embedder ragy.DenseEmbedder, tracer trace.Tracer) ragy.DenseEmbedder {
+	return &tracedDenseEmbedder{inner: embedder, tracer: tracer}
+}
+
+// NewTracedDenseEmbedder is an alias for TracedDenseEmbedder (TD naming).
+func NewTracedDenseEmbedder(embedder ragy.DenseEmbedder, tracer trace.Tracer) ragy.DenseEmbedder {
+	return TracedDenseEmbedder(embedder, tracer)
+}
+
+type tracedDenseEmbedder struct {
+	inner  ragy.DenseEmbedder
+	tracer trace.Tracer
+}
+
+func (t *tracedDenseEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	ctx, span := t.tracer.Start(ctx, "ragy.embedder.embed")
+	defer span.End()
+	start := time.Now()
+	vecs, err := t.inner.Embed(ctx, texts)
+	dur := time.Since(start)
+	span.SetAttributes(
+		attribute.Int("ragy.embed.input_count", len(texts)),
+		attribute.Int("ragy.embed.output_count", len(vecs)),
+		attribute.Int64("ragy.duration_ms", dur.Milliseconds()),
+	)
+	if err != nil {
+		span.RecordError(err)
+	}
+	return vecs, err
+}
+
+// TracedTensorEmbedder wraps a TensorEmbedder with tracing.
+func TracedTensorEmbedder(embedder ragy.TensorEmbedder, tracer trace.Tracer) ragy.TensorEmbedder {
+	return &tracedTensorEmbedder{inner: embedder, tracer: tracer}
+}
+
+// NewTracedTensorEmbedder is an alias for TracedTensorEmbedder (TD naming).
+func NewTracedTensorEmbedder(embedder ragy.TensorEmbedder, tracer trace.Tracer) ragy.TensorEmbedder {
+	return TracedTensorEmbedder(embedder, tracer)
+}
+
+type tracedTensorEmbedder struct {
+	inner  ragy.TensorEmbedder
+	tracer trace.Tracer
+}
+
+func (t *tracedTensorEmbedder) EmbedTensors(ctx context.Context, texts []string) ([][][]float32, error) {
+	ctx, span := t.tracer.Start(ctx, "ragy.tensor_embedder.embed_tensors")
+	defer span.End()
+	start := time.Now()
+	tensors, err := t.inner.EmbedTensors(ctx, texts)
+	dur := time.Since(start)
+	span.SetAttributes(
+		attribute.Int("ragy.embed.input_count", len(texts)),
+		attribute.Int("ragy.embed.output_count", len(tensors)),
+		attribute.Int64("ragy.duration_ms", dur.Milliseconds()),
+	)
+	if err != nil {
+		span.RecordError(err)
+	}
+	return tensors, err
+}
+
+// TracedQueryTransformer wraps a QueryTransformer with tracing.
+func TracedQueryTransformer(qt ragy.QueryTransformer, tracer trace.Tracer) ragy.QueryTransformer {
+	return &tracedQueryTransformer{inner: qt, tracer: tracer}
+}
+
+// NewTracedQueryTransformer is an alias for TracedQueryTransformer (TD naming).
+func NewTracedQueryTransformer(qt ragy.QueryTransformer, tracer trace.Tracer) ragy.QueryTransformer {
+	return TracedQueryTransformer(qt, tracer)
+}
+
+type tracedQueryTransformer struct {
+	inner  ragy.QueryTransformer
+	tracer trace.Tracer
+}
+
+func (t *tracedQueryTransformer) Transform(ctx context.Context, query string) ([]string, error) {
+	ctx, span := t.tracer.Start(ctx, "ragy.query_transformer.transform")
+	defer span.End()
+	start := time.Now()
+	queries, err := t.inner.Transform(ctx, query)
+	dur := time.Since(start)
+	span.SetAttributes(
+		attribute.String("ragy.transform.input_query", query),
+		attribute.Int("ragy.transform.output_count", len(queries)),
+		attribute.Int64("ragy.duration_ms", dur.Milliseconds()),
+	)
+	if err != nil {
+		span.RecordError(err)
+	}
+	return queries, err
+}
+
+// TracedMultimodalEmbedder wraps a MultimodalEmbedder with tracing.
+func TracedMultimodalEmbedder(embedder ragy.MultimodalEmbedder, tracer trace.Tracer) ragy.MultimodalEmbedder {
+	return &tracedMultimodalEmbedder{inner: embedder, tracer: tracer}
+}
+
+// NewTracedMultimodalEmbedder is an alias for TracedMultimodalEmbedder.
+func NewTracedMultimodalEmbedder(embedder ragy.MultimodalEmbedder, tracer trace.Tracer) ragy.MultimodalEmbedder {
+	return TracedMultimodalEmbedder(embedder, tracer)
+}
+
+type tracedMultimodalEmbedder struct {
+	inner  ragy.MultimodalEmbedder
+	tracer trace.Tracer
+}
+
+func (t *tracedMultimodalEmbedder) EmbedMultimodal(ctx context.Context, texts []string, media [][]ragy.Media) ([][]float32, error) {
+	ctx, span := t.tracer.Start(ctx, "ragy.multimodal_embedder.embed_multimodal")
+	defer span.End()
+	start := time.Now()
+	vecs, err := t.inner.EmbedMultimodal(ctx, texts, media)
+	dur := time.Since(start)
+	span.SetAttributes(
+		attribute.Int("ragy.embed.input_count", len(texts)),
+		attribute.Int("ragy.embed.media_count", len(media)),
+		attribute.Int("ragy.embed.output_count", len(vecs)),
+		attribute.Int64("ragy.duration_ms", dur.Milliseconds()),
+	)
+	if err != nil {
+		span.RecordError(err)
+	}
+	return vecs, err
 }

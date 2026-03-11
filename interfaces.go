@@ -18,6 +18,12 @@ type TensorEmbedder interface {
 	EmbedTensors(ctx context.Context, texts []string) ([][][]float32, error)
 }
 
+// MultimodalEmbedder produces one dense vector per (text, media) pair.
+// len(texts) must equal len(media); empty media[i] means text-only embedding for that index.
+type MultimodalEmbedder interface {
+	EmbedMultimodal(ctx context.Context, texts []string, media [][]Media) ([][]float32, error)
+}
+
 // VectorStore performs similarity search and batch upsert.
 // Search reads DenseVector or TensorVector from SearchRequest (type-safe; no embedding any).
 // Upsert accepts slices of any size; adapter implementations MUST micro-batch internally

@@ -24,7 +24,7 @@ func NewCrossEncoderReranker(score ScoreFunc) *CrossEncoderReranker {
 	return &CrossEncoderReranker{Score: score}
 }
 
-// Rerank implements ragy.Retriever.
+// Rerank implements ragy.Reranker.
 func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, docs []ragy.Document, topK int) ([]ragy.Document, error) {
 	if len(docs) == 0 {
 		return nil, nil

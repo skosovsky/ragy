@@ -1,0 +1,13 @@
+go 1.26.0
+
+use (
+	.
+	./adapters/openai
+	./adapters/gemini
+	./adapters/pgvector
+	./adapters/jina
+	./adapters/qdrant
+	./adapters/cohere
+	./adapters/elasticsearch
+	./adapters/neo4j
+)

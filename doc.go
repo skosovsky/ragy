@@ -17,6 +17,9 @@
 //   - obs: OpenTelemetry decorators for tracing
 //   - testutil: in-memory stores and mock embedders for tests
 //
+// Official adapters live in separate modules under adapters/ (e.g. adapters/openai, adapters/gemini, adapters/pgvector).
+// For local development, use go.work in the repo root so adapters resolve the local ragy module.
+//
 // Adapter contract (for VectorStore/GraphStore implementations):
 //   - Search: vectors are read from req.DenseVector (dense search) or req.TensorVector (ColBERT), not a separate embedding parameter.
 //   - Upsert(ctx, docs) accepts slices of any size; adapters MUST micro-batch internally (e.g. 500 per call).
