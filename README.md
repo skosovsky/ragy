@@ -132,6 +132,14 @@ f := filter.All(filter.Equal("tenant", 1), filter.Greater("age", 18))
 traced := obs.NewTracedRetriever(retriever, tracer)
 ```
 
+**Semantic Caching** — beyond retrieval, ragy provides a `SemanticCache` interface. It stores expensive LLM responses in a vector store (e.g. pgvector) and returns them for semantically similar queries (e.g. "How do I reset my password?" and "I forgot my password, what do I do?"), saving tokens and response time. Use the `ragy/cache` package (import `github.com/skosovsky/ragy/cache`). Cache entries are isolated by metadata `_cache_type=semantic` so the same store can hold both cache and knowledge-base documents. Calling `Set` again for the same exact query overwrites the previous response (document ID is deterministic from the query).
+
+```go
+sc := cache.NewVectorCache(store, embedder)
+resp, hit, err := sc.Get(ctx, "reset password", 0.95)
+// On miss: hit is false, err is nil. Use hit to decide whether to call LLM.
+```
+
 ---
 
 ## Ecosystem

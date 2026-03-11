@@ -15,6 +15,7 @@
 //   - retrievers: retrieval pipeline (BaseVectorRetriever, ColBERTRetriever, GraphRetriever, RouterRetriever, SelfQueryRetriever, EnsembleRetriever, MultiQueryRetriever, HyDERetriever)
 //   - rerankers: RRF and CrossEncoder rerankers
 //   - obs: OpenTelemetry decorators for tracing
+//   - cache: semantic cache (SemanticCache, VectorCache, NewTracedSemanticCache)
 //   - testutil: in-memory stores and mock embedders for tests
 //
 // Official adapters live in separate modules under adapters/ (e.g. adapters/openai, adapters/gemini, adapters/pgvector).
@@ -22,6 +23,7 @@
 //
 // Adapter contract (for VectorStore/GraphStore implementations):
 //   - Search: vectors are read from req.DenseVector (dense search) or req.TensorVector (ColBERT), not a separate embedding parameter.
+//   - For dense search, documents must have Metadata[EmbeddingMetadataKey] = []float32 so the store can score by similarity; ragy/cache and retriever pipelines rely on this.
 //   - Upsert(ctx, docs) accepts slices of any size; adapters MUST micro-batch internally (e.g. 500 per call).
 //   - Search with Offset: ANN indexes often do not support OFFSET; request Limit+Offset and slice in Go.
 //   - Filter: use req.Filter (filter.Expr); traverse via type switch to build native queries (SQL WHERE, Qdrant filter JSON, etc.).

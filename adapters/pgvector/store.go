@@ -1,6 +1,6 @@
 // Package pgvector provides a ragy.VectorStore implementation using PostgreSQL with the pgvector extension.
 //
-// Documents store the embedding in Metadata["embedding"] ([]float32). Use Batch Upsert and filter.Expr translation for WHERE.
+// Documents store the embedding in Metadata[ragy.EmbeddingMetadataKey] ([]float32). Use Batch Upsert and filter.Expr translation for WHERE.
 //
 // Table and column names (WithTable, WithMetadataColumn, etc.) must be set by the application and must not
 // be taken from unvalidated user input, as they are used in raw SQL.
@@ -39,9 +39,6 @@ import (
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 )
-
-// EmbeddingKey is the Metadata key for the dense vector ([]float32). Same convention as ragy/testutil.
-const EmbeddingKey = "embedding"
 
 // DefaultUpsertBatchSize is the default micro-batch size for Upsert.
 const DefaultUpsertBatchSize = 500
@@ -287,7 +284,7 @@ func (s *Store) upsertBatch(ctx context.Context, docs []ragy.Document) error {
 		s.contentCol, s.contentCol, s.embedCol, s.embedCol, s.metaCol, s.metaCol,
 	)
 	for _, d := range docs {
-		emb, _ := d.Metadata[EmbeddingKey].([]float32)
+		emb, _ := d.Metadata[ragy.EmbeddingMetadataKey].([]float32)
 		if len(emb) == 0 {
 			return fmt.Errorf("pgvector: document %q missing embedding", d.ID)
 		}
@@ -295,7 +292,7 @@ func (s *Store) upsertBatch(ctx context.Context, docs []ragy.Document) error {
 		// Exclude embedding from JSONB to avoid storing it twice (vector column + metadata).
 		metaCopy := make(map[string]any, len(d.Metadata))
 		for k, v := range d.Metadata {
-			if k == EmbeddingKey {
+			if k == ragy.EmbeddingMetadataKey {
 				continue
 			}
 			metaCopy[k] = v

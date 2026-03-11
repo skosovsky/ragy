@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"reflect"
 	"sort"
 	"sync"
 
@@ -10,8 +11,8 @@ import (
 	"github.com/skosovsky/ragy/internal/mathutil"
 )
 
-// EmbeddingKey is the Metadata key for dense embedding stored by tests. Type: []float32.
-const EmbeddingKey = "embedding"
+// EmbeddingKey is the Metadata key for dense embedding in tests. Same as ragy.EmbeddingMetadataKey (type []float32).
+const EmbeddingKey = ragy.EmbeddingMetadataKey
 
 // TensorKey is the Metadata key for tensor (per-token) embedding. Type: [][]float32.
 const TensorKey = "tensor"
@@ -43,6 +44,18 @@ func (s *InMemoryVectorStore) Search(_ context.Context, req ragy.SearchRequest) 
 
 	if len(list) == 0 {
 		return nil, nil
+	}
+	if req.Filter != nil {
+		filtered := list[:0]
+		for _, d := range list {
+			if matchDoc(d, req.Filter) {
+				filtered = append(filtered, d)
+			}
+		}
+		list = filtered
+		if len(list) == 0 {
+			return nil, nil
+		}
 	}
 
 	type scored struct {
@@ -95,6 +108,29 @@ func (s *InMemoryVectorStore) Search(_ context.Context, req ragy.SearchRequest) 
 		out = append(out, d)
 	}
 	return out, nil
+}
+
+// matchDoc returns true if the document metadata matches the filter expression.
+// Supports only Eq and And; other expression types return false so tests fail explicitly
+// instead of silently including all documents.
+func matchDoc(doc ragy.Document, expr filter.Expr) bool {
+	switch e := expr.(type) {
+	case filter.Eq:
+		v, ok := doc.Metadata[e.Field]
+		if !ok {
+			return false
+		}
+		return reflect.DeepEqual(v, e.Value)
+	case filter.And:
+		for _, sub := range e.Exprs {
+			if !matchDoc(doc, sub) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 // tensorSimilarity computes a simple late-interaction style score: for each query token,

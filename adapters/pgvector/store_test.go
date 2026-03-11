@@ -72,9 +72,9 @@ func TestStore_Integration(t *testing.T) {
 
 	// Upsert
 	docs := []ragy.Document{
-		{ID: "1", Content: "one", Metadata: map[string]any{EmbeddingKey: []float32{1, 0, 0}, "tenant_id": "t1"}},
-		{ID: "2", Content: "two", Metadata: map[string]any{EmbeddingKey: []float32{0, 1, 0}, "tenant_id": "t1"}},
-		{ID: "3", Content: "three", Metadata: map[string]any{EmbeddingKey: []float32{0, 0, 1}, "tenant_id": "t2"}},
+		{ID: "1", Content: "one", Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{1, 0, 0}, "tenant_id": "t1"}},
+		{ID: "2", Content: "two", Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{0, 1, 0}, "tenant_id": "t1"}},
+		{ID: "3", Content: "three", Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{0, 0, 1}, "tenant_id": "t2"}},
 	}
 	err = store.Upsert(ctx, docs)
 	require.NoError(t, err)

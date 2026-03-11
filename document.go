@@ -8,12 +8,16 @@ type Media struct {
 	Data     []byte
 }
 
+// EmbeddingMetadataKey is the conventional Document.Metadata key for the dense vector ([]float32).
+// VectorStore adapters that support dense search and ragy/cache expect this key for similarity.
+const EmbeddingMetadataKey = "embedding"
+
 // Document is the basic unit of knowledge: a chunk of text with metadata and optional score.
 type Document struct {
 	ID       string
 	Content  string
 	Media    []Media        // For multimodal documents (images, etc.)
-	Metadata map[string]any // e.g. TenantID, ParentID, Author, Source, CreatedAt
+	Metadata map[string]any // e.g. TenantID, ParentID, Author, Source, CreatedAt; use EmbeddingMetadataKey for dense vector
 	Score    float32        // Final relevance score (e.g. after reranking)
 }
 
