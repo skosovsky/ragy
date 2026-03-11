@@ -6,13 +6,13 @@
 //   - Observability first: use sub-package obs/ to wrap retrievers and stores with OpenTelemetry.
 //   - Eval-ready: RetrievalResult.EvalData holds intermediate state for RAGAs/TrueLens pipelines.
 //
-// Core types (Document, Node, Edge, SearchRequest, RetrievalResult) and interfaces
-// (DenseEmbedder, TensorEmbedder, VectorStore, GraphStore, Retriever, Reranker, QueryTransformer)
-// are in this package. Implementations live in sub-packages:
+// Core types (Document, Node, Edge, SearchRequest, ParsedQuery, RetrievalResult) and interfaces
+// (DenseEmbedder, TensorEmbedder, VectorStore, GraphStore, Retriever, Reranker, QueryTransformer,
+// QueryParser, Contextualizer, EntityExtractor) are in this package. Implementations live in sub-packages:
 //
 //   - filter: AST-based type-safe filters (Eq, Neq, And, Or, Not, etc.)
-//   - splitters: ingestion pipeline (RecursiveSplitter, MarkdownSplitter, SemanticSplitter, GraphExtractor)
-//   - retrievers: retrieval pipeline (BaseVectorRetriever, ColBERTRetriever, GraphRetriever, RouterRetriever, EnsembleRetriever, MultiQueryRetriever, HyDERetriever)
+//   - splitters: ingestion pipeline (RecursiveSplitter, MarkdownSplitter, SemanticSplitter, GraphExtractor, ContextualSplitter)
+//   - retrievers: retrieval pipeline (BaseVectorRetriever, ColBERTRetriever, GraphRetriever, RouterRetriever, SelfQueryRetriever, EnsembleRetriever, MultiQueryRetriever, HyDERetriever)
 //   - rerankers: RRF and CrossEncoder rerankers
 //   - obs: OpenTelemetry decorators for tracing
 //   - testutil: in-memory stores and mock embedders for tests

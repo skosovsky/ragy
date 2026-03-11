@@ -1,5 +1,6 @@
 // Package obs provides OpenTelemetry tracing decorators for all ragy interfaces:
-// DenseEmbedder, TensorEmbedder, MultimodalEmbedder, VectorStore, GraphStore, Retriever, QueryTransformer, and Reranker.
+// DenseEmbedder, TensorEmbedder, MultimodalEmbedder, VectorStore, GraphStore, Retriever, QueryTransformer,
+// Reranker, Contextualizer, and QueryParser.
 package obs
 
 import (
@@ -317,4 +318,75 @@ func (t *tracedMultimodalEmbedder) EmbedMultimodal(ctx context.Context, texts []
 		span.RecordError(err)
 	}
 	return vecs, err
+}
+
+// TracedContextualizer wraps a Contextualizer with tracing.
+func TracedContextualizer(c ragy.Contextualizer, tracer trace.Tracer) ragy.Contextualizer {
+	return &tracedContextualizer{inner: c, tracer: tracer}
+}
+
+// NewTracedContextualizer is an alias for TracedContextualizer (TD naming).
+func NewTracedContextualizer(c ragy.Contextualizer, tracer trace.Tracer) ragy.Contextualizer {
+	return TracedContextualizer(c, tracer)
+}
+
+type tracedContextualizer struct {
+	inner  ragy.Contextualizer
+	tracer trace.Tracer
+}
+
+func (t *tracedContextualizer) GenerateContext(ctx context.Context, fullContent string, chunkContent string) (string, error) {
+	ctx, span := t.tracer.Start(ctx, "ragy.contextualizer.generate")
+	defer span.End()
+	start := time.Now()
+	contextText, err := t.inner.GenerateContext(ctx, fullContent, chunkContent)
+	dur := time.Since(start)
+	span.SetAttributes(
+		attribute.Int("ragy.contextualizer.doc_length", len(fullContent)),
+		attribute.Int("ragy.contextualizer.chunk_length", len(chunkContent)),
+		attribute.Int("ragy.contextualizer.context_length", len(contextText)),
+		attribute.Int64("ragy.duration_ms", dur.Milliseconds()),
+	)
+	if err != nil {
+		span.RecordError(err)
+	}
+	return contextText, err
+}
+
+// TracedQueryParser wraps a QueryParser with tracing.
+func TracedQueryParser(p ragy.QueryParser, tracer trace.Tracer) ragy.QueryParser {
+	return &tracedQueryParser{inner: p, tracer: tracer}
+}
+
+// NewTracedQueryParser is an alias for TracedQueryParser (TD naming).
+func NewTracedQueryParser(p ragy.QueryParser, tracer trace.Tracer) ragy.QueryParser {
+	return TracedQueryParser(p, tracer)
+}
+
+type tracedQueryParser struct {
+	inner  ragy.QueryParser
+	tracer trace.Tracer
+}
+
+func (t *tracedQueryParser) Parse(ctx context.Context, naturalQuery string) (ragy.ParsedQuery, error) {
+	ctx, span := t.tracer.Start(ctx, "ragy.query_parser.parse")
+	defer span.End()
+	start := time.Now()
+	parsed, err := t.inner.Parse(ctx, naturalQuery)
+	dur := time.Since(start)
+	if err != nil {
+		span.RecordError(err)
+		span.SetAttributes(
+			attribute.String("ragy.query_parser.input_query", naturalQuery),
+			attribute.Int64("ragy.duration_ms", dur.Milliseconds()),
+		)
+		return parsed, err
+	}
+	span.SetAttributes(
+		attribute.String("ragy.query_parser.input_query", naturalQuery),
+		attribute.String("ragy.query_parser.semantic_query", parsed.SemanticQuery),
+		attribute.Bool("ragy.query_parser.has_filter", parsed.Filter != nil),
+		attribute.Int64("ragy.duration_ms", dur.Milliseconds()),
+	)
+	return parsed, nil
 }

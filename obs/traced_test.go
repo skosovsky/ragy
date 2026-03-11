@@ -106,3 +106,34 @@ func TestTracedMultimodalEmbedder_EmbedMultimodal(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, vecs, 1)
 }
+
+type noopContextualizer struct{}
+
+func (noopContextualizer) GenerateContext(_ context.Context, _, chunkContent string) (string, error) {
+	return "ctx:" + chunkContent[:min(5, len(chunkContent))], nil
+}
+
+func TestTracedContextualizer_GenerateContext(t *testing.T) {
+	ctx := context.Background()
+	tr := noop.NewTracerProvider().Tracer("test")
+	wrapped := TracedContextualizer(noopContextualizer{}, tr)
+	out, err := wrapped.GenerateContext(ctx, "full doc", "chunk")
+	require.NoError(t, err)
+	assert.Equal(t, "ctx:chunk", out)
+}
+
+type noopQueryParser struct{}
+
+func (noopQueryParser) Parse(_ context.Context, naturalQuery string) (ragy.ParsedQuery, error) {
+	return ragy.ParsedQuery{SemanticQuery: naturalQuery, Limit: 5}, nil
+}
+
+func TestTracedQueryParser_Parse(t *testing.T) {
+	ctx := context.Background()
+	tr := noop.NewTracerProvider().Tracer("test")
+	wrapped := TracedQueryParser(noopQueryParser{}, tr)
+	parsed, err := wrapped.Parse(ctx, "user query")
+	require.NoError(t, err)
+	assert.Equal(t, "user query", parsed.SemanticQuery)
+	assert.Equal(t, 5, parsed.Limit)
+}

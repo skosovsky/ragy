@@ -53,3 +53,10 @@ type SearchRequest struct {
 	Offset       int         // Pagination for aggregating retrievers
 	Filter       filter.Expr // AST-based filter; nil means no filter
 }
+
+// ParsedQuery is the result of parsing a natural-language query by QueryParser.
+type ParsedQuery struct {
+	SemanticQuery string      // Cleaned query for vector search
+	Filter        filter.Expr // AST filter tree extracted from the query
+	Limit         int         // Extracted limit (e.g. "find 5 best...")
+}

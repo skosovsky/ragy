@@ -1,4 +1,4 @@
-// Package splitters provides Splitter implementations (recursive, markdown, semantic, GraphExtractor).
+// Package splitters provides Splitter implementations (recursive, markdown, semantic, GraphExtractor, ContextualSplitter).
 package splitters
 
 import (

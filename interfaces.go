@@ -51,6 +51,12 @@ type QueryTransformer interface {
 	Transform(ctx context.Context, query string) ([]string, error)
 }
 
+// QueryParser translates a natural-language query into a structured ParsedQuery
+// (semantic part + filter.Expr). Typically implemented via LLM on the application side.
+type QueryParser interface {
+	Parse(ctx context.Context, naturalQuery string) (ParsedQuery, error)
+}
+
 // Reranker re-scores and truncates a document list (e.g. RRF merge or cross-encoder).
 type Reranker interface {
 	Rerank(ctx context.Context, query string, docs []Document, topK int) ([]Document, error)
@@ -59,3 +65,9 @@ type Reranker interface {
 // EntityExtractor is a callback that extracts nodes and edges from text (typically via LLM).
 // Used by GraphExtractor and optionally by GraphRetriever.
 type EntityExtractor func(ctx context.Context, text string) ([]Node, []Edge, error)
+
+// Contextualizer generates enriching context for a chunk based on the full document.
+// The returned string (1-2 sentences) is prepended to the chunk content.
+type Contextualizer interface {
+	GenerateContext(ctx context.Context, fullContent string, chunkContent string) (string, error)
+}
