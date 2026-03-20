@@ -2,6 +2,7 @@ package ragy
 
 import (
 	"context"
+	"iter"
 
 	"github.com/skosovsky/ragy/filter"
 )
@@ -25,11 +26,12 @@ type MultimodalEmbedder interface {
 }
 
 // VectorStore performs similarity search and batch upsert.
-// Search reads DenseVector or TensorVector from SearchRequest (type-safe; no embedding any).
+// Search reads DenseVector, TensorVector, or SparseVector from SearchRequest (type-safe).
 // Upsert accepts slices of any size; adapter implementations MUST micro-batch internally
 // (e.g. 500 docs per network call) to avoid gRPC/HTTP payload limits and timeouts.
 type VectorStore interface {
 	Search(ctx context.Context, req SearchRequest) ([]Document, error)
+	Stream(ctx context.Context, req SearchRequest) iter.Seq2[Document, error]
 	Upsert(ctx context.Context, docs []Document) error
 	DeleteByFilter(ctx context.Context, f filter.Expr) error
 }
@@ -42,7 +44,13 @@ type GraphStore interface {
 
 // Retriever is the unified contract for all retrieval strategies.
 type Retriever interface {
-	Retrieve(ctx context.Context, req SearchRequest) (RetrievalResult, error)
+	Retrieve(ctx context.Context, req SearchRequest) ([]Document, error)
+	Stream(ctx context.Context, req SearchRequest) iter.Seq2[Document, error]
+}
+
+// HierarchyRetriever is optional: fetch parent documents for child chunk IDs (parent-child chunking).
+type HierarchyRetriever interface {
+	FetchParents(ctx context.Context, childIDs []string) ([]Document, error)
 }
 
 // QueryTransformer prepares the query (e.g. multi-query expansion).
@@ -51,8 +59,8 @@ type QueryTransformer interface {
 	Transform(ctx context.Context, query string) ([]string, error)
 }
 
-// QueryParser translates a natural-language query into a structured ParsedQuery
-// (semantic part + filter.Expr). Typically implemented via LLM on the application side.
+// QueryParser translates a natural-language query into ParsedQuery (application / LLM side).
+// Not used by ragy core retrievers directly; the app sets SearchRequest.ParsedQuery.
 type QueryParser interface {
 	Parse(ctx context.Context, naturalQuery string) (ParsedQuery, error)
 }
@@ -62,9 +70,13 @@ type Reranker interface {
 	Rerank(ctx context.Context, query string, docs []Document, topK int) ([]Document, error)
 }
 
-// EntityExtractor is a callback that extracts nodes and edges from text (typically via LLM).
-// Used by GraphExtractor and optionally by GraphRetriever.
+// EntityExtractor is a legacy callback that extracts nodes and edges from raw text (application / LLM side).
+// Prefer ChunkGraphProvider for GraphExtractor: core does not invoke text-based extraction.
 type EntityExtractor func(ctx context.Context, text string) ([]Node, []Edge, error)
+
+// ChunkGraphProvider supplies prepared graph nodes and edges for a chunk after splitting.
+// Implementations may read chunk.Metadata or call out-of-band pipelines; ragy core does not call LLMs.
+type ChunkGraphProvider func(ctx context.Context, chunk Document) ([]Node, []Edge, error)
 
 // Contextualizer generates enriching context for a chunk based on the full document.
 // The returned string (1-2 sentences) is prepended to the chunk content.

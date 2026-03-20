@@ -24,6 +24,5 @@ func TestEnsembleRetriever_Retrieve(t *testing.T) {
 	ens := NewEnsembleRetriever([]ragy.Retriever{r1, r2})
 	res, err := ens.Retrieve(ctx, ragy.SearchRequest{Query: "one", Limit: 5})
 	require.NoError(t, err)
-	require.NotEmpty(t, res.Documents)
-	require.NotNil(t, res.EvalData["per_retriever_results"])
+	require.NotEmpty(t, res)
 }

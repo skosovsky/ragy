@@ -57,28 +57,18 @@ func TestEmbedTensors_SingleAndBatch(t *testing.T) {
 	assert.Len(t, out[1], 2)
 }
 
-func TestEmbedTensors_429RetryThenSuccess(t *testing.T) {
+func TestEmbedTensors_429NoAdapterRetry(t *testing.T) {
 	var attempt int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		attempt++
-		if attempt < 2 {
-			w.WriteHeader(http.StatusTooManyRequests)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"data": []map[string]any{
-				{"index": 0, "embedding": [][]float32{{1.0}}},
-			},
-		})
+		w.WriteHeader(http.StatusTooManyRequests)
 	}))
 	defer srv.Close()
-	emb := New("key", WithBaseURL(srv.URL), WithMaxRetries(3))
+	emb := New("key", WithBaseURL(srv.URL))
 	out, err := emb.EmbedTensors(context.Background(), []string{"x"})
-	require.NoError(t, err)
-	require.Len(t, out, 1)
-	require.Len(t, out[0], 1)
-	assert.Equal(t, []float32{1.0}, out[0][0])
-	assert.Equal(t, 2, attempt)
+	require.Error(t, err)
+	assert.Nil(t, out)
+	assert.Equal(t, 1, attempt)
 }
 
 func TestDenseEmbed_EmptyInput(t *testing.T) {

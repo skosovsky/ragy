@@ -1,34 +1,26 @@
 // Package cohere provides a ragy.Reranker using the Cohere Rerank API (e.g. rerank-multilingual-v3).
-// Retries on 429 and 5xx with exponential backoff and jitter.
+// Retry and backoff are the caller's responsibility.
 package cohere
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math"
-	"net/http"
 	"sort"
-	"strings"
-	"time"
 
 	coheregov2 "github.com/cohere-ai/cohere-go/v2"
 	cohereclient "github.com/cohere-ai/cohere-go/v2/client"
-	"github.com/cohere-ai/cohere-go/v2/core"
 	"github.com/skosovsky/ragy"
 )
 
 const (
-	defaultModel      = "rerank-multilingual-v3"
-	cohereBatchSize   = 50
-	defaultMaxRetries = 5
+	defaultModel    = "rerank-multilingual-v3"
+	cohereBatchSize = 50
 )
 
 // Reranker implements ragy.Reranker using Cohere Rerank API.
 type Reranker struct {
-	client     *cohereclient.Client
-	model      string
-	maxRetries int
+	client *cohereclient.Client
+	model  string
 }
 
 // Option configures the Reranker.
@@ -39,17 +31,11 @@ func WithModel(m string) Option {
 	return func(r *Reranker) { r.model = m }
 }
 
-// WithMaxRetries sets the number of retries on 429/5xx (default 5).
-func WithMaxRetries(n int) Option {
-	return func(r *Reranker) { r.maxRetries = n }
-}
-
 // New returns a new Cohere Reranker. Token is the Cohere API key.
 func New(token string, opts ...Option) *Reranker {
 	r := &Reranker{
-		client:     cohereclient.NewClient(cohereclient.WithToken(token)),
-		model:      defaultModel,
-		maxRetries: defaultMaxRetries,
+		client: cohereclient.NewClient(cohereclient.WithToken(token)),
+		model:  defaultModel,
 	}
 	for _, o := range opts {
 		o(r)
@@ -59,7 +45,7 @@ func New(token string, opts ...Option) *Reranker {
 
 // NewWithClient returns a Reranker using an existing Cohere client.
 func NewWithClient(client *cohereclient.Client, opts ...Option) *Reranker {
-	r := &Reranker{client: client, model: defaultModel, maxRetries: defaultMaxRetries}
+	r := &Reranker{client: client, model: defaultModel}
 	for _, o := range opts {
 		o(r)
 	}
@@ -67,7 +53,6 @@ func NewWithClient(client *cohereclient.Client, opts ...Option) *Reranker {
 }
 
 // Rerank implements ragy.Reranker. Batches docs in chunks of 50 (API limit), then concatenates and sorts by score (absolute scores 0–1), returns topK.
-// Retries each batch on 429/5xx with exponential backoff and jitter.
 func (r *Reranker) Rerank(ctx context.Context, query string, docs []ragy.Document, topK int) ([]ragy.Document, error) {
 	if len(docs) == 0 {
 		return nil, nil
@@ -79,7 +64,7 @@ func (r *Reranker) Rerank(ctx context.Context, query string, docs []ragy.Documen
 			end = len(docs)
 		}
 		batch := docs[start:end]
-		scored, err := r.rerankBatchWithRetry(ctx, query, batch)
+		scored, err := r.rerankBatch(ctx, query, batch)
 		if err != nil {
 			return nil, err
 		}
@@ -94,63 +79,46 @@ func (r *Reranker) Rerank(ctx context.Context, query string, docs []ragy.Documen
 	return allScored[:topK], nil
 }
 
-func (r *Reranker) rerankBatchWithRetry(ctx context.Context, query string, batch []ragy.Document) ([]ragy.Document, error) {
-	var lastErr error
-	for attempt := 0; attempt <= r.maxRetries; attempt++ {
-		if attempt > 0 {
-			backoff := time.Duration(math.Pow(2, float64(attempt-1))) * 100 * time.Millisecond
-			backoff += backoff / 4
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(backoff):
-			}
-		}
-		docItems := make([]*coheregov2.RerankRequestDocumentsItem, len(batch))
-		for i := range batch {
-			docItems[i] = &coheregov2.RerankRequestDocumentsItem{String: batch[i].Content}
-		}
-		topN := len(batch)
-		request := &coheregov2.RerankRequest{
-			Query:     query,
-			Model:     &r.model,
-			Documents: docItems,
-			TopN:      &topN,
-		}
-		resp, err := r.client.Rerank(ctx, request)
-		if err == nil {
-			out := make([]ragy.Document, 0, len(resp.Results))
-			for _, result := range resp.Results {
-				idx := result.Index
-				if idx >= 0 && idx < len(batch) {
-					doc := batch[idx]
-					doc.Score = float32(result.RelevanceScore)
-					out = append(out, doc)
-				}
-			}
-			return out, nil
-		}
-		lastErr = err
-		if !isRetryable(err) {
-			return nil, err
+func (r *Reranker) rerankBatch(ctx context.Context, query string, batch []ragy.Document) ([]ragy.Document, error) {
+	docItems := make([]*coheregov2.RerankRequestDocumentsItem, len(batch))
+	for i := range batch {
+		docItems[i] = &coheregov2.RerankRequestDocumentsItem{String: batch[i].Content}
+	}
+	topN := len(batch)
+	request := &coheregov2.RerankRequest{
+		Query:     query,
+		Model:     &r.model,
+		Documents: docItems,
+		TopN:      &topN,
+	}
+	resp, err := r.client.Rerank(ctx, request)
+	if err != nil {
+		return nil, fmt.Errorf("cohere rerank: %w", err)
+	}
+	out := make([]ragy.Document, 0, len(resp.Results))
+	for _, result := range resp.Results {
+		idx := result.Index
+		if idx >= 0 && idx < len(batch) {
+			doc := batch[idx]
+			score, conf := cohereRelevanceToDocScores(result.RelevanceScore)
+			doc.Score = score
+			doc.Confidence = conf
+			out = append(out, doc)
 		}
 	}
-	return nil, fmt.Errorf("cohere rerank after %d retries: %w", r.maxRetries, lastErr)
+	return out, nil
 }
 
-func isRetryable(err error) bool {
-	if err == nil {
-		return false
+// cohereRelevanceToDocScores maps Cohere RelevanceScore (expected in [0,1]) to Document.Score and Document.Confidence.
+func cohereRelevanceToDocScores(relevance float64) (score float32, confidence float64) {
+	v := relevance
+	if v < 0 {
+		v = 0
 	}
-	var apiErr *core.APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.StatusCode == http.StatusTooManyRequests ||
-			(apiErr.StatusCode >= http.StatusInternalServerError && apiErr.StatusCode < 600)
+	if v > 1 {
+		v = 1
 	}
-	// Fallback for non-APIError (e.g. wrapped or transport errors) to avoid missing retryable cases
-	s := strings.ToLower(err.Error())
-	return strings.Contains(s, "429") || strings.Contains(s, "too many requests") ||
-		strings.Contains(s, "500") || strings.Contains(s, "502") || strings.Contains(s, "503")
+	return float32(v), v
 }
 
 var _ ragy.Reranker = (*Reranker)(nil)

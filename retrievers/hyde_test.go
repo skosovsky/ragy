@@ -19,7 +19,6 @@ func TestHyDERetriever_Retrieve(t *testing.T) {
 	vec, _ := emb.Embed(ctx, []string{"hypothetical answer: q"})
 	_ = store.Upsert(ctx, []ragy.Document{{ID: "1", Content: "hypothetical answer: q", Metadata: map[string]any{testutil.EmbeddingKey: vec[0]}}})
 	hyde := NewHyDERetriever(gen, emb, store)
-	res, err := hyde.Retrieve(ctx, ragy.SearchRequest{Query: "q", Limit: 5})
+	_, err := hyde.Retrieve(ctx, ragy.SearchRequest{Query: "q", Limit: 5})
 	require.NoError(t, err)
-	require.NotNil(t, res.EvalData["hypothesis"])
 }

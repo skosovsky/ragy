@@ -2,6 +2,7 @@ package retrievers
 
 import (
 	"context"
+	"iter"
 
 	"github.com/skosovsky/ragy"
 )
@@ -17,33 +18,31 @@ func NewBaseVectorRetriever(embedder ragy.DenseEmbedder, store ragy.VectorStore)
 	return &BaseVectorRetriever{Embedder: embedder, Store: store}
 }
 
-// Retrieve implements ragy.Retriever.
-func (r *BaseVectorRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.RetrievalResult, error) {
+func (r *BaseVectorRetriever) retrieveDocs(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
 	if req.Query == "" {
-		return ragy.RetrievalResult{}, ragy.ErrEmptyQuery
+		return nil, ragy.ErrEmptyQuery
 	}
 	vecs, err := r.Embedder.Embed(ctx, []string{req.Query})
 	if err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
 	if len(vecs) == 0 {
-		return ragy.RetrievalResult{}, ragy.ErrEmbeddingFailed
+		return nil, ragy.ErrEmbeddingFailed
 	}
 	req2 := req
 	req2.DenseVector = vecs[0]
-	docs, err := r.Store.Search(ctx, req2)
-	if err != nil {
-		return ragy.RetrievalResult{}, err
-	}
-	eval := make(map[string]any)
-	if len(docs) > 0 {
-		scores := make([]float32, len(docs))
-		for i := range docs {
-			scores[i] = docs[i].Score
-		}
-		eval["raw_scores"] = scores
-	}
-	return ragy.RetrievalResult{Documents: docs, EvalData: eval}, nil
+	return r.Store.Search(ctx, req2)
+}
+
+// Retrieve implements ragy.Retriever.
+func (r *BaseVectorRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
+	return r.retrieveDocs(ctx, req)
+}
+
+// Stream implements ragy.Retriever.
+func (r *BaseVectorRetriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := r.retrieveDocs(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
 }
 
 var _ ragy.Retriever = (*BaseVectorRetriever)(nil)

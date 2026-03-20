@@ -2,15 +2,16 @@ package retrievers
 
 import (
 	"context"
+	"iter"
 
 	"github.com/skosovsky/ragy"
 )
 
 // GraphRetriever retrieves by traversing the graph from entities (BFS) and returning linked documents.
+// Use SearchRequest.GraphSeedEntityIDs to pass starting entity IDs (no LLM in ragy).
 type GraphRetriever struct {
-	Graph   ragy.GraphStore
-	Extract ragy.EntityExtractor
-	Depth   int
+	Graph ragy.GraphStore
+	Depth int
 }
 
 // GraphRetrieverOption configures GraphRetriever.
@@ -32,33 +33,15 @@ func NewGraphRetriever(graph ragy.GraphStore, opts ...GraphRetrieverOption) *Gra
 	return gr
 }
 
-// NewGraphRetrieverWithExtractor returns a GraphRetriever that uses extractor to get entities from the query.
-func NewGraphRetrieverWithExtractor(graph ragy.GraphStore, extract ragy.EntityExtractor, opts ...GraphRetrieverOption) *GraphRetriever {
-	gr := NewGraphRetriever(graph, opts...)
-	gr.Extract = extract
-	return gr
-}
-
-// Retrieve implements ragy.Retriever.
-func (r *GraphRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.RetrievalResult, error) {
-	var entities []string
-	if r.Extract != nil && req.Query != "" {
-		nodes, _, err := r.Extract(ctx, req.Query)
-		if err != nil {
-			return ragy.RetrievalResult{}, err
-		}
-		for _, n := range nodes {
-			entities = append(entities, n.ID)
-		}
-	}
+func (r *GraphRetriever) retrieveDocs(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
+	entities := req.GraphSeedEntityIDs
 	if len(entities) == 0 {
-		return ragy.RetrievalResult{Documents: nil, EvalData: map[string]any{}}, nil
+		return nil, ragy.ErrMissingGraphSeeds
 	}
-	nodes, edges, err := r.Graph.SearchGraph(ctx, entities, r.Depth, req)
+	nodes, _, err := r.Graph.SearchGraph(ctx, entities, r.Depth, req)
 	if err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
-	// Convert nodes to documents (content from node properties or ID).
 	docs := make([]ragy.Document, 0, len(nodes))
 	for _, n := range nodes {
 		content := n.ID
@@ -81,10 +64,18 @@ func (r *GraphRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (
 	if len(docs) > limit {
 		docs = docs[:limit]
 	}
-	return ragy.RetrievalResult{
-		Documents: docs,
-		EvalData:  map[string]any{"nodes": len(nodes), "edges": len(edges)},
-	}, nil
+	return docs, nil
+}
+
+// Retrieve implements ragy.Retriever.
+func (r *GraphRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
+	return r.retrieveDocs(ctx, req)
+}
+
+// Stream implements ragy.Retriever.
+func (r *GraphRetriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := r.retrieveDocs(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
 }
 
 var _ ragy.Retriever = (*GraphRetriever)(nil)

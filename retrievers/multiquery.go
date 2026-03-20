@@ -2,8 +2,7 @@ package retrievers
 
 import (
 	"context"
-
-	"golang.org/x/sync/errgroup"
+	"iter"
 
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/internal/mathutil"
@@ -22,30 +21,27 @@ func NewMultiQueryRetriever(transformer ragy.QueryTransformer, retriever ragy.Re
 }
 
 // Retrieve implements ragy.Retriever.
-func (r *MultiQueryRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.RetrievalResult, error) {
+func (r *MultiQueryRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
 	queries, err := r.Transformer.Transform(ctx, req.Query)
 	if err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
 	if len(queries) == 0 {
 		queries = []string{req.Query}
 	}
-	g, gctx := errgroup.WithContext(ctx)
 	results := make([][]ragy.Document, len(queries))
-	for i, q := range queries {
-		g.Go(func() error {
-			req2 := req
-			req2.Query = q
-			res, err := r.Retriever.Retrieve(gctx, req2)
-			if err != nil {
-				return err
-			}
-			results[i] = res.Documents
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return ragy.RetrievalResult{}, err
+	err = parallel(ctx, len(queries), func(gctx context.Context, i int) error {
+		req2 := req
+		req2.Query = queries[i]
+		res, err := r.Retriever.Retrieve(gctx, req2)
+		if err != nil {
+			return err
+		}
+		results[i] = res
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	var all []ragy.Document
 	for _, docs := range results {
@@ -59,11 +55,13 @@ func (r *MultiQueryRetriever) Retrieve(ctx context.Context, req ragy.SearchReque
 	if len(merged) > limit {
 		merged = merged[:limit]
 	}
-	eval := map[string]any{
-		"sub_queries":       queries,
-		"per_query_results": results,
-	}
-	return ragy.RetrievalResult{Documents: merged, EvalData: eval}, nil
+	return merged, nil
+}
+
+// Stream implements ragy.Retriever.
+func (r *MultiQueryRetriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := r.Retrieve(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
 }
 
 var _ ragy.Retriever = (*MultiQueryRetriever)(nil)

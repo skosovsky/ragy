@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"iter"
 	"reflect"
 	"sort"
 	"sync"
@@ -104,10 +105,25 @@ func (s *InMemoryVectorStore) Search(_ context.Context, req ragy.SearchRequest) 
 	out := make([]ragy.Document, 0, end-start)
 	for i := start; i < end; i++ {
 		d := scoredList[i].doc
-		d.Score = scoredList[i].score
+		s := scoredList[i].score
+		d.Score = s
+		// Cosine similarity is in [-1,1]; map to Confidence [0,1]
+		d.Confidence = float64((s + 1) / 2)
+		if d.Confidence < 0 {
+			d.Confidence = 0
+		}
+		if d.Confidence > 1 {
+			d.Confidence = 1
+		}
 		out = append(out, d)
 	}
 	return out, nil
+}
+
+// Stream implements ragy.VectorStore.
+func (s *InMemoryVectorStore) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := s.Search(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
 }
 
 // matchDoc returns true if the document metadata matches the filter expression.

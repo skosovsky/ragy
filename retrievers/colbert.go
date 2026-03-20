@@ -3,6 +3,7 @@ package retrievers
 
 import (
 	"context"
+	"iter"
 
 	"github.com/skosovsky/ragy"
 )
@@ -18,34 +19,31 @@ func NewColBERTRetriever(embedder ragy.TensorEmbedder, store ragy.VectorStore) *
 	return &ColBERTRetriever{Embedder: embedder, Store: store}
 }
 
-// Retrieve implements ragy.Retriever.
-func (r *ColBERTRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.RetrievalResult, error) {
+func (r *ColBERTRetriever) retrieveDocs(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
 	if req.Query == "" {
-		return ragy.RetrievalResult{}, ragy.ErrEmptyQuery
+		return nil, ragy.ErrEmptyQuery
 	}
 	tensors, err := r.Embedder.EmbedTensors(ctx, []string{req.Query})
 	if err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
 	if len(tensors) == 0 || len(tensors[0]) == 0 {
-		return ragy.RetrievalResult{}, ragy.ErrEmbeddingFailed
+		return nil, ragy.ErrEmbeddingFailed
 	}
-	// Per-token vectors for the single query: [][]float32.
 	req2 := req
 	req2.TensorVector = tensors[0]
-	docs, err := r.Store.Search(ctx, req2)
-	if err != nil {
-		return ragy.RetrievalResult{}, err
-	}
-	eval := make(map[string]any)
-	if len(docs) > 0 {
-		scores := make([]float32, len(docs))
-		for i := range docs {
-			scores[i] = docs[i].Score
-		}
-		eval["interaction_scores"] = scores
-	}
-	return ragy.RetrievalResult{Documents: docs, EvalData: eval}, nil
+	return r.Store.Search(ctx, req2)
+}
+
+// Retrieve implements ragy.Retriever.
+func (r *ColBERTRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
+	return r.retrieveDocs(ctx, req)
+}
+
+// Stream implements ragy.Retriever.
+func (r *ColBERTRetriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := r.retrieveDocs(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
 }
 
 var _ ragy.Retriever = (*ColBERTRetriever)(nil)

@@ -68,7 +68,8 @@ func TestStore_Integration(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Close()
 
-	store := New(pool, WithTable("knowledge_base"), WithUpsertBatchSize(10))
+	store, err := New(pool, WithTable("knowledge_base"), WithUpsertBatchSize(10))
+	require.NoError(t, err)
 
 	// Upsert
 	docs := []ragy.Document{
@@ -105,20 +106,33 @@ func TestStore_Integration(t *testing.T) {
 	assert.True(t, ids["1"] && ids["2"], "results must be docs 1 and 2; deleted doc 3 must not appear")
 }
 
-func TestBuildWhere_Unit(t *testing.T) {
-	// Unit test buildWhere without DB: we test by building and checking placeholder count
-	// (actual execution is in integration test)
+func TestHybridRRFConfidence(t *testing.T) {
+	k := 60
+	maxScore := 2.0 / float64(k+1)
+	assert.InDelta(t, 1.0, hybridRRFConfidence(maxScore, k), 1e-9)
+	assert.InDelta(t, 0.5, hybridRRFConfidence(maxScore/2, k), 1e-9)
+	assert.Equal(t, 0.0, hybridRRFConfidence(-1, k))
+	assert.Equal(t, 1.0, hybridRRFConfidence(maxScore*2, k))
+	// Single-list contribution capped at 1/(k+1) → half of dual max → confidence 0.5
+	oneTerm := 1.0 / float64(k+1)
+	assert.InDelta(t, 0.5, hybridRRFConfidence(oneTerm, k), 1e-9)
+}
+
+func TestSQLFilterVisitor_Unit(t *testing.T) {
+	meta, err := sanitizeIdent("metadata")
+	require.NoError(t, err)
+	v := NewSQLFilterVisitor(meta)
 	t.Run("Eq", func(t *testing.T) {
-		w, args, err := buildWhere(filter.Equal("x", "v"), "metadata")
+		w, args, err := v.ToSQL(filter.Equal("x", "v"), 1)
 		require.NoError(t, err)
-		assert.Contains(t, w, "metadata @>")
+		assert.Contains(t, w, "@>")
 		assert.Len(t, args, 1)
 	})
 	t.Run("And", func(t *testing.T) {
-		w, args, err := buildWhere(filter.All(
+		w, args, err := v.ToSQL(filter.All(
 			filter.Equal("a", 1),
 			filter.Equal("b", "x"),
-		), "metadata")
+		), 1)
 		require.NoError(t, err)
 		assert.Contains(t, w, "AND")
 		assert.Len(t, args, 2)

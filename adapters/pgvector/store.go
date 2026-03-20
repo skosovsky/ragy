@@ -3,7 +3,7 @@
 // Documents store the embedding in Metadata[ragy.EmbeddingMetadataKey] ([]float32). Use Batch Upsert and filter.Expr translation for WHERE.
 //
 // Table and column names (WithTable, WithMetadataColumn, etc.) must be set by the application and must not
-// be taken from unvalidated user input, as they are used in raw SQL.
+// be taken from unvalidated user input; they are validated and passed through pgx.Identifier.Sanitize().
 //
 // Example schema with HNSW index (caller must create; Store does not create tables or indexes):
 //
@@ -30,12 +30,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"regexp"
-	"time"
+	"strconv"
+	"strings"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/pgvector/pgvector-go"
+	pgvec "github.com/pgvector/pgvector-go"
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 )
@@ -43,95 +44,220 @@ import (
 // DefaultUpsertBatchSize is the default micro-batch size for Upsert.
 const DefaultUpsertBatchSize = 500
 
+// DefaultRRFConstant is the default RRF rank constant k in 1/(k+rank).
+const DefaultRRFConstant = 60
+
 // Store implements ragy.VectorStore using pgxpool and pgvector.
 type Store struct {
 	pool       *pgxpool.Pool
-	table      string
-	embedCol   string
-	idCol      string
-	contentCol string
-	metaCol    string
+	table      sanitizedIdent
+	embedCol   sanitizedIdent
+	idCol      sanitizedIdent
+	contentCol sanitizedIdent
+	metaCol    sanitizedIdent
 	batchSize  int
-	hybrid     bool   // enable hybrid (vector + FTS) when req.Query and DenseVector are set
-	ftsCol     string // column for full-text search (default "content")
-	lang       string // regconfig for websearch_to_tsquery (default "english")
+	hybrid     bool
+	ftsCol     sanitizedIdent
+	lang       string
+	rrfK int
+
+	// upsertUnnestSQL is a single INSERT ... SELECT FROM unnest(...) ON CONFLICT ... built once in New.
+	upsertUnnestSQL string
 }
 
 // Option configures the Store.
-type Option func(*Store)
+type Option func(*Store) error
 
 // WithTable sets the table name (default "knowledge_base").
 func WithTable(name string) Option {
-	return func(s *Store) { s.table = name }
+	return func(s *Store) error {
+		id, err := sanitizeIdent(name)
+		if err != nil {
+			return err
+		}
+		s.table = id
+		return nil
+	}
 }
 
 // WithEmbedColumn sets the embedding column name (default "embedding").
 func WithEmbedColumn(name string) Option {
-	return func(s *Store) { s.embedCol = name }
+	return func(s *Store) error {
+		id, err := sanitizeIdent(name)
+		if err != nil {
+			return err
+		}
+		s.embedCol = id
+		return nil
+	}
 }
 
 // WithIDColumn sets the id column name (default "id").
 func WithIDColumn(name string) Option {
-	return func(s *Store) { s.idCol = name }
+	return func(s *Store) error {
+		id, err := sanitizeIdent(name)
+		if err != nil {
+			return err
+		}
+		s.idCol = id
+		return nil
+	}
 }
 
 // WithContentColumn sets the content column name (default "content").
 func WithContentColumn(name string) Option {
-	return func(s *Store) { s.contentCol = name }
+	return func(s *Store) error {
+		id, err := sanitizeIdent(name)
+		if err != nil {
+			return err
+		}
+		s.contentCol = id
+		return nil
+	}
 }
 
 // WithMetadataColumn sets the metadata JSONB column name (default "metadata").
 func WithMetadataColumn(name string) Option {
-	return func(s *Store) { s.metaCol = name }
+	return func(s *Store) error {
+		id, err := sanitizeIdent(name)
+		if err != nil {
+			return err
+		}
+		s.metaCol = id
+		return nil
+	}
 }
 
 // WithUpsertBatchSize sets the micro-batch size for Upsert (default 500).
 func WithUpsertBatchSize(n int) Option {
-	return func(s *Store) { s.batchSize = n }
+	return func(s *Store) error {
+		s.batchSize = n
+		return nil
+	}
 }
 
 // WithHybridSearch enables hybrid search (vector + FTS with RRF) when req.Query and req.DenseVector are both set.
 func WithHybridSearch(enabled bool) Option {
-	return func(s *Store) { s.hybrid = enabled }
+	return func(s *Store) error {
+		s.hybrid = enabled
+		return nil
+	}
 }
 
 // WithFTSColumn sets the column used for full-text search (default "content"). Must be a text column.
 func WithFTSColumn(name string) Option {
-	return func(s *Store) { s.ftsCol = name }
+	return func(s *Store) error {
+		id, err := sanitizeIdent(name)
+		if err != nil {
+			return err
+		}
+		s.ftsCol = id
+		return nil
+	}
 }
 
 // WithLanguage sets the text search config (regconfig) for websearch_to_tsquery, e.g. "english", "russian", "simple" (default "english").
 func WithLanguage(lang string) Option {
-	return func(s *Store) { s.lang = lang }
+	return func(s *Store) error {
+		s.lang = lang
+		return nil
+	}
+}
+
+// WithRRFConstant sets the RRF constant k used in 1/(k+rank) (default 60).
+func WithRRFConstant(k int) Option {
+	return func(s *Store) error {
+		if k <= 0 {
+			return fmt.Errorf("pgvector: RRF constant must be positive")
+		}
+		s.rrfK = k
+		return nil
+	}
 }
 
 // New returns a new pgvector Store. The pool must have pgvector types registered (e.g. pgxvec.RegisterTypes in AfterConnect).
-func New(pool *pgxpool.Pool, opts ...Option) *Store {
+func New(pool *pgxpool.Pool, opts ...Option) (*Store, error) {
 	s := &Store{
 		pool:       pool,
-		table:      "knowledge_base",
-		embedCol:   "embedding",
-		idCol:      "id",
-		contentCol: "content",
-		metaCol:    "metadata",
 		batchSize:  DefaultUpsertBatchSize,
-		ftsCol:     "content",
 		lang:       "english",
+		rrfK:       DefaultRRFConstant,
+	}
+	var err error
+	s.table, err = sanitizeIdent("knowledge_base")
+	if err != nil {
+		return nil, err
+	}
+	s.embedCol, err = sanitizeIdent("embedding")
+	if err != nil {
+		return nil, err
+	}
+	s.idCol, err = sanitizeIdent("id")
+	if err != nil {
+		return nil, err
+	}
+	s.contentCol, err = sanitizeIdent("content")
+	if err != nil {
+		return nil, err
+	}
+	s.metaCol, err = sanitizeIdent("metadata")
+	if err != nil {
+		return nil, err
+	}
+	s.ftsCol, err = sanitizeIdent("content")
+	if err != nil {
+		return nil, err
 	}
 	for _, o := range opts {
-		o(s)
+		if err := o(s); err != nil {
+			return nil, err
+		}
 	}
-	return s
+	s.upsertUnnestSQL = s.buildUpsertUnnestSQL()
+	return s, nil
 }
 
+// buildUpsertUnnestSQL returns one INSERT ... SELECT FROM unnest($1::text[], $2::text[], $3::vector[], $4::jsonb[]) ... ON CONFLICT DO UPDATE.
+func (s *Store) buildUpsertUnnestSQL() string {
+	var b strings.Builder
+	b.WriteString("INSERT INTO ")
+	b.WriteString(string(s.table))
+	b.WriteString(" (")
+	b.WriteString(string(s.idCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.contentCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.embedCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.metaCol))
+	b.WriteString(") SELECT u.id, u.content, u.embedding, u.metadata FROM unnest($1::text[], $2::text[], $3::vector[], $4::jsonb[]) AS u(id, content, embedding, metadata) ON CONFLICT (")
+	b.WriteString(string(s.idCol))
+	b.WriteString(") DO UPDATE SET ")
+	b.WriteString(string(s.contentCol))
+	b.WriteString(" = EXCLUDED.")
+	b.WriteString(string(s.contentCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.embedCol))
+	b.WriteString(" = EXCLUDED.")
+	b.WriteString(string(s.embedCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.metaCol))
+	b.WriteString(" = EXCLUDED.")
+	b.WriteString(string(s.metaCol))
+	return b.String()
+}
+
+var fieldSanitize = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
 // Search implements ragy.VectorStore.
-// When hybrid search is enabled (WithHybridSearch) and req.Query and req.DenseVector are set,
-// runs vector + FTS with RRF merge in one query.
 func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
 	if len(req.DenseVector) == 0 {
+		if len(req.SparseVector) > 0 {
+			return nil, fmt.Errorf("pgvector: %w", ragy.ErrSparseVectorNotSupported)
+		}
 		return []ragy.Document{}, nil
 	}
-	vec := pgvector.NewVector(req.DenseVector)
+	vec := pgvec.NewVector(req.DenseVector)
 	limit := req.Limit
 	if limit <= 0 {
 		limit = 10
@@ -140,99 +266,48 @@ func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Docu
 	if offset < 0 {
 		offset = 0
 	}
-	where, whereArgs, err := buildWhere(req.Filter, s.metaCol)
+
+	if s.hybrid && req.Query != "" {
+		return s.searchHybrid(ctx, vec, req.Query, limit, offset, req.Filter)
+	}
+	return s.searchVectorOnly(ctx, vec, limit, offset, req.Filter)
+}
+
+func (s *Store) searchVectorOnly(ctx context.Context, vec pgvec.Vector, limit, offset int, f filter.Expr) ([]ragy.Document, error) {
+	v := NewSQLFilterVisitor(s.metaCol)
+	whereSQL, whereArgs, err := v.ToSQL(f, 2)
 	if err != nil {
 		return nil, err
 	}
-	w := len(whereArgs)
-
-	if s.hybrid && req.Query != "" {
-		// Hybrid: two CTEs + FULL OUTER JOIN + RRF score.
-		whereClause := ""
-		if where != "" {
-			whereClause = " WHERE " + where
-		}
-		// CTE vector_search: rank by vector distance.
-		// Placeholders: where $1..$w, vec $w+1. CTE limit 1000 to bound work.
-		args := append([]any{}, whereArgs...)
-		args = append(args, vec, s.lang, req.Query)
-		var whereFts string
-		var whereFtsArgs []any
-		if req.Filter != nil {
-			whereFts, whereFtsArgs, err = buildWhereRec(req.Filter, w+4, s.metaCol) // fts WHERE starts at $w+4 after vec, lang, query
-			if err != nil {
-				return nil, err
-			}
-		}
-		ftsWhere := fmt.Sprintf(" to_tsvector($%d::regconfig, %s) @@ websearch_to_tsquery($%d::regconfig, $%d)", w+2, s.ftsCol, w+2, w+3)
-		if whereFts != "" {
-			ftsWhere += " AND (" + whereFts + ")"
-		}
-		args = append(args, whereFtsArgs...)
-		args = append(args, limit, offset)
-		n := len(args)
-
-		q := fmt.Sprintf(
-			`WITH vector_search AS (
-  SELECT %s, %s, %s, row_number() OVER (ORDER BY %s <=> $%d) AS rank_v
-  FROM %s%s
-  LIMIT 1000
-),
-fts_search AS (
-  SELECT %s, %s, %s, row_number() OVER (ORDER BY ts_rank_cd(to_tsvector($%d::regconfig, %s), websearch_to_tsquery($%d::regconfig, $%d)) DESC NULLS LAST) AS rank_fts
-  FROM %s
-  WHERE %s
-  LIMIT 1000
-)
-SELECT COALESCE(v.%s, f.%s), COALESCE(v.%s, f.%s), COALESCE(v.%s, f.%s),
-  (COALESCE(1.0/(60+v.rank_v),0) + COALESCE(1.0/(60+f.rank_fts),0)) AS score
-FROM vector_search v
-FULL OUTER JOIN fts_search f ON v.%s = f.%s
-ORDER BY score DESC NULLS LAST
-LIMIT $%d OFFSET $%d`,
-			s.idCol, s.contentCol, s.metaCol, s.embedCol, w+1, s.table, whereClause,
-			s.idCol, s.contentCol, s.metaCol, w+2, s.ftsCol, w+2, w+3, s.table, ftsWhere,
-			s.idCol, s.idCol, s.contentCol, s.contentCol, s.metaCol, s.metaCol,
-			s.idCol, s.idCol, n-1, n,
-		)
-		rows, err := s.pool.Query(ctx, q, args...)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		var out []ragy.Document
-		for rows.Next() {
-			var id, content string
-			var metaJSON []byte
-			var score float64
-			if err := rows.Scan(&id, &content, &metaJSON, &score); err != nil {
-				return nil, err
-			}
-			meta := make(map[string]any)
-			if len(metaJSON) > 0 {
-				if err := json.Unmarshal(metaJSON, &meta); err != nil {
-					return nil, err
-				}
-			}
-			doc := ragy.Document{ID: id, Content: content, Metadata: meta, Score: float32(score)}
-			out = append(out, doc)
-		}
-		return out, rows.Err()
+	limitPh := 2 + len(whereArgs)
+	offsetPh := limitPh + 1
+	var b strings.Builder
+	b.WriteString("SELECT ")
+	b.WriteString(string(s.idCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.contentCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.metaCol))
+	b.WriteString(", (")
+	b.WriteString(string(s.embedCol))
+	b.WriteString(" <=> $1) AS distance FROM ")
+	b.WriteString(string(s.table))
+	if whereSQL != "" {
+		b.WriteString(" WHERE ")
+		b.WriteString(whereSQL)
 	}
+	b.WriteString(" ORDER BY ")
+	b.WriteString(string(s.embedCol))
+	b.WriteString(" <=> $1 LIMIT $")
+	b.WriteString(strconv.Itoa(limitPh))
+	b.WriteString(" OFFSET $")
+	b.WriteString(strconv.Itoa(offsetPh))
 
-	// Vector-only search. Include cosine distance in SELECT so we can set doc.Score (1 - distance).
-	baseArgs := append([]any{}, whereArgs...)
-	baseArgs = append(baseArgs, vec, limit, offset)
-	n := len(baseArgs)
-	vecArgNum := n - 2 // placeholder index for vec in ORDER BY
-	q := fmt.Sprintf("SELECT %s, %s, %s, (%s <=> $%d) AS distance FROM %s",
-		s.idCol, s.contentCol, s.metaCol, s.embedCol, vecArgNum, s.table)
-	if where != "" {
-		q += " WHERE " + where
-	}
-	q += fmt.Sprintf(" ORDER BY %s <=> $%d LIMIT $%d OFFSET $%d",
-		s.embedCol, vecArgNum, n-1, n)
-	rows, err := s.pool.Query(ctx, q, baseArgs...)
+	args := []any{vec}
+	args = append(args, whereArgs...)
+	args = append(args, limit, offset)
+
+	rows, err := s.pool.Query(ctx, b.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -251,13 +326,144 @@ LIMIT $%d OFFSET $%d`,
 				return nil, err
 			}
 		}
-		doc := ragy.Document{ID: id, Content: content, Metadata: meta, Score: float32(1.0 - distance)}
+		conf := 1.0 - distance/2.0
+		if conf < 0 {
+			conf = 0
+		}
+		if conf > 1 {
+			conf = 1
+		}
+		doc := ragy.Document{ID: id, Content: content, Metadata: meta, Score: float32(1.0 - distance), Confidence: conf}
 		out = append(out, doc)
 	}
 	return out, rows.Err()
 }
 
-// Upsert implements ragy.VectorStore. Uses pgx.Batch with INSERT ... ON CONFLICT DO UPDATE (no CopyFrom).
+// hybridRRFConfidence maps the hybrid RRF fusion score to [0, 1]. Terms are 1/(k+rank); the
+// theoretical maximum when both vector and FTS ranks are 1 is 2/(k+1), which we use as the scale.
+func hybridRRFConfidence(score float64, rrfK int) float64 {
+	if rrfK <= 0 {
+		rrfK = DefaultRRFConstant
+	}
+	maxScore := 2.0 / float64(rrfK+1)
+	if maxScore <= 0 {
+		return 0
+	}
+	c := score / maxScore
+	if c < 0 {
+		return 0
+	}
+	if c > 1 {
+		return 1
+	}
+	return c
+}
+
+func (s *Store) searchHybrid(ctx context.Context, vec pgvec.Vector, ftsQuery string, limit, offset int, f filter.Expr) ([]ragy.Document, error) {
+	v := NewSQLFilterVisitor(s.metaCol)
+	whereSQL, whereArgs, err := v.ToSQL(f, 4)
+	if err != nil {
+		return nil, err
+	}
+	var b strings.Builder
+	rrf := strconv.Itoa(s.rrfK)
+
+	b.WriteString("WITH vector_search AS ( SELECT ")
+	b.WriteString(string(s.idCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.contentCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.metaCol))
+	b.WriteString(", row_number() OVER (ORDER BY ")
+	b.WriteString(string(s.embedCol))
+	b.WriteString(" <=> $1) AS rank_v FROM ")
+	b.WriteString(string(s.table))
+	if whereSQL != "" {
+		b.WriteString(" WHERE ")
+		b.WriteString(whereSQL)
+	}
+	b.WriteString(" LIMIT 1000 ), fts_search AS ( SELECT ")
+	b.WriteString(string(s.idCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.contentCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.metaCol))
+	b.WriteString(", row_number() OVER (ORDER BY ts_rank_cd(to_tsvector($2::regconfig, ")
+	b.WriteString(string(s.ftsCol))
+	b.WriteString("), websearch_to_tsquery($2::regconfig, $3)) DESC NULLS LAST) AS rank_fts FROM ")
+	b.WriteString(string(s.table))
+	b.WriteString(" WHERE to_tsvector($2::regconfig, ")
+	b.WriteString(string(s.ftsCol))
+	b.WriteString(") @@ websearch_to_tsquery($2::regconfig, $3)")
+	if whereSQL != "" {
+		b.WriteString(" AND (")
+		b.WriteString(whereSQL)
+		b.WriteString(")")
+	}
+	b.WriteString(" LIMIT 1000 ) SELECT COALESCE(v.")
+	b.WriteString(string(s.idCol))
+	b.WriteString(", f.")
+	b.WriteString(string(s.idCol))
+	b.WriteString("), COALESCE(v.")
+	b.WriteString(string(s.contentCol))
+	b.WriteString(", f.")
+	b.WriteString(string(s.contentCol))
+	b.WriteString("), COALESCE(v.")
+	b.WriteString(string(s.metaCol))
+	b.WriteString(", f.")
+	b.WriteString(string(s.metaCol))
+	b.WriteString("), (COALESCE(1.0/(")
+	b.WriteString(rrf)
+	b.WriteString("+v.rank_v::float),0) + COALESCE(1.0/(")
+	b.WriteString(rrf)
+	b.WriteString("+f.rank_fts::float),0)) AS score FROM vector_search v FULL OUTER JOIN fts_search f ON v.")
+	b.WriteString(string(s.idCol))
+	b.WriteString(" = f.")
+	b.WriteString(string(s.idCol))
+	b.WriteString(" ORDER BY score DESC NULLS LAST LIMIT $")
+	// $1 vec $2 lang $3 fts — then filter uses $4+; after filter come limit/offset
+	nAfter := 3 + len(whereArgs)
+	b.WriteString(strconv.Itoa(nAfter + 1))
+	b.WriteString(" OFFSET $")
+	b.WriteString(strconv.Itoa(nAfter + 2))
+
+	args := []any{vec, s.lang, ftsQuery}
+	args = append(args, whereArgs...)
+	args = append(args, limit, offset)
+
+	rows, err := s.pool.Query(ctx, b.String(), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ragy.Document
+	for rows.Next() {
+		var id, content string
+		var metaJSON []byte
+		var score float64
+		if err := rows.Scan(&id, &content, &metaJSON, &score); err != nil {
+			return nil, err
+		}
+		meta := make(map[string]any)
+		if len(metaJSON) > 0 {
+			if err := json.Unmarshal(metaJSON, &meta); err != nil {
+				return nil, err
+			}
+		}
+		doc := ragy.Document{ID: id, Content: content, Metadata: meta, Score: float32(score)}
+		doc.Confidence = hybridRRFConfidence(score, s.rrfK)
+		out = append(out, doc)
+	}
+	return out, rows.Err()
+}
+
+// Stream implements ragy.VectorStore.
+func (s *Store) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := s.Search(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
+}
+
+// Upsert implements ragy.VectorStore. Uses one UNNEST-based upsert per micro-batch (SQL prepared in New).
 func (s *Store) Upsert(ctx context.Context, docs []ragy.Document) error {
 	if len(docs) == 0 {
 		return nil
@@ -276,20 +482,15 @@ func (s *Store) Upsert(ctx context.Context, docs []ragy.Document) error {
 }
 
 func (s *Store) upsertBatch(ctx context.Context, docs []ragy.Document) error {
-	batch := &pgx.Batch{}
-	q := fmt.Sprintf(
-		"INSERT INTO %s (%s, %s, %s, %s) VALUES ($1, $2, $3, $4) ON CONFLICT (%s) DO UPDATE SET %s = EXCLUDED.%s, %s = EXCLUDED.%s, %s = EXCLUDED.%s",
-		s.table, s.idCol, s.contentCol, s.embedCol, s.metaCol,
-		s.idCol,
-		s.contentCol, s.contentCol, s.embedCol, s.embedCol, s.metaCol, s.metaCol,
-	)
-	for _, d := range docs {
+	ids := make([]string, len(docs))
+	contents := make([]string, len(docs))
+	vecs := make([]pgvec.Vector, len(docs))
+	metas := make([][]byte, len(docs))
+	for i, d := range docs {
 		emb, _ := d.Metadata[ragy.EmbeddingMetadataKey].([]float32)
 		if len(emb) == 0 {
 			return fmt.Errorf("pgvector: document %q missing embedding", d.ID)
 		}
-		vec := pgvector.NewVector(emb)
-		// Exclude embedding from JSONB to avoid storing it twice (vector column + metadata).
 		metaCopy := make(map[string]any, len(d.Metadata))
 		for k, v := range d.Metadata {
 			if k == ragy.EmbeddingMetadataKey {
@@ -297,18 +498,112 @@ func (s *Store) upsertBatch(ctx context.Context, docs []ragy.Document) error {
 			}
 			metaCopy[k] = v
 		}
-		metaJSON, _ := json.Marshal(metaCopy)
-		batch.Queue(q, d.ID, d.Content, vec, metaJSON)
-	}
-	br := s.pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
-	for i := 0; i < len(docs); i++ {
-		_, err := br.Exec()
+		metaJSON, err := json.Marshal(metaCopy)
 		if err != nil {
 			return err
 		}
+		ids[i] = d.ID
+		contents[i] = d.Content
+		vecs[i] = pgvec.NewVector(emb)
+		metas[i] = metaJSON
 	}
-	return nil
+	_, err := s.pool.Exec(ctx, s.upsertUnnestSQL, ids, contents, vecs, metas)
+	return err
+}
+
+// FetchParents implements ragy.HierarchyRetriever. Loads child rows by id, reads metadata[ragy.ParentDocumentIDKey], then loads parent rows by those IDs.
+func (s *Store) FetchParents(ctx context.Context, childIDs []string) ([]ragy.Document, error) {
+	if len(childIDs) == 0 {
+		return nil, nil
+	}
+	var b strings.Builder
+	b.WriteString("SELECT ")
+	b.WriteString(string(s.idCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.contentCol))
+	b.WriteString(", ")
+	b.WriteString(string(s.metaCol))
+	b.WriteString(" FROM ")
+	b.WriteString(string(s.table))
+	b.WriteString(" WHERE ")
+	b.WriteString(string(s.idCol))
+	b.WriteString(" = ANY($1::text[])")
+	rows, err := s.pool.Query(ctx, b.String(), childIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var children []ragy.Document
+	for rows.Next() {
+		var id, content string
+		var metaJSON []byte
+		if err := rows.Scan(&id, &content, &metaJSON); err != nil {
+			return nil, err
+		}
+		meta := make(map[string]any)
+		if len(metaJSON) > 0 {
+			if err := json.Unmarshal(metaJSON, &meta); err != nil {
+				return nil, err
+			}
+		}
+		children = append(children, ragy.Document{ID: id, Content: content, Metadata: meta})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	parentSeen := make(map[string]struct{})
+	var parentIDs []string
+	for _, ch := range children {
+		raw, ok := ch.Metadata[ragy.ParentDocumentIDKey]
+		if !ok || raw == nil {
+			continue
+		}
+		pid, ok := raw.(string)
+		if !ok || pid == "" {
+			continue
+		}
+		if _, dup := parentSeen[pid]; dup {
+			continue
+		}
+		parentSeen[pid] = struct{}{}
+		parentIDs = append(parentIDs, pid)
+	}
+	if len(parentIDs) == 0 {
+		return nil, nil
+	}
+	var b2 strings.Builder
+	b2.WriteString("SELECT ")
+	b2.WriteString(string(s.idCol))
+	b2.WriteString(", ")
+	b2.WriteString(string(s.contentCol))
+	b2.WriteString(", ")
+	b2.WriteString(string(s.metaCol))
+	b2.WriteString(" FROM ")
+	b2.WriteString(string(s.table))
+	b2.WriteString(" WHERE ")
+	b2.WriteString(string(s.idCol))
+	b2.WriteString(" = ANY($1::text[])")
+	rows2, err := s.pool.Query(ctx, b2.String(), parentIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows2.Close()
+	var out []ragy.Document
+	for rows2.Next() {
+		var id, content string
+		var metaJSON []byte
+		if err := rows2.Scan(&id, &content, &metaJSON); err != nil {
+			return nil, err
+		}
+		meta := make(map[string]any)
+		if len(metaJSON) > 0 {
+			if err := json.Unmarshal(metaJSON, &meta); err != nil {
+				return nil, err
+			}
+		}
+		out = append(out, ragy.Document{ID: id, Content: content, Metadata: meta})
+	}
+	return out, rows2.Err()
 }
 
 // DeleteByFilter implements ragy.VectorStore.
@@ -316,121 +611,21 @@ func (s *Store) DeleteByFilter(ctx context.Context, f filter.Expr) error {
 	if f == nil {
 		return nil
 	}
-	where, args, err := buildWhere(f, s.metaCol)
+	v := NewSQLFilterVisitor(s.metaCol)
+	whereSQL, whereArgs, err := v.ToSQL(f, 1)
 	if err != nil {
 		return err
 	}
-	q := fmt.Sprintf("DELETE FROM %s WHERE %s", s.table, where)
-	_, err = s.pool.Exec(ctx, q, args...)
+	var b strings.Builder
+	b.WriteString("DELETE FROM ")
+	b.WriteString(string(s.table))
+	b.WriteString(" WHERE ")
+	b.WriteString(whereSQL)
+	_, err = s.pool.Exec(ctx, b.String(), whereArgs...)
 	return err
 }
 
-var fieldSanitize = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-
-func buildWhere(expr filter.Expr, metaCol string) (clause string, args []any, err error) {
-	if expr == nil {
-		return "", nil, nil
-	}
-	return buildWhereRec(expr, 1, metaCol)
-}
-
-func buildWhereRec(expr filter.Expr, startArg int, metaCol string) (string, []any, error) {
-	switch e := expr.(type) {
-	case filter.Eq:
-		if !fieldSanitize.MatchString(e.Field) {
-			return "", nil, fmt.Errorf("pgvector: invalid field name %q", e.Field)
-		}
-		jb, err := json.Marshal(map[string]any{e.Field: e.Value})
-		if err != nil {
-			return "", nil, err
-		}
-		return fmt.Sprintf("%s @> $%d", metaCol, startArg), []any{jb}, nil
-	case filter.Neq, filter.Gt, filter.Gte, filter.Lt, filter.Lte:
-		field, val, op := "", any(nil), ""
-		switch x := expr.(type) {
-		case filter.Neq:
-			field, val, op = x.Field, x.Value, "!="
-		case filter.Gt:
-			field, val, op = x.Field, x.Value, ">"
-		case filter.Gte:
-			field, val, op = x.Field, x.Value, ">="
-		case filter.Lt:
-			field, val, op = x.Field, x.Value, "<"
-		case filter.Lte:
-			field, val, op = x.Field, x.Value, "<="
-		}
-		if !fieldSanitize.MatchString(field) {
-			return "", nil, fmt.Errorf("pgvector: invalid field name %q", field)
-		}
-		cast := "::text"
-		switch val.(type) {
-		case int, int32, int64, float32, float64:
-			cast = "::numeric"
-		case time.Time:
-			cast = "::timestamptz"
-		}
-		return fmt.Sprintf("(%s->>'%s')%s %s $%d", metaCol, field, cast, op, startArg), []any{val}, nil
-	case filter.In:
-		if !fieldSanitize.MatchString(e.Field) {
-			return "", nil, fmt.Errorf("pgvector: invalid field name %q", e.Field)
-		}
-		if len(e.Values) == 0 {
-			return "false", nil, nil
-		}
-		placeholders := make([]string, len(e.Values))
-		for i := range e.Values {
-			placeholders[i] = fmt.Sprintf("$%d", startArg+i)
-		}
-		return fmt.Sprintf("(%s->>'%s') IN (%s)", metaCol, e.Field, joinParts(placeholders, ",")), e.Values, nil
-	case filter.And:
-		var parts []string
-		var allArgs []any
-		argIdx := startArg
-		for _, sub := range e.Exprs {
-			part, a, err := buildWhereRec(sub, argIdx, metaCol)
-			if err != nil {
-				return "", nil, err
-			}
-			parts = append(parts, "("+part+")")
-			allArgs = append(allArgs, a...)
-			argIdx += len(a)
-		}
-		return joinParts(parts, " AND "), allArgs, nil
-	case filter.Or:
-		var parts []string
-		var allArgs []any
-		argIdx := startArg
-		for _, sub := range e.Exprs {
-			part, a, err := buildWhereRec(sub, argIdx, metaCol)
-			if err != nil {
-				return "", nil, err
-			}
-			parts = append(parts, "("+part+")")
-			allArgs = append(allArgs, a...)
-			argIdx += len(a)
-		}
-		return joinParts(parts, " OR "), allArgs, nil
-	case filter.Not:
-		part, a, err := buildWhereRec(e.Expr, startArg, metaCol)
-		if err != nil {
-			return "", nil, err
-		}
-		return "NOT (" + part + ")", a, nil
-	default:
-		return "", nil, fmt.Errorf("pgvector: unsupported filter type %T", expr)
-	}
-}
-
-func joinParts(parts []string, sep string) string {
-	if len(parts) == 0 {
-		return ""
-	}
-	s := parts[0]
-	for i := 1; i < len(parts); i++ {
-		s += sep + parts[i]
-	}
-	return s
-}
-
-// Ensure Store implements ragy.VectorStore.
-var _ ragy.VectorStore = (*Store)(nil)
+var (
+	_ ragy.VectorStore         = (*Store)(nil)
+	_ ragy.HierarchyRetriever = (*Store)(nil)
+)

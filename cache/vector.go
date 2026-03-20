@@ -47,8 +47,12 @@ func (c *VectorCache) Get(ctx context.Context, query string, threshold float64) 
 	if err != nil {
 		return "", false, fmt.Errorf("ragy/cache: search: %w", err)
 	}
-
-	if len(results) == 0 || float64(results[0].Score) < threshold {
+	if len(results) == 0 {
+		return "", false, nil
+	}
+	// Threshold is compared to Document.Score as returned by the VectorStore (store-specific scale).
+	sim := float64(results[0].Score)
+	if sim < threshold {
 		return "", false, nil
 	}
 	return results[0].Content, true, nil
@@ -74,8 +78,8 @@ func (c *VectorCache) Set(ctx context.Context, query string, response string) er
 		ID:      docID,
 		Content: response,
 		Metadata: map[string]any{
-			"_cache_type":  "semantic",
-			"_cache_query": query,
+			"_cache_type":             "semantic",
+			"_cache_query":            query,
 			ragy.EmbeddingMetadataKey: vecs[0],
 		},
 	}

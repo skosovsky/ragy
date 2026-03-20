@@ -6,8 +6,6 @@ import (
 	"sort"
 	"sync"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/skosovsky/ragy"
 )
 
@@ -34,27 +32,38 @@ func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, docs []
 		score float32
 	}
 	scoredList := make([]scored, len(docs))
-	g, gctx := errgroup.WithContext(ctx)
+	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var firstErr error
 	for i := range docs {
-		g.Go(func() error {
-			select {
-			case <-gctx.Done():
-				return gctx.Err()
-			default:
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if ctx.Err() != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = ctx.Err()
+				}
+				mu.Unlock()
+				return
 			}
-			sc, err := r.Score(gctx, query, docs[i])
+			sc, err := r.Score(ctx, query, docs[i])
 			if err != nil {
-				return err
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+				return
 			}
 			mu.Lock()
 			scoredList[i] = scored{doc: docs[i], score: sc}
 			mu.Unlock()
-			return nil
-		})
+		}(i)
 	}
-	if err := g.Wait(); err != nil {
-		return nil, err
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
 	}
 	sort.Slice(scoredList, func(i, j int) bool {
 		return scoredList[i].score > scoredList[j].score

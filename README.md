@@ -5,14 +5,14 @@
 [![Test coverage](https://img.shields.io/badge/coverage-%3E90%25-green)](.)
 [![OTel](https://img.shields.io/badge/OTel-Supported-blue)](.)
 
-**ragy** is a stateless Go engine for semantic memory and RAG pipelines. It does not hard‑dependency on any LLM: embedding, query rewriting, and context generation are injected via interfaces and callbacks. You keep full control over prompts and providers. The core offers strict contracts (**VectorStore**, **Retriever**, **Splitter**), **Observability** (OpenTelemetry in `ragy/obs`), and **eval‑ready** outputs (`RetrievalResult.EvalData`).
+**ragy** is a stateless Go engine for semantic memory and RAG pipelines. It does not hard‑dependency on any LLM: embedding, query rewriting, and context generation are injected via interfaces and callbacks. You keep full control over prompts and providers. The core offers strict contracts (**VectorStore**, **Retriever**, **Splitter**), **streaming** (`Retrieve` + `Stream` with `iter.Seq2`), normalized **Confidence** scores on **Document**, and optional **OpenTelemetry** via `adapters/observability/otel` (not in the core module).
 
 ---
 
 ## Why ragy
 
 - **100% Stateless & No LLM Dependency** — No built‑in prompts. You wire LLM through interfaces and callbacks.
-- **Observability First** — Native OpenTelemetry in `ragy/obs`. Every search, chunk, and context generation is a span.
+- **Observability First** — OpenTelemetry decorators in `adapters/observability/otel` (`WrapRetriever`, `WrapVectorStore`, `WrapSemanticCache`). Core stays dependency-free.
 - **Multi‑Modal & Late Interaction** — **TensorEmbedder** (ColBERT) and **MultimodalEmbedder** (images).
 - **GraphRAG Ready** — Native **Node**/ **Edge** types and Neo4j adapter.
 - **Smart Retrieval** — HyDE, Contextual Retrieval, Self‑Query, and Ensemble (RRF) for hybrid search (e.g. in Postgres).
@@ -31,8 +31,7 @@ flowchart LR
     Query[Query] --> SelfQuery[SelfQueryRetriever]
     SelfQuery --> Retriever[Retriever]
     Retriever --> Rerank[Reranker]
-    Rerank --> Result[RetrievalResult]
-    Result --> Eval[EvalData]
+    Rerank --> Docs[Documents]
   end
 ```
 
@@ -103,7 +102,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, d := range res.Documents {
+	for _, d := range res {
 		log.Println(d.ID, d.Content)
 	}
 }
@@ -120,16 +119,18 @@ inner := splitters.NewRecursiveSplitter(splitters.WithChunkSize(500))
 cs := splitters.NewContextualSplitter(inner, myContextualizer, splitters.WithContextualConcurrency(5))
 ```
 
-**Self-Query & AST filters** — build filters safely and merge with RBAC (e.g. `filter.All(req.Filter, parsed.Filter)`):
+**Self-Query & AST filters** — set `SearchRequest.ParsedQuery` from your app (LLM/parser outside ragy). `SelfQueryRetriever` merges `ParsedQuery.Filter` with RBAC (`filter.All(req.Filter, parsed.Filter)`).
 
 ```go
 f := filter.All(filter.Equal("tenant", 1), filter.Greater("age", 18))
 ```
 
-**Observability** — wrap retrievers and stores with OpenTelemetry:
+**Observability** — wrap retrievers and stores (optional adapter module):
 
 ```go
-traced := obs.NewTracedRetriever(retriever, tracer)
+import oteladapter "github.com/skosovsky/ragy/adapters/observability/otel"
+
+traced := oteladapter.WrapRetriever(retriever, tracer, "retriever")
 ```
 
 **Semantic Caching** — beyond retrieval, ragy provides a `SemanticCache` interface. It stores expensive LLM responses in a vector store (e.g. pgvector) and returns them for semantically similar queries (e.g. "How do I reset my password?" and "I forgot my password, what do I do?"), saving tokens and response time. Use the `ragy/cache` package (import `github.com/skosovsky/ragy/cache`). Cache entries are isolated by metadata `_cache_type=semantic` so the same store can hold both cache and knowledge-base documents. Calling `Set` again for the same exact query overwrites the previous response (document ID is deterministic from the query).
@@ -151,6 +152,17 @@ ragy is designed to work with:
 - **flowy** — agent orchestration
 
 ---
+
+## Migration (clean break)
+
+- **Retriever** returns `([]Document, error)` from `Retrieve`; use `Stream` for lazy iteration. `RetrievalResult` / `EvalData` removed — use `Document.Confidence` and metadata instead.
+- **SelfQueryRetriever** no longer calls `QueryParser`: set `SearchRequest.ParsedQuery` in the application.
+- **GraphRetriever** requires `SearchRequest.GraphSeedEntityIDs` (no in-core LLM entity extraction).
+- **GraphExtractor** (`splitters`) takes `ragy.ChunkGraphProvider(ctx, chunk Document) ([]Node, []Edge, error)` plus a `GraphStore`. The core does **not** run text-based entity extraction during split; supply prepared nodes/edges from your pipeline (e.g. via `chunk.Metadata`). If `Provider` is `nil`, chunks pass through with no graph writes. `EntityExtractor` remains a legacy app-side type for wrapping older code.
+- **Embedding adapters** (including **Jina**): single HTTP attempt per batch — no built-in retry/backoff; implement retries in orchestration if needed.
+- **pgvector** hybrid (RRF): `Document.Confidence` is the fusion score scaled by the theoretical RRF maximum `2/(k+1)` (k from `WithRRFConstant`), clamped to `[0,1]`.
+- **Cohere reranker** sets both `Document.Score` and `Document.Confidence` from the API relevance score (`[0,1]`).
+- **OpenTelemetry** moved from `ragy/obs` to `adapters/observability/otel`.
 
 ## Contributing
 

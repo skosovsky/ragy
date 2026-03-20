@@ -2,6 +2,7 @@ package retrievers
 
 import (
 	"context"
+	"iter"
 
 	"github.com/skosovsky/ragy"
 )
@@ -21,24 +22,29 @@ func NewRouterRetriever(router RouterFunc, targets map[string]ragy.Retriever) *R
 }
 
 // Retrieve implements ragy.Retriever.
-func (r *RouterRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.RetrievalResult, error) {
+func (r *RouterRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
 	targetName, err := r.Router(ctx, req.Query)
 	if err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
 	retriever, ok := r.Targets[targetName]
 	if !ok {
-		return ragy.RetrievalResult{}, ragy.ErrInvalidInput
+		return nil, ragy.ErrInvalidInput
 	}
-	res, err := retriever.Retrieve(ctx, req)
+	return retriever.Retrieve(ctx, req)
+}
+
+// Stream implements ragy.Retriever.
+func (r *RouterRetriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	targetName, err := r.Router(ctx, req.Query)
 	if err != nil {
-		return res, err
+		return ragy.YieldDocuments(ctx, nil, err)
 	}
-	if res.EvalData == nil {
-		res.EvalData = make(map[string]any)
+	retriever, ok := r.Targets[targetName]
+	if !ok {
+		return ragy.YieldDocuments(ctx, nil, ragy.ErrInvalidInput)
 	}
-	res.EvalData["routed_to"] = targetName
-	return res, nil
+	return retriever.Stream(ctx, req)
 }
 
 var _ ragy.Retriever = (*RouterRetriever)(nil)

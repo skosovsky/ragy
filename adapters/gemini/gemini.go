@@ -1,5 +1,5 @@
 // Package gemini provides ragy.DenseEmbedder and ragy.MultimodalEmbedder using the Google Gemini Embedding API.
-// Supports text-embedding-004, optional TaskType, batching, rate limiting (RPM), and retry on 429.
+// Supports text-embedding-004, optional TaskType, batching, and optional rate limiting (RPM). Retry is the caller's responsibility.
 // MultimodalEmbedder supports text + image (Media) for embedding; empty media[i] means text-only.
 package gemini
 
@@ -8,10 +8,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"time"
 
@@ -22,11 +20,8 @@ import (
 // DefaultBatchSize is the default number of texts per API request.
 const DefaultBatchSize = 100
 
-// DefaultBatchesPerMinute limits RPM to avoid hitting quota before 429.
+// DefaultBatchesPerMinute limits RPM to smooth traffic (optional).
 const DefaultBatchesPerMinute = 30
-
-// DefaultMaxRetries is the default number of retries on 429/5xx.
-const DefaultMaxRetries = 5
 
 // Embedder implements ragy.DenseEmbedder using the Gemini Embedding API.
 type Embedder struct {
@@ -37,7 +32,6 @@ type Embedder struct {
 	taskType       string
 	batchSize      int
 	limiter        *rate.Limiter
-	maxRetries     int
 	requestTimeout time.Duration
 }
 
@@ -71,11 +65,6 @@ func WithBatchesPerMinute(rpm int) Option {
 	}
 }
 
-// WithMaxRetries sets retries on 429/5xx.
-func WithMaxRetries(n int) Option {
-	return func(e *Embedder) { e.maxRetries = n }
-}
-
 // WithRequestTimeout sets timeout per request.
 func WithRequestTimeout(d time.Duration) Option {
 	return func(e *Embedder) { e.requestTimeout = d }
@@ -95,7 +84,6 @@ func New(apiKey string, opts ...Option) *Embedder {
 		model:          "text-embedding-004",
 		batchSize:      DefaultBatchSize,
 		limiter:        rate.NewLimiter(rate.Every(time.Minute/time.Duration(DefaultBatchesPerMinute)), 1),
-		maxRetries:     DefaultMaxRetries,
 		requestTimeout: 30 * time.Second,
 	}
 	for _, o := range opts {
@@ -104,7 +92,7 @@ func New(apiKey string, opts ...Option) *Embedder {
 	return e
 }
 
-// Embed implements ragy.DenseEmbedder. Batches texts, applies rate limit, and retries on 429.
+// Embed implements ragy.DenseEmbedder. Batches texts and applies rate limit per request.
 func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
@@ -116,7 +104,7 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 			end = len(texts)
 		}
 		batch := texts[start:end]
-		vecs, err := e.embedBatchWithRetry(ctx, batch)
+		vecs, err := e.embedBatchWithOptionalTimeout(ctx, batch)
 		if err != nil {
 			return nil, err
 		}
@@ -125,8 +113,18 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	return out, nil
 }
 
+func (e *Embedder) embedBatchWithOptionalTimeout(ctx context.Context, texts []string) ([][]float32, error) {
+	reqCtx := ctx
+	if e.requestTimeout > 0 {
+		var cancel context.CancelFunc
+		reqCtx, cancel = context.WithTimeout(ctx, e.requestTimeout)
+		defer cancel()
+	}
+	return e.embedBatch(reqCtx, texts)
+}
+
 // EmbedMultimodal implements ragy.MultimodalEmbedder. len(texts) must equal len(media).
-// Empty media[i] means text-only embedding for that index. Uses same rate limit and retry as Embed.
+// Empty media[i] means text-only embedding for that index.
 func (e *Embedder) EmbedMultimodal(ctx context.Context, texts []string, media [][]ragy.Media) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
@@ -136,7 +134,7 @@ func (e *Embedder) EmbedMultimodal(ctx context.Context, texts []string, media []
 	}
 	out := make([][]float32, 0, len(texts))
 	for i := range texts {
-		vec, err := e.embedOneMultimodalWithRetry(ctx, texts[i], media[i])
+		vec, err := e.embedOneMultimodalWithOptionalTimeout(ctx, texts[i], media[i])
 		if err != nil {
 			return nil, err
 		}
@@ -145,42 +143,14 @@ func (e *Embedder) EmbedMultimodal(ctx context.Context, texts []string, media []
 	return out, nil
 }
 
-func (e *Embedder) embedOneMultimodalWithRetry(ctx context.Context, text string, media []ragy.Media) ([]float32, error) {
-	var lastErr error
-	for attempt := 0; attempt <= e.maxRetries; attempt++ {
-		if attempt > 0 {
-			backoff := time.Duration(math.Pow(2, float64(attempt-1))) * 100 * time.Millisecond
-			backoff += backoff / 4
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(backoff):
-			}
-		}
-		if e.requestTimeout > 0 {
-			reqCtx, cancel := context.WithTimeout(ctx, e.requestTimeout)
-			vec, err := e.embedOneMultimodal(reqCtx, text, media)
-			cancel()
-			if err == nil {
-				return vec, nil
-			}
-			lastErr = err
-			if !isRetryable(err) {
-				return nil, err
-			}
-			continue
-		}
-		vec, err := e.embedOneMultimodal(ctx, text, media)
-		if err != nil {
-			lastErr = err
-			if !isRetryable(err) {
-				return nil, err
-			}
-			continue
-		}
-		return vec, nil
+func (e *Embedder) embedOneMultimodalWithOptionalTimeout(ctx context.Context, text string, media []ragy.Media) ([]float32, error) {
+	reqCtx := ctx
+	if e.requestTimeout > 0 {
+		var cancel context.CancelFunc
+		reqCtx, cancel = context.WithTimeout(ctx, e.requestTimeout)
+		defer cancel()
 	}
-	return nil, fmt.Errorf("gemini embed multimodal after %d retries: %w", e.maxRetries, lastErr)
+	return e.embedOneMultimodal(reqCtx, text, media)
 }
 
 // embedOneMultimodal sends one embedContent request with optional text and inline media (images).
@@ -239,45 +209,7 @@ func (e *Embedder) embedOneMultimodal(ctx context.Context, text string, media []
 	return parsed.Embedding.Values, nil
 }
 
-func (e *Embedder) embedBatchWithRetry(ctx context.Context, texts []string) ([][]float32, error) {
-	var lastErr error
-	for attempt := 0; attempt <= e.maxRetries; attempt++ {
-		if attempt > 0 {
-			backoff := time.Duration(math.Pow(2, float64(attempt-1))) * 100 * time.Millisecond
-			backoff += backoff / 4
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(backoff):
-			}
-		}
-		if e.requestTimeout > 0 {
-			reqCtx, cancel := context.WithTimeout(ctx, e.requestTimeout)
-			vecs, err := e.embedBatch(reqCtx, texts)
-			cancel()
-			if err == nil {
-				return vecs, nil
-			}
-			lastErr = err
-			if !isRetryable(err) {
-				return nil, err
-			}
-			continue
-		}
-		vecs, err := e.embedBatch(ctx, texts)
-		if err != nil {
-			lastErr = err
-			if !isRetryable(err) {
-				return nil, err
-			}
-			continue
-		}
-		return vecs, nil
-	}
-	return nil, fmt.Errorf("gemini embed batch after %d retries: %w", e.maxRetries, lastErr)
-}
-
-// errWithStatus carries HTTP status for retry logic.
+// errWithStatus carries HTTP status from the Gemini API.
 type errWithStatus struct {
 	status int
 	err    error
@@ -285,14 +217,6 @@ type errWithStatus struct {
 
 func (e *errWithStatus) Error() string { return e.err.Error() }
 func (e *errWithStatus) Unwrap() error { return e.err }
-
-func isRetryable(err error) bool {
-	var es *errWithStatus
-	if errors.As(err, &es) {
-		return es.status == 429 || (es.status >= 500 && es.status < 600)
-	}
-	return false
-}
 
 // embedResponse matches Gemini embedContent response shape.
 type embedResponse struct {

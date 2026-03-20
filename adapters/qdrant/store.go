@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"iter"
+	"math"
 	"regexp"
 	"strconv"
 
@@ -61,6 +63,9 @@ func New(client *qdrant.Client, opts ...Option) *Store {
 // Search implements ragy.VectorStore.
 func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
 	if len(req.DenseVector) == 0 {
+		if len(req.SparseVector) > 0 {
+			return nil, fmt.Errorf("qdrant: %w", ragy.ErrSparseVectorNotSupported)
+		}
 		return []ragy.Document{}, nil
 	}
 	limit := req.Limit
@@ -102,6 +107,12 @@ func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Docu
 		out = append(out, doc)
 	}
 	return out, nil
+}
+
+// Stream implements ragy.VectorStore.
+func (s *Store) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := s.Search(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
 }
 
 // Upsert implements ragy.VectorStore. Micro-batches internally.
@@ -209,8 +220,14 @@ func scoredPointToDocument(sp *qdrant.ScoredPoint) ragy.Document {
 	}
 	if sp != nil {
 		doc.Score = sp.Score
+		doc.Confidence = logisticConfidence(float64(sp.Score))
 	}
 	return doc
+}
+
+func logisticConfidence(s float64) float64 {
+	s = math.Min(20, math.Max(-20, s))
+	return 1.0 / (1.0 + math.Exp(-s))
 }
 
 func valueToAny(v *qdrant.Value) any {
@@ -381,4 +398,100 @@ func buildQdrantFilterRec(expr filter.Expr) *qdrant.Filter {
 	}
 }
 
-var _ ragy.VectorStore = (*Store)(nil)
+// FetchParents implements ragy.HierarchyRetriever. Reads payload[ragy.ParentDocumentIDKey] from child points, then loads parent points by business id (same id scheme as Upsert).
+func (s *Store) FetchParents(ctx context.Context, childIDs []string) ([]ragy.Document, error) {
+	if len(childIDs) == 0 {
+		return nil, nil
+	}
+	ids := make([]*qdrant.PointId, 0, len(childIDs))
+	for _, id := range childIDs {
+		ids = append(ids, qdrant.NewIDNum(idToUint64(id)))
+	}
+	children, err := s.client.Get(ctx, &qdrant.GetPoints{
+		CollectionName: s.collectionName,
+		Ids:              ids,
+		WithPayload:      qdrant.NewWithPayload(true),
+		WithVectors:      qdrant.NewWithVectors(false),
+	})
+	if err != nil {
+		return nil, err
+	}
+	parentSeen := make(map[string]struct{})
+	var parentIDs []string
+	for _, p := range children {
+		doc := retrievedPointToDocument(p)
+		raw, ok := doc.Metadata[ragy.ParentDocumentIDKey]
+		if !ok || raw == nil {
+			continue
+		}
+		pid, ok := raw.(string)
+		if !ok || pid == "" {
+			continue
+		}
+		if _, dup := parentSeen[pid]; dup {
+			continue
+		}
+		parentSeen[pid] = struct{}{}
+		parentIDs = append(parentIDs, pid)
+	}
+	if len(parentIDs) == 0 {
+		return nil, nil
+	}
+	pids := make([]*qdrant.PointId, 0, len(parentIDs))
+	for _, id := range parentIDs {
+		pids = append(pids, qdrant.NewIDNum(idToUint64(id)))
+	}
+	parents, err := s.client.Get(ctx, &qdrant.GetPoints{
+		CollectionName: s.collectionName,
+		Ids:              pids,
+		WithPayload:      qdrant.NewWithPayload(true),
+		WithVectors:      qdrant.NewWithVectors(false),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ragy.Document, 0, len(parents))
+	for _, p := range parents {
+		out = append(out, retrievedPointToDocument(p))
+	}
+	return out, nil
+}
+
+func retrievedPointToDocument(p *qdrant.RetrievedPoint) ragy.Document {
+	doc := ragy.Document{}
+	if p != nil && p.Id != nil {
+		if num, ok := p.Id.PointIdOptions.(*qdrant.PointId_Num); ok {
+			doc.ID = strconv.FormatUint(num.Num, 10)
+		}
+	}
+	if p != nil && p.Payload != nil {
+		for k, v := range p.Payload {
+			if k == "content" {
+				if v != nil && v.Kind != nil {
+					if sv, ok := v.Kind.(*qdrant.Value_StringValue); ok {
+						doc.Content = sv.StringValue
+					}
+				}
+				continue
+			}
+			if k == ragyIDPayloadKey {
+				if v != nil && v.Kind != nil {
+					if sv, ok := v.Kind.(*qdrant.Value_StringValue); ok {
+						doc.ID = sv.StringValue
+					}
+				}
+				continue
+			}
+			if doc.Metadata == nil {
+				doc.Metadata = make(map[string]any)
+			}
+			doc.Metadata[k] = valueToAny(v)
+		}
+	}
+	return doc
+}
+
+var (
+	_ ragy.VectorStore         = (*Store)(nil)
+	_ ragy.HierarchyRetriever = (*Store)(nil)
+)

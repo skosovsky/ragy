@@ -9,6 +9,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iter"
+	"math"
 	"regexp"
 
 	"github.com/elastic/go-elasticsearch/v8"
@@ -67,9 +69,12 @@ func sanitizeSearchFields(fields []string) []string {
 }
 
 // Retrieve implements ragy.Retriever. Builds match/multi_match + bool filter from req.Filter.
-func (r *Retriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.RetrievalResult, error) {
+func (r *Retriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
+	if len(req.SparseVector) > 0 {
+		return nil, fmt.Errorf("elasticsearch: %w", ragy.ErrSparseVectorNotSupported)
+	}
 	if req.Query == "" {
-		return ragy.RetrievalResult{Documents: []ragy.Document{}}, nil
+		return []ragy.Document{}, nil
 	}
 	limit := req.Limit
 	if limit <= 0 {
@@ -87,11 +92,11 @@ func (r *Retriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.
 	}
 	res, err := reqES.Do(ctx, r.client)
 	if err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.IsError() {
-		return ragy.RetrievalResult{}, fmt.Errorf("elasticsearch: %s", res.String())
+		return nil, fmt.Errorf("elasticsearch: %s", res.String())
 	}
 	var searchRes struct {
 		Hits struct {
@@ -103,11 +108,13 @@ func (r *Retriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.
 		} `json:"hits"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&searchRes); err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
 	docs := make([]ragy.Document, 0, len(searchRes.Hits.Hits))
 	for _, h := range searchRes.Hits.Hits {
 		doc := ragy.Document{ID: h.ID, Score: float32(h.Score)}
+		s := math.Min(20, math.Max(-20, h.Score))
+		doc.Confidence = 1.0 / (1.0 + math.Exp(-s))
 		var src map[string]any
 		_ = json.Unmarshal(h.Source, &src)
 		if c, ok := src["content"].(string); ok {
@@ -116,7 +123,13 @@ func (r *Retriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.
 		doc.Metadata = src
 		docs = append(docs, doc)
 	}
-	return ragy.RetrievalResult{Documents: docs}, nil
+	return docs, nil
+}
+
+// Stream implements ragy.Retriever.
+func (r *Retriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := r.Retrieve(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
 }
 
 func buildSearchBody(query string, fields []string, f filter.Expr, limit, offset int) []byte {

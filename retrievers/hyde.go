@@ -2,6 +2,7 @@ package retrievers
 
 import (
 	"context"
+	"iter"
 
 	"github.com/skosovsky/ragy"
 )
@@ -21,27 +22,32 @@ func NewHyDERetriever(gen HypothesisGenerator, embedder ragy.DenseEmbedder, stor
 	return &HyDERetriever{Generate: gen, Embedder: embedder, Store: store}
 }
 
-// Retrieve implements ragy.Retriever.
-func (r *HyDERetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.RetrievalResult, error) {
+func (r *HyDERetriever) retrieveDocs(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
 	hypothesis, err := r.Generate(ctx, req.Query)
 	if err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
 	vecs, err := r.Embedder.Embed(ctx, []string{hypothesis})
 	if err != nil {
-		return ragy.RetrievalResult{}, err
+		return nil, err
 	}
 	if len(vecs) == 0 {
-		return ragy.RetrievalResult{}, ragy.ErrEmbeddingFailed
+		return nil, ragy.ErrEmbeddingFailed
 	}
 	req2 := req
 	req2.DenseVector = vecs[0]
-	docs, err := r.Store.Search(ctx, req2)
-	if err != nil {
-		return ragy.RetrievalResult{}, err
-	}
-	eval := map[string]any{"hypothesis": hypothesis}
-	return ragy.RetrievalResult{Documents: docs, EvalData: eval}, nil
+	return r.Store.Search(ctx, req2)
+}
+
+// Retrieve implements ragy.Retriever.
+func (r *HyDERetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
+	return r.retrieveDocs(ctx, req)
+}
+
+// Stream implements ragy.Retriever.
+func (r *HyDERetriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	docs, err := r.retrieveDocs(ctx, req)
+	return ragy.YieldDocuments(ctx, docs, err)
 }
 
 var _ ragy.Retriever = (*HyDERetriever)(nil)

@@ -25,9 +25,8 @@ func TestBaseVectorRetriever_Retrieve(t *testing.T) {
 	ret := NewBaseVectorRetriever(emb, store)
 	res, err := ret.Retrieve(ctx, ragy.SearchRequest{Query: "hello", Limit: 5})
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(res.Documents), 1)
-	assert.Equal(t, "1", res.Documents[0].ID)
-	assert.NotNil(t, res.EvalData["raw_scores"])
+	require.GreaterOrEqual(t, len(res), 1)
+	assert.Equal(t, "1", res[0].ID)
 }
 
 func TestBaseVectorRetriever_EmptyQuery(t *testing.T) {

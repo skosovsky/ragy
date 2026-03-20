@@ -1,12 +1,10 @@
 // Package openai provides a ragy.DenseEmbedder implementation using the OpenAI Embeddings API.
-// Supports batching, optional dimensions (text-embedding-3), and retry with backoff on 429.
+// Supports batching and optional dimensions (text-embedding-3). Retry/backoff is the caller's responsibility.
 package openai
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	openaiapi "github.com/sashabaranov/go-openai"
@@ -16,16 +14,12 @@ import (
 // DefaultBatchSize is the default number of texts sent per API request when batching.
 const DefaultBatchSize = 100
 
-// DefaultMaxRetries is the default number of retries on 429/5xx.
-const DefaultMaxRetries = 5
-
 // Embedder implements ragy.DenseEmbedder using the OpenAI Embeddings API.
 type Embedder struct {
 	client         *openaiapi.Client
 	model          openaiapi.EmbeddingModel
 	dimensions     int
 	batchSize      int
-	maxRetries     int
 	requestTimeout time.Duration
 }
 
@@ -45,11 +39,6 @@ func WithDimensions(d int) Option {
 // WithBatchSize sets the max number of texts per API request.
 func WithBatchSize(n int) Option {
 	return func(e *Embedder) { e.batchSize = n }
-}
-
-// WithMaxRetries sets the max retries on 429/5xx.
-func WithMaxRetries(n int) Option {
-	return func(e *Embedder) { e.maxRetries = n }
 }
 
 // WithRequestTimeout sets the timeout for each API request.
@@ -75,7 +64,6 @@ func NewWithClient(client *openaiapi.Client, opts ...Option) *Embedder {
 		client:         client,
 		model:          openaiapi.SmallEmbedding3,
 		batchSize:      DefaultBatchSize,
-		maxRetries:     DefaultMaxRetries,
 		requestTimeout: 30 * time.Second,
 	}
 	for _, o := range opts {
@@ -84,7 +72,7 @@ func NewWithClient(client *openaiapi.Client, opts ...Option) *Embedder {
 	return e
 }
 
-// Embed implements ragy.DenseEmbedder. It batches texts and retries on 429 with exponential backoff.
+// Embed implements ragy.DenseEmbedder. It batches texts per request.
 func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
@@ -96,7 +84,7 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 			end = len(texts)
 		}
 		batch := texts[start:end]
-		vecs, err := e.embedBatchWithRetry(ctx, batch)
+		vecs, err := e.embedOneBatch(ctx, batch)
 		if err != nil {
 			return nil, err
 		}
@@ -105,56 +93,14 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	return out, nil
 }
 
-func (e *Embedder) embedBatchWithRetry(ctx context.Context, texts []string) ([][]float32, error) {
-	var lastErr error
-	for attempt := 0; attempt <= e.maxRetries; attempt++ {
-		if attempt > 0 {
-			backoff := time.Duration(math.Pow(2, float64(attempt-1))) * 100 * time.Millisecond
-			backoff += backoff / 4 // jitter: add 25% to spread retries
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(backoff):
-			}
-		}
-		reqCtx := ctx
-		if e.requestTimeout > 0 {
-			var cancel context.CancelFunc
-			reqCtx, cancel = context.WithTimeout(ctx, e.requestTimeout)
-			vecs, err := e.embedBatch(reqCtx, texts)
-			cancel()
-			if err == nil {
-				return vecs, nil
-			}
-			lastErr = err
-			if !isRetryable(err) {
-				return nil, err
-			}
-			continue
-		}
-		vecs, err := e.embedBatch(reqCtx, texts)
-		if err != nil {
-			lastErr = err
-			if !isRetryable(err) {
-				return nil, err
-			}
-			continue
-		}
-		return vecs, nil
+func (e *Embedder) embedOneBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	reqCtx := ctx
+	if e.requestTimeout > 0 {
+		var cancel context.CancelFunc
+		reqCtx, cancel = context.WithTimeout(ctx, e.requestTimeout)
+		defer cancel()
 	}
-	return nil, fmt.Errorf("embed batch after %d retries: %w", e.maxRetries, lastErr)
-}
-
-func isRetryable(err error) bool {
-	var apiErr *openaiapi.APIError
-	if errors.As(err, &apiErr) {
-		return apiErr.HTTPStatusCode == 429 || (apiErr.HTTPStatusCode >= 500 && apiErr.HTTPStatusCode < 600)
-	}
-	var reqErr *openaiapi.RequestError
-	if errors.As(err, &reqErr) {
-		return reqErr.HTTPStatusCode == 429 || (reqErr.HTTPStatusCode >= 500 && reqErr.HTTPStatusCode < 600)
-	}
-	return false
+	return e.embedBatch(reqCtx, texts)
 }
 
 func (e *Embedder) embedBatch(ctx context.Context, texts []string) ([][]float32, error) {
@@ -168,7 +114,6 @@ func (e *Embedder) embedBatch(ctx context.Context, texts []string) ([][]float32,
 	if err != nil {
 		return nil, err
 	}
-	// Preserve order by index (API returns data in order but we sort by index to be safe)
 	vecs := make([][]float32, len(resp.Data))
 	for i := range resp.Data {
 		idx := resp.Data[i].Index

@@ -1,4 +1,4 @@
-ADAPTERS := adapters/openai adapters/gemini adapters/pgvector adapters/jina adapters/qdrant adapters/cohere adapters/elasticsearch adapters/neo4j
+ADAPTERS := adapters/observability/otel adapters/openai adapters/gemini adapters/pgvector adapters/jina adapters/qdrant adapters/cohere adapters/elasticsearch adapters/neo4j
 
 .PHONY: test lint bench fuzz cover tidy-all test-all lint-all
 

@@ -59,25 +59,14 @@ func TestEmbed_SingleAndBatch(t *testing.T) {
 	assert.Equal(t, 2, callCount)
 }
 
-func TestEmbed_429RetryThenSuccess(t *testing.T) {
-	var attempt int
+func TestEmbed_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		attempt++
-		if attempt < 2 {
-			w.WriteHeader(http.StatusTooManyRequests)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"embedding": map[string]any{"values": []float32{1.0}},
-		})
+		w.WriteHeader(http.StatusTooManyRequests)
 	}))
 	defer srv.Close()
-	emb := New("key", WithBaseURL(srv.URL), WithMaxRetries(3))
-	out, err := emb.Embed(context.Background(), []string{"x"})
-	require.NoError(t, err)
-	require.Len(t, out, 1)
-	assert.Equal(t, []float32{1.0}, out[0])
-	assert.Equal(t, 2, attempt)
+	emb := New("key", WithBaseURL(srv.URL), WithBatchesPerMinute(1000000))
+	_, err := emb.Embed(context.Background(), []string{"x"})
+	require.Error(t, err)
 }
 
 func TestEmbedMultimodal_EmptyInput(t *testing.T) {

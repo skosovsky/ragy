@@ -10,31 +10,32 @@ import (
 )
 
 // GraphExtractor is a middleware Splitter that runs an inner Splitter, then for each chunk
-// calls EntityExtractor (e.g. LLM) and upserts nodes/edges into GraphStore.
+// optionally calls ChunkGraphProvider with the full chunk (e.g. metadata prepared upstream) and upserts into GraphStore.
+// Core does not extract entities from raw text; LLM-centric extraction belongs in application code.
 // Uses a worker pool and a slice of channels (Future/Promise) to preserve chunk order when yielding.
 type GraphExtractor struct {
 	Inner       Splitter
-	Extract     ragy.EntityExtractor
 	Graph       ragy.GraphStore
+	Provider    ragy.ChunkGraphProvider // optional; if nil, only yields inner chunks without graph writes
 	Concurrency int
 }
 
 // GraphExtractorOption configures GraphExtractor.
 type GraphExtractorOption func(*GraphExtractor)
 
-// WithConcurrency sets the number of worker goroutines for entity extraction.
+// WithConcurrency sets the number of worker goroutines for chunk graph preparation.
 func WithConcurrency(n int) GraphExtractorOption {
 	return func(g *GraphExtractor) {
 		g.Concurrency = n
 	}
 }
 
-// NewGraphExtractor returns a GraphExtractor that wraps inner and writes to graph.
-func NewGraphExtractor(inner Splitter, extract ragy.EntityExtractor, graph ragy.GraphStore, opts ...GraphExtractorOption) *GraphExtractor {
+// NewGraphExtractor returns a GraphExtractor that wraps inner and writes to graph when Provider is set.
+func NewGraphExtractor(inner Splitter, graph ragy.GraphStore, provider ragy.ChunkGraphProvider, opts ...GraphExtractorOption) *GraphExtractor {
 	ge := &GraphExtractor{
 		Inner:       inner,
-		Extract:     extract,
 		Graph:       graph,
+		Provider:    provider,
 		Concurrency: 5,
 	}
 	for _, o := range opts {
@@ -56,6 +57,15 @@ func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2
 			chunks = append(chunks, chunk)
 		}
 		if len(chunks) == 0 {
+			return
+		}
+
+		if g.Provider == nil {
+			for _, chunk := range chunks {
+				if !yield(chunk, nil) {
+					return
+				}
+			}
 			return
 		}
 
@@ -91,7 +101,7 @@ func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2
 							return
 						}
 						chunk := chunks[i]
-						nodes, edges, err := g.Extract(ctx, chunk.Content)
+						nodes, edges, err := g.Provider(ctx, chunk)
 						if err != nil {
 							results[i] <- struct {
 								doc ragy.Document

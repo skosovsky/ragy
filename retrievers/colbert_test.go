@@ -19,7 +19,6 @@ func TestColBERTRetriever_Retrieve(t *testing.T) {
 		Metadata: map[string]any{testutil.TensorKey: tensors[0]},
 	}})
 	col := NewColBERTRetriever(emb, store)
-	res, err := col.Retrieve(ctx, ragy.SearchRequest{Query: "hello", Limit: 5})
+	_, err := col.Retrieve(ctx, ragy.SearchRequest{Query: "hello", Limit: 5})
 	require.NoError(t, err)
-	require.NotNil(t, res.EvalData["interaction_scores"])
 }

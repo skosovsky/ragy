@@ -2,30 +2,28 @@ package retrievers
 
 import (
 	"context"
+	"iter"
 
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 )
 
-// SelfQueryRetriever decorates an inner Retriever by parsing the natural-language query
-// via QueryParser into a semantic query and optional filter, then merging with request filter (RBAC-safe AND).
+// SelfQueryRetriever merges SearchRequest.Filter with ParsedQuery from SearchRequest (set by the application).
+// It does not call LLM; the app must parse the query and set req.ParsedQuery before calling Retrieve/Stream.
 type SelfQueryRetriever struct {
-	inner  ragy.Retriever
-	parser ragy.QueryParser
+	inner ragy.Retriever
 }
 
-// NewSelfQueryRetriever returns a SelfQueryRetriever that wraps inner and uses parser to parse queries.
-func NewSelfQueryRetriever(inner ragy.Retriever, parser ragy.QueryParser) *SelfQueryRetriever {
-	return &SelfQueryRetriever{inner: inner, parser: parser}
+// NewSelfQueryRetriever returns a SelfQueryRetriever that wraps inner.
+func NewSelfQueryRetriever(inner ragy.Retriever) *SelfQueryRetriever {
+	return &SelfQueryRetriever{inner: inner}
 }
 
-// Retrieve implements ragy.Retriever.
-func (r *SelfQueryRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) (ragy.RetrievalResult, error) {
-	parsed, err := r.parser.Parse(ctx, req.Query)
-	if err != nil {
-		return ragy.RetrievalResult{}, err
+func (r *SelfQueryRetriever) buildRequest(req ragy.SearchRequest) (ragy.SearchRequest, error) {
+	if req.ParsedQuery == nil {
+		return req, ragy.ErrMissingParsedQuery
 	}
-
+	parsed := req.ParsedQuery
 	finalReq := req
 	finalReq.Query = parsed.SemanticQuery
 	if parsed.Limit > 0 {
@@ -38,17 +36,25 @@ func (r *SelfQueryRetriever) Retrieve(ctx context.Context, req ragy.SearchReques
 			finalReq.Filter = parsed.Filter
 		}
 	}
+	return finalReq, nil
+}
 
-	res, err := r.inner.Retrieve(ctx, finalReq)
+// Retrieve implements ragy.Retriever.
+func (r *SelfQueryRetriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
+	finalReq, err := r.buildRequest(req)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
-	if res.EvalData == nil {
-		res.EvalData = make(map[string]any)
+	return r.inner.Retrieve(ctx, finalReq)
+}
+
+// Stream implements ragy.Retriever.
+func (r *SelfQueryRetriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	finalReq, err := r.buildRequest(req)
+	if err != nil {
+		return ragy.YieldDocuments(ctx, nil, err)
 	}
-	res.EvalData["parsed_semantic_query"] = parsed.SemanticQuery
-	res.EvalData["parsed_has_filter"] = parsed.Filter != nil
-	return res, nil
+	return r.inner.Stream(ctx, finalReq)
 }
 
 var _ ragy.Retriever = (*SelfQueryRetriever)(nil)

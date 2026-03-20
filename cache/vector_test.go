@@ -3,11 +3,11 @@ package cache
 import (
 	"context"
 	"errors"
+	"iter"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/goleak"
 
 	"github.com/skosovsky/ragy"
@@ -92,23 +92,6 @@ func TestVectorCache_GetOnlyCacheEntriesInMixedStore(t *testing.T) {
 	assert.Equal(t, "cached_response", resp, "Get must return cache entry, not KB doc")
 }
 
-func TestTracedSemanticCache(t *testing.T) {
-	store := testutil.NewInMemoryVectorStore()
-	embedder := testutil.NewMockDenseEmbedder(4)
-	inner := NewVectorCache(store, embedder)
-	tracer := trace.NewNoopTracerProvider().Tracer("test")
-	wrapped := NewTracedSemanticCache(inner, tracer)
-	ctx := context.Background()
-
-	err := wrapped.Set(ctx, "q", "a")
-	require.NoError(t, err)
-
-	resp, hit, err := wrapped.Get(ctx, "q", 0.8)
-	require.NoError(t, err)
-	assert.True(t, hit)
-	assert.Equal(t, "a", resp)
-}
-
 // emptyVecEmbedder returns a single empty vector for tests (defensive behavior).
 type emptyVecEmbedder struct{}
 
@@ -168,10 +151,14 @@ func (s *semanticStubEmbedder) Embed(_ context.Context, texts []string) ([][]flo
 			copy(cp, v)
 			out[i] = cp
 		} else {
-			// unknown query: return distinct vector so similarity is low
+			// unknown query: return a vector far from cached stub groups (alternating ±1) so cosine stays low vs. small positive stubs
 			vec := make([]float32, s.dim)
 			for j := range vec {
-				vec[j] = float32(len(t)+j) * 0.01
+				if j%2 == 0 {
+					vec[j] = 1
+				} else {
+					vec[j] = -1
+				}
 			}
 			out[i] = vec
 		}
@@ -280,6 +267,10 @@ func (f *failingSearchStore) DeleteByFilter(ctx context.Context, expr filter.Exp
 	return f.inner.DeleteByFilter(ctx, expr)
 }
 
+func (f *failingSearchStore) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	return f.inner.Stream(ctx, req)
+}
+
 func TestVectorCache_Get_SearchError(t *testing.T) {
 	embedder := testutil.NewMockDenseEmbedder(4)
 	store := &failingSearchStore{inner: testutil.NewInMemoryVectorStore()}
@@ -306,6 +297,10 @@ func (f *failingUpsertStore) Upsert(_ context.Context, _ []ragy.Document) error 
 
 func (f *failingUpsertStore) DeleteByFilter(ctx context.Context, expr filter.Expr) error {
 	return f.inner.DeleteByFilter(ctx, expr)
+}
+
+func (f *failingUpsertStore) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
+	return f.inner.Stream(ctx, req)
 }
 
 func TestVectorCache_Set_UpsertError(t *testing.T) {
