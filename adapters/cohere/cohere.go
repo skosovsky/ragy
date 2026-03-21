@@ -9,6 +9,7 @@ import (
 
 	coheregov2 "github.com/cohere-ai/cohere-go/v2"
 	cohereclient "github.com/cohere-ai/cohere-go/v2/client"
+
 	"github.com/skosovsky/ragy"
 )
 
@@ -59,10 +60,7 @@ func (r *Reranker) Rerank(ctx context.Context, query string, docs []ragy.Documen
 	}
 	var allScored []ragy.Document
 	for start := 0; start < len(docs); start += cohereBatchSize {
-		end := start + cohereBatchSize
-		if end > len(docs) {
-			end = len(docs)
-		}
+		end := min(start+cohereBatchSize, len(docs))
 		batch := docs[start:end]
 		scored, err := r.rerankBatch(ctx, query, batch)
 		if err != nil {
@@ -110,7 +108,7 @@ func (r *Reranker) rerankBatch(ctx context.Context, query string, batch []ragy.D
 }
 
 // cohereRelevanceToDocScores maps Cohere RelevanceScore (expected in [0,1]) to Document.Score and Document.Confidence.
-func cohereRelevanceToDocScores(relevance float64) (score float32, confidence float64) {
+func cohereRelevanceToDocScores(relevance float64) (float32, float64) {
 	v := relevance
 	if v < 0 {
 		v = 0

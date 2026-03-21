@@ -9,13 +9,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	pgxvec "github.com/pgvector/pgvector-go/pgx"
-	"github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/filter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/filter"
 )
 
 const (
@@ -73,9 +74,21 @@ func TestStore_Integration(t *testing.T) {
 
 	// Upsert
 	docs := []ragy.Document{
-		{ID: "1", Content: "one", Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{1, 0, 0}, "tenant_id": "t1"}},
-		{ID: "2", Content: "two", Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{0, 1, 0}, "tenant_id": "t1"}},
-		{ID: "3", Content: "three", Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{0, 0, 1}, "tenant_id": "t2"}},
+		{
+			ID:       "1",
+			Content:  "one",
+			Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{1, 0, 0}, "tenant_id": "t1"},
+		},
+		{
+			ID:       "2",
+			Content:  "two",
+			Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{0, 1, 0}, "tenant_id": "t1"},
+		},
+		{
+			ID:       "3",
+			Content:  "three",
+			Metadata: map[string]any{ragy.EmbeddingMetadataKey: []float32{0, 0, 1}, "tenant_id": "t2"},
+		},
 	}
 	err = store.Upsert(ctx, docs)
 	require.NoError(t, err)
@@ -111,8 +124,8 @@ func TestHybridRRFConfidence(t *testing.T) {
 	maxScore := 2.0 / float64(k+1)
 	assert.InDelta(t, 1.0, hybridRRFConfidence(maxScore, k), 1e-9)
 	assert.InDelta(t, 0.5, hybridRRFConfidence(maxScore/2, k), 1e-9)
-	assert.Equal(t, 0.0, hybridRRFConfidence(-1, k))
-	assert.Equal(t, 1.0, hybridRRFConfidence(maxScore*2, k))
+	assert.InDelta(t, 0.0, hybridRRFConfidence(-1, k), 1e-9)
+	assert.InDelta(t, 1.0, hybridRRFConfidence(maxScore*2, k), 1e-9)
 	// Single-list contribution capped at 1/(k+1) → half of dual max → confidence 0.5
 	oneTerm := 1.0 / float64(k+1)
 	assert.InDelta(t, 0.5, hybridRRFConfidence(oneTerm, k), 1e-9)

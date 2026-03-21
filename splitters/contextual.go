@@ -9,6 +9,8 @@ import (
 	"github.com/skosovsky/ragy"
 )
 
+const defaultContextualConcurrency = 5
+
 // ContextualSplitter is a middleware Splitter that runs an inner Splitter, then for each chunk
 // calls Contextualizer to generate enriching context and prepends it to the chunk content.
 // Uses a worker pool and per-index result channels to preserve chunk order when yielding.
@@ -30,11 +32,15 @@ func WithContextualConcurrency(n int) ContextualSplitterOption {
 }
 
 // NewContextualSplitter returns a ContextualSplitter that wraps inner and enriches chunks via contextualizer.
-func NewContextualSplitter(inner Splitter, contextualizer ragy.Contextualizer, opts ...ContextualSplitterOption) *ContextualSplitter {
+func NewContextualSplitter(
+	inner Splitter,
+	contextualizer ragy.Contextualizer,
+	opts ...ContextualSplitterOption,
+) *ContextualSplitter {
 	cs := &ContextualSplitter{
 		Inner:          inner,
 		Contextualizer: contextualizer,
-		Concurrency:    5,
+		Concurrency:    defaultContextualConcurrency,
 	}
 	for _, o := range opts {
 		o(cs)
@@ -48,6 +54,8 @@ type contextualResult struct {
 }
 
 // Split implements Splitter. Order of yielded chunks is preserved via per-index result channels.
+//
+//nolint:gocognit // Worker pool + ordered channels; splitting would fragment the coordination logic.
 func (c *ContextualSplitter) Split(ctx context.Context, doc ragy.Document) iter.Seq2[ragy.Document, error] {
 	return func(yield func(ragy.Document, error) bool) {
 		var chunks []ragy.Document
@@ -62,7 +70,7 @@ func (c *ContextualSplitter) Split(ctx context.Context, doc ragy.Document) iter.
 			return
 		}
 
-		ctx, cancel := context.WithCancel(ctx)
+		runCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
 		n := len(chunks)
@@ -77,18 +85,18 @@ func (c *ContextualSplitter) Split(ctx context.Context, doc ragy.Document) iter.
 
 		jobs := make(chan int, n)
 		var wg sync.WaitGroup
-		for w := 0; w < concurrency; w++ {
+		for range concurrency {
 			wg.Go(func() {
 				for {
 					select {
-					case <-ctx.Done():
+					case <-runCtx.Done():
 						return
 					case i, ok := <-jobs:
 						if !ok {
 							return
 						}
 						chunk := chunks[i]
-						contextText, err := c.Contextualizer.GenerateContext(ctx, doc.Content, chunk.Content)
+						contextText, err := c.Contextualizer.GenerateContext(runCtx, doc.Content, chunk.Content)
 						if err != nil {
 							results[i] <- contextualResult{doc: ragy.Document{}, err: err}
 							continue
@@ -106,7 +114,7 @@ func (c *ContextualSplitter) Split(ctx context.Context, doc ragy.Document) iter.
 		go func() {
 			for i := range n {
 				select {
-				case <-ctx.Done():
+				case <-runCtx.Done():
 					return
 				case jobs <- i:
 				}
@@ -116,10 +124,10 @@ func (c *ContextualSplitter) Split(ctx context.Context, doc ragy.Document) iter.
 
 		for i := range n {
 			select {
-			case <-ctx.Done():
+			case <-runCtx.Done():
 				cancel()
 				wg.Wait()
-				_ = yield(ragy.Document{}, ctx.Err())
+				_ = yield(ragy.Document{}, runCtx.Err())
 				return
 			case res := <-results[i]:
 				if res.err != nil {

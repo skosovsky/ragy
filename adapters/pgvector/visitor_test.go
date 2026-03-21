@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/skosovsky/ragy/filter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/skosovsky/ragy/filter"
 )
 
 func TestSQLFilterVisitor_Nested(t *testing.T) {

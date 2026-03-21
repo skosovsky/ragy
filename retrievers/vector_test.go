@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/testutil"
 )
 
 func TestBaseVectorRetriever_Retrieve(t *testing.T) {

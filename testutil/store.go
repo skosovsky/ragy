@@ -35,6 +35,8 @@ func NewInMemoryVectorStore() *InMemoryVectorStore {
 }
 
 // Search implements ragy.VectorStore.
+//
+//nolint:gocognit,funlen // Dense vs tensor paths, filter, sort, and pagination in one place.
 func (s *InMemoryVectorStore) Search(_ context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
 	s.mu.RLock()
 	list := make([]ragy.Document, 0, len(s.docs))
@@ -217,7 +219,12 @@ func NewInMemoryGraphStore() *InMemoryGraphStore {
 }
 
 // SearchGraph implements ragy.GraphStore. Performs BFS from the given entities up to depth.
-func (s *InMemoryGraphStore) SearchGraph(_ context.Context, entities []string, depth int, _ ragy.SearchRequest) ([]ragy.Node, []ragy.Edge, error) {
+func (s *InMemoryGraphStore) SearchGraph(
+	_ context.Context,
+	entities []string,
+	depth int,
+	_ ragy.SearchRequest,
+) ([]ragy.Node, []ragy.Edge, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

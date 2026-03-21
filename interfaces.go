@@ -59,12 +59,6 @@ type QueryTransformer interface {
 	Transform(ctx context.Context, query string) ([]string, error)
 }
 
-// QueryParser translates a natural-language query into ParsedQuery (application / LLM side).
-// Not used by ragy core retrievers directly; the app sets SearchRequest.ParsedQuery.
-type QueryParser interface {
-	Parse(ctx context.Context, naturalQuery string) (ParsedQuery, error)
-}
-
 // Reranker re-scores and truncates a document list (e.g. RRF merge or cross-encoder).
 type Reranker interface {
 	Rerank(ctx context.Context, query string, docs []Document, topK int) ([]Document, error)

@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	"github.com/qdrant/go-client/qdrant"
+
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 )
@@ -23,6 +24,8 @@ const (
 	embeddingKey     = "embedding"
 	ragyIDPayloadKey = "_ragy_id" // Original document ID stored in payload for round-trip
 	defaultBatchSize = 500
+	// logisticClamp limits the input to logisticConfidence before Exp (numerical stability).
+	logisticClamp = 20.0
 )
 
 var fieldSanitize = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
@@ -72,10 +75,7 @@ func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Docu
 	if limit <= 0 {
 		limit = 10
 	}
-	offset := req.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(req.Offset, 0)
 	qFilter := buildQdrantFilter(req.Filter)
 	lim := uint64(limit + offset)
 	queryPoints := &qdrant.QueryPoints{
@@ -96,10 +96,7 @@ func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Docu
 		return []ragy.Document{}, nil
 	}
 	// Apply offset in Go (Qdrant returns top limit+offset)
-	start := offset
-	if start > len(result) {
-		start = len(result)
-	}
+	start := min(offset, len(result))
 	slice := result[start:]
 	out := make([]ragy.Document, 0, len(slice))
 	for _, sp := range slice {
@@ -121,10 +118,7 @@ func (s *Store) Upsert(ctx context.Context, docs []ragy.Document) error {
 		return nil
 	}
 	for i := 0; i < len(docs); i += s.batchSize {
-		end := i + s.batchSize
-		if end > len(docs) {
-			end = len(docs)
-		}
+		end := min(i+s.batchSize, len(docs))
 		batch := docs[i:end]
 		if err := s.upsertBatch(ctx, batch); err != nil {
 			return err
@@ -187,18 +181,19 @@ func idToUint64(id string) uint64 {
 	return h.Sum64()
 }
 
+//nolint:gocognit,nestif // Qdrant ScoredPoint payload map requires nested value-kind switches.
 func scoredPointToDocument(sp *qdrant.ScoredPoint) ragy.Document {
 	doc := ragy.Document{}
-	if sp != nil && sp.Id != nil {
-		if num, ok := sp.Id.PointIdOptions.(*qdrant.PointId_Num); ok {
+	if sp != nil && sp.GetId() != nil {
+		if num, ok := sp.GetId().GetPointIdOptions().(*qdrant.PointId_Num); ok {
 			doc.ID = strconv.FormatUint(num.Num, 10)
 		}
 	}
 	if sp != nil && sp.Payload != nil {
-		for k, v := range sp.Payload {
+		for k, v := range sp.GetPayload() {
 			if k == "content" {
 				if v != nil && v.Kind != nil {
-					if s, ok := v.Kind.(*qdrant.Value_StringValue); ok {
+					if s, ok := v.GetKind().(*qdrant.Value_StringValue); ok {
 						doc.Content = s.StringValue
 					}
 				}
@@ -206,7 +201,7 @@ func scoredPointToDocument(sp *qdrant.ScoredPoint) ragy.Document {
 			}
 			if k == ragyIDPayloadKey {
 				if v != nil && v.Kind != nil {
-					if s, ok := v.Kind.(*qdrant.Value_StringValue); ok {
+					if s, ok := v.GetKind().(*qdrant.Value_StringValue); ok {
 						doc.ID = s.StringValue
 					}
 				}
@@ -219,14 +214,14 @@ func scoredPointToDocument(sp *qdrant.ScoredPoint) ragy.Document {
 		}
 	}
 	if sp != nil {
-		doc.Score = sp.Score
-		doc.Confidence = logisticConfidence(float64(sp.Score))
+		doc.Score = sp.GetScore()
+		doc.Confidence = logisticConfidence(float64(sp.GetScore()))
 	}
 	return doc
 }
 
 func logisticConfidence(s float64) float64 {
-	s = math.Min(20, math.Max(-20, s))
+	s = math.Min(logisticClamp, math.Max(-logisticClamp, s))
 	return 1.0 / (1.0 + math.Exp(-s))
 }
 
@@ -234,7 +229,7 @@ func valueToAny(v *qdrant.Value) any {
 	if v == nil || v.Kind == nil {
 		return nil
 	}
-	switch k := v.Kind.(type) {
+	switch k := v.GetKind().(type) {
 	case *qdrant.Value_StringValue:
 		return k.StringValue
 	case *qdrant.Value_IntegerValue:
@@ -244,14 +239,14 @@ func valueToAny(v *qdrant.Value) any {
 	case *qdrant.Value_BoolValue:
 		return k.BoolValue
 	case *qdrant.Value_ListValue:
-		arr := make([]any, len(k.ListValue.Values))
-		for i, e := range k.ListValue.Values {
+		arr := make([]any, len(k.ListValue.GetValues()))
+		for i, e := range k.ListValue.GetValues() {
 			arr[i] = valueToAny(e)
 		}
 		return arr
 	case *qdrant.Value_StructValue:
 		m := make(map[string]any)
-		for key, val := range k.StructValue.Fields {
+		for key, val := range k.StructValue.GetFields() {
 			m[key] = valueToAny(val)
 		}
 		return m
@@ -314,6 +309,7 @@ func buildQdrantFilter(expr filter.Expr) *qdrant.Filter {
 	return buildQdrantFilterRec(expr)
 }
 
+//nolint:gocognit,cyclop,funlen // filter.Expr → Qdrant Filter is a large switch with nested And/Or handling.
 func buildQdrantFilterRec(expr filter.Expr) *qdrant.Filter {
 	switch e := expr.(type) {
 	case filter.Eq:
@@ -330,22 +326,38 @@ func buildQdrantFilterRec(expr filter.Expr) *qdrant.Filter {
 		if !fieldSanitize.MatchString(e.Field) {
 			return nil
 		}
-		return &qdrant.Filter{Must: []*qdrant.Condition{qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: anyToFloat64Ptr(e.Value), Lte: nil, Lt: nil})}}
+		return &qdrant.Filter{
+			Must: []*qdrant.Condition{
+				qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: anyToFloat64Ptr(e.Value), Lte: nil, Lt: nil}),
+			},
+		}
 	case filter.Gte:
 		if !fieldSanitize.MatchString(e.Field) {
 			return nil
 		}
-		return &qdrant.Filter{Must: []*qdrant.Condition{qdrant.NewRange(e.Field, &qdrant.Range{Gte: anyToFloat64Ptr(e.Value), Gt: nil, Lte: nil, Lt: nil})}}
+		return &qdrant.Filter{
+			Must: []*qdrant.Condition{
+				qdrant.NewRange(e.Field, &qdrant.Range{Gte: anyToFloat64Ptr(e.Value), Gt: nil, Lte: nil, Lt: nil}),
+			},
+		}
 	case filter.Lt:
 		if !fieldSanitize.MatchString(e.Field) {
 			return nil
 		}
-		return &qdrant.Filter{Must: []*qdrant.Condition{qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: nil, Lte: nil, Lt: anyToFloat64Ptr(e.Value)})}}
+		return &qdrant.Filter{
+			Must: []*qdrant.Condition{
+				qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: nil, Lte: nil, Lt: anyToFloat64Ptr(e.Value)}),
+			},
+		}
 	case filter.Lte:
 		if !fieldSanitize.MatchString(e.Field) {
 			return nil
 		}
-		return &qdrant.Filter{Must: []*qdrant.Condition{qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: nil, Lte: anyToFloat64Ptr(e.Value), Lt: nil})}}
+		return &qdrant.Filter{
+			Must: []*qdrant.Condition{
+				qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: nil, Lte: anyToFloat64Ptr(e.Value), Lt: nil}),
+			},
+		}
 	case filter.In:
 		if !fieldSanitize.MatchString(e.Field) || len(e.Values) == 0 {
 			return nil
@@ -360,13 +372,13 @@ func buildQdrantFilterRec(expr filter.Expr) *qdrant.Filter {
 		for _, sub := range e.Exprs {
 			subF := buildQdrantFilterRec(sub)
 			if subF != nil {
-				if len(subF.Must) > 0 {
-					must = append(must, subF.Must...)
+				if len(subF.GetMust()) > 0 {
+					must = append(must, subF.GetMust()...)
 				}
-				if len(subF.MustNot) > 0 {
+				if len(subF.GetMustNot()) > 0 {
 					must = append(must, qdrant.NewNestedFilter("", subF))
 				}
-				if len(subF.Should) > 0 {
+				if len(subF.GetShould()) > 0 {
 					must = append(must, qdrant.NewNestedFilter("", subF))
 				}
 			}
@@ -409,9 +421,9 @@ func (s *Store) FetchParents(ctx context.Context, childIDs []string) ([]ragy.Doc
 	}
 	children, err := s.client.Get(ctx, &qdrant.GetPoints{
 		CollectionName: s.collectionName,
-		Ids:              ids,
-		WithPayload:      qdrant.NewWithPayload(true),
-		WithVectors:      qdrant.NewWithVectors(false),
+		Ids:            ids,
+		WithPayload:    qdrant.NewWithPayload(true),
+		WithVectors:    qdrant.NewWithVectors(false),
 	})
 	if err != nil {
 		return nil, err
@@ -443,9 +455,9 @@ func (s *Store) FetchParents(ctx context.Context, childIDs []string) ([]ragy.Doc
 	}
 	parents, err := s.client.Get(ctx, &qdrant.GetPoints{
 		CollectionName: s.collectionName,
-		Ids:              pids,
-		WithPayload:      qdrant.NewWithPayload(true),
-		WithVectors:      qdrant.NewWithVectors(false),
+		Ids:            pids,
+		WithPayload:    qdrant.NewWithPayload(true),
+		WithVectors:    qdrant.NewWithVectors(false),
 	})
 	if err != nil {
 		return nil, err
@@ -457,18 +469,19 @@ func (s *Store) FetchParents(ctx context.Context, childIDs []string) ([]ragy.Doc
 	return out, nil
 }
 
+//nolint:gocognit,nestif // Qdrant RetrievedPoint payload map requires nested value-kind switches.
 func retrievedPointToDocument(p *qdrant.RetrievedPoint) ragy.Document {
 	doc := ragy.Document{}
-	if p != nil && p.Id != nil {
-		if num, ok := p.Id.PointIdOptions.(*qdrant.PointId_Num); ok {
+	if p != nil && p.GetId() != nil {
+		if num, ok := p.GetId().GetPointIdOptions().(*qdrant.PointId_Num); ok {
 			doc.ID = strconv.FormatUint(num.Num, 10)
 		}
 	}
 	if p != nil && p.Payload != nil {
-		for k, v := range p.Payload {
+		for k, v := range p.GetPayload() {
 			if k == "content" {
 				if v != nil && v.Kind != nil {
-					if sv, ok := v.Kind.(*qdrant.Value_StringValue); ok {
+					if sv, ok := v.GetKind().(*qdrant.Value_StringValue); ok {
 						doc.Content = sv.StringValue
 					}
 				}
@@ -476,7 +489,7 @@ func retrievedPointToDocument(p *qdrant.RetrievedPoint) ragy.Document {
 			}
 			if k == ragyIDPayloadKey {
 				if v != nil && v.Kind != nil {
-					if sv, ok := v.Kind.(*qdrant.Value_StringValue); ok {
+					if sv, ok := v.GetKind().(*qdrant.Value_StringValue); ok {
 						doc.ID = sv.StringValue
 					}
 				}
@@ -492,6 +505,6 @@ func retrievedPointToDocument(p *qdrant.RetrievedPoint) ragy.Document {
 }
 
 var (
-	_ ragy.VectorStore         = (*Store)(nil)
+	_ ragy.VectorStore        = (*Store)(nil)
 	_ ragy.HierarchyRetriever = (*Store)(nil)
 )

@@ -11,6 +11,11 @@ import (
 	"github.com/skosovsky/ragy/internal/mathutil"
 )
 
+const (
+	defaultSemanticThreshold    float32 = 0.5
+	defaultSemanticMinChunkSize int     = 100
+)
+
 // SemanticSplitter splits text at sentence boundaries where cosine similarity between
 // consecutive sentences drops below Threshold. Uses DenseEmbedder for embeddings.
 type SemanticSplitter struct {
@@ -40,8 +45,8 @@ func WithMinChunkSize(n int) SemanticOption {
 func NewSemanticSplitter(embedder ragy.DenseEmbedder, opts ...SemanticOption) *SemanticSplitter {
 	s := &SemanticSplitter{
 		Embedder:     embedder,
-		Threshold:    0.5,
-		MinChunkSize: 100,
+		Threshold:    defaultSemanticThreshold,
+		MinChunkSize: defaultSemanticMinChunkSize,
 	}
 	for _, o := range opts {
 		o(s)
@@ -50,6 +55,8 @@ func NewSemanticSplitter(embedder ragy.DenseEmbedder, opts ...SemanticOption) *S
 }
 
 // Split implements Splitter.
+//
+//nolint:gocognit // Sentence embedding, similarity splits, and chunk assembly are sequential by nature.
 func (s *SemanticSplitter) Split(ctx context.Context, doc ragy.Document) iter.Seq2[ragy.Document, error] {
 	return func(yield func(ragy.Document, error) bool) {
 		text := strings.TrimSpace(doc.Content)
@@ -102,7 +109,7 @@ func (s *SemanticSplitter) Split(ctx context.Context, doc ragy.Document) iter.Se
 		}
 		splits = append(splits, len(sentences))
 
-		for i := 0; i < len(splits)-1; i++ {
+		for i := range len(splits) - 1 {
 			if ctx.Err() != nil {
 				_ = yield(ragy.Document{}, ctx.Err())
 				return
@@ -144,7 +151,8 @@ func splitSentences(text string) []string {
 	var buf strings.Builder
 	for i, r := range text {
 		buf.WriteRune(r)
-		if (r == '.' || r == '!' || r == '?') && (i+1 >= len(text) || unicode.IsSpace(rune(text[i+1])) || text[i+1] == '\n') {
+		if (r == '.' || r == '!' || r == '?') &&
+			(i+1 >= len(text) || unicode.IsSpace(rune(text[i+1])) || text[i+1] == '\n') {
 			s := strings.TrimSpace(buf.String())
 			if s != "" {
 				sentences = append(sentences, s)

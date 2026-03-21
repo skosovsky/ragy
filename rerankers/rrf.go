@@ -17,7 +17,7 @@ type RankedListsMerger interface {
 const defaultRRFK = 60
 
 // RRFReranker merges multiple ranked lists using Reciprocal Rank Fusion.
-// score(d) = sum over lists of 1/(K + rank_i(d))
+// score(d) = sum over lists of 1/(K + rank_i(d)).
 type RRFReranker struct {
 	K int
 }

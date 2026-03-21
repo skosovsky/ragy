@@ -4,9 +4,10 @@ import (
 	"context"
 	"iter"
 
-	"github.com/skosovsky/ragy/filter"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/skosovsky/ragy/filter"
 
 	"github.com/skosovsky/ragy"
 )

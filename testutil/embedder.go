@@ -41,13 +41,20 @@ func (m *MockDenseEmbedder) embedOne(text string) []float32 {
 	u := h.Sum32()
 	vec := make([]float32, m.Dimension)
 	for i := range vec {
-		u = u*1103515245 + 12345
-		vec[i] = float32(int32(u%0x10000)) / 0x8000
+		u = u*lcgMultiplier + lcgIncrement
+		vec[i] = float32(int32(u%lcgModulus)) / lcgHalfScale
 	}
 	return vec
 }
 
 var _ ragy.DenseEmbedder = (*MockDenseEmbedder)(nil)
+
+const (
+	lcgMultiplier = 1103515245
+	lcgIncrement  = 12345
+	lcgModulus    = 0x10000
+	lcgHalfScale  = 0x8000
+)
 
 // MockTensorEmbedder returns deterministic per-token tensors (hash-based).
 // Implements ragy.TensorEmbedder for tests. Each text yields a fixed number of token vectors.
@@ -87,8 +94,8 @@ func (m *MockTensorEmbedder) embedOneTensor(text string) [][]float32 {
 	for j := range tensors {
 		vec := make([]float32, m.DimPerToken)
 		for k := range vec {
-			u = u*1103515245 + 12345
-			vec[k] = float32(int32(u%0x10000)) / 0x8000
+			u = u*lcgMultiplier + lcgIncrement
+			vec[k] = float32(int32(u%lcgModulus)) / lcgHalfScale
 		}
 		tensors[j] = vec
 	}

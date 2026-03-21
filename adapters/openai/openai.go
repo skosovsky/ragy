@@ -8,11 +8,15 @@ import (
 	"time"
 
 	openaiapi "github.com/sashabaranov/go-openai"
+
 	"github.com/skosovsky/ragy"
 )
 
 // DefaultBatchSize is the default number of texts sent per API request when batching.
 const DefaultBatchSize = 100
+
+// defaultRequestTimeout is the default per-request timeout when none is set via WithRequestTimeout.
+const defaultRequestTimeout = 30 * time.Second
 
 // Embedder implements ragy.DenseEmbedder using the OpenAI Embeddings API.
 type Embedder struct {
@@ -63,8 +67,9 @@ func NewWithClient(client *openaiapi.Client, opts ...Option) *Embedder {
 	e := &Embedder{
 		client:         client,
 		model:          openaiapi.SmallEmbedding3,
+		dimensions:     0,
 		batchSize:      DefaultBatchSize,
-		requestTimeout: 30 * time.Second,
+		requestTimeout: defaultRequestTimeout,
 	}
 	for _, o := range opts {
 		o(e)
@@ -79,10 +84,7 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	}
 	out := make([][]float32, 0, len(texts))
 	for start := 0; start < len(texts); start += e.batchSize {
-		end := start + e.batchSize
-		if end > len(texts) {
-			end = len(texts)
-		}
+		end := min(start+e.batchSize, len(texts))
 		batch := texts[start:end]
 		vecs, err := e.embedOneBatch(ctx, batch)
 		if err != nil {
@@ -105,10 +107,12 @@ func (e *Embedder) embedOneBatch(ctx context.Context, texts []string) ([][]float
 
 func (e *Embedder) embedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	req := openaiapi.EmbeddingRequestStrings{
-		Input:      texts,
-		Model:      e.model,
-		User:       "",
-		Dimensions: e.dimensions,
+		Input:          texts,
+		Model:          e.model,
+		User:           "",
+		EncodingFormat: "",
+		Dimensions:     e.dimensions,
+		ExtraBody:      nil,
 	}
 	resp, err := e.client.CreateEmbeddings(ctx, req)
 	if err != nil {

@@ -15,9 +15,12 @@ package neo4j
 import (
 	"context"
 	"fmt"
+	"maps"
 	"regexp"
+	"strings"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 )
@@ -25,6 +28,9 @@ import (
 var fieldSanitize = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 const maxDepth = 5
+
+// cypherNodeVar is the MATCH alias for the start node in SearchGraph ("n" in "MATCH (n)-[r*...]").
+const cypherNodeVar = "n"
 
 // Store implements ragy.GraphStore using Neo4j.
 type Store struct {
@@ -40,6 +46,8 @@ func New(driver neo4j.DriverWithContext, _ ...Option) *Store {
 }
 
 // UpsertGraph implements ragy.GraphStore. MERGE nodes by id, then MERGE edges.
+//
+//nolint:gocognit // MERGE loops for nodes and edges; splitting would duplicate transaction setup.
 func (s *Store) UpsertGraph(ctx context.Context, nodes []ragy.Node, edges []ragy.Edge) error {
 	if len(nodes) == 0 && len(edges) == 0 {
 		return nil
@@ -72,26 +80,37 @@ func (s *Store) UpsertGraph(ctx context.Context, nodes []ragy.Node, edges []ragy
 				props = make(map[string]any)
 			}
 			query := fmt.Sprintf("MERGE (a {id: $sid}) MERGE (b {id: $tid}) MERGE (a)-[r:%s]->(b) SET r += $props", rel)
-			if _, err := tx.Run(ctx, query, map[string]any{"sid": e.SourceID, "tid": e.TargetID, "props": props}); err != nil {
+			if _, err := tx.Run(
+				ctx,
+				query,
+				map[string]any{"sid": e.SourceID, "tid": e.TargetID, "props": props},
+			); err != nil {
 				return nil, err
 			}
 		}
-		return nil, nil
+		return nil, nil //nolint:nilnil // Neo4j ManagedTransaction success: nil result, nil error.
 	})
 	return err
 }
 
 // SearchGraph implements ragy.GraphStore. MATCH (n)-[r*1..depth]-(m) WHERE n.id IN $entities, optional filter.
-func (s *Store) SearchGraph(ctx context.Context, entities []string, depth int, req ragy.SearchRequest) ([]ragy.Node, []ragy.Edge, error) {
+//
+//nolint:gocognit // Path scan, node dedup, and edge assembly are clearer as one loop.
+func (s *Store) SearchGraph(
+	ctx context.Context,
+	entities []string,
+	depth int,
+	req ragy.SearchRequest,
+) ([]ragy.Node, []ragy.Edge, error) {
 	if len(entities) == 0 {
-		return nil, nil, nil
+		return []ragy.Node{}, []ragy.Edge{}, nil
 	}
 	if depth <= 0 || depth > maxDepth {
 		depth = maxDepth
 	}
 	sess := s.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
 	defer func() { _ = sess.Close(ctx) }()
-	whereFilter, params := buildCypherWhere(req.Filter, "n", 1)
+	whereFilter, params := buildCypherWhere(req.Filter)
 	params["entities"] = entities
 	query := fmt.Sprintf("MATCH (n)-[r*1..%d]-(m) WHERE n.id IN $entities", depth)
 	if whereFilter != "" {
@@ -126,26 +145,9 @@ func (s *Store) SearchGraph(ctx context.Context, entities []string, depth int, r
 				}
 			}
 		}
-		startID, _ := recordString(rec, "start_id")
-		endID, _ := recordString(rec, "end_id")
-		if v, ok := rec.Get("r"); ok {
-			if segs, ok := v.([]any); ok {
-				for _, seg := range segs {
-					if rel, ok := seg.(neo4j.Relationship); ok {
-						if _, seen := seenEdges[rel.ElementId]; seen {
-							continue
-						}
-						seenEdges[rel.ElementId] = struct{}{}
-						edge := neo4jRelToRagy(rel)
-						if len(segs) == 1 && startID != "" && endID != "" {
-							edge.SourceID = startID
-							edge.TargetID = endID
-						}
-						edges = append(edges, edge)
-					}
-				}
-			}
-		}
+		startID := recordString(rec, "start_id")
+		endID := recordString(rec, "end_id")
+		edges = appendEdgesFromRecord(rec, seenEdges, edges, startID, endID)
 	}
 	if err := result.Err(); err != nil {
 		return nil, nil, err
@@ -175,9 +177,7 @@ func copyProps(m map[string]any) map[string]any {
 
 func neo4jNodeToRagy(n neo4j.Node) ragy.Node {
 	props := make(map[string]any)
-	for k, v := range n.Props {
-		props[k] = v
-	}
+	maps.Copy(props, n.Props)
 	id, _ := props["id"].(string)
 	if id == "" {
 		id = n.ElementId
@@ -189,36 +189,69 @@ func neo4jNodeToRagy(n neo4j.Node) ragy.Node {
 	return ragy.Node{ID: id, Label: label, Properties: props}
 }
 
-func recordString(rec *neo4j.Record, key string) (string, bool) {
+func recordString(rec *neo4j.Record, key string) string {
 	v, ok := rec.Get(key)
 	if !ok || v == nil {
-		return "", false
+		return ""
 	}
 	if s, ok := v.(string); ok {
-		return s, true
+		return s
 	}
-	return "", false
+	return ""
+}
+
+func appendEdgesFromRecord(
+	rec *neo4j.Record,
+	seenEdges map[string]struct{},
+	edges []ragy.Edge,
+	startID, endID string,
+) []ragy.Edge {
+	v, ok := rec.Get("r")
+	if !ok {
+		return edges
+	}
+	segs, ok := v.([]any)
+	if !ok {
+		return edges
+	}
+	for _, seg := range segs {
+		rel, ok := seg.(neo4j.Relationship)
+		if !ok {
+			continue
+		}
+		if _, seen := seenEdges[rel.ElementId]; seen {
+			continue
+		}
+		seenEdges[rel.ElementId] = struct{}{}
+		edge := neo4jRelToRagy(rel)
+		if len(segs) == 1 && startID != "" && endID != "" {
+			edge.SourceID = startID
+			edge.TargetID = endID
+		}
+		edges = append(edges, edge)
+	}
+	return edges
 }
 
 func neo4jRelToRagy(r neo4j.Relationship) ragy.Edge {
 	props := make(map[string]any)
-	for k, v := range r.Props {
-		props[k] = v
-	}
+	maps.Copy(props, r.Props)
 	return ragy.Edge{SourceID: r.StartElementId, TargetID: r.EndElementId, Relation: r.Type, Properties: props}
 }
 
 // buildCypherWhere returns WHERE clause fragment and params. Keys are sanitized and concatenated; values are params.
-func buildCypherWhere(expr filter.Expr, nodeVar string, paramStart int) (clause string, params map[string]any) {
-	params = make(map[string]any)
+func buildCypherWhere(expr filter.Expr) (string, map[string]any) {
+	params := make(map[string]any)
 	if expr == nil {
 		return "", params
 	}
-	clause, _ = buildCypherWhereRec(expr, nodeVar, paramStart, params)
+	const paramStart = 1
+	clause, _ := buildCypherWhereRec(expr, paramStart, params)
 	return clause, params
 }
 
-func buildCypherWhereRec(expr filter.Expr, nodeVar string, paramIdx int, params map[string]any) (string, int) {
+//nolint:gocognit,funlen // Recursive filter.Expr → Cypher mapping is naturally branchy and statement-heavy.
+func buildCypherWhereRec(expr filter.Expr, paramIdx int, params map[string]any) (string, int) {
 	switch e := expr.(type) {
 	case filter.Eq:
 		if !fieldSanitize.MatchString(e.Field) {
@@ -226,21 +259,21 @@ func buildCypherWhereRec(expr filter.Expr, nodeVar string, paramIdx int, params 
 		}
 		key := fmt.Sprintf("p%d", paramIdx)
 		params[key] = e.Value
-		return fmt.Sprintf("%s.%s = $%s", nodeVar, e.Field, key), paramIdx + 1
+		return fmt.Sprintf("%s.%s = $%s", cypherNodeVar, e.Field, key), paramIdx + 1
 	case filter.Neq:
 		if !fieldSanitize.MatchString(e.Field) {
 			return "", paramIdx
 		}
 		key := fmt.Sprintf("p%d", paramIdx)
 		params[key] = e.Value
-		return fmt.Sprintf("%s.%s <> $%s", nodeVar, e.Field, key), paramIdx + 1
+		return fmt.Sprintf("%s.%s <> $%s", cypherNodeVar, e.Field, key), paramIdx + 1
 	case filter.In:
 		if !fieldSanitize.MatchString(e.Field) || len(e.Values) == 0 {
 			return "", paramIdx
 		}
 		key := fmt.Sprintf("p%d", paramIdx)
 		params[key] = e.Values
-		return fmt.Sprintf("%s.%s IN $%s", nodeVar, e.Field, key), paramIdx + 1
+		return fmt.Sprintf("%s.%s IN $%s", cypherNodeVar, e.Field, key), paramIdx + 1
 	case filter.Gt, filter.Gte, filter.Lt, filter.Lte:
 		field, val, op := "", any(nil), ""
 		switch x := expr.(type) {
@@ -258,11 +291,11 @@ func buildCypherWhereRec(expr filter.Expr, nodeVar string, paramIdx int, params 
 		}
 		key := fmt.Sprintf("p%d", paramIdx)
 		params[key] = val
-		return fmt.Sprintf("%s.%s %s $%s", nodeVar, field, op, key), paramIdx + 1
+		return fmt.Sprintf("%s.%s %s $%s", cypherNodeVar, field, op, key), paramIdx + 1
 	case filter.And:
 		var parts []string
 		for _, sub := range e.Exprs {
-			part, next := buildCypherWhereRec(sub, nodeVar, paramIdx, params)
+			part, next := buildCypherWhereRec(sub, paramIdx, params)
 			paramIdx = next
 			if part != "" {
 				parts = append(parts, part)
@@ -275,7 +308,7 @@ func buildCypherWhereRec(expr filter.Expr, nodeVar string, paramIdx int, params 
 	case filter.Or:
 		var parts []string
 		for _, sub := range e.Exprs {
-			part, next := buildCypherWhereRec(sub, nodeVar, paramIdx, params)
+			part, next := buildCypherWhereRec(sub, paramIdx, params)
 			paramIdx = next
 			if part != "" {
 				parts = append(parts, part)
@@ -286,7 +319,7 @@ func buildCypherWhereRec(expr filter.Expr, nodeVar string, paramIdx int, params 
 		}
 		return "(" + joinCypher(parts, " OR ") + ")", paramIdx
 	case filter.Not:
-		part, next := buildCypherWhereRec(e.Expr, nodeVar, paramIdx, params)
+		part, next := buildCypherWhereRec(e.Expr, paramIdx, params)
 		if part == "" {
 			return "", paramIdx
 		}
@@ -300,11 +333,12 @@ func joinCypher(parts []string, sep string) string {
 	if len(parts) == 0 {
 		return ""
 	}
-	s := parts[0]
+	var s strings.Builder
+	s.WriteString(parts[0])
 	for i := 1; i < len(parts); i++ {
-		s += sep + parts[i]
+		s.WriteString(sep + parts[i])
 	}
-	return s
+	return s.String()
 }
 
 var _ ragy.GraphStore = (*Store)(nil)

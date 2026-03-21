@@ -9,8 +9,16 @@ import (
 	"github.com/skosovsky/ragy"
 )
 
-// DefaultRecursiveSeparators is the default list of separators (largest to smallest).
-var DefaultRecursiveSeparators = []string{"\n\n", "\n", ". ", " "}
+const (
+	defaultRecursiveChunkSize    = 1000
+	defaultRecursiveChunkOverlap = 200
+)
+
+// DefaultRecursiveSeparators returns a fresh copy of the default separator list (largest to smallest).
+// Each call allocates an independent slice so callers cannot mutate shared package state.
+func DefaultRecursiveSeparators() []string {
+	return []string{"\n\n", "\n", ". ", " "}
+}
 
 // RecursiveSplitter splits text recursively by a list of separators, respecting ChunkSize and ChunkOverlap.
 type RecursiveSplitter struct {
@@ -46,9 +54,9 @@ func WithSeparators(sep []string) RecursiveOption {
 // NewRecursiveSplitter returns a RecursiveSplitter with the given options.
 func NewRecursiveSplitter(opts ...RecursiveOption) *RecursiveSplitter {
 	r := &RecursiveSplitter{
-		ChunkSize:    1000,
-		ChunkOverlap: 200,
-		Separators:   append([]string(nil), DefaultRecursiveSeparators...),
+		ChunkSize:    defaultRecursiveChunkSize,
+		ChunkOverlap: defaultRecursiveChunkOverlap,
+		Separators:   DefaultRecursiveSeparators(),
 	}
 	for _, o := range opts {
 		o(r)
@@ -102,6 +110,7 @@ func itoa(i int) string {
 	return string(b[pos:])
 }
 
+//nolint:gocognit // Recursive text splitting with separator fallback is inherently branchy.
 func (r *RecursiveSplitter) splitRecursive(text string, separators []string) []string {
 	if r.ChunkSize <= 0 || len(text) <= r.ChunkSize {
 		if text != "" {

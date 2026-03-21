@@ -3,9 +3,10 @@ package mathutil
 import (
 	"testing"
 
-	"github.com/skosovsky/ragy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/skosovsky/ragy"
 )
 
 func TestCosineSimilarity(t *testing.T) {

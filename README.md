@@ -156,7 +156,7 @@ ragy is designed to work with:
 ## Migration (clean break)
 
 - **Retriever** returns `([]Document, error)` from `Retrieve`; use `Stream` for lazy iteration. `RetrievalResult` / `EvalData` removed — use `Document.Confidence` and metadata instead.
-- **SelfQueryRetriever** no longer calls `QueryParser`: set `SearchRequest.ParsedQuery` in the application.
+- **SelfQueryRetriever** requires `SearchRequest.ParsedQuery` from your application (natural-language → AST filter happens outside `ragy`; there is no `QueryParser` type in the core package).
 - **GraphRetriever** requires `SearchRequest.GraphSeedEntityIDs` (no in-core LLM entity extraction).
 - **GraphExtractor** (`splitters`) takes `ragy.ChunkGraphProvider(ctx, chunk Document) ([]Node, []Edge, error)` plus a `GraphStore`. The core does **not** run text-based entity extraction during split; supply prepared nodes/edges from your pipeline (e.g. via `chunk.Metadata`). If `Provider` is `nil`, chunks pass through with no graph writes. `EntityExtractor` remains a legacy app-side type for wrapping older code.
 - **Embedding adapters** (including **Jina**): single HTTP attempt per batch — no built-in retry/backoff; implement retries in orchestration if needed.

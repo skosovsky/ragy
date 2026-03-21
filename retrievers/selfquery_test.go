@@ -5,11 +5,12 @@ import (
 	"iter"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/testutil"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSelfQueryRetriever_Retrieve(t *testing.T) {

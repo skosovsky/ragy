@@ -8,13 +8,15 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/skosovsky/ragy"
 	"golang.org/x/time/rate"
+
+	"github.com/skosovsky/ragy"
 )
 
 // DefaultBatchSize is the default number of texts per API request.
@@ -22,6 +24,9 @@ const DefaultBatchSize = 100
 
 // DefaultBatchesPerMinute limits RPM to smooth traffic (optional).
 const DefaultBatchesPerMinute = 30
+
+// defaultRequestTimeout is the per-request HTTP timeout when not overridden.
+const defaultRequestTimeout = 30 * time.Second
 
 // Embedder implements ragy.DenseEmbedder using the Gemini Embedding API.
 type Embedder struct {
@@ -82,9 +87,10 @@ func New(apiKey string, opts ...Option) *Embedder {
 		baseURL:        "https://generativelanguage.googleapis.com",
 		apiKey:         apiKey,
 		model:          "text-embedding-004",
+		taskType:       "",
 		batchSize:      DefaultBatchSize,
 		limiter:        rate.NewLimiter(rate.Every(time.Minute/time.Duration(DefaultBatchesPerMinute)), 1),
-		requestTimeout: 30 * time.Second,
+		requestTimeout: defaultRequestTimeout,
 	}
 	for _, o := range opts {
 		o(e)
@@ -99,10 +105,7 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	}
 	out := make([][]float32, 0, len(texts))
 	for start := 0; start < len(texts); start += e.batchSize {
-		end := start + e.batchSize
-		if end > len(texts) {
-			end = len(texts)
-		}
+		end := min(start+e.batchSize, len(texts))
 		batch := texts[start:end]
 		vecs, err := e.embedBatchWithOptionalTimeout(ctx, batch)
 		if err != nil {
@@ -143,7 +146,11 @@ func (e *Embedder) EmbedMultimodal(ctx context.Context, texts []string, media []
 	return out, nil
 }
 
-func (e *Embedder) embedOneMultimodalWithOptionalTimeout(ctx context.Context, text string, media []ragy.Media) ([]float32, error) {
+func (e *Embedder) embedOneMultimodalWithOptionalTimeout(
+	ctx context.Context,
+	text string,
+	media []ragy.Media,
+) ([]float32, error) {
 	reqCtx := ctx
 	if e.requestTimeout > 0 {
 		var cancel context.CancelFunc
@@ -174,7 +181,7 @@ func (e *Embedder) embedOneMultimodal(ctx context.Context, text string, media []
 		})
 	}
 	if len(parts) == 0 {
-		return nil, fmt.Errorf("gemini: at least one of text or media must be non-empty")
+		return nil, errors.New("gemini: at least one of text or media must be non-empty")
 	}
 	body := map[string]any{
 		"content": map[string]any{"parts": parts},
@@ -192,7 +199,7 @@ func (e *Embedder) embedOneMultimodal(ctx context.Context, text string, media []
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	//nolint:gosec // G704: URL is from config/constant, not user input
+
 	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -200,7 +207,7 @@ func (e *Embedder) embedOneMultimodal(ctx context.Context, text string, media []
 	defer func() { _ = resp.Body.Close() }()
 	slurp, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, &errWithStatus{status: resp.StatusCode, err: fmt.Errorf("gemini api: %s", string(slurp))}
+		return nil, &apiStatusError{status: resp.StatusCode, err: fmt.Errorf("gemini api: %s", string(slurp))}
 	}
 	var parsed embedResponse
 	if err := json.Unmarshal(slurp, &parsed); err != nil {
@@ -209,14 +216,14 @@ func (e *Embedder) embedOneMultimodal(ctx context.Context, text string, media []
 	return parsed.Embedding.Values, nil
 }
 
-// errWithStatus carries HTTP status from the Gemini API.
-type errWithStatus struct {
+// apiStatusError carries HTTP status from the Gemini API.
+type apiStatusError struct {
 	status int
 	err    error
 }
 
-func (e *errWithStatus) Error() string { return e.err.Error() }
-func (e *errWithStatus) Unwrap() error { return e.err }
+func (e *apiStatusError) Error() string { return e.err.Error() }
+func (e *apiStatusError) Unwrap() error { return e.err }
 
 // embedResponse matches Gemini embedContent response shape.
 type embedResponse struct {
@@ -247,7 +254,7 @@ func (e *Embedder) embedBatch(ctx context.Context, texts []string) ([][]float32,
 			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		//nolint:gosec // G704: URL is from config/constant, not user input
+
 		resp, err := e.client.Do(req)
 		if err != nil {
 			return nil, err
@@ -255,7 +262,7 @@ func (e *Embedder) embedBatch(ctx context.Context, texts []string) ([][]float32,
 		slurp, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return nil, &errWithStatus{status: resp.StatusCode, err: fmt.Errorf("gemini api: %s", string(slurp))}
+			return nil, &apiStatusError{status: resp.StatusCode, err: fmt.Errorf("gemini api: %s", string(slurp))}
 		}
 		var parsed embedResponse
 		if err := json.Unmarshal(slurp, &parsed); err != nil {

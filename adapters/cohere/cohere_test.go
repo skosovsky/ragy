@@ -4,24 +4,27 @@ import (
 	"context"
 	"testing"
 
-	"github.com/skosovsky/ragy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/skosovsky/ragy"
 )
 
 func TestCohereRelevanceToDocScores(t *testing.T) {
+	const eps = 1e-9
+
 	s, c := cohereRelevanceToDocScores(0.5)
-	assert.Equal(t, float32(0.5), s)
-	assert.Equal(t, 0.5, c)
+	assert.InDelta(t, float32(0.5), s, 1e-6)
+	assert.InDelta(t, 0.5, c, eps)
 	s, c = cohereRelevanceToDocScores(1.0)
-	assert.Equal(t, float32(1), s)
-	assert.Equal(t, 1.0, c)
+	assert.InDelta(t, float32(1), s, 1e-6)
+	assert.InDelta(t, 1.0, c, eps)
 	s, c = cohereRelevanceToDocScores(-0.1)
-	assert.Equal(t, float32(0), s)
-	assert.Equal(t, 0.0, c)
+	assert.InDelta(t, float32(0), s, 1e-6)
+	assert.InDelta(t, 0.0, c, eps)
 	s, c = cohereRelevanceToDocScores(1.5)
-	assert.Equal(t, float32(1), s)
-	assert.Equal(t, 1.0, c)
+	assert.InDelta(t, float32(1), s, 1e-6)
+	assert.InDelta(t, 1.0, c, eps)
 }
 
 func TestRerank_EmptyDocs(t *testing.T) {

@@ -22,13 +22,14 @@ func NewSQLFilterVisitor(metaCol sanitizedIdent) *SQLFilterVisitor {
 }
 
 // ToSQL returns a WHERE fragment (without leading WHERE) and positional args starting at startArg ($startArg, ...).
-func (v *SQLFilterVisitor) ToSQL(expr filter.Expr, startArg int) (sql string, args []any, err error) {
+func (v *SQLFilterVisitor) ToSQL(expr filter.Expr, startArg int) (string, []any, error) {
 	if expr == nil {
 		return "", nil, nil
 	}
 	return v.walk(expr, startArg)
 }
 
+//nolint:gocognit,funlen // filter.Expr recursive translation is inherently branchy.
 func (v *SQLFilterVisitor) walk(expr filter.Expr, startArg int) (string, []any, error) {
 	switch e := expr.(type) {
 	case filter.Eq:
@@ -151,9 +152,10 @@ func joinParts(parts []string, sep string) string {
 	if len(parts) == 0 {
 		return ""
 	}
-	s := parts[0]
+	var s strings.Builder
+	s.WriteString(parts[0])
 	for i := 1; i < len(parts); i++ {
-		s += sep + parts[i]
+		s.WriteString(sep + parts[i])
 	}
-	return s
+	return s.String()
 }

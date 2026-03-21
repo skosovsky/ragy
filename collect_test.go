@@ -45,5 +45,5 @@ func TestCollect_StopsOnError(t *testing.T) {
 	require.Len(t, docs, 1)
 }
 
-// Ensure iter.Seq2 type works (compile-time check).
+// Ensure [iter.Seq2] type works (compile-time check).
 var _ iter.Seq2[Document, error] = (func(func(Document, error) bool))(nil)

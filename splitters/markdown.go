@@ -97,10 +97,11 @@ func (m *MarkdownSplitter) restoreFenced(s string, placeholders []string) string
 	return pat.ReplaceAllStringFunc(s, func(match string) string {
 		// match is "__FENCED_0__" or "__FENCED_12__"
 		inner := strings.TrimSuffix(strings.TrimPrefix(match, "__FENCED_"), "__")
+		const decimalBase = 10
 		i := 0
 		for _, c := range inner {
 			if c >= '0' && c <= '9' {
-				i = i*10 + int(c-'0')
+				i = i*decimalBase + int(c-'0')
 			}
 		}
 		if i < len(placeholders) {

@@ -29,6 +29,7 @@ package pgvector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"iter"
 	"regexp"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	pgvec "github.com/pgvector/pgvector-go"
+
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 )
@@ -46,6 +48,15 @@ const DefaultUpsertBatchSize = 500
 
 // DefaultRRFConstant is the default RRF rank constant k in 1/(k+rank).
 const DefaultRRFConstant = 60
+
+// Cosine distance for normalized embeddings is in [0, 2]; we map to confidence via /cosineDistanceRange.
+const cosineDistanceRange = 2.0
+
+// hybridFilterArgStart is the first $-index for filter placeholders in hybrid search ($1–$3 are vec, lang, fts).
+const hybridFilterArgStart = 4
+
+// hybridFixedArgCount is the number of query args before filter args (embedding vector, regconfig, FTS string).
+const hybridFixedArgCount = 3
 
 // Store implements ragy.VectorStore using pgxpool and pgvector.
 type Store struct {
@@ -59,7 +70,7 @@ type Store struct {
 	hybrid     bool
 	ftsCol     sanitizedIdent
 	lang       string
-	rrfK int
+	rrfK       int
 
 	// upsertUnnestSQL is a single INSERT ... SELECT FROM unnest(...) ON CONFLICT ... built once in New.
 	upsertUnnestSQL string
@@ -168,7 +179,7 @@ func WithLanguage(lang string) Option {
 func WithRRFConstant(k int) Option {
 	return func(s *Store) error {
 		if k <= 0 {
-			return fmt.Errorf("pgvector: RRF constant must be positive")
+			return errors.New("pgvector: RRF constant must be positive")
 		}
 		s.rrfK = k
 		return nil
@@ -178,10 +189,10 @@ func WithRRFConstant(k int) Option {
 // New returns a new pgvector Store. The pool must have pgvector types registered (e.g. pgxvec.RegisterTypes in AfterConnect).
 func New(pool *pgxpool.Pool, opts ...Option) (*Store, error) {
 	s := &Store{
-		pool:       pool,
-		batchSize:  DefaultUpsertBatchSize,
-		lang:       "english",
-		rrfK:       DefaultRRFConstant,
+		pool:      pool,
+		batchSize: DefaultUpsertBatchSize,
+		lang:      "english",
+		rrfK:      DefaultRRFConstant,
 	}
 	var err error
 	s.table, err = sanitizeIdent("knowledge_base")
@@ -230,7 +241,9 @@ func (s *Store) buildUpsertUnnestSQL() string {
 	b.WriteString(string(s.embedCol))
 	b.WriteString(", ")
 	b.WriteString(string(s.metaCol))
-	b.WriteString(") SELECT u.id, u.content, u.embedding, u.metadata FROM unnest($1::text[], $2::text[], $3::vector[], $4::jsonb[]) AS u(id, content, embedding, metadata) ON CONFLICT (")
+	b.WriteString(
+		") SELECT u.id, u.content, u.embedding, u.metadata FROM unnest($1::text[], $2::text[], $3::vector[], $4::jsonb[]) AS u(id, content, embedding, metadata) ON CONFLICT (",
+	)
 	b.WriteString(string(s.idCol))
 	b.WriteString(") DO UPDATE SET ")
 	b.WriteString(string(s.contentCol))
@@ -262,10 +275,7 @@ func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Docu
 	if limit <= 0 {
 		limit = 10
 	}
-	offset := req.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(req.Offset, 0)
 
 	if s.hybrid && req.Query != "" {
 		return s.searchHybrid(ctx, vec, req.Query, limit, offset, req.Filter)
@@ -273,7 +283,13 @@ func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Docu
 	return s.searchVectorOnly(ctx, vec, limit, offset, req.Filter)
 }
 
-func (s *Store) searchVectorOnly(ctx context.Context, vec pgvec.Vector, limit, offset int, f filter.Expr) ([]ragy.Document, error) {
+//nolint:funlen // Single SQL build + scan loop; splitting would obscure arg indexing.
+func (s *Store) searchVectorOnly(
+	ctx context.Context,
+	vec pgvec.Vector,
+	limit, offset int,
+	f filter.Expr,
+) ([]ragy.Document, error) {
 	v := NewSQLFilterVisitor(s.metaCol)
 	whereSQL, whereArgs, err := v.ToSQL(f, 2)
 	if err != nil {
@@ -326,7 +342,7 @@ func (s *Store) searchVectorOnly(ctx context.Context, vec pgvec.Vector, limit, o
 				return nil, err
 			}
 		}
-		conf := 1.0 - distance/2.0
+		conf := 1.0 - distance/cosineDistanceRange
 		if conf < 0 {
 			conf = 0
 		}
@@ -345,7 +361,7 @@ func hybridRRFConfidence(score float64, rrfK int) float64 {
 	if rrfK <= 0 {
 		rrfK = DefaultRRFConstant
 	}
-	maxScore := 2.0 / float64(rrfK+1)
+	maxScore := cosineDistanceRange / float64(rrfK+1)
 	if maxScore <= 0 {
 		return 0
 	}
@@ -359,9 +375,16 @@ func hybridRRFConfidence(score float64, rrfK int) float64 {
 	return c
 }
 
-func (s *Store) searchHybrid(ctx context.Context, vec pgvec.Vector, ftsQuery string, limit, offset int, f filter.Expr) ([]ragy.Document, error) {
+//nolint:funlen // Hybrid CTE + RRF SQL; length is inherent to the query shape.
+func (s *Store) searchHybrid(
+	ctx context.Context,
+	vec pgvec.Vector,
+	ftsQuery string,
+	limit, offset int,
+	f filter.Expr,
+) ([]ragy.Document, error) {
 	v := NewSQLFilterVisitor(s.metaCol)
-	whereSQL, whereArgs, err := v.ToSQL(f, 4)
+	whereSQL, whereArgs, err := v.ToSQL(f, hybridFilterArgStart)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +445,7 @@ func (s *Store) searchHybrid(ctx context.Context, vec pgvec.Vector, ftsQuery str
 	b.WriteString(string(s.idCol))
 	b.WriteString(" ORDER BY score DESC NULLS LAST LIMIT $")
 	// $1 vec $2 lang $3 fts — then filter uses $4+; after filter come limit/offset
-	nAfter := 3 + len(whereArgs)
+	nAfter := hybridFixedArgCount + len(whereArgs)
 	b.WriteString(strconv.Itoa(nAfter + 1))
 	b.WriteString(" OFFSET $")
 	b.WriteString(strconv.Itoa(nAfter + 2))
@@ -469,10 +492,7 @@ func (s *Store) Upsert(ctx context.Context, docs []ragy.Document) error {
 		return nil
 	}
 	for i := 0; i < len(docs); i += s.batchSize {
-		end := i + s.batchSize
-		if end > len(docs) {
-			end = len(docs)
-		}
+		end := min(i+s.batchSize, len(docs))
 		batch := docs[i:end]
 		if err := s.upsertBatch(ctx, batch); err != nil {
 			return err
@@ -512,6 +532,8 @@ func (s *Store) upsertBatch(ctx context.Context, docs []ragy.Document) error {
 }
 
 // FetchParents implements ragy.HierarchyRetriever. Loads child rows by id, reads metadata[ragy.ParentDocumentIDKey], then loads parent rows by those IDs.
+//
+//nolint:gocognit,funlen // Two-phase query + parent ID collection and second fetch; linear flow.
 func (s *Store) FetchParents(ctx context.Context, childIDs []string) ([]ragy.Document, error) {
 	if len(childIDs) == 0 {
 		return nil, nil
@@ -537,19 +559,19 @@ func (s *Store) FetchParents(ctx context.Context, childIDs []string) ([]ragy.Doc
 	for rows.Next() {
 		var id, content string
 		var metaJSON []byte
-		if err := rows.Scan(&id, &content, &metaJSON); err != nil {
-			return nil, err
+		if scanErr := rows.Scan(&id, &content, &metaJSON); scanErr != nil {
+			return nil, scanErr
 		}
 		meta := make(map[string]any)
 		if len(metaJSON) > 0 {
-			if err := json.Unmarshal(metaJSON, &meta); err != nil {
-				return nil, err
+			if unmarshalErr := json.Unmarshal(metaJSON, &meta); unmarshalErr != nil {
+				return nil, unmarshalErr
 			}
 		}
 		children = append(children, ragy.Document{ID: id, Content: content, Metadata: meta})
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, rowsErr
 	}
 	parentSeen := make(map[string]struct{})
 	var parentIDs []string
@@ -626,6 +648,6 @@ func (s *Store) DeleteByFilter(ctx context.Context, f filter.Expr) error {
 }
 
 var (
-	_ ragy.VectorStore         = (*Store)(nil)
+	_ ragy.VectorStore        = (*Store)(nil)
 	_ ragy.HierarchyRetriever = (*Store)(nil)
 )

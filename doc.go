@@ -4,11 +4,11 @@
 //   - No LLM dependency: logic that needs LLM (e.g. query rewriting, entity extraction for GraphRAG)
 //     is injected via interfaces/callbacks on the application side.
 //   - Observability: use module github.com/skosovsky/ragy/adapters/observability/otel to wrap Retriever/VectorStore with OpenTelemetry (not in core).
-//   - Streaming: Retriever and VectorStore expose Stream(ctx, req) iter.Seq2[Document, error] for TTFT-friendly consumption.
+//   - Streaming: Retriever and VectorStore expose Stream(ctx, req) [iter.Seq2][Document, error] for TTFT-friendly consumption.
 //
 // Core types (Document, Node, Edge, SearchRequest, ParsedQuery) and interfaces
 // (DenseEmbedder, TensorEmbedder, VectorStore, GraphStore, Retriever, Reranker, QueryTransformer,
-// QueryParser, Contextualizer, HierarchyRetriever, ChunkGraphProvider) are in this package. Implementations live in sub-packages:
+// Contextualizer, HierarchyRetriever, ChunkGraphProvider) are in this package. Implementations live in sub-packages:
 //
 //   - filter: AST-based type-safe filters (Eq, Neq, And, Or, Not, etc.)
 //   - splitters: ingestion pipeline (RecursiveSplitter, MarkdownSplitter, SemanticSplitter, GraphExtractor, ContextualSplitter)

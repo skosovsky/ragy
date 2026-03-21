@@ -5,10 +5,11 @@ import (
 	"iter"
 	"testing"
 
-	"github.com/skosovsky/ragy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/skosovsky/ragy"
 )
 
 type stubRetriever struct{}

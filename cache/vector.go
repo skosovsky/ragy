@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/skosovsky/ragy"
@@ -31,10 +32,10 @@ func (c *VectorCache) Get(ctx context.Context, query string, threshold float64) 
 		return "", false, fmt.Errorf("ragy/cache: embed query: %w", err)
 	}
 	if len(vecs) == 0 {
-		return "", false, fmt.Errorf("ragy/cache: no embedding returned")
+		return "", false, errors.New("ragy/cache: no embedding returned")
 	}
 	if len(vecs[0]) == 0 {
-		return "", false, fmt.Errorf("ragy/cache: empty embedding vector")
+		return "", false, errors.New("ragy/cache: empty embedding vector")
 	}
 
 	req := ragy.SearchRequest{
@@ -65,10 +66,10 @@ func (c *VectorCache) Set(ctx context.Context, query string, response string) er
 		return fmt.Errorf("ragy/cache: embed query: %w", err)
 	}
 	if len(vecs) == 0 {
-		return fmt.Errorf("ragy/cache: no embedding returned")
+		return errors.New("ragy/cache: no embedding returned")
 	}
 	if len(vecs[0]) == 0 {
-		return fmt.Errorf("ragy/cache: empty embedding vector")
+		return errors.New("ragy/cache: empty embedding vector")
 	}
 
 	hash := sha256.Sum256([]byte(query))

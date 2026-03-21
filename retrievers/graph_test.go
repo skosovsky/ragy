@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGraphRetriever_Retrieve(t *testing.T) {

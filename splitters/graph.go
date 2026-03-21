@@ -4,10 +4,13 @@ package splitters
 import (
 	"context"
 	"iter"
+	"reflect"
 	"sync"
 
 	"github.com/skosovsky/ragy"
 )
+
+const defaultGraphConcurrency = 5
 
 // GraphExtractor is a middleware Splitter that runs an inner Splitter, then for each chunk
 // optionally calls ChunkGraphProvider with the full chunk (e.g. metadata prepared upstream) and upserts into GraphStore.
@@ -15,7 +18,7 @@ import (
 // Uses a worker pool and a slice of channels (Future/Promise) to preserve chunk order when yielding.
 type GraphExtractor struct {
 	Inner       Splitter
-	Graph       ragy.GraphStore
+	Graph       ragy.GraphStore         // required when Provider is non-nil; otherwise Split returns ragy.ErrMissingGraphStore
 	Provider    ragy.ChunkGraphProvider // optional; if nil, only yields inner chunks without graph writes
 	Concurrency int
 }
@@ -31,12 +34,17 @@ func WithConcurrency(n int) GraphExtractorOption {
 }
 
 // NewGraphExtractor returns a GraphExtractor that wraps inner and writes to graph when Provider is set.
-func NewGraphExtractor(inner Splitter, graph ragy.GraphStore, provider ragy.ChunkGraphProvider, opts ...GraphExtractorOption) *GraphExtractor {
+func NewGraphExtractor(
+	inner Splitter,
+	graph ragy.GraphStore,
+	provider ragy.ChunkGraphProvider,
+	opts ...GraphExtractorOption,
+) *GraphExtractor {
 	ge := &GraphExtractor{
 		Inner:       inner,
 		Graph:       graph,
 		Provider:    provider,
-		Concurrency: 5,
+		Concurrency: defaultGraphConcurrency,
 	}
 	for _, o := range opts {
 		o(ge)
@@ -45,6 +53,8 @@ func NewGraphExtractor(inner Splitter, graph ragy.GraphStore, provider ragy.Chun
 }
 
 // Split implements Splitter. Order of yielded chunks is preserved via per-index result channels.
+//
+//nolint:gocognit,funlen // Worker pool + per-index channels; long but linear coordination.
 func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2[ragy.Document, error] {
 	return func(yield func(ragy.Document, error) bool) {
 		// Collect all chunks from inner splitter so we have a fixed order and count.
@@ -69,7 +79,12 @@ func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2
 			return
 		}
 
-		ctx, cancel := context.WithCancel(ctx)
+		if isNilGraphStore(g.Graph) {
+			_ = yield(ragy.Document{}, ragy.ErrMissingGraphStore)
+			return
+		}
+
+		runCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
 		n := len(chunks)
@@ -90,18 +105,18 @@ func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2
 
 		jobs := make(chan int, n)
 		var wg sync.WaitGroup
-		for w := 0; w < g.Concurrency; w++ {
+		for range g.Concurrency {
 			wg.Go(func() {
 				for {
 					select {
-					case <-ctx.Done():
+					case <-runCtx.Done():
 						return
 					case i, ok := <-jobs:
 						if !ok {
 							return
 						}
 						chunk := chunks[i]
-						nodes, edges, err := g.Provider(ctx, chunk)
+						nodes, edges, err := g.Provider(runCtx, chunk)
 						if err != nil {
 							results[i] <- struct {
 								doc ragy.Document
@@ -110,7 +125,13 @@ func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2
 							continue
 						}
 						if len(nodes) > 0 || len(edges) > 0 {
-							_ = g.Graph.UpsertGraph(ctx, nodes, edges)
+							if err := g.Graph.UpsertGraph(runCtx, nodes, edges); err != nil {
+								results[i] <- struct {
+									doc ragy.Document
+									err error
+								}{ragy.Document{}, err}
+								continue
+							}
 						}
 						results[i] <- struct {
 							doc ragy.Document
@@ -124,7 +145,7 @@ func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2
 		go func() {
 			for i := range n {
 				select {
-				case <-ctx.Done():
+				case <-runCtx.Done():
 					return
 				case jobs <- i:
 				}
@@ -135,9 +156,9 @@ func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2
 		// Read results strictly in order.
 		for i := range n {
 			select {
-			case <-ctx.Done():
+			case <-runCtx.Done():
 				wg.Wait()
-				_ = yield(ragy.Document{}, ctx.Err())
+				_ = yield(ragy.Document{}, runCtx.Err())
 				return
 			case res := <-results[i]:
 				if res.err != nil {
@@ -154,5 +175,20 @@ func (g *GraphExtractor) Split(ctx context.Context, doc ragy.Document) iter.Seq2
 			}
 		}
 		wg.Wait()
+	}
+}
+
+// isNilGraphStore reports whether g is nil or a typed nil (e.g. (*Store)(nil) assigned to GraphStore).
+func isNilGraphStore(g ragy.GraphStore) bool {
+	if g == nil {
+		return true
+	}
+	v := reflect.ValueOf(g)
+	//nolint:exhaustive // only Pointer/Interface/Map/Func/Slice/Chan can be nil; other kinds are never nil here.
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface, reflect.Map, reflect.Func, reflect.Slice, reflect.Chan:
+		return v.IsNil()
+	default:
+		return false
 	}
 }

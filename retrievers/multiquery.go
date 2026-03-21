@@ -33,9 +33,9 @@ func (r *MultiQueryRetriever) Retrieve(ctx context.Context, req ragy.SearchReque
 	err = parallel(ctx, len(queries), func(gctx context.Context, i int) error {
 		req2 := req
 		req2.Query = queries[i]
-		res, err := r.Retriever.Retrieve(gctx, req2)
-		if err != nil {
-			return err
+		res, retErr := r.Retriever.Retrieve(gctx, req2)
+		if retErr != nil {
+			return retErr
 		}
 		results[i] = res
 		return nil

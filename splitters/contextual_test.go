@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skosovsky/ragy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/skosovsky/ragy"
 )
 
 func TestContextualSplitter_Split(t *testing.T) {
@@ -37,7 +38,12 @@ func TestContextualSplitter_Split(t *testing.T) {
 	}
 	require.GreaterOrEqual(t, len(chunks), 1)
 	for _, ch := range chunks {
-		assert.True(t, strings.HasPrefix(ch.Content, "Context: "), "chunk content should start with Context: ; got %q", ch.Content)
+		assert.True(
+			t,
+			strings.HasPrefix(ch.Content, "Context: "),
+			"chunk content should start with Context: ; got %q",
+			ch.Content,
+		)
 	}
 }
 
@@ -86,7 +92,7 @@ func TestContextualSplitter_ErrorPropagation(t *testing.T) {
 func TestContextualSplitter_OrderPreservation(t *testing.T) {
 	ctx := context.Background()
 	inner := NewRecursiveSplitter(WithChunkSize(100))
-	//nolint:gosec // G404: deterministic test-only delay variation, not for cryptographic use
+
 	rng := rand.New(rand.NewSource(12345))
 	contextualizer := &mockContextualizer{
 		generate: func(_ context.Context, _, _ string) (string, error) {

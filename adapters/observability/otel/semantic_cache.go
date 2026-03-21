@@ -3,10 +3,11 @@ package otel
 import (
 	"context"
 
-	"github.com/skosovsky/ragy/cache"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/skosovsky/ragy/cache"
 )
 
 // WrapSemanticCache returns a cache.SemanticCache that records spans for Get and Set.

@@ -1,14 +1,14 @@
-go 1.26.0
+go 1.26.1
 
 use (
 	.
-	./adapters/observability/otel
-	./adapters/openai
-	./adapters/gemini
-	./adapters/pgvector
-	./adapters/jina
-	./adapters/qdrant
 	./adapters/cohere
 	./adapters/elasticsearch
+	./adapters/gemini
+	./adapters/jina
 	./adapters/neo4j
+	./adapters/observability/otel
+	./adapters/openai
+	./adapters/pgvector
+	./adapters/qdrant
 )

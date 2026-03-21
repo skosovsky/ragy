@@ -23,7 +23,12 @@ func NewCrossEncoderReranker(score ScoreFunc) *CrossEncoderReranker {
 }
 
 // Rerank implements ragy.Reranker.
-func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, docs []ragy.Document, topK int) ([]ragy.Document, error) {
+func (r *CrossEncoderReranker) Rerank(
+	ctx context.Context,
+	query string,
+	docs []ragy.Document,
+	topK int,
+) ([]ragy.Document, error) {
 	if len(docs) == 0 {
 		return nil, nil
 	}
@@ -72,7 +77,7 @@ func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, docs []
 		topK = len(scoredList)
 	}
 	out := make([]ragy.Document, topK)
-	for i := 0; i < topK; i++ {
+	for i := range topK {
 		out[i] = scoredList[i].doc
 		out[i].Score = scoredList[i].score
 	}

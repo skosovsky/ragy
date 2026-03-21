@@ -15,11 +15,15 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
+
 	"github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 )
 
 var fieldSanitize = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
+// logisticScoreClamp bounds raw ES _score before mapping to confidence via logistic (same scale as other retrievers).
+const logisticScoreClamp = 20.0
 
 // Retriever implements ragy.Retriever using Elasticsearch match/multi_match and filter.Expr → bool query.
 type Retriever struct {
@@ -80,10 +84,7 @@ func (r *Retriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]rag
 	if limit <= 0 {
 		limit = 10
 	}
-	offset := req.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(req.Offset, 0)
 	fields := sanitizeSearchFields(r.fields)
 	body := buildSearchBody(req.Query, fields, req.Filter, limit, offset)
 	reqES := esapi.SearchRequest{
@@ -113,7 +114,7 @@ func (r *Retriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]rag
 	docs := make([]ragy.Document, 0, len(searchRes.Hits.Hits))
 	for _, h := range searchRes.Hits.Hits {
 		doc := ragy.Document{ID: h.ID, Score: float32(h.Score)}
-		s := math.Min(20, math.Max(-20, h.Score))
+		s := math.Min(logisticScoreClamp, math.Max(-logisticScoreClamp, h.Score))
 		doc.Confidence = 1.0 / (1.0 + math.Exp(-s))
 		var src map[string]any
 		_ = json.Unmarshal(h.Source, &src)
@@ -139,13 +140,13 @@ func buildSearchBody(query string, fields []string, f filter.Expr, limit, offset
 	} else {
 		queryClause["multi_match"] = map[string]any{"query": query, "fields": fields}
 	}
+	boolQ := map[string]any{"must": []any{queryClause}}
 	body := map[string]any{
-		"query": map[string]any{"bool": map[string]any{"must": []any{queryClause}}},
+		"query": map[string]any{"bool": boolQ},
 		"size":  limit,
 		"from":  offset,
 	}
 	if f != nil {
-		boolQ := body["query"].(map[string]any)["bool"].(map[string]any)
 		filterClause := buildBoolFilter(f)
 		if filterClause != nil {
 			boolQ["filter"] = []any{filterClause}
@@ -155,6 +156,7 @@ func buildSearchBody(query string, fields []string, f filter.Expr, limit, offset
 	return raw
 }
 
+//nolint:gocognit,funlen // filter.Expr → ES bool clause is a large switch with nested And/Or handling.
 func buildBoolFilter(expr filter.Expr) map[string]any {
 	switch e := expr.(type) {
 	case filter.Eq:
@@ -166,7 +168,9 @@ func buildBoolFilter(expr filter.Expr) map[string]any {
 		if !fieldSanitize.MatchString(e.Field) {
 			return nil
 		}
-		return map[string]any{"bool": map[string]any{"must_not": []any{map[string]any{"term": map[string]any{e.Field: e.Value}}}}}
+		return map[string]any{
+			"bool": map[string]any{"must_not": []any{map[string]any{"term": map[string]any{e.Field: e.Value}}}},
+		}
 	case filter.In:
 		if !fieldSanitize.MatchString(e.Field) || len(e.Values) == 0 {
 			return nil

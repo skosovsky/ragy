@@ -72,10 +72,7 @@ func (e *Embedder) EmbedTensors(ctx context.Context, texts []string) ([][][]floa
 	}
 	out := make([][][]float32, 0, len(texts))
 	for start := 0; start < len(texts); start += e.batchSize {
-		end := start + e.batchSize
-		if end > len(texts) {
-			end = len(texts)
-		}
+		end := min(start+e.batchSize, len(texts))
 		batch := texts[start:end]
 		matrices, err := e.embedBatch(ctx, batch)
 		if err != nil {
@@ -86,13 +83,13 @@ func (e *Embedder) EmbedTensors(ctx context.Context, texts []string) ([][][]floa
 	return out, nil
 }
 
-type errWithStatus struct {
+type statusError struct {
 	status int
 	err    error
 }
 
-func (e *errWithStatus) Error() string { return e.err.Error() }
-func (e *errWithStatus) Unwrap() error { return e.err }
+func (e *statusError) Error() string { return e.err.Error() }
+func (e *statusError) Unwrap() error { return e.err }
 
 // jinaMultiVectorResponse matches the multi-vector API response: data[].embedding is [][]float32 per input.
 type jinaMultiVectorResponse struct {
@@ -121,7 +118,7 @@ func (e *Embedder) embedBatch(ctx context.Context, texts []string) ([][][]float3
 	if e.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+e.apiKey)
 	}
-	//nolint:gosec // G704: URL is from config/constant, not user input
+
 	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -129,7 +126,7 @@ func (e *Embedder) embedBatch(ctx context.Context, texts []string) ([][][]float3
 	defer func() { _ = resp.Body.Close() }()
 	slurp, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, &errWithStatus{status: resp.StatusCode, err: fmt.Errorf("jina api: %s", string(slurp))}
+		return nil, &statusError{status: resp.StatusCode, err: fmt.Errorf("jina api: %s", string(slurp))}
 	}
 	var parsed jinaMultiVectorResponse
 	if err := json.Unmarshal(slurp, &parsed); err != nil {
@@ -212,10 +209,7 @@ func (d *DenseEmbedder) Embed(ctx context.Context, texts []string) ([][]float32,
 	}
 	out := make([][]float32, 0, len(texts))
 	for start := 0; start < len(texts); start += d.batchSize {
-		end := start + d.batchSize
-		if end > len(texts) {
-			end = len(texts)
-		}
+		end := min(start+d.batchSize, len(texts))
 		batch := texts[start:end]
 		vecs, err := d.embedBatch(ctx, batch)
 		if err != nil {
@@ -252,7 +246,7 @@ func (d *DenseEmbedder) embedBatch(ctx context.Context, texts []string) ([][]flo
 	if d.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+d.apiKey)
 	}
-	//nolint:gosec // G704: URL is from config/constant, not user input
+
 	resp, err := d.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -260,7 +254,7 @@ func (d *DenseEmbedder) embedBatch(ctx context.Context, texts []string) ([][]flo
 	defer func() { _ = resp.Body.Close() }()
 	slurp, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, &errWithStatus{status: resp.StatusCode, err: fmt.Errorf("jina embeddings api: %s", string(slurp))}
+		return nil, &statusError{status: resp.StatusCode, err: fmt.Errorf("jina embeddings api: %s", string(slurp))}
 	}
 	var parsed jinaDenseResponse
 	if err := json.Unmarshal(slurp, &parsed); err != nil {
