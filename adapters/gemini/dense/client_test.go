@@ -1,0 +1,34 @@
+package dense
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestNewAcceptsMinimalConfig(t *testing.T) {
+	if _, err := New(Config{APIKey: "key", Model: "gemini-embedding-001"}); err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+}
+
+func TestEmbedRejectsProtocolIndexMismatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"embeddings":[{"index":1,"vector":[0.1,0.2]}]}`))
+	}))
+	defer server.Close()
+
+	client, err := New(Config{
+		APIKey:  "key",
+		Model:   "gemini-embedding-001",
+		BaseURL: server.URL,
+	})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	if _, err := client.Embed(context.Background(), []string{"hello"}); err == nil {
+		t.Fatal("Embed() error = nil, want error")
+	}
+}

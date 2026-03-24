@@ -1,510 +1,402 @@
-// Package qdrant provides a ragy.VectorStore implementation using Qdrant (gRPC client).
-//
-// Search uses only req.DenseVector. Not yet supported (per Adapters.md 2026 roadmap): req.TensorVector
-// (ColBERT/Late Interaction / multivector) and Sparse vectors (BM25). Full filter.Expr translation to
-// Qdrant Filter (Must/Should/MustNot) is supported. Upsert returns an error if a document has no embedding.
 package qdrant
 
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
-	"iter"
 	"math"
-	"regexp"
-	"strconv"
 
-	"github.com/qdrant/go-client/qdrant"
-
-	"github.com/skosovsky/ragy"
+	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/dense"
+	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
 )
 
-const (
-	embeddingKey     = "embedding"
-	ragyIDPayloadKey = "_ragy_id" // Original document ID stored in payload for round-trip
-	defaultBatchSize = 500
-	// logisticClamp limits the input to logisticConfidence before Exp (numerical stability).
-	logisticClamp = 20.0
-)
+const logisticClamp = 20.0
 
-var fieldSanitize = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+// Condition is a typed qdrant filter condition.
+type Condition interface {
+	isCondition()
+}
 
-// Store implements ragy.VectorStore using Qdrant go-client.
+// EqCondition is an equality filter.
+type EqCondition struct {
+	Field string
+	Value any
+}
+
+func (EqCondition) isCondition() {}
+
+// NeqCondition is a not-equal filter.
+type NeqCondition struct {
+	Field string
+	Value any
+}
+
+func (NeqCondition) isCondition() {}
+
+// RangeCondition is a range filter.
+type RangeCondition struct {
+	Field string
+	Op    string
+	Value any
+}
+
+func (RangeCondition) isCondition() {}
+
+// InCondition is a membership filter.
+type InCondition struct {
+	Field  string
+	Values []any
+}
+
+func (InCondition) isCondition() {}
+
+// GroupCondition combines child conditions.
+type GroupCondition struct {
+	Op    string
+	Items []Condition
+}
+
+func (GroupCondition) isCondition() {}
+
+// NotCondition negates a condition.
+type NotCondition struct {
+	Item Condition
+}
+
+func (NotCondition) isCondition() {}
+
+// MatchAllCondition represents the absence of a filter.
+type MatchAllCondition struct{}
+
+func (MatchAllCondition) isCondition() {}
+
+// Point is a stored vector record.
+type Point struct {
+	ID         string
+	Content    string
+	Attributes ragy.Attributes
+	Vector     []float32
+	Score      float64
+}
+
+// Client executes qdrant operations.
+type Client interface {
+	Upsert(ctx context.Context, collection string, points []Point) error
+	Search(ctx context.Context, collection string, vector []float32, cond Condition, page *ragy.Page) ([]Point, error)
+	Get(ctx context.Context, collection string, ids []string) ([]Point, error)
+	DeleteByIDs(ctx context.Context, collection string, ids []string) (int, error)
+	DeleteByFilter(ctx context.Context, collection string, cond Condition) (int, error)
+}
+
+// Config configures the store.
+type Config struct {
+	Collection string
+	Schema     filter.Schema
+}
+
+// Store is a dense qdrant-backed store.
 type Store struct {
-	client         *qdrant.Client
-	collectionName string
-	batchSize      int
+	client     Client
+	collection string
+	schema     filter.Schema
 }
 
-// Option configures the Store.
-type Option func(*Store)
+// New constructs a store.
+func New(client Client, cfg Config) (*Store, error) {
+	if client == nil {
+		return nil, fmt.Errorf("%w: qdrant client", ragy.ErrInvalidArgument)
+	}
 
-// WithCollectionName sets the collection name (required).
-func WithCollectionName(name string) Option {
-	return func(s *Store) { s.collectionName = name }
+	if err := filter.ValidateCollectionName(cfg.Collection); err != nil {
+		return nil, err
+	}
+	if !cfg.Schema.IsFinalized() {
+		return nil, fmt.Errorf("%w: qdrant schema", ragy.ErrInvalidArgument)
+	}
+
+	return &Store{client: client, collection: cfg.Collection, schema: cfg.Schema}, nil
 }
 
-// WithBatchSize sets the micro-batch size for Upsert (default 500).
-func WithBatchSize(n int) Option {
-	return func(s *Store) { s.batchSize = n }
-}
+// Search implements dense.Searcher.
+func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	if err := s.Schema().ValidateSchemaIR(req.Filter); err != nil {
+		return nil, err
+	}
 
-// New returns a new Qdrant Store. Client must be connected; collection must exist (dense or multivector).
-func New(client *qdrant.Client, opts ...Option) *Store {
-	s := &Store{
-		client:         client,
-		collectionName: "ragy",
-		batchSize:      defaultBatchSize,
-	}
-	for _, o := range opts {
-		o(s)
-	}
-	return s
-}
-
-// Search implements ragy.VectorStore.
-func (s *Store) Search(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
-	if len(req.DenseVector) == 0 {
-		if len(req.SparseVector) > 0 {
-			return nil, fmt.Errorf("qdrant: %w", ragy.ErrSparseVectorNotSupported)
-		}
-		return []ragy.Document{}, nil
-	}
-	limit := req.Limit
-	if limit <= 0 {
-		limit = 10
-	}
-	offset := max(req.Offset, 0)
-	qFilter := buildQdrantFilter(req.Filter)
-	lim := uint64(limit + offset)
-	queryPoints := &qdrant.QueryPoints{
-		CollectionName: s.collectionName,
-		Query:          qdrant.NewQuery(req.DenseVector...),
-		Limit:          &lim,
-		WithPayload:    qdrant.NewWithPayload(true),
-		WithVectors:    qdrant.NewWithVectors(false),
-	}
-	if qFilter != nil {
-		queryPoints.Filter = qFilter
-	}
-	result, err := s.client.Query(ctx, queryPoints)
+	cond, err := renderFilter(req.Filter)
 	if err != nil {
-		return nil, fmt.Errorf("qdrant query: %w", err)
+		return nil, err
 	}
-	if len(result) == 0 {
-		return []ragy.Document{}, nil
+
+	points, err := s.client.Search(ctx, s.collection, req.Vector, cond, req.Page)
+	if err != nil {
+		return nil, err
 	}
-	// Apply offset in Go (Qdrant returns top limit+offset)
-	start := min(offset, len(result))
-	slice := result[start:]
-	out := make([]ragy.Document, 0, len(slice))
-	for _, sp := range slice {
-		doc := scoredPointToDocument(sp)
-		out = append(out, doc)
+
+	if len(points) == 0 {
+		return nil, nil
 	}
-	return out, nil
+
+	docs := make([]ragy.Document, 0, len(points))
+	for _, point := range points {
+		doc, err := projectDocument(s.schema, point, logistic(point.Score))
+		if err != nil {
+			return nil, err
+		}
+
+		docs = append(docs, doc)
+	}
+
+	return docs, nil
 }
 
-// Stream implements ragy.VectorStore.
-func (s *Store) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
-	docs, err := s.Search(ctx, req)
-	return ragy.YieldDocuments(ctx, docs, err)
-}
-
-// Upsert implements ragy.VectorStore. Micro-batches internally.
-func (s *Store) Upsert(ctx context.Context, docs []ragy.Document) error {
-	if len(docs) == 0 {
+// Upsert implements dense.Index.
+func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
+	if len(records) == 0 {
 		return nil
 	}
-	for i := 0; i < len(docs); i += s.batchSize {
-		end := min(i+s.batchSize, len(docs))
-		batch := docs[i:end]
-		if err := s.upsertBatch(ctx, batch); err != nil {
+
+	points := make([]Point, 0, len(records))
+	for _, record := range records {
+		if err := record.Validate(); err != nil {
 			return err
 		}
+		attrs, err := s.schema.NormalizeAttributes(record.Attributes)
+		if err != nil {
+			return err
+		}
+
+		points = append(points, Point{
+			ID:         record.ID,
+			Content:    record.Content,
+			Attributes: ragy.CloneAttributes(attrs),
+			Vector:     append([]float32(nil), record.Vector...),
+			Score:      0,
+		})
 	}
+
+	return s.client.Upsert(ctx, s.collection, points)
+}
+
+// FindByIDs implements documents.Store.
+func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	points, err := s.client.Get(ctx, s.collection, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(points) == 0 {
+		return nil, nil
+	}
+
+	docs := make([]ragy.Document, 0, len(points))
+	for _, point := range points {
+		doc, err := projectDocument(s.schema, point, 0)
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, doc)
+	}
+
+	return docs, nil
+}
+
+// DeleteByIDs implements documents.Store.
+func (s *Store) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
+	if len(ids) == 0 {
+		return documents.DeleteResult{}, nil
+	}
+
+	deleted, err := s.client.DeleteByIDs(ctx, s.collection, ids)
+	if err != nil {
+		return documents.DeleteResult{}, err
+	}
+
+	return documents.DeleteResult{Deleted: deleted}, nil
+}
+
+// DeleteByFilter implements documents.Store.
+func (s *Store) DeleteByFilter(ctx context.Context, expr filter.IR) (documents.DeleteResult, error) {
+	if expr == nil {
+		return documents.DeleteResult{}, fmt.Errorf("%w: delete filter", ragy.ErrInvalidArgument)
+	}
+	if filter.IsEmpty(expr) {
+		return documents.DeleteResult{}, fmt.Errorf("%w: delete filter", ragy.ErrInvalidArgument)
+	}
+	if err := s.Schema().ValidateSchemaIR(expr); err != nil {
+		return documents.DeleteResult{}, err
+	}
+
+	cond, err := renderFilter(expr)
+	if err != nil {
+		return documents.DeleteResult{}, err
+	}
+
+	deleted, err := s.client.DeleteByFilter(ctx, s.collection, cond)
+	if err != nil {
+		return documents.DeleteResult{}, err
+	}
+
+	return documents.DeleteResult{Deleted: deleted}, nil
+}
+
+// Schema returns the finalized filter schema used by the store.
+func (s *Store) Schema() filter.Schema {
+	return s.schema
+}
+
+func renderFilter(expr filter.IR) (Condition, error) {
+	walker := &conditionWalker{stack: nil, result: nil}
+	if err := filter.Walk(expr, walker); err != nil {
+		return nil, err
+	}
+	return walker.result, nil
+}
+
+type conditionFrame struct {
+	op    string
+	items []Condition
+}
+
+type conditionWalker struct {
+	stack  []conditionFrame
+	result Condition
+}
+
+func (w *conditionWalker) OnEmpty() error {
+	return w.push(MatchAllCondition{})
+}
+
+func (w *conditionWalker) OnEq(field string, value filter.Value) error {
+	return w.push(EqCondition{Field: field, Value: value.Raw()})
+}
+
+func (w *conditionWalker) OnNeq(field string, value filter.Value) error {
+	return w.push(NeqCondition{Field: field, Value: value.Raw()})
+}
+
+func (w *conditionWalker) OnGt(field string, value filter.Value) error {
+	return w.push(RangeCondition{Field: field, Op: "gt", Value: value.Raw()})
+}
+
+func (w *conditionWalker) OnGte(field string, value filter.Value) error {
+	return w.push(RangeCondition{Field: field, Op: "gte", Value: value.Raw()})
+}
+
+func (w *conditionWalker) OnLt(field string, value filter.Value) error {
+	return w.push(RangeCondition{Field: field, Op: "lt", Value: value.Raw()})
+}
+
+func (w *conditionWalker) OnLte(field string, value filter.Value) error {
+	return w.push(RangeCondition{Field: field, Op: "lte", Value: value.Raw()})
+}
+
+func (w *conditionWalker) OnIn(field string, values []filter.Value) error {
+	items := make([]any, 0, len(values))
+	for _, value := range values {
+		items = append(items, value.Raw())
+	}
+	return w.push(InCondition{Field: field, Values: items})
+}
+
+func (w *conditionWalker) EnterAnd(_ int) error {
+	w.stack = append(w.stack, conditionFrame{op: "and", items: nil})
 	return nil
 }
 
-func (s *Store) upsertBatch(ctx context.Context, docs []ragy.Document) error {
-	points := make([]*qdrant.PointStruct, 0, len(docs))
-	for _, d := range docs {
-		emb, _ := d.Metadata[embeddingKey].([]float32)
-		if len(emb) == 0 {
-			return fmt.Errorf("qdrant: document %q missing embedding", d.ID)
-		}
-		payload := make(map[string]any)
-		for k, v := range d.Metadata {
-			if k == embeddingKey {
-				continue
-			}
-			payload[k] = v
-		}
-		payload["content"] = d.Content
-		payload[ragyIDPayloadKey] = d.ID
-		points = append(points, &qdrant.PointStruct{
-			Id:      qdrant.NewIDNum(idToUint64(d.ID)),
-			Vectors: qdrant.NewVectors(emb...),
-			Payload: qdrant.NewValueMap(payload),
-		})
-	}
-	if len(points) == 0 {
-		return nil
-	}
-	_, err := s.client.Upsert(ctx, &qdrant.UpsertPoints{
-		CollectionName: s.collectionName,
-		Points:         points,
-	})
-	return err
+func (w *conditionWalker) LeaveAnd() error {
+	return w.leaveGroup("and")
 }
 
-// DeleteByFilter implements ragy.VectorStore.
-func (s *Store) DeleteByFilter(ctx context.Context, f filter.Expr) error {
-	if f == nil {
-		return nil
-	}
-	qFilter := buildQdrantFilter(f)
-	if qFilter == nil {
-		return nil
-	}
-	_, err := s.client.Delete(ctx, &qdrant.DeletePoints{
-		CollectionName: s.collectionName,
-		Points:         qdrant.NewPointsSelectorFilter(qFilter),
-	})
-	return err
+func (w *conditionWalker) EnterOr(_ int) error {
+	w.stack = append(w.stack, conditionFrame{op: "or", items: nil})
+	return nil
 }
 
-func idToUint64(id string) uint64 {
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(id))
-	return h.Sum64()
+func (w *conditionWalker) LeaveOr() error {
+	return w.leaveGroup("or")
 }
 
-//nolint:gocognit,nestif // Qdrant ScoredPoint payload map requires nested value-kind switches.
-func scoredPointToDocument(sp *qdrant.ScoredPoint) ragy.Document {
-	doc := ragy.Document{}
-	if sp != nil && sp.GetId() != nil {
-		if num, ok := sp.GetId().GetPointIdOptions().(*qdrant.PointId_Num); ok {
-			doc.ID = strconv.FormatUint(num.Num, 10)
-		}
-	}
-	if sp != nil && sp.Payload != nil {
-		for k, v := range sp.GetPayload() {
-			if k == "content" {
-				if v != nil && v.Kind != nil {
-					if s, ok := v.GetKind().(*qdrant.Value_StringValue); ok {
-						doc.Content = s.StringValue
-					}
-				}
-				continue
-			}
-			if k == ragyIDPayloadKey {
-				if v != nil && v.Kind != nil {
-					if s, ok := v.GetKind().(*qdrant.Value_StringValue); ok {
-						doc.ID = s.StringValue
-					}
-				}
-				continue
-			}
-			if doc.Metadata == nil {
-				doc.Metadata = make(map[string]any)
-			}
-			doc.Metadata[k] = valueToAny(v)
-		}
-	}
-	if sp != nil {
-		doc.Score = sp.GetScore()
-		doc.Confidence = logisticConfidence(float64(sp.GetScore()))
-	}
-	return doc
+func (w *conditionWalker) EnterNot() error {
+	w.stack = append(w.stack, conditionFrame{op: "not", items: nil})
+	return nil
 }
 
-func logisticConfidence(s float64) float64 {
-	s = math.Min(logisticClamp, math.Max(-logisticClamp, s))
-	return 1.0 / (1.0 + math.Exp(-s))
-}
-
-func valueToAny(v *qdrant.Value) any {
-	if v == nil || v.Kind == nil {
-		return nil
-	}
-	switch k := v.GetKind().(type) {
-	case *qdrant.Value_StringValue:
-		return k.StringValue
-	case *qdrant.Value_IntegerValue:
-		return k.IntegerValue
-	case *qdrant.Value_DoubleValue:
-		return k.DoubleValue
-	case *qdrant.Value_BoolValue:
-		return k.BoolValue
-	case *qdrant.Value_ListValue:
-		arr := make([]any, len(k.ListValue.GetValues()))
-		for i, e := range k.ListValue.GetValues() {
-			arr[i] = valueToAny(e)
-		}
-		return arr
-	case *qdrant.Value_StructValue:
-		m := make(map[string]any)
-		for key, val := range k.StructValue.GetFields() {
-			m[key] = valueToAny(val)
-		}
-		return m
-	default:
-		return nil
-	}
-}
-
-// filterValueToString converts filter value (any) to string for NewMatch.
-func filterValueToString(v any) string {
-	if v == nil {
-		return ""
-	}
-	switch x := v.(type) {
-	case string:
-		return x
-	case int:
-		return strconv.FormatInt(int64(x), 10)
-	case int64:
-		return strconv.FormatInt(x, 10)
-	case float64:
-		return strconv.FormatFloat(x, 'f', -1, 64)
-	case float32:
-		return strconv.FormatFloat(float64(x), 'f', -1, 32)
-	default:
-		return fmt.Sprint(v)
-	}
-}
-
-// anyToFloat64Ptr converts numeric filter value to *float64 for qdrant.Range (Gt/Gte/Lt/Lte).
-func anyToFloat64Ptr(v any) *float64 {
-	if v == nil {
-		return nil
-	}
-	switch x := v.(type) {
-	case int:
-		f := float64(x)
-		return &f
-	case int32:
-		f := float64(x)
-		return &f
-	case int64:
-		f := float64(x)
-		return &f
-	case float32:
-		f := float64(x)
-		return &f
-	case float64:
-		return &x
-	default:
-		return nil
-	}
-}
-
-// buildQdrantFilter converts filter.Expr to qdrant.Filter (Must/Should/MustNot).
-func buildQdrantFilter(expr filter.Expr) *qdrant.Filter {
-	if expr == nil {
-		return nil
-	}
-	return buildQdrantFilterRec(expr)
-}
-
-//nolint:gocognit,cyclop,funlen // filter.Expr → Qdrant Filter is a large switch with nested And/Or handling.
-func buildQdrantFilterRec(expr filter.Expr) *qdrant.Filter {
-	switch e := expr.(type) {
-	case filter.Eq:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return &qdrant.Filter{Must: []*qdrant.Condition{qdrant.NewMatch(e.Field, filterValueToString(e.Value))}}
-	case filter.Neq:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return &qdrant.Filter{MustNot: []*qdrant.Condition{qdrant.NewMatch(e.Field, filterValueToString(e.Value))}}
-	case filter.Gt:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return &qdrant.Filter{
-			Must: []*qdrant.Condition{
-				qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: anyToFloat64Ptr(e.Value), Lte: nil, Lt: nil}),
-			},
-		}
-	case filter.Gte:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return &qdrant.Filter{
-			Must: []*qdrant.Condition{
-				qdrant.NewRange(e.Field, &qdrant.Range{Gte: anyToFloat64Ptr(e.Value), Gt: nil, Lte: nil, Lt: nil}),
-			},
-		}
-	case filter.Lt:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return &qdrant.Filter{
-			Must: []*qdrant.Condition{
-				qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: nil, Lte: nil, Lt: anyToFloat64Ptr(e.Value)}),
-			},
-		}
-	case filter.Lte:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return &qdrant.Filter{
-			Must: []*qdrant.Condition{
-				qdrant.NewRange(e.Field, &qdrant.Range{Gte: nil, Gt: nil, Lte: anyToFloat64Ptr(e.Value), Lt: nil}),
-			},
-		}
-	case filter.In:
-		if !fieldSanitize.MatchString(e.Field) || len(e.Values) == 0 {
-			return nil
-		}
-		conds := make([]*qdrant.Condition, 0, len(e.Values))
-		for _, v := range e.Values {
-			conds = append(conds, qdrant.NewMatch(e.Field, filterValueToString(v)))
-		}
-		return &qdrant.Filter{Should: conds}
-	case filter.And:
-		var must []*qdrant.Condition
-		for _, sub := range e.Exprs {
-			subF := buildQdrantFilterRec(sub)
-			if subF != nil {
-				if len(subF.GetMust()) > 0 {
-					must = append(must, subF.GetMust()...)
-				}
-				if len(subF.GetMustNot()) > 0 {
-					must = append(must, qdrant.NewNestedFilter("", subF))
-				}
-				if len(subF.GetShould()) > 0 {
-					must = append(must, qdrant.NewNestedFilter("", subF))
-				}
-			}
-		}
-		if len(must) == 0 {
-			return nil
-		}
-		return &qdrant.Filter{Must: must}
-	case filter.Or:
-		var should []*qdrant.Condition
-		for _, sub := range e.Exprs {
-			subF := buildQdrantFilterRec(sub)
-			if subF != nil {
-				should = append(should, qdrant.NewNestedFilter("", subF))
-			}
-		}
-		if len(should) == 0 {
-			return nil
-		}
-		return &qdrant.Filter{Should: should}
-	case filter.Not:
-		subF := buildQdrantFilterRec(e.Expr)
-		if subF == nil {
-			return nil
-		}
-		return &qdrant.Filter{MustNot: []*qdrant.Condition{qdrant.NewNestedFilter("", subF)}}
-	default:
-		return nil
-	}
-}
-
-// FetchParents implements ragy.HierarchyRetriever. Reads payload[ragy.ParentDocumentIDKey] from child points, then loads parent points by business id (same id scheme as Upsert).
-func (s *Store) FetchParents(ctx context.Context, childIDs []string) ([]ragy.Document, error) {
-	if len(childIDs) == 0 {
-		return nil, nil
-	}
-	ids := make([]*qdrant.PointId, 0, len(childIDs))
-	for _, id := range childIDs {
-		ids = append(ids, qdrant.NewIDNum(idToUint64(id)))
-	}
-	children, err := s.client.Get(ctx, &qdrant.GetPoints{
-		CollectionName: s.collectionName,
-		Ids:            ids,
-		WithPayload:    qdrant.NewWithPayload(true),
-		WithVectors:    qdrant.NewWithVectors(false),
-	})
+func (w *conditionWalker) LeaveNot() error {
+	frame, err := w.pop("not")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	parentSeen := make(map[string]struct{})
-	var parentIDs []string
-	for _, p := range children {
-		doc := retrievedPointToDocument(p)
-		raw, ok := doc.Metadata[ragy.ParentDocumentIDKey]
-		if !ok || raw == nil {
-			continue
-		}
-		pid, ok := raw.(string)
-		if !ok || pid == "" {
-			continue
-		}
-		if _, dup := parentSeen[pid]; dup {
-			continue
-		}
-		parentSeen[pid] = struct{}{}
-		parentIDs = append(parentIDs, pid)
+	if len(frame.items) != 1 {
+		return fmt.Errorf("%w: invalid NOT filter", ragy.ErrUnsupported)
 	}
-	if len(parentIDs) == 0 {
-		return nil, nil
-	}
-	pids := make([]*qdrant.PointId, 0, len(parentIDs))
-	for _, id := range parentIDs {
-		pids = append(pids, qdrant.NewIDNum(idToUint64(id)))
-	}
-	parents, err := s.client.Get(ctx, &qdrant.GetPoints{
-		CollectionName: s.collectionName,
-		Ids:            pids,
-		WithPayload:    qdrant.NewWithPayload(true),
-		WithVectors:    qdrant.NewWithVectors(false),
-	})
-	if err != nil {
-		return nil, err
-	}
-	out := make([]ragy.Document, 0, len(parents))
-	for _, p := range parents {
-		out = append(out, retrievedPointToDocument(p))
-	}
-	return out, nil
+	return w.push(NotCondition{Item: frame.items[0]})
 }
 
-//nolint:gocognit,nestif // Qdrant RetrievedPoint payload map requires nested value-kind switches.
-func retrievedPointToDocument(p *qdrant.RetrievedPoint) ragy.Document {
-	doc := ragy.Document{}
-	if p != nil && p.GetId() != nil {
-		if num, ok := p.GetId().GetPointIdOptions().(*qdrant.PointId_Num); ok {
-			doc.ID = strconv.FormatUint(num.Num, 10)
-		}
+func (w *conditionWalker) leaveGroup(op string) error {
+	frame, err := w.pop(op)
+	if err != nil {
+		return err
 	}
-	if p != nil && p.Payload != nil {
-		for k, v := range p.GetPayload() {
-			if k == "content" {
-				if v != nil && v.Kind != nil {
-					if sv, ok := v.GetKind().(*qdrant.Value_StringValue); ok {
-						doc.Content = sv.StringValue
-					}
-				}
-				continue
-			}
-			if k == ragyIDPayloadKey {
-				if v != nil && v.Kind != nil {
-					if sv, ok := v.GetKind().(*qdrant.Value_StringValue); ok {
-						doc.ID = sv.StringValue
-					}
-				}
-				continue
-			}
-			if doc.Metadata == nil {
-				doc.Metadata = make(map[string]any)
-			}
-			doc.Metadata[k] = valueToAny(v)
-		}
+	return w.push(GroupCondition{Op: op, Items: append([]Condition(nil), frame.items...)})
+}
+
+func (w *conditionWalker) push(condition Condition) error {
+	if len(w.stack) == 0 {
+		w.result = condition
+		return nil
 	}
-	return doc
+
+	last := len(w.stack) - 1
+	w.stack[last].items = append(w.stack[last].items, condition)
+	return nil
+}
+
+func (w *conditionWalker) pop(op string) (conditionFrame, error) {
+	if len(w.stack) == 0 {
+		return conditionFrame{}, fmt.Errorf("%w: unmatched %s filter", ragy.ErrUnsupported, op)
+	}
+
+	last := len(w.stack) - 1
+	frame := w.stack[last]
+	w.stack = w.stack[:last]
+	if frame.op != op {
+		return conditionFrame{}, fmt.Errorf("%w: unexpected filter group %q", ragy.ErrUnsupported, frame.op)
+	}
+
+	return frame, nil
+}
+
+func logistic(score float64) float64 {
+	score = math.Max(-logisticClamp, math.Min(logisticClamp, score))
+	return 1.0 / (1.0 + math.Exp(-score))
+}
+
+func projectDocument(schema filter.Schema, point Point, relevance float64) (ragy.Document, error) {
+	attrs, err := schema.NormalizeAttributes(point.Attributes)
+	if err != nil {
+		return ragy.Document{}, err
+	}
+
+	doc := ragy.Document{
+		ID:         point.ID,
+		Content:    point.Content,
+		Attributes: ragy.CloneAttributes(attrs),
+		Relevance:  ragy.ClampRelevance(relevance),
+	}
+	return ragy.NormalizeDocument(doc)
 }
 
 var (
-	_ ragy.VectorStore        = (*Store)(nil)
-	_ ragy.HierarchyRetriever = (*Store)(nil)
+	_ dense.Searcher  = (*Store)(nil)
+	_ dense.Index     = (*Store)(nil)
+	_ documents.Store = (*Store)(nil)
 )

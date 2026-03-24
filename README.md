@@ -1,173 +1,63 @@
 # ragy
 
-[![Go 1.26+](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](https://go.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Test coverage](https://img.shields.io/badge/coverage-%3E90%25-green)](.)
-[![OTel](https://img.shields.io/badge/OTel-Supported-blue)](.)
+`ragy` is a capability-first retrieval toolkit with a clear-break public API.
 
-**ragy** is a stateless Go engine for semantic memory and RAG pipelines. It does not hard‑dependency on any LLM: embedding, query rewriting, and context generation are injected via interfaces and callbacks. You keep full control over prompts and providers. The core offers strict contracts (**VectorStore**, **Retriever**, **Splitter**), **streaming** (`Retrieve` + `Stream` with `iter.Seq2`), normalized **Confidence** scores on **Document**, and optional **OpenTelemetry** via `adapters/observability/otel` (not in the core module).
+The core is domain-first and capability-specific:
 
----
+- `ragy` for `Document`, `Chunk`, paging, and canonical errors
+- `filter` for schema-bound predicate builders and validated IR
+- `dense`, `lexical`, `tensor`, `graph`, `documents` for capability contracts
+- `ranking` for query-aware reranking and ranked-list merging
+- `chunking` and `graphingest` for ingestion stages
 
-## Why ragy
+Provider and storage adapters live under `adapters/...`.
 
-- **100% Stateless & No LLM Dependency** — No built‑in prompts. You wire LLM through interfaces and callbacks.
-- **Observability First** — OpenTelemetry decorators in `adapters/observability/otel` (`WrapRetriever`, `WrapVectorStore`, `WrapSemanticCache`). Core stays dependency-free.
-- **Multi‑Modal & Late Interaction** — **TensorEmbedder** (ColBERT) and **MultimodalEmbedder** (images).
-- **GraphRAG Ready** — Native **Node**/ **Edge** types and Neo4j adapter.
-- **Smart Retrieval** — HyDE, Contextual Retrieval, Self‑Query, and Ensemble (RRF) for hybrid search (e.g. in Postgres).
-
----
-
-## Architecture
-
-```mermaid
-flowchart LR
-  subgraph ingestion [Ingestion]
-    Doc[Document] --> Split[Splitters]
-    Split --> Store[VectorStore.Upsert]
-  end
-  subgraph retrieval [Retrieval]
-    Query[Query] --> SelfQuery[SelfQueryRetriever]
-    SelfQuery --> Retriever[Retriever]
-    Retriever --> Rerank[Reranker]
-    Rerank --> Docs[Documents]
-  end
-```
-
----
-
-## Installation
-
-```bash
-go get github.com/skosovsky/ragy
-go get github.com/skosovsky/ragy/adapters/pgvector
-```
-
----
-
-## Quick Start
-
-Minimal flow: split a document, embed chunks, upsert into an in‑memory store, then run a vector search.
+## Quick start
 
 ```go
 package main
 
 import (
 	"context"
-	"log"
 
-	"github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/retrievers"
-	"github.com/skosovsky/ragy/splitters"
-	"github.com/skosovsky/ragy/testutil"
+	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/dense"
+	"github.com/skosovsky/ragy/filter"
 )
 
-func main() {
-	ctx := context.Background()
-	store := testutil.NewInMemoryVectorStore()
-	embedder := testutil.NewMockDenseEmbedder(8)
-
-	doc := ragy.Document{ID: "1", Content: "First section.\n\nSecond section.\n\nThird section."}
-	splitter := splitters.NewRecursiveSplitter(splitters.WithChunkSize(50), splitters.WithChunkOverlap(10))
-
-	var chunks []ragy.Document
-	for ch, err := range splitter.Split(ctx, doc) {
-		if err != nil {
-			log.Fatal(err)
-		}
-		chunks = append(chunks, ch)
-	}
-
-	contents := make([]string, len(chunks))
-	for i := range chunks {
-		contents[i] = chunks[i].Content
-	}
-	vecs, err := embedder.Embed(ctx, contents)
+func search(ctx context.Context, embedder dense.Embedder, searcher dense.Searcher) ([]ragy.Document, error) {
+	tenant, err := searcher.Schema().StringField("tenant")
 	if err != nil {
-		log.Fatal(err)
-	}
-	for i := range chunks {
-		if chunks[i].Metadata == nil {
-			chunks[i].Metadata = make(map[string]any)
-		}
-		chunks[i].Metadata[testutil.EmbeddingKey] = vecs[i]
-	}
-	if err := store.Upsert(ctx, chunks); err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	retriever := retrievers.NewBaseVectorRetriever(embedder, store)
-	res, err := retriever.Retrieve(ctx, ragy.SearchRequest{Query: "section", Limit: 5})
+	expr, err := filter.Normalize(filter.Equal(tenant, "acme"))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	for _, d := range res {
-		log.Println(d.ID, d.Content)
+
+	vectors, err := embedder.Embed(ctx, []string{"reset password"})
+	if err != nil {
+		return nil, err
 	}
+
+	page, err := ragy.NewPage(10, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return searcher.Search(ctx, dense.Request{
+		Vector: vectors[0],
+		Filter: expr,
+		Page:   page,
+	})
 }
 ```
 
----
+The same pattern applies to other capabilities:
 
-## Advanced
-
-**Contextual Retrieval** — wrap any splitter and enrich chunks with LLM-generated context (worker pool, order preserved):
-
-```go
-inner := splitters.NewRecursiveSplitter(splitters.WithChunkSize(500))
-cs := splitters.NewContextualSplitter(inner, myContextualizer, splitters.WithContextualConcurrency(5))
-```
-
-**Self-Query & AST filters** — set `SearchRequest.ParsedQuery` from your app (LLM/parser outside ragy). `SelfQueryRetriever` merges `ParsedQuery.Filter` with RBAC (`filter.All(req.Filter, parsed.Filter)`).
-
-```go
-f := filter.All(filter.Equal("tenant", 1), filter.Greater("age", 18))
-```
-
-**Observability** — wrap retrievers and stores (optional adapter module):
-
-```go
-import oteladapter "github.com/skosovsky/ragy/adapters/observability/otel"
-
-traced := oteladapter.WrapRetriever(retriever, tracer, "retriever")
-```
-
-**Semantic Caching** — beyond retrieval, ragy provides a `SemanticCache` interface. It stores expensive LLM responses in a vector store (e.g. pgvector) and returns them for semantically similar queries (e.g. "How do I reset my password?" and "I forgot my password, what do I do?"), saving tokens and response time. Use the `ragy/cache` package (import `github.com/skosovsky/ragy/cache`). Cache entries are isolated by metadata `_cache_type=semantic` so the same store can hold both cache and knowledge-base documents. Calling `Set` again for the same exact query overwrites the previous response (document ID is deterministic from the query).
-
-```go
-sc := cache.NewVectorCache(store, embedder)
-resp, hit, err := sc.Get(ctx, "reset password", 0.95)
-// On miss: hit is false, err is nil. Use hit to decide whether to call LLM.
-```
-
----
-
-## Ecosystem
-
-ragy is designed to work with:
-
-- **metry** — telemetry hub
-- **toolsy** — tools for agents
-- **flowy** — agent orchestration
-
----
-
-## Migration (clean break)
-
-- **Retriever** returns `([]Document, error)` from `Retrieve`; use `Stream` for lazy iteration. `RetrievalResult` / `EvalData` removed — use `Document.Confidence` and metadata instead.
-- **SelfQueryRetriever** requires `SearchRequest.ParsedQuery` from your application (natural-language → AST filter happens outside `ragy`; there is no `QueryParser` type in the core package).
-- **GraphRetriever** requires `SearchRequest.GraphSeedEntityIDs` (no in-core LLM entity extraction).
-- **GraphExtractor** (`splitters`) takes `ragy.ChunkGraphProvider(ctx, chunk Document) ([]Node, []Edge, error)` plus a `GraphStore`. The core does **not** run text-based entity extraction during split; supply prepared nodes/edges from your pipeline (e.g. via `chunk.Metadata`). If `Provider` is `nil`, chunks pass through with no graph writes. `EntityExtractor` remains a legacy app-side type for wrapping older code.
-- **Embedding adapters** (including **Jina**): single HTTP attempt per batch — no built-in retry/backoff; implement retries in orchestration if needed.
-- **pgvector** hybrid (RRF): `Document.Confidence` is the fusion score scaled by the theoretical RRF maximum `2/(k+1)` (k from `WithRRFConstant`), clamped to `[0,1]`.
-- **Cohere reranker** sets both `Document.Score` and `Document.Confidence` from the API relevance score (`[0,1]`).
-- **OpenTelemetry** moved from `ragy/obs` to `adapters/observability/otel`.
-
-## Contributing
-
-See the repository for contribution guidelines.
-
-## License
-
-MIT
+- `lexical.Searcher` for text-only retrieval
+- `tensor.Embedder` and `tensor.Searcher` for late-interaction pipelines
+- `graph.Store` for traversal and upsert
+- `documents.Store` for lookup and destructive document operations
+- `ranking.QueryReranker` and `ranking.Merger` for post-retrieval ranking

@@ -1,231 +1,361 @@
-// Package elasticsearch provides a ragy.Retriever for keyword/lexical search using Elasticsearch (match, multi_match).
-// Use with EnsembleRetriever for hybrid vector + keyword retrieval.
-// Default index is "ragy_docs"; use WithIndex to override (the deprecated "_all" is not used, as it is removed in ES 8.x).
-// Search field names (WithSearchFields) are sanitized; only [a-zA-Z0-9_] are allowed. Use trusted config only.
 package elasticsearch
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"iter"
 	"math"
-	"regexp"
+	"slices"
 
-	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/elastic/go-elasticsearch/v8/esapi"
-
-	"github.com/skosovsky/ragy"
+	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/lexical"
 )
 
-var fieldSanitize = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+const logisticClamp = 20.0
 
-// logisticScoreClamp bounds raw ES _score before mapping to confidence via logistic (same scale as other retrievers).
-const logisticScoreClamp = 20.0
+// Hit is an Elasticsearch hit projection.
+type Hit struct {
+	ID     string
+	Score  float64
+	Source map[string]any
+}
 
-// Retriever implements ragy.Retriever using Elasticsearch match/multi_match and filter.Expr → bool query.
-type Retriever struct {
-	client *elasticsearch.Client
+// Client executes lexical searches.
+type Client interface {
+	Search(ctx context.Context, index string, body map[string]any) ([]Hit, error)
+}
+
+// Config configures the searcher.
+type Config struct {
+	Index        string
+	SearchFields []string
+	Schema       filter.Schema
+}
+
+// Searcher is an Elasticsearch lexical searcher.
+type Searcher struct {
+	client Client
 	index  string
 	fields []string
+	schema filter.Schema
 }
 
-// Option configures the Retriever.
-type Option func(*Retriever)
-
-// WithIndex sets the index name (default "ragy_docs").
-func WithIndex(name string) Option {
-	return func(r *Retriever) { r.index = name }
-}
-
-// WithSearchFields sets the fields for multi_match (default ["content"]).
-func WithSearchFields(fields []string) Option {
-	return func(r *Retriever) { r.fields = fields }
-}
-
-// New returns a new Elasticsearch Retriever.
-func New(client *elasticsearch.Client, opts ...Option) *Retriever {
-	r := &Retriever{
-		client: client,
-		index:  "ragy_docs",
-		fields: []string{"content"},
+// New constructs a lexical searcher.
+func New(client Client, cfg Config) (*Searcher, error) {
+	if client == nil {
+		return nil, fmt.Errorf("%w: elasticsearch client", ragy.ErrInvalidArgument)
 	}
-	for _, o := range opts {
-		o(r)
-	}
-	return r
-}
 
-// sanitizeSearchFields returns only field names that match [a-zA-Z0-9_]. If none valid, returns default ["content"].
-func sanitizeSearchFields(fields []string) []string {
-	var out []string
-	for _, f := range fields {
-		if fieldSanitize.MatchString(f) {
-			out = append(out, f)
+	if err := filter.ValidateElasticsearchIndexName(cfg.Index); err != nil {
+		return nil, err
+	}
+	if !cfg.Schema.IsFinalized() {
+		return nil, fmt.Errorf("%w: elasticsearch schema", ragy.ErrInvalidArgument)
+	}
+
+	if len(cfg.SearchFields) == 0 {
+		return nil, fmt.Errorf("%w: elasticsearch search fields", ragy.ErrInvalidArgument)
+	}
+
+	fields := make([]string, 0, len(cfg.SearchFields))
+	seen := make(map[string]struct{}, len(cfg.SearchFields))
+	for _, fieldName := range cfg.SearchFields {
+		if err := validateSearchField(fieldName); err != nil {
+			return nil, err
 		}
+		if _, exists := seen[fieldName]; exists {
+			return nil, fmt.Errorf("%w: duplicate elasticsearch search field %q", ragy.ErrInvalidArgument, fieldName)
+		}
+		seen[fieldName] = struct{}{}
+		fields = append(fields, fieldName)
 	}
-	if len(out) == 0 {
-		return []string{"content"}
-	}
-	return out
+
+	return &Searcher{client: client, index: cfg.Index, fields: fields, schema: cfg.Schema}, nil
 }
 
-// Retrieve implements ragy.Retriever. Builds match/multi_match + bool filter from req.Filter.
-func (r *Retriever) Retrieve(ctx context.Context, req ragy.SearchRequest) ([]ragy.Document, error) {
-	if len(req.SparseVector) > 0 {
-		return nil, fmt.Errorf("elasticsearch: %w", ragy.ErrSparseVectorNotSupported)
+// Search implements lexical.Searcher.
+func (s *Searcher) Search(ctx context.Context, req lexical.Request) ([]ragy.Document, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
 	}
-	if req.Query == "" {
-		return []ragy.Document{}, nil
+	if err := s.Schema().ValidateSchemaIR(req.Filter); err != nil {
+		return nil, err
 	}
-	limit := req.Limit
-	if limit <= 0 {
-		limit = 10
-	}
-	offset := max(req.Offset, 0)
-	fields := sanitizeSearchFields(r.fields)
-	body := buildSearchBody(req.Query, fields, req.Filter, limit, offset)
-	reqES := esapi.SearchRequest{
-		Index: []string{r.index},
-		Body:  bytes.NewReader(body),
-	}
-	res, err := reqES.Do(ctx, r.client)
+
+	body, err := s.render(req)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = res.Body.Close() }()
-	if res.IsError() {
-		return nil, fmt.Errorf("elasticsearch: %s", res.String())
-	}
-	var searchRes struct {
-		Hits struct {
-			Hits []struct {
-				ID     string          `json:"_id"`
-				Source json.RawMessage `json:"_source"`
-				Score  float64         `json:"_score"`
-			} `json:"hits"`
-		} `json:"hits"`
-	}
-	if err := json.NewDecoder(res.Body).Decode(&searchRes); err != nil {
+
+	hits, err := s.client.Search(ctx, s.index, body)
+	if err != nil {
 		return nil, err
 	}
-	docs := make([]ragy.Document, 0, len(searchRes.Hits.Hits))
-	for _, h := range searchRes.Hits.Hits {
-		doc := ragy.Document{ID: h.ID, Score: float32(h.Score)}
-		s := math.Min(logisticScoreClamp, math.Max(-logisticScoreClamp, h.Score))
-		doc.Confidence = 1.0 / (1.0 + math.Exp(-s))
-		var src map[string]any
-		_ = json.Unmarshal(h.Source, &src)
-		if c, ok := src["content"].(string); ok {
-			doc.Content = c
+
+	if len(hits) == 0 {
+		return nil, nil
+	}
+
+	docs := make([]ragy.Document, 0, len(hits))
+	for _, hit := range hits {
+		doc, err := s.projectHit(hit)
+		if err != nil {
+			return nil, err
 		}
-		doc.Metadata = src
 		docs = append(docs, doc)
 	}
+
 	return docs, nil
 }
 
-// Stream implements ragy.Retriever.
-func (r *Retriever) Stream(ctx context.Context, req ragy.SearchRequest) iter.Seq2[ragy.Document, error] {
-	docs, err := r.Retrieve(ctx, req)
-	return ragy.YieldDocuments(ctx, docs, err)
+// Schema returns the finalized filter schema used by the searcher.
+func (s *Searcher) Schema() filter.Schema {
+	return s.schema
 }
 
-func buildSearchBody(query string, fields []string, f filter.Expr, limit, offset int) []byte {
-	queryClause := map[string]any{}
-	if len(fields) == 1 {
-		queryClause["match"] = map[string]any{fields[0]: query}
-	} else {
-		queryClause["multi_match"] = map[string]any{"query": query, "fields": fields}
+func (s *Searcher) render(req lexical.Request) (map[string]any, error) {
+	multiMatch := map[string]any{
+		"query":  req.Text,
+		"fields": slices.Clone(s.fields),
 	}
-	boolQ := map[string]any{"must": []any{queryClause}}
-	body := map[string]any{
-		"query": map[string]any{"bool": boolQ},
-		"size":  limit,
-		"from":  offset,
+
+	query := map[string]any{
+		"multi_match": multiMatch,
 	}
-	if f != nil {
-		filterClause := buildBoolFilter(f)
-		if filterClause != nil {
-			boolQ["filter"] = []any{filterClause}
+
+	if req.Filter != nil {
+		rendered, err := renderFilter(req.Filter)
+		if err != nil {
+			return nil, err
+		}
+		if rendered != nil {
+			query = map[string]any{
+				"bool": map[string]any{
+					"must":   []any{query},
+					"filter": []any{rendered},
+				},
+			}
 		}
 	}
-	raw, _ := json.Marshal(body)
-	return raw
+
+	body := map[string]any{"query": query}
+	if req.Page != nil {
+		body["size"] = req.Page.Limit
+		body["from"] = req.Page.Offset
+	}
+
+	return body, nil
 }
 
-//nolint:gocognit,funlen // filter.Expr → ES bool clause is a large switch with nested And/Or handling.
-func buildBoolFilter(expr filter.Expr) map[string]any {
-	switch e := expr.(type) {
-	case filter.Eq:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
+func renderFilter(expr filter.IR) (map[string]any, error) {
+	walker := &esFilterWalker{stack: nil, result: nil}
+	if err := filter.Walk(expr, walker); err != nil {
+		return nil, err
+	}
+	return walker.result, nil
+}
+
+func (s *Searcher) projectHit(hit Hit) (ragy.Document, error) {
+	contentValue, ok := hit.Source["content"]
+	if !ok {
+		return ragy.Document{}, fmt.Errorf("%w: elasticsearch content missing", ragy.ErrProtocol)
+	}
+
+	content, ok := contentValue.(string)
+	if !ok {
+		return ragy.Document{}, fmt.Errorf("%w: elasticsearch content must be string", ragy.ErrProtocol)
+	}
+
+	doc := ragy.Document{
+		ID:         hit.ID,
+		Content:    content,
+		Attributes: nil,
+		Relevance:  logistic(hit.Score),
+	}
+
+	attrs, err := s.projectAttributes(hit.Source)
+	if err != nil {
+		return ragy.Document{}, err
+	}
+	doc.Attributes = attrs
+
+	return ragy.NormalizeDocument(doc)
+}
+
+func (s *Searcher) projectAttributes(source map[string]any) (ragy.Attributes, error) {
+	if len(source) == 0 {
+		var attrs ragy.Attributes
+		return attrs, nil
+	}
+
+	projected := make(ragy.Attributes)
+	for key, value := range source {
+		if key == "content" {
+			continue
 		}
-		return map[string]any{"term": map[string]any{e.Field: e.Value}}
-	case filter.Neq:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
+		if _, ok := s.schema.Lookup(key); !ok {
+			continue
 		}
-		return map[string]any{
-			"bool": map[string]any{"must_not": []any{map[string]any{"term": map[string]any{e.Field: e.Value}}}},
-		}
-	case filter.In:
-		if !fieldSanitize.MatchString(e.Field) || len(e.Values) == 0 {
-			return nil
-		}
-		return map[string]any{"terms": map[string]any{e.Field: e.Values}}
-	case filter.Gt:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return map[string]any{"range": map[string]any{e.Field: map[string]any{"gt": e.Value}}}
-	case filter.Gte:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return map[string]any{"range": map[string]any{e.Field: map[string]any{"gte": e.Value}}}
-	case filter.Lt:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return map[string]any{"range": map[string]any{e.Field: map[string]any{"lt": e.Value}}}
-	case filter.Lte:
-		if !fieldSanitize.MatchString(e.Field) {
-			return nil
-		}
-		return map[string]any{"range": map[string]any{e.Field: map[string]any{"lte": e.Value}}}
-	case filter.And:
-		var must []any
-		for _, sub := range e.Exprs {
-			if c := buildBoolFilter(sub); c != nil {
-				must = append(must, c)
-			}
-		}
-		if len(must) == 0 {
-			return nil
-		}
-		return map[string]any{"bool": map[string]any{"must": must}}
-	case filter.Or:
-		var should []any
-		for _, sub := range e.Exprs {
-			if c := buildBoolFilter(sub); c != nil {
-				should = append(should, c)
-			}
-		}
-		if len(should) == 0 {
-			return nil
-		}
-		return map[string]any{"bool": map[string]any{"should": should}}
-	case filter.Not:
-		if c := buildBoolFilter(e.Expr); c != nil {
-			return map[string]any{"bool": map[string]any{"must_not": []any{c}}}
-		}
+		projected[key] = value
+	}
+
+	attrs, err := s.schema.NormalizeAttributes(projected)
+	if err != nil {
+		return nil, err
+	}
+	if len(attrs) == 0 {
+		var normalized ragy.Attributes
+		return normalized, nil
+	}
+
+	return attrs, nil
+}
+
+func validateSearchField(fieldName string) error {
+	switch fieldName {
+	case "":
+		return fmt.Errorf("%w: elasticsearch search field", ragy.ErrInvalidArgument)
+	case "content":
 		return nil
 	default:
-		return nil
+		return filter.ValidateIdentifier(fieldName)
 	}
 }
 
-var _ ragy.Retriever = (*Retriever)(nil)
+type esFrame struct {
+	op    string
+	items []map[string]any
+}
+
+type esFilterWalker struct {
+	stack  []esFrame
+	result map[string]any
+}
+
+func (w *esFilterWalker) OnEmpty() error {
+	return w.push(map[string]any{"match_all": map[string]any{}})
+}
+
+func (w *esFilterWalker) OnEq(field string, value filter.Value) error {
+	return w.push(map[string]any{"term": map[string]any{field: value.Raw()}})
+}
+
+func (w *esFilterWalker) OnNeq(field string, value filter.Value) error {
+	return w.push(map[string]any{
+		"bool": map[string]any{
+			"must_not": []any{map[string]any{"term": map[string]any{field: value.Raw()}}},
+		},
+	})
+}
+
+func (w *esFilterWalker) OnGt(field string, value filter.Value) error {
+	return w.push(rangeQuery(field, "gt", value.Raw()))
+}
+
+func (w *esFilterWalker) OnGte(field string, value filter.Value) error {
+	return w.push(rangeQuery(field, "gte", value.Raw()))
+}
+
+func (w *esFilterWalker) OnLt(field string, value filter.Value) error {
+	return w.push(rangeQuery(field, "lt", value.Raw()))
+}
+
+func (w *esFilterWalker) OnLte(field string, value filter.Value) error {
+	return w.push(rangeQuery(field, "lte", value.Raw()))
+}
+
+func (w *esFilterWalker) OnIn(field string, values []filter.Value) error {
+	items := make([]any, 0, len(values))
+	for _, value := range values {
+		items = append(items, value.Raw())
+	}
+	return w.push(map[string]any{"terms": map[string]any{field: items}})
+}
+
+func (w *esFilterWalker) EnterAnd(_ int) error {
+	w.stack = append(w.stack, esFrame{op: "and", items: nil})
+	return nil
+}
+
+func (w *esFilterWalker) LeaveAnd() error {
+	frame, err := w.pop("and")
+	if err != nil {
+		return err
+	}
+
+	items := make([]any, 0, len(frame.items))
+	for _, item := range frame.items {
+		items = append(items, item)
+	}
+	return w.push(map[string]any{"bool": map[string]any{"filter": items}})
+}
+
+func (w *esFilterWalker) EnterOr(_ int) error {
+	w.stack = append(w.stack, esFrame{op: "or", items: nil})
+	return nil
+}
+
+func (w *esFilterWalker) LeaveOr() error {
+	frame, err := w.pop("or")
+	if err != nil {
+		return err
+	}
+
+	items := make([]any, 0, len(frame.items))
+	for _, item := range frame.items {
+		items = append(items, item)
+	}
+	return w.push(map[string]any{"bool": map[string]any{"should": items, "minimum_should_match": 1}})
+}
+
+func (w *esFilterWalker) EnterNot() error {
+	w.stack = append(w.stack, esFrame{op: "not", items: nil})
+	return nil
+}
+
+func (w *esFilterWalker) LeaveNot() error {
+	frame, err := w.pop("not")
+	if err != nil {
+		return err
+	}
+	if len(frame.items) != 1 {
+		return fmt.Errorf("%w: invalid NOT filter", ragy.ErrUnsupported)
+	}
+	return w.push(map[string]any{"bool": map[string]any{"must_not": []any{frame.items[0]}}})
+}
+
+func (w *esFilterWalker) push(query map[string]any) error {
+	if len(w.stack) == 0 {
+		w.result = query
+		return nil
+	}
+
+	last := len(w.stack) - 1
+	w.stack[last].items = append(w.stack[last].items, query)
+	return nil
+}
+
+func (w *esFilterWalker) pop(op string) (esFrame, error) {
+	if len(w.stack) == 0 {
+		return esFrame{}, fmt.Errorf("%w: unmatched %s filter", ragy.ErrUnsupported, op)
+	}
+
+	last := len(w.stack) - 1
+	frame := w.stack[last]
+	w.stack = w.stack[:last]
+	if frame.op != op {
+		return esFrame{}, fmt.Errorf("%w: unexpected filter group %q", ragy.ErrUnsupported, frame.op)
+	}
+	return frame, nil
+}
+
+func rangeQuery(field, op string, value any) map[string]any {
+	return map[string]any{"range": map[string]any{field: map[string]any{op: value}}}
+}
+
+func logistic(score float64) float64 {
+	score = math.Max(-logisticClamp, math.Min(logisticClamp, score))
+	return 1.0 / (1.0 + math.Exp(-score))
+}
+
+var _ lexical.Searcher = (*Searcher)(nil)

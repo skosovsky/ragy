@@ -1,95 +1,128 @@
 package neo4j
 
 import (
+	"context"
 	"testing"
 
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/graph"
+	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/testutil"
 )
 
-func TestSanitizeLabel(t *testing.T) {
-	assert.Equal(t, "Node", sanitizeLabel("bad-label!"))
-	assert.Equal(t, "Person", sanitizeLabel("Person"))
+type fakeRunner struct{}
+
+func (fakeRunner) Traverse(_ context.Context, _ Query) (graph.Snapshot, error) {
+	return graph.Snapshot{}, nil
 }
 
-func TestCopyProps_FiltersUnsafeKeys(t *testing.T) {
-	in := map[string]any{"ok": 1, "bad!": 2, "also_ok": "x"}
-	out := copyProps(in)
-	assert.Equal(t, 1, out["ok"])
-	assert.Equal(t, "x", out["also_ok"])
-	assert.NotContains(t, out, "bad!")
+func (fakeRunner) Upsert(_ context.Context, _ graph.Snapshot) error { return nil }
+
+type brokenRunner struct {
+	snapshot graph.Snapshot
 }
 
-func TestNeo4jNodeToRagy(t *testing.T) {
-	n := neo4j.Node{
-		ElementId: "elem-1",
-		Labels:    []string{"Person"},
-		Props:     map[string]any{"id": "u1", "name": "Alice"},
+func (r brokenRunner) Traverse(_ context.Context, _ Query) (graph.Snapshot, error) {
+	return r.snapshot, nil
+}
+
+func (brokenRunner) Upsert(_ context.Context, _ graph.Snapshot) error { return nil }
+
+type memoryRunner struct {
+	store *testutil.GraphStore
+}
+
+func (r memoryRunner) Traverse(ctx context.Context, query Query) (graph.Snapshot, error) {
+	return r.store.Traverse(ctx, graph.TraversalRequest{
+		Seeds:      query.Seeds,
+		Direction:  query.Direction,
+		Depth:      query.Depth,
+		NodeFilter: query.NodeFilter,
+		EdgeFilter: query.EdgeFilter,
+		Page:       query.Page,
+	})
+}
+
+func (r memoryRunner) Upsert(ctx context.Context, snapshot graph.Snapshot) error {
+	return r.store.Upsert(ctx, snapshot)
+}
+
+func TestUpsertRejectsInvalidLabel(t *testing.T) {
+	store, err := New(fakeRunner{}, graph.EmptySchema())
+	if err != nil {
+		t.Fatalf("New(): %v", err)
 	}
-	node := neo4jNodeToRagy(n)
-	assert.Equal(t, "u1", node.ID)
-	assert.Equal(t, "Person", node.Label)
-	assert.Equal(t, "Alice", node.Properties["name"])
-}
 
-func TestNeo4jNodeToRagy_UsesElementIdWhenNoIdProp(t *testing.T) {
-	n := neo4j.Node{
-		ElementId: "elem-1",
-		Labels:    []string{"X"},
-		Props:     map[string]any{"name": "Bob"},
+	err = store.Upsert(context.Background(), graph.Snapshot{
+		Nodes: []graph.Node{{ID: "n1", Labels: []string{"bad-label"}}},
+	})
+	if err == nil {
+		t.Fatal("Upsert() error = nil, want error")
 	}
-	node := neo4jNodeToRagy(n)
-	assert.Equal(t, "elem-1", node.ID)
 }
 
-func TestNeo4jRelToRagy(t *testing.T) {
-	r := neo4j.Relationship{
-		ElementId:      "rel-1",
-		StartElementId: "start-1",
-		EndElementId:   "end-1",
-		Type:           "KNOWS",
-		Props:          map[string]any{"since": 2020},
+func TestTraverseRejectsInvalidRunnerSnapshot(t *testing.T) {
+	store, err := New(brokenRunner{
+		snapshot: graph.Snapshot{
+			Nodes: []graph.Node{{
+				ID:     "n1",
+				Labels: []string{"bad-label"},
+			}},
+		},
+	}, graph.EmptySchema())
+	if err != nil {
+		t.Fatalf("New(): %v", err)
 	}
-	e := neo4jRelToRagy(r)
-	assert.Equal(t, "start-1", e.SourceID)
-	assert.Equal(t, "end-1", e.TargetID)
-	assert.Equal(t, "KNOWS", e.Relation)
-	assert.Equal(t, 2020, e.Properties["since"])
+
+	_, err = store.Traverse(context.Background(), graph.TraversalRequest{
+		Seeds:     []string{"n1"},
+		Direction: graph.DirectionOutbound,
+		Depth:     1,
+	})
+	if err == nil {
+		t.Fatal("Traverse() error = nil, want error")
+	}
 }
 
-func TestBuildCypherWhere_EqAndIn(t *testing.T) {
-	clause, params := buildCypherWhere(filter.All(
-		filter.Equal("tenant", "t1"),
-		filter.OneOf("role", "a", "b"),
-	))
-	require.NotEmpty(t, clause)
-	assert.Contains(t, clause, "AND")
-	assert.Contains(t, clause, "n.tenant")
-	assert.Contains(t, clause, "n.role")
-	assert.Len(t, params, 2)
+func TestTraverseRejectsDanglingRunnerSnapshot(t *testing.T) {
+	store, err := New(brokenRunner{
+		snapshot: graph.Snapshot{
+			Nodes: []graph.Node{{
+				ID:     "n1",
+				Labels: []string{"Doc"},
+			}},
+			Edges: []graph.Edge{{
+				ID:       "e1",
+				SourceID: "n1",
+				TargetID: "missing",
+				Type:     "LINKS",
+			}},
+		},
+	}, graph.EmptySchema())
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Traverse(context.Background(), graph.TraversalRequest{
+		Seeds:     []string{"n1"},
+		Direction: graph.DirectionOutbound,
+		Depth:     1,
+	})
+	if err == nil {
+		t.Fatal("Traverse() error = nil, want error")
+	}
 }
 
-func TestBuildCypherWhere_OrNot(t *testing.T) {
-	clause, params := buildCypherWhere(filter.Any(
-		filter.Equal("a", 1),
-		filter.Inverse(filter.Equal("z", "bad")),
-	))
-	require.NotEmpty(t, clause)
-	assert.Contains(t, clause, "OR")
-	assert.Contains(t, clause, "NOT")
-	assert.NotEmpty(t, params)
-}
-
-func TestBuildCypherWhere_Nil(t *testing.T) {
-	clause, params := buildCypherWhere(nil)
-	assert.Empty(t, clause)
-	assert.Empty(t, params)
-}
-
-func TestJoinCypher(t *testing.T) {
-	assert.Equal(t, "a AND b", joinCypher([]string{"a", "b"}, " AND "))
-	assert.Empty(t, joinCypher(nil, " AND "))
+func TestGraphStoreConformance(t *testing.T) {
+	contracttest.RunGraphStoreSuite(
+		t,
+		func(t *testing.T, snapshot graph.Snapshot, schema graph.Schema) graph.Store {
+			t.Helper()
+			backing := &testutil.GraphStore{Snapshot: snapshot, GraphSchema: schema}
+			store, err := New(memoryRunner{store: backing}, schema)
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+	)
 }
