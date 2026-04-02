@@ -116,23 +116,22 @@ func (c *Client) Rerank(ctx context.Context, query string, docs []ragy.Document)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, ragy.WrapTransportError(err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		payload, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
-		return nil, fmt.Errorf(
-			"%w: cohere status %d: %s",
-			ragy.ErrProtocol,
+		return nil, ragy.ErrorFromHTTPResponse(
 			resp.StatusCode,
+			"cohere rerank",
 			strings.TrimSpace(string(payload)),
 		)
 	}
 
 	var decoded rerankResponse
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: cohere rerank decode: %w", ragy.ErrProtocol, err)
 	}
 
 	if len(decoded.Results) != len(docs) {

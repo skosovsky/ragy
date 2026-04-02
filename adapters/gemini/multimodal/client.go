@@ -108,23 +108,22 @@ func (c *Client) Embed(ctx context.Context, inputs []rootmultimodal.Input) ([][]
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, ragy.WrapTransportError(err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		payload, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
-		return nil, fmt.Errorf(
-			"%w: gemini status %d: %s",
-			ragy.ErrProtocol,
+		return nil, ragy.ErrorFromHTTPResponse(
 			resp.StatusCode,
+			"gemini multimodal",
 			strings.TrimSpace(string(payload)),
 		)
 	}
 
 	var decoded embedResponse
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: gemini multimodal decode: %w", ragy.ErrProtocol, err)
 	}
 
 	if len(decoded.Embeddings) != len(inputs) {

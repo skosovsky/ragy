@@ -2,6 +2,7 @@ package qdrant
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"testing"
@@ -14,12 +15,14 @@ import (
 )
 
 type fakeClient struct {
-	cond         Condition
-	searchPoints []Point
-	getPoints    []Point
-	upsertPoints []Point
-	upsertCalls  int
-	deleteCalls  int
+	cond           Condition
+	searchPoints   []Point
+	getPoints      []Point
+	upsertPoints   []Point
+	upsertCalls    int
+	deleteCalls    int
+	getErr         error
+	deleteByIDsErr error
 }
 
 func (c *fakeClient) Upsert(_ context.Context, _ string, points []Point) error {
@@ -34,10 +37,18 @@ func (c *fakeClient) Search(_ context.Context, _ string, _ []float32, cond Condi
 }
 
 func (c *fakeClient) Get(_ context.Context, _ string, _ []string) ([]Point, error) {
+	if c.getErr != nil {
+		return nil, c.getErr
+	}
 	return c.getPoints, nil
 }
 
-func (c *fakeClient) DeleteByIDs(_ context.Context, _ string, _ []string) (int, error) { return 0, nil }
+func (c *fakeClient) DeleteByIDs(_ context.Context, _ string, _ []string) (int, error) {
+	if c.deleteByIDsErr != nil {
+		return 0, c.deleteByIDsErr
+	}
+	return 0, nil
+}
 
 func (c *fakeClient) DeleteByFilter(_ context.Context, _ string, cond Condition) (int, error) {
 	c.deleteCalls++
@@ -211,6 +222,36 @@ func TestFindByIDsRejectsInvalidBackendPayload(t *testing.T) {
 
 	if _, err := store.FindByIDs(context.Background(), []string{"doc-1"}); err == nil {
 		t.Fatal("FindByIDs() error = nil, want error")
+	}
+}
+
+func TestFindByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
+	client := &fakeClient{getErr: errors.New("upstream")}
+	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	_, err = store.FindByIDs(context.Background(), []string{"a"})
+	if err == nil {
+		t.Fatal("FindByIDs() error = nil, want error")
+	}
+	if !errors.Is(err, ragy.ErrUnavailable) {
+		t.Fatalf("FindByIDs() error = %v, want errors.Is(..., ErrUnavailable)", err)
+	}
+}
+
+func TestDeleteByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
+	client := &fakeClient{deleteByIDsErr: errors.New("upstream")}
+	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	_, err = store.DeleteByIDs(context.Background(), []string{"a"})
+	if err == nil {
+		t.Fatal("DeleteByIDs() error = nil, want error")
+	}
+	if !errors.Is(err, ragy.ErrUnavailable) {
+		t.Fatalf("DeleteByIDs() error = %v, want errors.Is(..., ErrUnavailable)", err)
 	}
 }
 

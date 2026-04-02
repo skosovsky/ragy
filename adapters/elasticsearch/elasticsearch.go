@@ -89,7 +89,7 @@ func (s *Searcher) Search(ctx context.Context, req lexical.Request) ([]ragy.Docu
 
 	hits, err := s.client.Search(ctx, s.index, body)
 	if err != nil {
-		return nil, err
+		return nil, ragy.WrapBackendError(err, "elasticsearch search")
 	}
 
 	if len(hits) == 0 {

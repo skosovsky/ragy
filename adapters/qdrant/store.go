@@ -134,7 +134,7 @@ func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document,
 
 	points, err := s.client.Search(ctx, s.collection, req.Vector, cond, req.Page)
 	if err != nil {
-		return nil, err
+		return nil, ragy.WrapBackendError(err, "qdrant search")
 	}
 
 	if len(points) == 0 {
@@ -179,7 +179,7 @@ func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
 		})
 	}
 
-	return s.client.Upsert(ctx, s.collection, points)
+	return ragy.WrapBackendError(s.client.Upsert(ctx, s.collection, points), "qdrant upsert")
 }
 
 // FindByIDs implements documents.Store.
@@ -190,7 +190,7 @@ func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, e
 
 	points, err := s.client.Get(ctx, s.collection, ids)
 	if err != nil {
-		return nil, err
+		return nil, ragy.WrapBackendError(err, "qdrant get")
 	}
 
 	if len(points) == 0 {
@@ -217,7 +217,7 @@ func (s *Store) DeleteByIDs(ctx context.Context, ids []string) (documents.Delete
 
 	deleted, err := s.client.DeleteByIDs(ctx, s.collection, ids)
 	if err != nil {
-		return documents.DeleteResult{}, err
+		return documents.DeleteResult{}, ragy.WrapBackendError(err, "qdrant delete by ids")
 	}
 
 	return documents.DeleteResult{Deleted: deleted}, nil
@@ -242,7 +242,7 @@ func (s *Store) DeleteByFilter(ctx context.Context, expr filter.IR) (documents.D
 
 	deleted, err := s.client.DeleteByFilter(ctx, s.collection, cond)
 	if err != nil {
-		return documents.DeleteResult{}, err
+		return documents.DeleteResult{}, ragy.WrapBackendError(err, "qdrant delete by filter")
 	}
 
 	return documents.DeleteResult{Deleted: deleted}, nil

@@ -78,7 +78,7 @@ func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document,
 
 	rows, err := s.db.Query(ctx, sql, args...)
 	if err != nil {
-		return nil, err
+		return nil, ragy.WrapBackendError(err, "pgvector search query")
 	}
 	defer rows.Close()
 
@@ -91,7 +91,7 @@ func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document,
 			relevance float64
 		)
 		if err := rows.Scan(&id, &content, &attrsJSON, &relevance); err != nil {
-			return nil, err
+			return nil, ragy.WrapBackendError(err, "pgvector search scan")
 		}
 
 		attrs, err := unmarshalAttributes(attrsJSON)
@@ -108,7 +108,7 @@ func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document,
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, ragy.WrapBackendError(err, "pgvector search rows")
 	}
 
 	if len(docs) == 0 {
@@ -189,7 +189,7 @@ func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
 	)
 
 	_, err := s.db.Exec(ctx, sql, args...)
-	return err
+	return ragy.WrapBackendError(err, "pgvector upsert")
 }
 
 // FindByIDs implements documents.Store.
@@ -205,7 +205,7 @@ func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, e
 		args...,
 	)
 	if err != nil {
-		return nil, err
+		return nil, ragy.WrapBackendError(err, "pgvector find by ids query")
 	}
 	defer rows.Close()
 
@@ -214,7 +214,7 @@ func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, e
 		var id, content string
 		var attrsJSON []byte
 		if err := rows.Scan(&id, &content, &attrsJSON); err != nil {
-			return nil, err
+			return nil, ragy.WrapBackendError(err, "pgvector find by ids scan")
 		}
 
 		attrs, err := unmarshalAttributes(attrsJSON)
@@ -231,7 +231,7 @@ func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, e
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, ragy.WrapBackendError(err, "pgvector find by ids rows")
 	}
 
 	if len(docs) == 0 {
@@ -250,7 +250,7 @@ func (s *Store) DeleteByIDs(ctx context.Context, ids []string) (documents.Delete
 	placeholders, args := buildIDArgs(ids)
 	result, err := s.db.Exec(ctx, fmt.Sprintf("DELETE FROM %s WHERE id IN (%s)", s.table, placeholders), args...)
 	if err != nil {
-		return documents.DeleteResult{}, err
+		return documents.DeleteResult{}, ragy.WrapBackendError(err, "pgvector delete by ids")
 	}
 
 	return documents.DeleteResult{Deleted: int(result.RowsAffected())}, nil
@@ -275,7 +275,7 @@ func (s *Store) DeleteByFilter(ctx context.Context, expr filter.IR) (documents.D
 
 	result, err := s.db.Exec(ctx, fmt.Sprintf("DELETE FROM %s WHERE %s", s.table, where), args...)
 	if err != nil {
-		return documents.DeleteResult{}, err
+		return documents.DeleteResult{}, ragy.WrapBackendError(err, "pgvector delete by filter")
 	}
 
 	return documents.DeleteResult{Deleted: int(result.RowsAffected())}, nil
