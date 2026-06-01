@@ -29,6 +29,9 @@ func (p *Pipeline[TMeta]) Retrieve(ctx context.Context, query string, opts Retri
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
+	if opts.FetchLimit <= 0 {
+		opts.FetchLimit = opts.TopK
+	}
 
 	docs, err := p.backend.Retrieve(ctx, query, opts)
 	if err != nil {
@@ -40,7 +43,6 @@ func (p *Pipeline[TMeta]) Retrieve(ctx context.Context, query string, opts Retri
 	}
 
 	docs = applyMinSimilarity(docs, opts.MinSimilarity)
-	docs = applyTopK(docs, opts.TopK)
 
 	for _, processor := range p.processors {
 		docs, err = processor.Process(docs)
@@ -52,6 +54,7 @@ func (p *Pipeline[TMeta]) Retrieve(ctx context.Context, query string, opts Retri
 		}
 	}
 
+	docs = applyTopK(docs, opts.TopK)
 	return docs, nil
 }
 

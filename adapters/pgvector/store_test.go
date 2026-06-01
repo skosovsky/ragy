@@ -153,6 +153,45 @@ func ageScoreSchema(t *testing.T) filter.Schema {
 	return schema
 }
 
+func TestRenderSearchUsesFetchLimit(t *testing.T) {
+	t.Parallel()
+
+	store := &Store[contracttest.Meta]{table: "docs", schema: emptySchema(t)}
+	sql, args, err := store.renderSearch(retrieval.RetrieveOptions{
+		Vector:     []float32{1},
+		FetchLimit: 50,
+		TopK:       10,
+	})
+	if err != nil {
+		t.Fatalf("renderSearch(): %v", err)
+	}
+	if !containsLimit(sql) {
+		t.Fatalf("query = %q, want LIMIT clause", sql)
+	}
+	if len(args) != 2 || args[1] != 50 {
+		t.Fatalf("args = %#v, want vector and fetch_limit 50", args)
+	}
+}
+
+func TestRenderSearchFallsBackToTopKWhenFetchLimitZero(t *testing.T) {
+	t.Parallel()
+
+	store := &Store[contracttest.Meta]{table: "docs", schema: emptySchema(t)}
+	sql, args, err := store.renderSearch(retrieval.RetrieveOptions{
+		Vector: []float32{1},
+		TopK:   15,
+	})
+	if err != nil {
+		t.Fatalf("renderSearch(): %v", err)
+	}
+	if !containsLimit(sql) {
+		t.Fatalf("query = %q, want LIMIT clause", sql)
+	}
+	if len(args) != 2 || args[1] != 15 {
+		t.Fatalf("args = %#v, want vector and top_k fallback 15", args)
+	}
+}
+
 func TestRetrieveHasNoImplicitLimitAndReturnsNilOnNoRows(t *testing.T) {
 	db := &fakeDB{}
 	store, err := New[contracttest.Meta](db, Config{Table: "docs", Schema: emptySchema(t)})

@@ -176,3 +176,77 @@ func TestRetrieveProjectsTraversedNodes(t *testing.T) {
 		t.Fatalf("Retrieve() = %#v, want node n1", out)
 	}
 }
+
+func TestRetrieveUsesFetchLimitForBackendSlice(t *testing.T) {
+	t.Parallel()
+
+	nodeBuilder := filter.NewSchema()
+	if _, err := nodeBuilder.String("tenant"); err != nil {
+		t.Fatalf("String(): %v", err)
+	}
+	nodeSchema, err := nodeBuilder.Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+	edgeSchema, err := filter.NewSchema().Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+	schema, err := graph.NewSchema(nodeSchema, edgeSchema)
+	if err != nil {
+		t.Fatalf("NewSchema(): %v", err)
+	}
+
+	backing := &testutil.GraphStore{
+		Snapshot: graph.Snapshot[contracttest.Meta]{
+			Nodes: []graph.Node[contracttest.Meta]{
+				{ID: "n1", Labels: []string{"Doc"}, Content: "one", Meta: contracttest.Meta{"tenant": "acme"}},
+				{ID: "n2", Labels: []string{"Doc"}, Content: "two", Meta: contracttest.Meta{"tenant": "acme"}},
+				{ID: "n3", Labels: []string{"Doc"}, Content: "three", Meta: contracttest.Meta{"tenant": "acme"}},
+			},
+		},
+		GraphSchema: schema,
+	}
+	store, err := New[contracttest.Meta](memoryRunner{store: backing}, schema)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		FetchLimit: 1,
+		TopK:       1,
+		Graph: &retrieval.GraphOptions{
+			Seeds:     []string{"n1", "n2", "n3"},
+			Direction: graph.DirectionOutbound,
+			Depth:     1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("len(out) = %d, want 1", len(out))
+	}
+}
+
+func TestRetrieveRejectsFetchLimitLessThanTopK(t *testing.T) {
+	t.Parallel()
+
+	store, err := New[contracttest.Meta](memoryRunner{store: &testutil.GraphStore{}}, graph.EmptySchema())
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		FetchLimit: 1,
+		TopK:       3,
+		Graph: &retrieval.GraphOptions{
+			Seeds:     []string{"n1"},
+			Direction: graph.DirectionOutbound,
+			Depth:     1,
+		},
+	})
+	if err == nil {
+		t.Fatal("Retrieve() error = nil, want invalid argument")
+	}
+}

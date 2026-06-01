@@ -96,6 +96,73 @@ func TestRetrieveProjectsCanonicalDocumentShape(t *testing.T) {
 	}
 }
 
+func TestRetrieveUsesFetchLimitForSize(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{
+		hits: []Hit{{
+			ID:     "doc-1",
+			Score:  4,
+			Source: map[string]any{"content": "hello"},
+		}},
+	}
+
+	store, err := New[contracttest.Meta](client, Config{
+		Index:        "docs",
+		SearchFields: []string{"content"},
+		Schema:       schemaWithContent(t),
+	})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+		FetchLimit: 30,
+		TopK:       10,
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+
+	size, ok := client.body["size"].(int)
+	if !ok || size != 30 {
+		t.Fatalf("body[size] = %#v, want 30", client.body["size"])
+	}
+}
+
+func TestRetrieveFallsBackToTopKWhenFetchLimitZero(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{
+		hits: []Hit{{
+			ID:     "doc-1",
+			Score:  4,
+			Source: map[string]any{"content": "hello"},
+		}},
+	}
+
+	store, err := New[contracttest.Meta](client, Config{
+		Index:        "docs",
+		SearchFields: []string{"content"},
+		Schema:       schemaWithContent(t),
+	})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+		TopK: 18,
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+
+	size, ok := client.body["size"].(int)
+	if !ok || size != 18 {
+		t.Fatalf("body[size] = %#v, want 18", client.body["size"])
+	}
+}
+
 func TestRetrieveReturnsNilMetaWhenOnlyContentIsPresent(t *testing.T) {
 	client := &fakeClient{
 		hits: []Hit{{

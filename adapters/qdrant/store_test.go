@@ -18,6 +18,7 @@ import (
 
 type fakeClient struct {
 	cond           Condition
+	searchLimit    int
 	searchPoints   []Point
 	getPoints      []Point
 	upsertPoints   []Point
@@ -33,8 +34,9 @@ func (c *fakeClient) Upsert(_ context.Context, _ string, points []Point) error {
 	return nil
 }
 
-func (c *fakeClient) Search(_ context.Context, _ string, _ []float32, cond Condition, _ int) ([]Point, error) {
+func (c *fakeClient) Search(_ context.Context, _ string, _ []float32, cond Condition, limit int) ([]Point, error) {
 	c.cond = cond
+	c.searchLimit = limit
 	return c.searchPoints, nil
 }
 
@@ -144,6 +146,67 @@ func TestRetrievePreservesTypedFilterValue(t *testing.T) {
 
 	if _, ok := eq.Value.(int64); !ok {
 		t.Fatalf("condition value type = %T, want int64", eq.Value)
+	}
+}
+
+func TestRetrieveUsesFetchLimitForSearch(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{}
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector:     []float32{1},
+		FetchLimit: 25,
+		TopK:       10,
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	if client.searchLimit != 25 {
+		t.Fatalf("searchLimit = %d, want 25", client.searchLimit)
+	}
+}
+
+func TestRetrieveFallsBackToTopKWhenFetchLimitZero(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{}
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector: []float32{1},
+		TopK:   12,
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	if client.searchLimit != 12 {
+		t.Fatalf("searchLimit = %d, want 12", client.searchLimit)
+	}
+}
+
+func TestRetrieveRejectsFetchLimitLessThanTopK(t *testing.T) {
+	t.Parallel()
+
+	store, err := New[contracttest.Meta](&fakeClient{}, Config{Collection: "docs", Schema: emptySchema(t)})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector:     []float32{1},
+		FetchLimit: 5,
+		TopK:       10,
+	})
+	if err == nil {
+		t.Fatal("Retrieve() error = nil, want invalid argument")
 	}
 }
 

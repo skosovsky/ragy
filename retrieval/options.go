@@ -39,6 +39,7 @@ func (g *GraphOptions) Validate() error {
 
 // RetrieveOptions separates search tuning from domain filters.
 type RetrieveOptions struct {
+	FetchLimit    int
 	TopK          int
 	MinSimilarity float64
 	HybridWeight  float64
@@ -49,8 +50,19 @@ type RetrieveOptions struct {
 
 // Validate checks option invariants.
 func (o RetrieveOptions) Validate() error {
+	if o.FetchLimit < 0 {
+		return fmt.Errorf("%w: fetch_limit must be >= 0", ragy.ErrInvalidArgument)
+	}
 	if o.TopK < 0 {
 		return fmt.Errorf("%w: top_k must be >= 0", ragy.ErrInvalidArgument)
+	}
+	if o.FetchLimit > 0 && o.TopK > 0 && o.FetchLimit < o.TopK {
+		return fmt.Errorf(
+			"%w: fetch_limit (%d) cannot be less than top_k (%d)",
+			ragy.ErrInvalidArgument,
+			o.FetchLimit,
+			o.TopK,
+		)
 	}
 	if o.MinSimilarity < 0 || o.MinSimilarity > 1 {
 		return fmt.Errorf("%w: min_similarity must be in [0,1]", ragy.ErrInvalidArgument)
@@ -62,4 +74,14 @@ func (o RetrieveOptions) Validate() error {
 		return err
 	}
 	return o.Graph.Validate()
+}
+
+// BackendFetchLimit returns the effective row limit for backend queries.
+// When FetchLimit is unset (0), TopK is used as the fetch cap.
+func (o RetrieveOptions) BackendFetchLimit() int {
+	limit := o.FetchLimit
+	if limit <= 0 {
+		return o.TopK
+	}
+	return limit
 }

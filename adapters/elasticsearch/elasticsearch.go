@@ -150,8 +150,9 @@ func (s *Store[TMeta]) render(query string, opts retrieval.RetrieveOptions) (map
 	}
 
 	body := map[string]any{"query": esQuery}
-	if opts.TopK > 0 {
-		body["size"] = opts.TopK
+	limit := opts.BackendFetchLimit()
+	if limit > 0 {
+		body["size"] = limit
 	}
 
 	return body, nil

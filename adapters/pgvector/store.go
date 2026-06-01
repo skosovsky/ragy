@@ -129,8 +129,9 @@ func (s *Store[TMeta]) renderSearch(opts retrieval.RetrieveOptions) (string, []a
 	builder.WriteString(where)
 	builder.WriteString(" ORDER BY vector <=> $1")
 
-	if opts.TopK > 0 {
-		args = append(args, opts.TopK)
+	limit := opts.BackendFetchLimit()
+	if limit > 0 {
+		args = append(args, limit)
 		_, _ = fmt.Fprintf(&builder, " LIMIT $%d", len(args))
 	}
 

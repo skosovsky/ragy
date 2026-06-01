@@ -50,6 +50,9 @@ func (s *Store[TMeta]) Retrieve(
 	_ string,
 	opts retrieval.RetrieveOptions,
 ) ([]retrieval.Document[TMeta], error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
 	if opts.Graph == nil {
 		return nil, fmt.Errorf("%w: neo4j retrieve requires graph options", ragy.ErrInvalidArgument)
 	}
@@ -84,8 +87,9 @@ func (s *Store[TMeta]) Retrieve(
 		docs = append(docs, doc)
 	}
 
-	if opts.TopK > 0 && len(docs) > opts.TopK {
-		docs = docs[:opts.TopK]
+	limit := opts.BackendFetchLimit()
+	if limit > 0 && len(docs) > limit {
+		docs = docs[:limit]
 	}
 
 	return docs, nil

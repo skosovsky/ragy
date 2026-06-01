@@ -141,7 +141,7 @@ func (s *Store[TMeta]) Retrieve(
 		return nil, err
 	}
 
-	points, err := s.client.Search(ctx, s.collection, opts.Vector, cond, opts.TopK)
+	points, err := s.client.Search(ctx, s.collection, opts.Vector, cond, opts.BackendFetchLimit())
 	if err != nil {
 		return nil, ragy.WrapBackendError(err, "qdrant search")
 	}

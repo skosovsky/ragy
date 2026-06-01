@@ -2,6 +2,8 @@ package retrieval
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"testing"
 )
 
@@ -55,6 +57,91 @@ func TestPipelineAppliesProcessors(t *testing.T) {
 	if len(out) != 2 {
 		t.Fatalf("len(out) = %d, want 2", len(out))
 	}
+}
+
+func TestPipelineAppliesTopKAfterGroupBy(t *testing.T) {
+	t.Parallel()
+
+	type meta struct {
+		Group string
+	}
+
+	docs := make([]Document[meta], 0, 10)
+	for i := range 10 {
+		group := string(rune('a' + i/2))
+		docs = append(docs, Document[meta]{
+			ID:      strconv.Itoa(i + 1),
+			Content: fmt.Sprintf("chunk-%d", i+1),
+			Score:   1.0 - float64(i)*0.05,
+			Meta:    meta{Group: group},
+		})
+	}
+
+	pipeline := NewPipeline[meta](
+		stubBackend[meta]{docs: docs},
+		GroupBy(func(m meta) string { return m.Group }, DefaultMergeStrategy[meta]()),
+	)
+
+	out, err := pipeline.Retrieve(context.Background(), "query", RetrieveOptions{TopK: 3})
+	if err != nil {
+		t.Fatalf("Retrieve: %v", err)
+	}
+	if len(out) != 3 {
+		t.Fatalf("len(out) = %d, want 3", len(out))
+	}
+}
+
+func TestPipelineNormalizesFetchLimitFromTopK(t *testing.T) {
+	t.Parallel()
+
+	backend := &capturingBackend[struct{}]{
+		docs: []Document[struct{}]{{ID: "doc-1", Content: "ok", Score: 0.5}},
+	}
+	pipeline := NewPipeline[struct{}](backend)
+
+	_, err := pipeline.Retrieve(context.Background(), "query", RetrieveOptions{TopK: 7})
+	if err != nil {
+		t.Fatalf("Retrieve: %v", err)
+	}
+	if backend.lastOpts.FetchLimit != 7 {
+		t.Fatalf("FetchLimit = %d, want 7", backend.lastOpts.FetchLimit)
+	}
+}
+
+func TestPipelinePreservesExplicitFetchLimit(t *testing.T) {
+	t.Parallel()
+
+	backend := &capturingBackend[struct{}]{
+		docs: []Document[struct{}]{{ID: "doc-1", Content: "ok", Score: 0.5}},
+	}
+	pipeline := NewPipeline[struct{}](backend)
+
+	_, err := pipeline.Retrieve(context.Background(), "query", RetrieveOptions{
+		FetchLimit: 50,
+		TopK:       10,
+	})
+	if err != nil {
+		t.Fatalf("Retrieve: %v", err)
+	}
+	if backend.lastOpts.FetchLimit != 50 {
+		t.Fatalf("FetchLimit = %d, want 50", backend.lastOpts.FetchLimit)
+	}
+}
+
+type capturingBackend[TMeta any] struct {
+	docs     []Document[TMeta]
+	lastOpts RetrieveOptions
+}
+
+func (s *capturingBackend[TMeta]) Retrieve(
+	_ context.Context,
+	_ string,
+	opts RetrieveOptions,
+) ([]Document[TMeta], error) {
+	s.lastOpts = opts
+	out := make([]Document[TMeta], len(s.docs))
+	copy(out, s.docs)
+	return out, nil
 }
 
 type stubBackend[TMeta any] struct {
