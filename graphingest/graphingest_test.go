@@ -4,32 +4,36 @@ import (
 	"context"
 	"testing"
 
-	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/chunking"
 	"github.com/skosovsky/ragy/graph"
+	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/testutil"
 )
 
 type stubSplitter struct {
-	chunks []ragy.Chunk
+	chunks []chunking.Chunk[contracttest.Meta]
 	err    error
 }
 
-func (s *stubSplitter) Split(_ context.Context, _ ragy.Document) ([]ragy.Chunk, error) {
+func (s *stubSplitter) Split(
+	_ context.Context,
+	_ retrieval.Document[contracttest.Meta],
+) ([]chunking.Chunk[contracttest.Meta], error) {
 	return s.chunks, s.err
 }
 
 type recordingStore struct {
 	calls    int
-	snapshot graph.Snapshot
+	snapshot graph.Snapshot[contracttest.Meta]
 	schema   graph.Schema
 }
 
-func (s *recordingStore) Traverse(context.Context, graph.TraversalRequest) (graph.Snapshot, error) {
-	return graph.Snapshot{}, nil
+func (s *recordingStore) Traverse(context.Context, graph.TraversalRequest) (graph.Snapshot[contracttest.Meta], error) {
+	return graph.Snapshot[contracttest.Meta]{}, nil
 }
 
-func (s *recordingStore) Upsert(_ context.Context, snapshot graph.Snapshot) error {
+func (s *recordingStore) Upsert(_ context.Context, snapshot graph.Snapshot[contracttest.Meta]) error {
 	s.calls++
 	s.snapshot = snapshot
 	return nil
@@ -59,7 +63,7 @@ func TestNewStageRejectsMissingDependencies(t *testing.T) {
 
 func TestStageRunExtractsAndUpsertsGraph(t *testing.T) {
 	base := &stubSplitter{
-		chunks: []ragy.Chunk{{
+		chunks: []chunking.Chunk[contracttest.Meta]{{
 			ID:       "chunk-1",
 			SourceID: "doc-1",
 			Index:    0,
@@ -67,8 +71,8 @@ func TestStageRunExtractsAndUpsertsGraph(t *testing.T) {
 		}},
 	}
 	provider := &testutil.GraphProvider{
-		Snapshot: graph.Snapshot{
-			Nodes: []graph.Node{{
+		Snapshot: graph.Snapshot[contracttest.Meta]{
+			Nodes: []graph.Node[contracttest.Meta]{{
 				ID:     "node-1",
 				Labels: []string{"Doc"},
 			}},
@@ -81,11 +85,11 @@ func TestStageRunExtractsAndUpsertsGraph(t *testing.T) {
 		t.Fatalf("NewStage(): %v", err)
 	}
 
-	if _, ok := any(stage).(chunking.Splitter); ok {
+	if _, ok := any(stage).(chunking.Splitter[contracttest.Meta]); ok {
 		t.Fatal("Stage must not implement chunking.Splitter")
 	}
 
-	result, err := stage.Run(context.Background(), ragy.Document{
+	result, err := stage.Run(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "hello",
 	})
@@ -108,7 +112,7 @@ func TestStageRunExtractsAndUpsertsGraph(t *testing.T) {
 
 func TestStageRunRejectsInvalidProviderSnapshotBeforeUpsert(t *testing.T) {
 	base := &stubSplitter{
-		chunks: []ragy.Chunk{{
+		chunks: []chunking.Chunk[contracttest.Meta]{{
 			ID:       "chunk-1",
 			SourceID: "doc-1",
 			Index:    0,
@@ -116,8 +120,8 @@ func TestStageRunRejectsInvalidProviderSnapshotBeforeUpsert(t *testing.T) {
 		}},
 	}
 	provider := &testutil.GraphProvider{
-		Snapshot: graph.Snapshot{
-			Nodes: []graph.Node{{
+		Snapshot: graph.Snapshot[contracttest.Meta]{
+			Nodes: []graph.Node[contracttest.Meta]{{
 				ID:     "node-1",
 				Labels: []string{"bad-label"},
 			}},
@@ -130,7 +134,7 @@ func TestStageRunRejectsInvalidProviderSnapshotBeforeUpsert(t *testing.T) {
 		t.Fatalf("NewStage(): %v", err)
 	}
 
-	_, err = stage.Run(context.Background(), ragy.Document{
+	_, err = stage.Run(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "hello",
 	})
@@ -144,7 +148,7 @@ func TestStageRunRejectsInvalidProviderSnapshotBeforeUpsert(t *testing.T) {
 
 func TestStageRunRejectsDanglingProviderSnapshotBeforeUpsert(t *testing.T) {
 	base := &stubSplitter{
-		chunks: []ragy.Chunk{{
+		chunks: []chunking.Chunk[contracttest.Meta]{{
 			ID:       "chunk-1",
 			SourceID: "doc-1",
 			Index:    0,
@@ -152,12 +156,12 @@ func TestStageRunRejectsDanglingProviderSnapshotBeforeUpsert(t *testing.T) {
 		}},
 	}
 	provider := &testutil.GraphProvider{
-		Snapshot: graph.Snapshot{
-			Nodes: []graph.Node{{
+		Snapshot: graph.Snapshot[contracttest.Meta]{
+			Nodes: []graph.Node[contracttest.Meta]{{
 				ID:     "node-1",
 				Labels: []string{"Doc"},
 			}},
-			Edges: []graph.Edge{{
+			Edges: []graph.Edge[contracttest.Meta]{{
 				ID:       "edge-1",
 				SourceID: "node-1",
 				TargetID: "missing",
@@ -172,7 +176,7 @@ func TestStageRunRejectsDanglingProviderSnapshotBeforeUpsert(t *testing.T) {
 		t.Fatalf("NewStage(): %v", err)
 	}
 
-	_, err = stage.Run(context.Background(), ragy.Document{
+	_, err = stage.Run(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "hello",
 	})

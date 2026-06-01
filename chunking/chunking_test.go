@@ -8,6 +8,8 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/chunking"
+	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/testutil"
 )
 
@@ -22,14 +24,14 @@ func (s *fixedSegmenter) Split(text string) []string {
 }
 
 func TestRecursiveRequiresSourceID(t *testing.T) {
-	splitter, err := chunking.NewRecursive(16, 0, nil)
+	splitter, err := chunking.NewRecursive[contracttest.Meta](16, 0, nil)
 	if err != nil {
 		t.Fatalf("NewRecursive(): %v", err)
 	}
 
 	if _, err := splitter.Split(
 		context.Background(),
-		ragy.Document{Content: "hello"},
+		retrieval.Document[contracttest.Meta]{Content: "hello"},
 	); !errors.Is(err, ragy.ErrMissingSourceID) {
 		t.Fatalf("Split() error = %v", err)
 	}
@@ -37,12 +39,12 @@ func TestRecursiveRequiresSourceID(t *testing.T) {
 
 func TestSemanticFailsOnEmbeddingCardinalityMismatch(t *testing.T) {
 	embedder := &testutil.DenseEmbedder{Vectors: [][]float32{{1, 0}}}
-	splitter, err := chunking.NewSemantic(embedder, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
+	splitter, err := chunking.NewSemantic[contracttest.Meta](embedder, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
 	if err != nil {
 		t.Fatalf("NewSemantic(): %v", err)
 	}
 
-	_, err = splitter.Split(context.Background(), ragy.Document{
+	_, err = splitter.Split(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "First sentence. Second sentence.",
 	})
@@ -53,12 +55,12 @@ func TestSemanticFailsOnEmbeddingCardinalityMismatch(t *testing.T) {
 
 func TestSemanticFailsOnEmptyEmbeddingVector(t *testing.T) {
 	embedder := &testutil.DenseEmbedder{Vectors: [][]float32{{}}}
-	splitter, err := chunking.NewSemantic(embedder, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
+	splitter, err := chunking.NewSemantic[contracttest.Meta](embedder, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
 	if err != nil {
 		t.Fatalf("NewSemantic(): %v", err)
 	}
 
-	_, err = splitter.Split(context.Background(), ragy.Document{
+	_, err = splitter.Split(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "First sentence.",
 	})
@@ -69,12 +71,12 @@ func TestSemanticFailsOnEmptyEmbeddingVector(t *testing.T) {
 
 func TestSemanticFailsOnEmbeddingDimensionMismatch(t *testing.T) {
 	embedder := &testutil.DenseEmbedder{Vectors: [][]float32{{1, 0}, {1, 0, 0}}}
-	splitter, err := chunking.NewSemantic(embedder, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
+	splitter, err := chunking.NewSemantic[contracttest.Meta](embedder, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
 	if err != nil {
 		t.Fatalf("NewSemantic(): %v", err)
 	}
 
-	_, err = splitter.Split(context.Background(), ragy.Document{
+	_, err = splitter.Split(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "First sentence. Second sentence.",
 	})
@@ -85,12 +87,12 @@ func TestSemanticFailsOnEmbeddingDimensionMismatch(t *testing.T) {
 
 func TestSemanticFailsOnZeroNormEmbeddingVector(t *testing.T) {
 	embedder := &testutil.DenseEmbedder{Vectors: [][]float32{{0, 0}}}
-	splitter, err := chunking.NewSemantic(embedder, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
+	splitter, err := chunking.NewSemantic[contracttest.Meta](embedder, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
 	if err != nil {
 		t.Fatalf("NewSemantic(): %v", err)
 	}
 
-	_, err = splitter.Split(context.Background(), ragy.Document{
+	_, err = splitter.Split(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "First sentence.",
 	})
@@ -100,7 +102,7 @@ func TestSemanticFailsOnZeroNormEmbeddingVector(t *testing.T) {
 }
 
 func TestNewSemanticRejectsNilEmbedder(t *testing.T) {
-	_, err := chunking.NewSemantic(nil, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
+	_, err := chunking.NewSemantic[contracttest.Meta](nil, chunking.DefaultSentenceSegmenter{}, 0.5, 1)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("NewSemantic(nil embedder) error = %v", err)
 	}
@@ -109,7 +111,15 @@ func TestNewSemanticRejectsNilEmbedder(t *testing.T) {
 func TestNewSemanticRejectsNilSegmenter(t *testing.T) {
 	embedder := &testutil.DenseEmbedder{}
 
-	if _, err := chunking.NewSemantic(embedder, nil, 0.5, 1); !errors.Is(err, ragy.ErrInvalidArgument) {
+	if _, err := chunking.NewSemantic[contracttest.Meta](
+		embedder,
+		nil,
+		0.5,
+		1,
+	); !errors.Is(
+		err,
+		ragy.ErrInvalidArgument,
+	) {
 		t.Fatalf("NewSemantic(nil segmenter) error = %v", err)
 	}
 }
@@ -117,12 +127,12 @@ func TestNewSemanticRejectsNilSegmenter(t *testing.T) {
 func TestSemanticUsesInjectedSentenceSegmenter(t *testing.T) {
 	segmenter := &fixedSegmenter{Parts: []string{"alpha beta", "gamma delta"}}
 	embedder := &testutil.DenseEmbedder{Vectors: [][]float32{{1, 0}, {0, 1}}}
-	splitter, err := chunking.NewSemantic(embedder, segmenter, 0.5, 1)
+	splitter, err := chunking.NewSemantic[contracttest.Meta](embedder, segmenter, 0.5, 1)
 	if err != nil {
 		t.Fatalf("NewSemantic(): %v", err)
 	}
 
-	chunks, err := splitter.Split(context.Background(), ragy.Document{
+	chunks, err := splitter.Split(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "ignored by fixed segmenter",
 	})
@@ -157,7 +167,7 @@ func TestDefaultSentenceSegmenterSplitsWithoutWhitespaceAfterBoundary(t *testing
 }
 
 func TestContextualKeepsContentAndSetsContext(t *testing.T) {
-	base, err := chunking.NewRecursive(32, 0, []string{" "})
+	base, err := chunking.NewRecursive[contracttest.Meta](32, 0, []string{" "})
 	if err != nil {
 		t.Fatalf("NewRecursive(): %v", err)
 	}
@@ -167,7 +177,7 @@ func TestContextualKeepsContentAndSetsContext(t *testing.T) {
 		t.Fatalf("NewContextual(): %v", err)
 	}
 
-	chunks, err := contextual.Split(context.Background(), ragy.Document{
+	chunks, err := contextual.Split(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "one two three four",
 	})
@@ -188,42 +198,20 @@ func TestContextualKeepsContentAndSetsContext(t *testing.T) {
 	}
 }
 
-func TestRecursiveRejectsInvalidSourceAttributes(t *testing.T) {
-	splitter, err := chunking.NewRecursive(16, 0, nil)
+func TestRecursiveCopiesMetaFromSource(t *testing.T) {
+	splitter, err := chunking.NewRecursive[contracttest.Meta](32, 0, nil)
 	if err != nil {
 		t.Fatalf("NewRecursive(): %v", err)
 	}
 
-	cases := []ragy.Attributes{
-		{"bad-field": "x"},
-		{"tenant": []string{"acme"}},
+	meta := contracttest.Meta{
+		"tenant": "acme",
+		"age":    int64(7),
 	}
-
-	for _, attrs := range cases {
-		_, err := splitter.Split(context.Background(), ragy.Document{
-			ID:         "doc-1",
-			Content:    "hello world",
-			Attributes: attrs,
-		})
-		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Split(%#v) error = %v, want invalid argument", attrs, err)
-		}
-	}
-}
-
-func TestRecursiveCanonicalizesChunkAttributes(t *testing.T) {
-	splitter, err := chunking.NewRecursive(32, 0, nil)
-	if err != nil {
-		t.Fatalf("NewRecursive(): %v", err)
-	}
-
-	chunks, err := splitter.Split(context.Background(), ragy.Document{
+	chunks, err := splitter.Split(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "hello world",
-		Attributes: ragy.Attributes{
-			"age":   int(7),
-			"score": float32(1.5),
-		},
+		Meta:    meta,
 	})
 	if err != nil {
 		t.Fatalf("Split(): %v", err)
@@ -232,21 +220,21 @@ func TestRecursiveCanonicalizesChunkAttributes(t *testing.T) {
 		t.Fatal("Split() returned no chunks")
 	}
 
-	if value, ok := chunks[0].Attributes["age"].(int64); !ok || value != 7 {
-		t.Fatalf("chunks[0].Attributes[age] = %#v, want int64(7)", chunks[0].Attributes["age"])
+	if chunks[0].Meta["tenant"] != "acme" {
+		t.Fatalf("chunks[0].Meta[tenant] = %#v, want acme", chunks[0].Meta["tenant"])
 	}
-	if value, ok := chunks[0].Attributes["score"].(float64); !ok || value != 1.5 {
-		t.Fatalf("chunks[0].Attributes[score] = %#v, want float64(1.5)", chunks[0].Attributes["score"])
+	if value, ok := chunks[0].Meta["age"].(int64); !ok || value != 7 {
+		t.Fatalf("chunks[0].Meta[age] = %#v, want int64(7)", chunks[0].Meta["age"])
 	}
 }
 
-func TestRecursiveReturnsNilChunkAttributesWhenSourceAttrsEmpty(t *testing.T) {
-	splitter, err := chunking.NewRecursive(32, 0, nil)
+func TestRecursiveReturnsZeroMetaWhenSourceMetaEmpty(t *testing.T) {
+	splitter, err := chunking.NewRecursive[contracttest.Meta](32, 0, nil)
 	if err != nil {
 		t.Fatalf("NewRecursive(): %v", err)
 	}
 
-	chunks, err := splitter.Split(context.Background(), ragy.Document{
+	chunks, err := splitter.Split(context.Background(), retrieval.Document[contracttest.Meta]{
 		ID:      "doc-1",
 		Content: "hello world",
 	})
@@ -256,7 +244,7 @@ func TestRecursiveReturnsNilChunkAttributesWhenSourceAttrsEmpty(t *testing.T) {
 	if len(chunks) == 0 {
 		t.Fatal("Split() returned no chunks")
 	}
-	if chunks[0].Attributes != nil {
-		t.Fatalf("chunks[0].Attributes = %#v, want nil", chunks[0].Attributes)
+	if len(chunks[0].Meta) != 0 {
+		t.Fatalf("chunks[0].Meta = %#v, want empty meta", chunks[0].Meta)
 	}
 }

@@ -2,13 +2,16 @@ package elasticsearch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/lexical"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 const logisticClamp = 20.0
@@ -25,23 +28,23 @@ type Client interface {
 	Search(ctx context.Context, index string, body map[string]any) ([]Hit, error)
 }
 
-// Config configures the searcher.
+// Config configures the store.
 type Config struct {
 	Index        string
 	SearchFields []string
 	Schema       filter.Schema
 }
 
-// Searcher is an Elasticsearch lexical searcher.
-type Searcher struct {
+// Store is an Elasticsearch lexical retrieval backend.
+type Store[TMeta any] struct {
 	client Client
 	index  string
 	fields []string
 	schema filter.Schema
 }
 
-// New constructs a lexical searcher.
-func New(client Client, cfg Config) (*Searcher, error) {
+// New constructs a lexical store.
+func New[TMeta any](client Client, cfg Config) (*Store[TMeta], error) {
 	if client == nil {
 		return nil, fmt.Errorf("%w: elasticsearch client", ragy.ErrInvalidArgument)
 	}
@@ -70,19 +73,26 @@ func New(client Client, cfg Config) (*Searcher, error) {
 		fields = append(fields, fieldName)
 	}
 
-	return &Searcher{client: client, index: cfg.Index, fields: fields, schema: cfg.Schema}, nil
+	return &Store[TMeta]{client: client, index: cfg.Index, fields: fields, schema: cfg.Schema}, nil
 }
 
-// Search implements lexical.Searcher.
-func (s *Searcher) Search(ctx context.Context, req lexical.Request) ([]ragy.Document, error) {
-	if err := req.Validate(); err != nil {
+// Retrieve implements retrieval.Backend.
+func (s *Store[TMeta]) Retrieve(
+	ctx context.Context,
+	query string,
+	opts retrieval.RetrieveOptions,
+) ([]retrieval.Document[TMeta], error) {
+	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
-	if err := s.Schema().ValidateSchemaIR(req.Filter); err != nil {
+	if strings.TrimSpace(query) == "" {
+		return nil, fmt.Errorf("%w: retrieve query", ragy.ErrEmptyText)
+	}
+	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
 		return nil, err
 	}
 
-	body, err := s.render(req)
+	body, err := s.render(query, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +106,7 @@ func (s *Searcher) Search(ctx context.Context, req lexical.Request) ([]ragy.Docu
 		return nil, nil
 	}
 
-	docs := make([]ragy.Document, 0, len(hits))
+	docs := make([]retrieval.Document[TMeta], 0, len(hits))
 	for _, hit := range hits {
 		doc, err := s.projectHit(hit)
 		if err != nil {
@@ -108,40 +118,40 @@ func (s *Searcher) Search(ctx context.Context, req lexical.Request) ([]ragy.Docu
 	return docs, nil
 }
 
-// Schema returns the finalized filter schema used by the searcher.
-func (s *Searcher) Schema() filter.Schema {
+// Schema returns the finalized filter schema used by the store.
+func (s *Store[TMeta]) Schema() filter.Schema {
 	return s.schema
 }
 
-func (s *Searcher) render(req lexical.Request) (map[string]any, error) {
+func (s *Store[TMeta]) render(query string, opts retrieval.RetrieveOptions) (map[string]any, error) {
 	multiMatch := map[string]any{
-		"query":  req.Text,
+		"query":  query,
 		"fields": slices.Clone(s.fields),
 	}
 
-	query := map[string]any{
+	esQuery := map[string]any{
 		"multi_match": multiMatch,
 	}
 
-	if req.Filter != nil {
-		rendered, err := renderFilter(req.Filter)
+	ir := opts.Filters.IR()
+	if !filter.IsEmpty(ir) {
+		rendered, err := renderFilter(ir)
 		if err != nil {
 			return nil, err
 		}
 		if rendered != nil {
-			query = map[string]any{
+			esQuery = map[string]any{
 				"bool": map[string]any{
-					"must":   []any{query},
+					"must":   []any{esQuery},
 					"filter": []any{rendered},
 				},
 			}
 		}
 	}
 
-	body := map[string]any{"query": query}
-	if req.Page != nil {
-		body["size"] = req.Page.Limit
-		body["from"] = req.Page.Offset
+	body := map[string]any{"query": esQuery}
+	if opts.TopK > 0 {
+		body["size"] = opts.TopK
 	}
 
 	return body, nil
@@ -155,40 +165,46 @@ func renderFilter(expr filter.IR) (map[string]any, error) {
 	return walker.result, nil
 }
 
-func (s *Searcher) projectHit(hit Hit) (ragy.Document, error) {
+func (s *Store[TMeta]) projectHit(hit Hit) (retrieval.Document[TMeta], error) {
 	contentValue, ok := hit.Source["content"]
 	if !ok {
-		return ragy.Document{}, fmt.Errorf("%w: elasticsearch content missing", ragy.ErrProtocol)
+		return retrieval.Document[TMeta]{}, fmt.Errorf("%w: elasticsearch content missing", ragy.ErrProtocol)
 	}
 
 	content, ok := contentValue.(string)
 	if !ok {
-		return ragy.Document{}, fmt.Errorf("%w: elasticsearch content must be string", ragy.ErrProtocol)
-	}
-
-	doc := ragy.Document{
-		ID:         hit.ID,
-		Content:    content,
-		Attributes: nil,
-		Relevance:  logistic(hit.Score),
+		return retrieval.Document[TMeta]{}, fmt.Errorf("%w: elasticsearch content must be string", ragy.ErrProtocol)
 	}
 
 	attrs, err := s.projectAttributes(hit.Source)
 	if err != nil {
-		return ragy.Document{}, err
+		return retrieval.Document[TMeta]{}, err
 	}
-	doc.Attributes = attrs
 
-	return ragy.NormalizeDocument(doc)
+	meta, err := decodeMeta[TMeta](attrs)
+	if err != nil {
+		return retrieval.Document[TMeta]{}, err
+	}
+
+	doc := retrieval.Document[TMeta]{
+		ID:      hit.ID,
+		Content: content,
+		Score:   logistic(hit.Score),
+		Meta:    meta,
+	}
+	if err := retrieval.ValidateDocument(doc); err != nil {
+		return retrieval.Document[TMeta]{}, err
+	}
+	return doc, nil
 }
 
-func (s *Searcher) projectAttributes(source map[string]any) (ragy.Attributes, error) {
+func (s *Store[TMeta]) projectAttributes(source map[string]any) (filter.RawAttributes, error) {
 	if len(source) == 0 {
-		var attrs ragy.Attributes
+		var attrs filter.RawAttributes
 		return attrs, nil
 	}
 
-	projected := make(ragy.Attributes)
+	projected := make(filter.RawAttributes)
 	for key, value := range source {
 		if key == "content" {
 			continue
@@ -204,11 +220,26 @@ func (s *Searcher) projectAttributes(source map[string]any) (ragy.Attributes, er
 		return nil, err
 	}
 	if len(attrs) == 0 {
-		var normalized ragy.Attributes
+		var normalized filter.RawAttributes
 		return normalized, nil
 	}
 
 	return attrs, nil
+}
+
+func decodeMeta[TMeta any](attrs filter.RawAttributes) (TMeta, error) {
+	var meta TMeta
+	if len(attrs) == 0 {
+		return meta, nil
+	}
+	data, err := json.Marshal(attrs)
+	if err != nil {
+		return meta, err
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return meta, err
+	}
+	return meta, nil
 }
 
 func validateSearchField(fieldName string) error {
@@ -358,4 +389,9 @@ func logistic(score float64) float64 {
 	return 1.0 / (1.0 + math.Exp(-score))
 }
 
-var _ lexical.Searcher = (*Searcher)(nil)
+func (s *Store[TMeta]) LexicalBackend() {}
+
+var (
+	_ retrieval.Backend[any] = (*Store[any])(nil)
+	_ lexical.Backend[any]   = (*Store[any])(nil)
+)

@@ -12,6 +12,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/ranking"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 // DefaultBaseURL is the default Cohere API endpoint.
@@ -32,7 +33,7 @@ type Config struct {
 }
 
 // Client is a Cohere query-aware reranker.
-type Client struct {
+type Client[TMeta any] struct {
 	apiKey  string
 	model   string
 	baseURL string
@@ -40,7 +41,7 @@ type Client struct {
 }
 
 // New constructs a reranker.
-func New(cfg Config) (*Client, error) {
+func New[TMeta any](cfg Config) (*Client[TMeta], error) {
 	if strings.TrimSpace(cfg.APIKey) == "" {
 		return nil, fmt.Errorf("%w: cohere api key", ragy.ErrInvalidArgument)
 	}
@@ -59,7 +60,7 @@ func New(cfg Config) (*Client, error) {
 		client = http.DefaultClient
 	}
 
-	return &Client{
+	return &Client[TMeta]{
 		apiKey:  cfg.APIKey,
 		model:   cfg.Model,
 		baseURL: strings.TrimRight(baseURL, "/"),
@@ -81,7 +82,11 @@ type rerankResponse struct {
 }
 
 // Rerank implements ranking.QueryReranker.
-func (c *Client) Rerank(ctx context.Context, query string, docs []ragy.Document) ([]ragy.Document, error) {
+func (c *Client[TMeta]) Rerank(
+	ctx context.Context,
+	query string,
+	docs []retrieval.Document[TMeta],
+) ([]retrieval.Document[TMeta], error) {
 	if strings.TrimSpace(query) == "" {
 		return nil, fmt.Errorf("%w: rerank query", ragy.ErrEmptyText)
 	}
@@ -91,14 +96,13 @@ func (c *Client) Rerank(ctx context.Context, query string, docs []ragy.Document)
 	}
 
 	payloadDocs := make([]string, 0, len(docs))
-	normalizedDocs := make([]ragy.Document, len(docs))
+	normalizedDocs := make([]retrieval.Document[TMeta], len(docs))
 	for i, doc := range docs {
-		normalized, err := ragy.NormalizeDocument(doc)
-		if err != nil {
+		if err := retrieval.ValidateDocument(doc); err != nil {
 			return nil, err
 		}
-		normalizedDocs[i] = normalized
-		payloadDocs = append(payloadDocs, normalized.Content)
+		normalizedDocs[i] = doc
+		payloadDocs = append(payloadDocs, doc.Content)
 	}
 
 	body, err := json.Marshal(rerankRequest{Model: c.model, Query: query, Documents: payloadDocs})
@@ -138,7 +142,7 @@ func (c *Client) Rerank(ctx context.Context, query string, docs []ragy.Document)
 		return nil, fmt.Errorf("%w: rerank cardinality mismatch", ragy.ErrProtocol)
 	}
 
-	out := make([]ragy.Document, len(docs))
+	out := make([]retrieval.Document[TMeta], len(docs))
 	seen := make([]bool, len(docs))
 	for _, result := range decoded.Results {
 		if result.Index < 0 || result.Index >= len(docs) || seen[result.Index] {
@@ -146,7 +150,7 @@ func (c *Client) Rerank(ctx context.Context, query string, docs []ragy.Document)
 		}
 
 		doc := normalizedDocs[result.Index]
-		doc.Relevance = ragy.ClampRelevance(result.Score)
+		doc.Score = ragy.ClampScore(result.Score)
 		out[result.Index] = doc
 		seen[result.Index] = true
 	}
@@ -158,13 +162,13 @@ func (c *Client) Rerank(ctx context.Context, query string, docs []ragy.Document)
 	}
 
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].Relevance == out[j].Relevance {
+		if out[i].Score == out[j].Score {
 			return out[i].ID < out[j].ID
 		}
-		return out[i].Relevance > out[j].Relevance
+		return out[i].Score > out[j].Score
 	})
 
 	return out, nil
 }
 
-var _ ranking.QueryReranker = (*Client)(nil)
+var _ ranking.QueryReranker[any] = (*Client[any])(nil)

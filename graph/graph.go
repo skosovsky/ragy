@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/internal/ident"
 )
@@ -20,15 +21,15 @@ const (
 )
 
 // Node is the canonical graph node.
-type Node struct {
-	ID         string
-	Labels     []string
-	Content    string
-	Attributes ragy.Attributes
+type Node[TMeta any] struct {
+	ID      string
+	Labels  []string
+	Content string
+	Meta    TMeta
 }
 
 // Validate checks node invariants.
-func (n Node) Validate() error {
+func (n Node[TMeta]) Validate() error {
 	if n.ID == "" {
 		return fmt.Errorf("%w: graph node id", ragy.ErrMissingID)
 	}
@@ -41,26 +42,24 @@ func (n Node) Validate() error {
 			return err
 		}
 	}
-	for key := range n.Attributes {
-		if !ident.IsField(key) {
-			return fmt.Errorf("%w: invalid identifier %q", ragy.ErrInvalidArgument, key)
-		}
+	if err := validateMetaKeys(n.Meta); err != nil {
+		return err
 	}
 
 	return nil
 }
 
 // Edge is the canonical graph edge.
-type Edge struct {
-	ID         string
-	SourceID   string
-	TargetID   string
-	Type       string
-	Attributes ragy.Attributes
+type Edge[TMeta any] struct {
+	ID       string
+	SourceID string
+	TargetID string
+	Type     string
+	Meta     TMeta
 }
 
 // Validate checks edge invariants.
-func (e Edge) Validate() error {
+func (e Edge[TMeta]) Validate() error {
 	switch {
 	case e.ID == "":
 		return fmt.Errorf("%w: graph edge id", ragy.ErrMissingID)
@@ -74,23 +73,21 @@ func (e Edge) Validate() error {
 		if err := filter.ValidateSQLIdentifier(e.Type); err != nil {
 			return err
 		}
-		for key := range e.Attributes {
-			if !ident.IsField(key) {
-				return fmt.Errorf("%w: invalid identifier %q", ragy.ErrInvalidArgument, key)
-			}
+		if err := validateMetaKeys(e.Meta); err != nil {
+			return err
 		}
 		return nil
 	}
 }
 
 // Snapshot is a graph payload.
-type Snapshot struct {
-	Nodes []Node
-	Edges []Edge
+type Snapshot[TMeta any] struct {
+	Nodes []Node[TMeta]
+	Edges []Edge[TMeta]
 }
 
 // Validate checks snapshot invariants.
-func (s Snapshot) Validate() error {
+func (s Snapshot[TMeta]) Validate() error {
 	nodeIDs := make(map[string]struct{}, len(s.Nodes))
 	for _, node := range s.Nodes {
 		if err := node.Validate(); err != nil {
@@ -119,6 +116,19 @@ func (s Snapshot) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+func validateMetaKeys[TMeta any](meta TMeta) error {
+	attrs, ok := dense.MetaRawAttributes(meta)
+	if !ok {
+		return nil
+	}
+	for key := range attrs {
+		if !ident.IsField(key) {
+			return fmt.Errorf("%w: invalid identifier %q", ragy.ErrInvalidArgument, key)
+		}
+	}
 	return nil
 }
 
@@ -172,53 +182,53 @@ func (s Schema) ValidateTraversal(req TraversalRequest) error {
 		return err
 	}
 
-	if err := s.NodeAttributes.ValidateSchemaIR(req.NodeFilter); err != nil {
+	if err := s.NodeAttributes.ValidateSchemaIR(req.NodeFilter.IR()); err != nil {
 		return err
 	}
 
-	return s.EdgeAttributes.ValidateSchemaIR(req.EdgeFilter)
+	return s.EdgeAttributes.ValidateSchemaIR(req.EdgeFilter.IR())
 }
 
 // NormalizeSnapshot validates and normalizes a graph payload against the schema.
-func (s Schema) NormalizeSnapshot(snapshot Snapshot) (Snapshot, error) {
+func NormalizeSnapshot[TMeta any](s Schema, snapshot Snapshot[TMeta]) (Snapshot[TMeta], error) {
 	if err := s.Validate(); err != nil {
-		return Snapshot{}, err
+		return Snapshot[TMeta]{}, err
 	}
 	if err := snapshot.Validate(); err != nil {
-		return Snapshot{}, err
+		return Snapshot[TMeta]{}, err
 	}
 
-	out := Snapshot{
-		Nodes: make([]Node, len(snapshot.Nodes)),
-		Edges: make([]Edge, len(snapshot.Edges)),
+	out := Snapshot[TMeta]{
+		Nodes: make([]Node[TMeta], len(snapshot.Nodes)),
+		Edges: make([]Edge[TMeta], len(snapshot.Edges)),
 	}
 
 	for i, node := range snapshot.Nodes {
-		attrs, err := s.NodeAttributes.NormalizeAttributes(node.Attributes)
+		meta, err := NormalizeMeta(s.NodeAttributes, node.Meta)
 		if err != nil {
-			return Snapshot{}, err
+			return Snapshot[TMeta]{}, err
 		}
 
-		out.Nodes[i] = Node{
-			ID:         node.ID,
-			Labels:     append([]string(nil), node.Labels...),
-			Content:    node.Content,
-			Attributes: ragy.CloneAttributes(attrs),
+		out.Nodes[i] = Node[TMeta]{
+			ID:      node.ID,
+			Labels:  append([]string(nil), node.Labels...),
+			Content: node.Content,
+			Meta:    meta,
 		}
 	}
 
 	for i, edge := range snapshot.Edges {
-		attrs, err := s.EdgeAttributes.NormalizeAttributes(edge.Attributes)
+		meta, err := NormalizeMeta(s.EdgeAttributes, edge.Meta)
 		if err != nil {
-			return Snapshot{}, err
+			return Snapshot[TMeta]{}, err
 		}
 
-		out.Edges[i] = Edge{
-			ID:         edge.ID,
-			SourceID:   edge.SourceID,
-			TargetID:   edge.TargetID,
-			Type:       edge.Type,
-			Attributes: ragy.CloneAttributes(attrs),
+		out.Edges[i] = Edge[TMeta]{
+			ID:       edge.ID,
+			SourceID: edge.SourceID,
+			TargetID: edge.TargetID,
+			Type:     edge.Type,
+			Meta:     meta,
 		}
 	}
 
@@ -233,8 +243,8 @@ type TraversalRequest struct {
 	Seeds      []string
 	Direction  Direction
 	Depth      int
-	NodeFilter filter.IR
-	EdgeFilter filter.IR
+	NodeFilter filter.Condition
+	EdgeFilter filter.Condition
 	Page       *ragy.Page
 }
 
@@ -258,8 +268,8 @@ func (r TraversalRequest) Validate() error {
 }
 
 // Store provides graph traversal and writes.
-type Store interface {
-	Traverse(ctx context.Context, req TraversalRequest) (Snapshot, error)
-	Upsert(ctx context.Context, snapshot Snapshot) error
+type Store[TMeta any] interface {
+	Traverse(ctx context.Context, req TraversalRequest) (Snapshot[TMeta], error)
+	Upsert(ctx context.Context, snapshot Snapshot[TMeta]) error
 	Schema() Schema
 }

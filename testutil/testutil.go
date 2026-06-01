@@ -4,6 +4,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/chunking"
@@ -11,7 +12,8 @@ import (
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
-	"github.com/skosovsky/ragy/lexical"
+	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/tensor"
 )
 
@@ -36,44 +38,56 @@ func (e *DenseEmbedder) Embed(_ context.Context, texts []string) ([][]float32, e
 	return out, nil
 }
 
-// DenseSearcher is a fake dense searcher.
-type DenseSearcher struct {
-	Docs         []ragy.Document
-	Err          error
-	Requests     []dense.Request
-	FilterSchema filter.Schema
+// RetrievalBackend is a fake retrieval.Backend.
+type RetrievalBackend struct {
+	Docs           []retrieval.Document[contracttest.Meta]
+	Err            error
+	Requests       []retrieval.RetrieveOptions
+	FilterSchema   filter.Schema
+	VectorRequired bool
 }
 
-// Search implements dense.Searcher.
-func (s *DenseSearcher) Search(_ context.Context, req dense.Request) ([]ragy.Document, error) {
-	s.Requests = append(s.Requests, req)
-	if s.Err != nil {
-		return nil, s.Err
+// Retrieve implements retrieval.Backend.
+func (b *RetrievalBackend) Retrieve(
+	_ context.Context,
+	query string,
+	opts retrieval.RetrieveOptions,
+) ([]retrieval.Document[contracttest.Meta], error) {
+	b.Requests = append(b.Requests, opts)
+	if b.Err != nil {
+		return nil, b.Err
 	}
-	if err := req.Validate(); err != nil {
+	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
-	if err := s.Schema().ValidateSchemaIR(req.Filter); err != nil {
+	if b.VectorRequired {
+		if len(opts.Vector) == 0 {
+			return nil, fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
+		}
+	} else if strings.TrimSpace(query) == "" {
+		return nil, fmt.Errorf("%w: retrieve query", ragy.ErrEmptyText)
+	}
+	if err := b.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
 		return nil, err
 	}
 
-	return validateDocuments(s.Docs)
+	return validateRetrievalDocuments(b.Docs)
 }
 
-// Schema returns the configured filter schema used by the fake searcher.
-func (s *DenseSearcher) Schema() filter.Schema {
-	return s.FilterSchema
+// Schema returns the configured filter schema used by the fake backend.
+func (b *RetrievalBackend) Schema() filter.Schema {
+	return b.FilterSchema
 }
 
 // DenseIndex is a fake dense index.
 type DenseIndex struct {
-	Records      [][]dense.Record
+	Records      [][]dense.Record[contracttest.Meta]
 	Err          error
 	FilterSchema filter.Schema
 }
 
 // Upsert implements dense.Index.
-func (i *DenseIndex) Upsert(_ context.Context, records []dense.Record) error {
+func (i *DenseIndex) Upsert(_ context.Context, records []dense.Record[contracttest.Meta]) error {
 	if i.Err != nil {
 		return i.Err
 	}
@@ -81,22 +95,22 @@ func (i *DenseIndex) Upsert(_ context.Context, records []dense.Record) error {
 		return fmt.Errorf("%w: dense index schema", ragy.ErrInvalidArgument)
 	}
 
-	copied := make([]dense.Record, len(records))
+	copied := make([]dense.Record[contracttest.Meta], len(records))
 	for index, record := range records {
 		if err := record.Validate(); err != nil {
 			return err
 		}
 
-		attrs, err := i.FilterSchema.NormalizeAttributes(record.Attributes)
+		attrs, err := i.FilterSchema.NormalizeAttributes(filter.RawAttributes(record.Meta))
 		if err != nil {
 			return err
 		}
 
-		copied[index] = dense.Record{
-			ID:         record.ID,
-			Content:    record.Content,
-			Attributes: ragy.CloneAttributes(attrs),
-			Vector:     append([]float32(nil), record.Vector...),
+		copied[index] = dense.Record[contracttest.Meta]{
+			ID:      record.ID,
+			Content: record.Content,
+			Meta:    contracttest.Meta(filter.CloneRawAttributes(attrs)),
+			Vector:  append([]float32(nil), record.Vector...),
 		}
 	}
 	i.Records = append(i.Records, copied)
@@ -110,13 +124,13 @@ func (i *DenseIndex) Schema() filter.Schema {
 
 // TensorIndex is a fake tensor index.
 type TensorIndex struct {
-	Records      [][]tensor.Record
+	Records      [][]tensor.Record[contracttest.Meta]
 	Err          error
 	FilterSchema filter.Schema
 }
 
 // Upsert implements tensor.Index.
-func (i *TensorIndex) Upsert(_ context.Context, records []tensor.Record) error {
+func (i *TensorIndex) Upsert(_ context.Context, records []tensor.Record[contracttest.Meta]) error {
 	if i.Err != nil {
 		return i.Err
 	}
@@ -124,22 +138,22 @@ func (i *TensorIndex) Upsert(_ context.Context, records []tensor.Record) error {
 		return fmt.Errorf("%w: tensor index schema", ragy.ErrInvalidArgument)
 	}
 
-	copied := make([]tensor.Record, len(records))
+	copied := make([]tensor.Record[contracttest.Meta], len(records))
 	for index, record := range records {
 		if err := record.Validate(); err != nil {
 			return err
 		}
 
-		attrs, err := i.FilterSchema.NormalizeAttributes(record.Attributes)
+		attrs, err := i.FilterSchema.NormalizeAttributes(filter.RawAttributes(record.Meta))
 		if err != nil {
 			return err
 		}
 
-		copied[index] = tensor.Record{
-			ID:         record.ID,
-			Content:    record.Content,
-			Attributes: ragy.CloneAttributes(attrs),
-			Tensor:     cloneTensor(record.Tensor),
+		copied[index] = tensor.Record[contracttest.Meta]{
+			ID:      record.ID,
+			Content: record.Content,
+			Meta:    contracttest.Meta(filter.CloneRawAttributes(attrs)),
+			Tensor:  cloneTensor(record.Tensor),
 		}
 	}
 	i.Records = append(i.Records, copied)
@@ -151,74 +165,16 @@ func (i *TensorIndex) Schema() filter.Schema {
 	return i.FilterSchema
 }
 
-// LexicalSearcher is a fake lexical searcher.
-type LexicalSearcher struct {
-	Docs         []ragy.Document
-	Err          error
-	Requests     []lexical.Request
-	FilterSchema filter.Schema
-}
-
-// Search implements lexical.Searcher.
-func (s *LexicalSearcher) Search(_ context.Context, req lexical.Request) ([]ragy.Document, error) {
-	s.Requests = append(s.Requests, req)
-	if s.Err != nil {
-		return nil, s.Err
-	}
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	if err := s.Schema().ValidateSchemaIR(req.Filter); err != nil {
-		return nil, err
-	}
-
-	return validateDocuments(s.Docs)
-}
-
-// Schema returns the configured filter schema used by the fake searcher.
-func (s *LexicalSearcher) Schema() filter.Schema {
-	return s.FilterSchema
-}
-
-// TensorSearcher is a fake tensor searcher.
-type TensorSearcher struct {
-	Docs         []ragy.Document
-	Err          error
-	Requests     []tensor.Request
-	FilterSchema filter.Schema
-}
-
-// Search implements tensor.Searcher.
-func (s *TensorSearcher) Search(_ context.Context, req tensor.Request) ([]ragy.Document, error) {
-	s.Requests = append(s.Requests, req)
-	if s.Err != nil {
-		return nil, s.Err
-	}
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	if err := s.Schema().ValidateSchemaIR(req.Filter); err != nil {
-		return nil, err
-	}
-
-	return validateDocuments(s.Docs)
-}
-
-// Schema returns the configured filter schema used by the fake searcher.
-func (s *TensorSearcher) Schema() filter.Schema {
-	return s.FilterSchema
-}
-
 // DocumentStore is a memory-backed documents.Store fake.
 type DocumentStore struct {
-	Docs         []ragy.Document
+	Docs         []retrieval.Document[contracttest.Meta]
 	Err          error
 	FindCalls    [][]string
 	FilterSchema filter.Schema
 }
 
 // FindByIDs implements documents.Store.
-func (s *DocumentStore) FindByIDs(_ context.Context, ids []string) ([]ragy.Document, error) {
+func (s *DocumentStore) FindByIDs(_ context.Context, ids []string) ([]retrieval.Document[contracttest.Meta], error) {
 	s.FindCalls = append(s.FindCalls, append([]string(nil), ids...))
 	if s.Err != nil {
 		return nil, s.Err
@@ -228,12 +184,12 @@ func (s *DocumentStore) FindByIDs(_ context.Context, ids []string) ([]ragy.Docum
 		return nil, nil
 	}
 
-	byID := make(map[string]ragy.Document, len(s.Docs))
+	byID := make(map[string]retrieval.Document[contracttest.Meta], len(s.Docs))
 	for _, doc := range s.Docs {
-		byID[doc.ID] = cloneDocument(doc)
+		byID[doc.ID] = cloneRetrievalDocument(doc)
 	}
 
-	out := make([]ragy.Document, 0, len(ids))
+	out := make([]retrieval.Document[contracttest.Meta], 0, len(ids))
 	for _, id := range ids {
 		doc, ok := byID[id]
 		if !ok {
@@ -246,7 +202,7 @@ func (s *DocumentStore) FindByIDs(_ context.Context, ids []string) ([]ragy.Docum
 		return nil, nil
 	}
 
-	return validateDocuments(out)
+	return validateRetrievalDocuments(out)
 }
 
 // DeleteByIDs implements documents.Store.
@@ -265,13 +221,13 @@ func (s *DocumentStore) DeleteByIDs(_ context.Context, ids []string) (documents.
 	}
 
 	deleted := 0
-	kept := make([]ragy.Document, 0, len(s.Docs))
+	kept := make([]retrieval.Document[contracttest.Meta], 0, len(s.Docs))
 	for _, doc := range s.Docs {
 		if _, ok := remove[doc.ID]; ok {
 			deleted++
 			continue
 		}
-		kept = append(kept, cloneDocument(doc))
+		kept = append(kept, cloneRetrievalDocument(doc))
 	}
 
 	s.Docs = kept
@@ -279,25 +235,45 @@ func (s *DocumentStore) DeleteByIDs(_ context.Context, ids []string) (documents.
 }
 
 // DeleteByFilter implements documents.Store.
-func (s *DocumentStore) DeleteByFilter(_ context.Context, expr filter.IR) (documents.DeleteResult, error) {
-	if s.Err != nil {
-		return documents.DeleteResult{}, s.Err
+func (s *DocumentStore) DeleteByFilter(_ context.Context, cond filter.Condition) (documents.DeleteResult, error) {
+	return deleteByFilter(
+		s.Docs,
+		cond,
+		s.Schema(),
+		matchDocument,
+		cloneRetrievalDocument,
+		s.Err,
+		func(docs []retrieval.Document[contracttest.Meta]) {
+			s.Docs = docs
+		},
+	)
+}
+
+func deleteByFilter[TMeta any](
+	docs []retrieval.Document[TMeta],
+	cond filter.Condition,
+	schema filter.Schema,
+	match func(retrieval.Document[TMeta], filter.Condition) (bool, error),
+	clone func(retrieval.Document[TMeta]) retrieval.Document[TMeta],
+	storeErr error,
+	assign func([]retrieval.Document[TMeta]),
+) (documents.DeleteResult, error) {
+	if storeErr != nil {
+		return documents.DeleteResult{}, storeErr
 	}
 
-	if expr == nil {
-		return documents.DeleteResult{}, fmt.Errorf("%w: delete filter", ragy.ErrInvalidArgument)
-	}
+	expr := cond.IR()
 	if filter.IsEmpty(expr) {
 		return documents.DeleteResult{}, fmt.Errorf("%w: delete filter", ragy.ErrInvalidArgument)
 	}
-	if err := s.Schema().ValidateSchemaIR(expr); err != nil {
+	if err := schema.ValidateSchemaIR(expr); err != nil {
 		return documents.DeleteResult{}, err
 	}
 
 	deleted := 0
-	kept := make([]ragy.Document, 0, len(s.Docs))
-	for _, doc := range s.Docs {
-		matched, err := matchDocument(doc, expr)
+	kept := make([]retrieval.Document[TMeta], 0, len(docs))
+	for _, doc := range docs {
+		matched, err := match(doc, cond)
 		if err != nil {
 			return documents.DeleteResult{}, err
 		}
@@ -305,10 +281,10 @@ func (s *DocumentStore) DeleteByFilter(_ context.Context, expr filter.IR) (docum
 			deleted++
 			continue
 		}
-		kept = append(kept, cloneDocument(doc))
+		kept = append(kept, clone(doc))
 	}
 
-	s.Docs = kept
+	assign(kept)
 	return documents.DeleteResult{Deleted: deleted}, nil
 }
 
@@ -319,40 +295,43 @@ func (s *DocumentStore) Schema() filter.Schema {
 
 // GraphStore is a memory-backed graph.Store fake.
 type GraphStore struct {
-	Snapshot    graph.Snapshot
+	Snapshot    graph.Snapshot[contracttest.Meta]
 	GraphSchema graph.Schema
 	Err         error
 	Requests    []graph.TraversalRequest
 }
 
 // Traverse implements graph.Store.
-func (s *GraphStore) Traverse(_ context.Context, req graph.TraversalRequest) (graph.Snapshot, error) {
+func (s *GraphStore) Traverse(
+	_ context.Context,
+	req graph.TraversalRequest,
+) (graph.Snapshot[contracttest.Meta], error) {
 	s.Requests = append(s.Requests, cloneTraversalRequest(req))
 	if s.Err != nil {
-		return graph.Snapshot{}, s.Err
+		return graph.Snapshot[contracttest.Meta]{}, s.Err
 	}
 	if err := s.GraphSchema.ValidateTraversal(req); err != nil {
-		return graph.Snapshot{}, err
+		return graph.Snapshot[contracttest.Meta]{}, err
 	}
-	snapshot, err := s.GraphSchema.NormalizeSnapshot(s.Snapshot)
+	snapshot, err := graph.NormalizeSnapshot(s.GraphSchema, s.Snapshot)
 	if err != nil {
-		return graph.Snapshot{}, err
+		return graph.Snapshot[contracttest.Meta]{}, err
 	}
 
 	out, err := traverseSnapshot(snapshot, req)
 	if err != nil {
-		return graph.Snapshot{}, err
+		return graph.Snapshot[contracttest.Meta]{}, err
 	}
 
-	return s.GraphSchema.NormalizeSnapshot(out)
+	return graph.NormalizeSnapshot(s.GraphSchema, out)
 }
 
 // Upsert implements graph.Store.
-func (s *GraphStore) Upsert(_ context.Context, snapshot graph.Snapshot) error {
+func (s *GraphStore) Upsert(_ context.Context, snapshot graph.Snapshot[contracttest.Meta]) error {
 	if s.Err != nil {
 		return s.Err
 	}
-	normalized, err := s.GraphSchema.NormalizeSnapshot(snapshot)
+	normalized, err := graph.NormalizeSnapshot(s.GraphSchema, snapshot)
 	if err != nil {
 		return err
 	}
@@ -373,44 +352,57 @@ type ContextGenerator struct {
 }
 
 // Context implements chunking.ContextGenerator.
-func (g *ContextGenerator) Context(_ context.Context, _ ragy.Document, _ ragy.Chunk) (string, error) {
+func (g *ContextGenerator) Context(
+	_ context.Context,
+	_ retrieval.Document[contracttest.Meta],
+	_ chunking.Chunk[contracttest.Meta],
+) (string, error) {
 	return g.Value, g.Err
 }
 
 // GraphProvider is a fake graph extraction provider.
 type GraphProvider struct {
-	Snapshot graph.Snapshot
+	Snapshot graph.Snapshot[contracttest.Meta]
 	Err      error
 }
 
 // Extract extracts a graph snapshot from chunks.
-func (p *GraphProvider) Extract(_ context.Context, _ []ragy.Chunk) (graph.Snapshot, error) {
+func (p *GraphProvider) Extract(
+	_ context.Context,
+	_ []chunking.Chunk[contracttest.Meta],
+) (graph.Snapshot[contracttest.Meta], error) {
 	return cloneSnapshot(p.Snapshot), p.Err
 }
 
-func validateDocuments(in []ragy.Document) ([]ragy.Document, error) {
+func validateRetrievalDocuments(
+	in []retrieval.Document[contracttest.Meta],
+) ([]retrieval.Document[contracttest.Meta], error) {
 	if len(in) == 0 {
 		return nil, nil
 	}
 
-	out := make([]ragy.Document, len(in))
+	out := make([]retrieval.Document[contracttest.Meta], len(in))
 	for i, doc := range in {
-		normalized, err := ragy.NormalizeDocument(doc)
-		if err != nil {
+		if err := retrieval.ValidateDocument(doc); err != nil {
 			return nil, err
 		}
-		out[i] = normalized
+		out[i] = cloneRetrievalDocument(doc)
 	}
 
 	return out, nil
 }
 
-func cloneDocument(in ragy.Document) ragy.Document {
-	return ragy.Document{
-		ID:         in.ID,
-		Content:    in.Content,
-		Attributes: ragy.CloneAttributes(in.Attributes),
-		Relevance:  in.Relevance,
+func cloneRetrievalDocument(in retrieval.Document[contracttest.Meta]) retrieval.Document[contracttest.Meta] {
+	var meta contracttest.Meta
+	if len(in.Meta) > 0 {
+		meta = contracttest.Meta(filter.CloneRawAttributes(filter.RawAttributes(in.Meta)))
+	}
+
+	return retrieval.Document[contracttest.Meta]{
+		ID:      in.ID,
+		Content: in.Content,
+		Score:   in.Score,
+		Meta:    meta,
 	}
 }
 
@@ -427,29 +419,37 @@ func cloneTensor(in tensor.Tensor) tensor.Tensor {
 	return out
 }
 
-func cloneNode(in graph.Node) graph.Node {
-	return graph.Node{
-		ID:         in.ID,
-		Labels:     append([]string(nil), in.Labels...),
-		Content:    in.Content,
-		Attributes: ragy.CloneAttributes(in.Attributes),
+func cloneNode(in graph.Node[contracttest.Meta]) graph.Node[contracttest.Meta] {
+	var meta contracttest.Meta
+	if len(in.Meta) > 0 {
+		meta = contracttest.Meta(filter.CloneRawAttributes(filter.RawAttributes(in.Meta)))
+	}
+	return graph.Node[contracttest.Meta]{
+		ID:      in.ID,
+		Labels:  append([]string(nil), in.Labels...),
+		Content: in.Content,
+		Meta:    meta,
 	}
 }
 
-func cloneEdge(in graph.Edge) graph.Edge {
-	return graph.Edge{
-		ID:         in.ID,
-		SourceID:   in.SourceID,
-		TargetID:   in.TargetID,
-		Type:       in.Type,
-		Attributes: ragy.CloneAttributes(in.Attributes),
+func cloneEdge(in graph.Edge[contracttest.Meta]) graph.Edge[contracttest.Meta] {
+	var meta contracttest.Meta
+	if len(in.Meta) > 0 {
+		meta = contracttest.Meta(filter.CloneRawAttributes(filter.RawAttributes(in.Meta)))
+	}
+	return graph.Edge[contracttest.Meta]{
+		ID:       in.ID,
+		SourceID: in.SourceID,
+		TargetID: in.TargetID,
+		Type:     in.Type,
+		Meta:     meta,
 	}
 }
 
-func cloneSnapshot(in graph.Snapshot) graph.Snapshot {
-	out := graph.Snapshot{
-		Nodes: make([]graph.Node, len(in.Nodes)),
-		Edges: make([]graph.Edge, len(in.Edges)),
+func cloneSnapshot(in graph.Snapshot[contracttest.Meta]) graph.Snapshot[contracttest.Meta] {
+	out := graph.Snapshot[contracttest.Meta]{
+		Nodes: make([]graph.Node[contracttest.Meta], len(in.Nodes)),
+		Edges: make([]graph.Edge[contracttest.Meta], len(in.Edges)),
 	}
 	for i := range in.Nodes {
 		out.Nodes[i] = cloneNode(in.Nodes[i])
@@ -460,7 +460,7 @@ func cloneSnapshot(in graph.Snapshot) graph.Snapshot {
 	return out
 }
 
-func mergeSnapshot(base, incoming graph.Snapshot) graph.Snapshot {
+func mergeSnapshot(base, incoming graph.Snapshot[contracttest.Meta]) graph.Snapshot[contracttest.Meta] {
 	out := cloneSnapshot(base)
 
 	nodeIndex := make(map[string]int, len(out.Nodes))
@@ -510,17 +510,20 @@ func cloneTraversalRequest(in graph.TraversalRequest) graph.TraversalRequest {
 	}
 }
 
-func traverseSnapshot(snapshot graph.Snapshot, req graph.TraversalRequest) (graph.Snapshot, error) {
+func traverseSnapshot(
+	snapshot graph.Snapshot[contracttest.Meta],
+	req graph.TraversalRequest,
+) (graph.Snapshot[contracttest.Meta], error) {
 	nodesByID := indexNodes(snapshot.Nodes)
 	visitedNodes, frontier := seedFrontier(nodesByID, req.Seeds)
 	visitedEdges, err := expandTraversal(snapshot.Edges, nodesByID, visitedNodes, frontier, req)
 	if err != nil {
-		return graph.Snapshot{}, err
+		return graph.Snapshot[contracttest.Meta]{}, err
 	}
 
 	nodes, allowedNodes, err := projectNodes(snapshot.Nodes, visitedNodes, req.NodeFilter)
 	if err != nil {
-		return graph.Snapshot{}, err
+		return graph.Snapshot[contracttest.Meta]{}, err
 	}
 	if req.Page != nil {
 		nodes, allowedNodes = pageNodes(nodes, req.Page)
@@ -528,13 +531,13 @@ func traverseSnapshot(snapshot graph.Snapshot, req graph.TraversalRequest) (grap
 
 	edges, err := projectEdges(snapshot.Edges, visitedEdges, allowedNodes, req.EdgeFilter)
 	if err != nil {
-		return graph.Snapshot{}, err
+		return graph.Snapshot[contracttest.Meta]{}, err
 	}
 
-	return graph.Snapshot{Nodes: nodes, Edges: edges}, nil
+	return graph.Snapshot[contracttest.Meta]{Nodes: nodes, Edges: edges}, nil
 }
 
-func traversesEdge(edge graph.Edge, current string, direction graph.Direction) (bool, string) {
+func traversesEdge(edge graph.Edge[contracttest.Meta], current string, direction graph.Direction) (bool, string) {
 	switch direction {
 	case graph.DirectionOutbound:
 		return edge.SourceID == current, edge.TargetID
@@ -554,15 +557,15 @@ func traversesEdge(edge graph.Edge, current string, direction graph.Direction) (
 	}
 }
 
-func indexNodes(nodes []graph.Node) map[string]graph.Node {
-	out := make(map[string]graph.Node, len(nodes))
+func indexNodes(nodes []graph.Node[contracttest.Meta]) map[string]graph.Node[contracttest.Meta] {
+	out := make(map[string]graph.Node[contracttest.Meta], len(nodes))
 	for _, node := range nodes {
 		out[node.ID] = node
 	}
 	return out
 }
 
-func seedFrontier(nodesByID map[string]graph.Node, seeds []string) (map[string]struct{}, []string) {
+func seedFrontier(nodesByID map[string]graph.Node[contracttest.Meta], seeds []string) (map[string]struct{}, []string) {
 	visited := make(map[string]struct{}, len(seeds))
 	frontier := make([]string, 0, len(seeds))
 	for _, seed := range seeds {
@@ -579,8 +582,8 @@ func seedFrontier(nodesByID map[string]graph.Node, seeds []string) (map[string]s
 }
 
 func expandTraversal(
-	edges []graph.Edge,
-	nodesByID map[string]graph.Node,
+	edges []graph.Edge[contracttest.Meta],
+	nodesByID map[string]graph.Node[contracttest.Meta],
 	visitedNodes map[string]struct{},
 	frontier []string,
 	req graph.TraversalRequest,
@@ -597,8 +600,8 @@ func expandTraversal(
 }
 
 func expandLevel(
-	edges []graph.Edge,
-	nodesByID map[string]graph.Node,
+	edges []graph.Edge[contracttest.Meta],
+	nodesByID map[string]graph.Node[contracttest.Meta],
 	visitedNodes map[string]struct{},
 	visitedEdges map[string]struct{},
 	frontier []string,
@@ -637,18 +640,18 @@ func expandLevel(
 }
 
 func projectNodes(
-	nodes []graph.Node,
+	nodes []graph.Node[contracttest.Meta],
 	visited map[string]struct{},
-	expr filter.IR,
-) ([]graph.Node, map[string]struct{}, error) {
-	out := make([]graph.Node, 0, len(visited))
+	cond filter.Condition,
+) ([]graph.Node[contracttest.Meta], map[string]struct{}, error) {
+	out := make([]graph.Node[contracttest.Meta], 0, len(visited))
 	allowed := make(map[string]struct{}, len(visited))
 	for _, node := range nodes {
 		if _, ok := visited[node.ID]; !ok {
 			continue
 		}
 
-		matched, err := matchNode(node, expr)
+		matched, err := matchNode(node, cond)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -663,10 +666,13 @@ func projectNodes(
 	return out, allowed, nil
 }
 
-func pageNodes(nodes []graph.Node, page *ragy.Page) ([]graph.Node, map[string]struct{}) {
+func pageNodes(
+	nodes []graph.Node[contracttest.Meta],
+	page *ragy.Page,
+) ([]graph.Node[contracttest.Meta], map[string]struct{}) {
 	start := minInt(page.Offset, len(nodes))
 	end := minInt(start+page.Limit, len(nodes))
-	paged := append([]graph.Node(nil), nodes[start:end]...)
+	paged := append([]graph.Node[contracttest.Meta](nil), nodes[start:end]...)
 	allowed := make(map[string]struct{}, len(paged))
 	for _, node := range paged {
 		allowed[node.ID] = struct{}{}
@@ -675,12 +681,12 @@ func pageNodes(nodes []graph.Node, page *ragy.Page) ([]graph.Node, map[string]st
 }
 
 func projectEdges(
-	edges []graph.Edge,
+	edges []graph.Edge[contracttest.Meta],
 	visited map[string]struct{},
 	allowedNodes map[string]struct{},
-	expr filter.IR,
-) ([]graph.Edge, error) {
-	out := make([]graph.Edge, 0, len(visited))
+	cond filter.Condition,
+) ([]graph.Edge[contracttest.Meta], error) {
+	out := make([]graph.Edge[contracttest.Meta], 0, len(visited))
 	for _, edge := range edges {
 		if _, ok := visited[edge.ID]; !ok {
 			continue
@@ -692,7 +698,7 @@ func projectEdges(
 			continue
 		}
 
-		matched, err := matchEdge(edge, expr)
+		matched, err := matchEdge(edge, cond)
 		if err != nil {
 			return nil, err
 		}
@@ -704,23 +710,23 @@ func projectEdges(
 	return out, nil
 }
 
-func matchDocument(doc ragy.Document, expr filter.IR) (bool, error) {
-	return matchFilter(expr, func(field string) (any, bool) {
-		value, ok := doc.Attributes[field]
+func matchDocument(doc retrieval.Document[contracttest.Meta], cond filter.Condition) (bool, error) {
+	return matchFilter(cond.IR(), func(field string) (any, bool) {
+		value, ok := doc.Meta[field]
 		return value, ok
 	})
 }
 
-func matchNode(node graph.Node, expr filter.IR) (bool, error) {
-	return matchFilter(expr, func(field string) (any, bool) {
-		value, ok := node.Attributes[field]
+func matchNode(node graph.Node[contracttest.Meta], cond filter.Condition) (bool, error) {
+	return matchFilter(cond.IR(), func(field string) (any, bool) {
+		value, ok := node.Meta[field]
 		return value, ok
 	})
 }
 
-func matchEdge(edge graph.Edge, expr filter.IR) (bool, error) {
-	return matchFilter(expr, func(field string) (any, bool) {
-		value, ok := edge.Attributes[field]
+func matchEdge(edge graph.Edge[contracttest.Meta], cond filter.Condition) (bool, error) {
+	return matchFilter(cond.IR(), func(field string) (any, bool) {
+		value, ok := edge.Meta[field]
 		return value, ok
 	})
 }
@@ -1046,13 +1052,11 @@ func minInt(left, right int) int {
 }
 
 var (
-	_ dense.Embedder            = (*DenseEmbedder)(nil)
-	_ dense.Searcher            = (*DenseSearcher)(nil)
-	_ dense.Index               = (*DenseIndex)(nil)
-	_ lexical.Searcher          = (*LexicalSearcher)(nil)
-	_ tensor.Searcher           = (*TensorSearcher)(nil)
-	_ tensor.Index              = (*TensorIndex)(nil)
-	_ documents.Store           = (*DocumentStore)(nil)
-	_ graph.Store               = (*GraphStore)(nil)
-	_ chunking.ContextGenerator = (*ContextGenerator)(nil)
+	_ dense.Embedder                               = (*DenseEmbedder)(nil)
+	_ dense.Index[contracttest.Meta]               = (*DenseIndex)(nil)
+	_ retrieval.Backend[contracttest.Meta]         = (*RetrievalBackend)(nil)
+	_ tensor.Index[contracttest.Meta]              = (*TensorIndex)(nil)
+	_ documents.Store[contracttest.Meta]           = (*DocumentStore)(nil)
+	_ graph.Store[contracttest.Meta]               = (*GraphStore)(nil)
+	_ chunking.ContextGenerator[contracttest.Meta] = (*ContextGenerator)(nil)
 )

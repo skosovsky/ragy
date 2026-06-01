@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
-	"github.com/skosovsky/ragy/lexical"
+	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/multimodal"
 	"github.com/skosovsky/ragy/ranking"
+	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/tensor"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -19,18 +19,20 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type captureDenseSearcher struct{ valid bool }
+type captureRetriever struct{ valid bool }
 
-func (s *captureDenseSearcher) Search(ctx context.Context, _ dense.Request) ([]ragy.Document, error) {
-	s.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
+func (r *captureRetriever) Retrieve(
+	ctx context.Context,
+	_ string,
+	_ retrieval.RetrieveOptions,
+) ([]retrieval.Document[contracttest.Meta], error) {
+	r.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	return nil, nil
 }
 
-func (s *captureDenseSearcher) Schema() filter.Schema { return filter.EmptySchema() }
-
 type captureDenseIndex struct{ valid bool }
 
-func (i *captureDenseIndex) Upsert(ctx context.Context, _ []dense.Record) error {
+func (i *captureDenseIndex) Upsert(ctx context.Context, _ []dense.Record[contracttest.Meta]) error {
 	i.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	return nil
 }
@@ -51,32 +53,17 @@ func (e *captureTensorEmbedder) Embed(ctx context.Context, _ []string) ([]tensor
 	return nil, nil
 }
 
-type captureTensorSearcher struct{ valid bool }
-
-func (s *captureTensorSearcher) Search(ctx context.Context, _ tensor.Request) ([]ragy.Document, error) {
-	s.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
-	return nil, nil
-}
-
-func (s *captureTensorSearcher) Schema() filter.Schema { return filter.EmptySchema() }
-
-type captureLexicalSearcher struct{ valid bool }
-
-func (s *captureLexicalSearcher) Search(ctx context.Context, _ lexical.Request) ([]ragy.Document, error) {
-	s.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
-	return nil, nil
-}
-
-func (s *captureLexicalSearcher) Schema() filter.Schema { return filter.EmptySchema() }
-
 type captureGraphStore struct{ valid bool }
 
-func (s *captureGraphStore) Traverse(ctx context.Context, _ graph.TraversalRequest) (graph.Snapshot, error) {
+func (s *captureGraphStore) Traverse(
+	ctx context.Context,
+	_ graph.TraversalRequest,
+) (graph.Snapshot[contracttest.Meta], error) {
 	s.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
-	return graph.Snapshot{}, nil
+	return graph.Snapshot[contracttest.Meta]{}, nil
 }
 
-func (s *captureGraphStore) Upsert(ctx context.Context, _ graph.Snapshot) error {
+func (s *captureGraphStore) Upsert(ctx context.Context, _ graph.Snapshot[contracttest.Meta]) error {
 	s.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	return nil
 }
@@ -85,7 +72,7 @@ func (s *captureGraphStore) Schema() graph.Schema { return graph.EmptySchema() }
 
 type captureTensorIndex struct{ valid bool }
 
-func (i *captureTensorIndex) Upsert(ctx context.Context, _ []tensor.Record) error {
+func (i *captureTensorIndex) Upsert(ctx context.Context, _ []tensor.Record[contracttest.Meta]) error {
 	i.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	return nil
 }
@@ -101,7 +88,10 @@ func (e *captureMultimodalEmbedder) Embed(ctx context.Context, _ []multimodal.In
 
 type captureDocumentStore struct{ valid bool }
 
-func (s *captureDocumentStore) FindByIDs(ctx context.Context, _ []string) ([]ragy.Document, error) {
+func (s *captureDocumentStore) FindByIDs(
+	ctx context.Context,
+	_ []string,
+) ([]retrieval.Document[contracttest.Meta], error) {
 	s.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	return nil, nil
 }
@@ -111,7 +101,7 @@ func (s *captureDocumentStore) DeleteByIDs(ctx context.Context, _ []string) (doc
 	return documents.DeleteResult{}, nil
 }
 
-func (s *captureDocumentStore) DeleteByFilter(ctx context.Context, _ filter.IR) (documents.DeleteResult, error) {
+func (s *captureDocumentStore) DeleteByFilter(ctx context.Context, _ filter.Condition) (documents.DeleteResult, error) {
 	s.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	return documents.DeleteResult{}, nil
 }
@@ -120,26 +110,33 @@ func (s *captureDocumentStore) Schema() filter.Schema { return filter.EmptySchem
 
 type captureQueryReranker struct{ valid bool }
 
-func (r *captureQueryReranker) Rerank(ctx context.Context, _ string, _ []ragy.Document) ([]ragy.Document, error) {
+func (r *captureQueryReranker) Rerank(
+	ctx context.Context,
+	_ string,
+	_ []retrieval.Document[contracttest.Meta],
+) ([]retrieval.Document[contracttest.Meta], error) {
 	r.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	return nil, nil
 }
 
 type captureMerger struct{ valid bool }
 
-func (m *captureMerger) Merge(ctx context.Context, _ ...[]ragy.Document) ([]ragy.Document, error) {
+func (m *captureMerger) Merge(
+	ctx context.Context,
+	_ ...[]retrieval.Document[contracttest.Meta],
+) ([]retrieval.Document[contracttest.Meta], error) {
 	m.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	return nil, nil
 }
 
-func TestWrapDenseSearcherPassesDerivedContext(t *testing.T) {
-	runSpanTest(t, "ragy.dense.search", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
-		next := &captureDenseSearcher{}
-		wrapped, err := WrapDenseSearcher(next, tracer)
+func TestWrapRetrieverPassesDerivedContext(t *testing.T) {
+	runSpanTest(t, "ragy.retrieval.retrieve", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
+		next := &captureRetriever{}
+		wrapped, err := WrapRetriever(next, tracer)
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Search(ctx, dense.Request{Vector: []float32{1}})
+		_, err = wrapped.Retrieve(ctx, "hello", retrieval.RetrieveOptions{})
 		return next.valid, err
 	})
 }
@@ -151,7 +148,7 @@ func TestWrapDenseIndexPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		err = wrapped.Upsert(ctx, []dense.Record{{ID: "doc-1", Vector: []float32{1}}})
+		err = wrapped.Upsert(ctx, []dense.Record[contracttest.Meta]{{ID: "doc-1", Vector: []float32{1}}})
 		return next.valid, err
 	})
 }
@@ -180,18 +177,6 @@ func TestWrapTensorEmbedderPassesDerivedContext(t *testing.T) {
 	})
 }
 
-func TestWrapTensorSearcherPassesDerivedContext(t *testing.T) {
-	runSpanTest(t, "ragy.tensor.search", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
-		next := &captureTensorSearcher{}
-		wrapped, err := WrapTensorSearcher(next, tracer)
-		if err != nil {
-			return false, err
-		}
-		_, err = wrapped.Search(ctx, tensor.Request{Query: tensor.Tensor{{1}}})
-		return next.valid, err
-	})
-}
-
 func TestWrapTensorIndexPassesDerivedContext(t *testing.T) {
 	runSpanTest(t, "ragy.tensor.upsert", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
 		next := &captureTensorIndex{}
@@ -199,19 +184,7 @@ func TestWrapTensorIndexPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		err = wrapped.Upsert(ctx, []tensor.Record{{ID: "doc-1", Tensor: tensor.Tensor{{1}}}})
-		return next.valid, err
-	})
-}
-
-func TestWrapLexicalSearcherPassesDerivedContext(t *testing.T) {
-	runSpanTest(t, "ragy.lexical.search", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
-		next := &captureLexicalSearcher{}
-		wrapped, err := WrapLexicalSearcher(next, tracer)
-		if err != nil {
-			return false, err
-		}
-		_, err = wrapped.Search(ctx, lexical.Request{Text: "hello"})
+		err = wrapped.Upsert(ctx, []tensor.Record[contracttest.Meta]{{ID: "doc-1", Tensor: tensor.Tensor{{1}}}})
 		return next.valid, err
 	})
 }
@@ -261,7 +234,7 @@ func TestWrapDocumentStoreDeleteByFilterPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.DeleteByFilter(ctx, nil)
+		_, err = wrapped.DeleteByFilter(ctx, filter.Condition{})
 		return next.valid, err
 	})
 }
@@ -273,7 +246,7 @@ func TestWrapQueryRerankerPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Rerank(ctx, "hello", []ragy.Document{{ID: "doc-1"}})
+		_, err = wrapped.Rerank(ctx, "hello", []retrieval.Document[contracttest.Meta]{{ID: "doc-1"}})
 		return next.valid, err
 	})
 }
@@ -285,7 +258,7 @@ func TestWrapMergerPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Merge(ctx, []ragy.Document{{ID: "doc-1"}})
+		_, err = wrapped.Merge(ctx, []retrieval.Document[contracttest.Meta]{{ID: "doc-1"}})
 		return next.valid, err
 	})
 }
@@ -316,7 +289,7 @@ func TestWrapGraphStoreUpsertPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		err = wrapped.Upsert(ctx, graph.Snapshot{})
+		err = wrapped.Upsert(ctx, graph.Snapshot[contracttest.Meta]{})
 		return next.valid, err
 	})
 }
@@ -350,9 +323,9 @@ func runSpanTest(
 }
 
 var (
-	_ dense.Index           = (*captureDenseIndex)(nil)
-	_ ranking.QueryReranker = (*captureQueryReranker)(nil)
-	_ ranking.Merger        = (*captureMerger)(nil)
-	_ lexical.Searcher      = (*captureLexicalSearcher)(nil)
-	_ documents.Store       = (*captureDocumentStore)(nil)
+	_ dense.Index[contracttest.Meta]           = (*captureDenseIndex)(nil)
+	_ retrieval.Retriever[contracttest.Meta]   = (*captureRetriever)(nil)
+	_ ranking.QueryReranker[contracttest.Meta] = (*captureQueryReranker)(nil)
+	_ ranking.Merger[contracttest.Meta]        = (*captureMerger)(nil)
+	_ documents.Store[contracttest.Meta]       = (*captureDocumentStore)(nil)
 )

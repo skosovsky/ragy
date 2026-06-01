@@ -10,6 +10,7 @@ import (
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 const fieldsPerRecord = 4
@@ -39,15 +40,15 @@ type Config struct {
 	Schema filter.Schema
 }
 
-// Store is a dense pgvector-backed store.
-type Store struct {
+// Store is a dense pgvector-backed retrieval backend.
+type Store[TMeta any] struct {
 	db     DB
 	table  string
 	schema filter.Schema
 }
 
 // New constructs a store.
-func New(db DB, cfg Config) (*Store, error) {
+func New[TMeta any](db DB, cfg Config) (*Store[TMeta], error) {
 	if db == nil {
 		return nil, fmt.Errorf("%w: pgvector db", ragy.ErrInvalidArgument)
 	}
@@ -59,19 +60,26 @@ func New(db DB, cfg Config) (*Store, error) {
 		return nil, fmt.Errorf("%w: pgvector schema", ragy.ErrInvalidArgument)
 	}
 
-	return &Store{db: db, table: cfg.Table, schema: cfg.Schema}, nil
+	return &Store[TMeta]{db: db, table: cfg.Table, schema: cfg.Schema}, nil
 }
 
-// Search implements dense.Searcher.
-func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document, error) {
-	if err := req.Validate(); err != nil {
+// Retrieve implements retrieval.Backend.
+func (s *Store[TMeta]) Retrieve(
+	ctx context.Context,
+	_ string,
+	opts retrieval.RetrieveOptions,
+) ([]retrieval.Document[TMeta], error) {
+	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
-	if err := s.Schema().ValidateSchemaIR(req.Filter); err != nil {
+	if len(opts.Vector) == 0 {
+		return nil, fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
+	}
+	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
 		return nil, err
 	}
 
-	sql, args, err := s.renderSearch(req)
+	sql, args, err := s.renderSearch(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -82,28 +90,12 @@ func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document,
 	}
 	defer rows.Close()
 
-	var docs []ragy.Document
+	var docs []retrieval.Document[TMeta]
 	for rows.Next() {
-		var (
-			id        string
-			content   string
-			attrsJSON []byte
-			relevance float64
-		)
-		if err := rows.Scan(&id, &content, &attrsJSON, &relevance); err != nil {
-			return nil, ragy.WrapBackendError(err, "pgvector search scan")
-		}
-
-		attrs, err := unmarshalAttributes(attrsJSON)
+		doc, err := s.scanDocument(rows)
 		if err != nil {
 			return nil, err
 		}
-
-		doc, err := projectDocument(s.schema, id, content, attrs, relevance)
-		if err != nil {
-			return nil, err
-		}
-
 		docs = append(docs, doc)
 	}
 
@@ -118,11 +110,12 @@ func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document,
 	return docs, nil
 }
 
-func (s *Store) renderSearch(req dense.Request) (string, []any, error) {
-	args := []any{req.Vector}
+func (s *Store[TMeta]) renderSearch(opts retrieval.RetrieveOptions) (string, []any, error) {
+	args := []any{opts.Vector}
 	where := ""
-	if req.Filter != nil {
-		rendered, renderedArgs, err := renderFilter(s.schema, req.Filter, len(args)+1)
+	ir := opts.Filters.IR()
+	if !filter.IsEmpty(ir) {
+		rendered, renderedArgs, err := renderFilter(s.schema, ir, len(args)+1)
 		if err != nil {
 			return "", nil, err
 		}
@@ -136,16 +129,44 @@ func (s *Store) renderSearch(req dense.Request) (string, []any, error) {
 	builder.WriteString(where)
 	builder.WriteString(" ORDER BY vector <=> $1")
 
-	if req.Page != nil {
-		args = append(args, req.Page.Limit, req.Page.Offset)
-		_, _ = fmt.Fprintf(&builder, " LIMIT $%d OFFSET $%d", len(args)-1, len(args))
+	if opts.TopK > 0 {
+		args = append(args, opts.TopK)
+		_, _ = fmt.Fprintf(&builder, " LIMIT $%d", len(args))
 	}
 
 	return builder.String(), args, nil
 }
 
+func (s *Store[TMeta]) scanDocument(rows Rows) (retrieval.Document[TMeta], error) {
+	var (
+		id        string
+		content   string
+		metaJSON  []byte
+		relevance float64
+	)
+	if err := rows.Scan(&id, &content, &metaJSON, &relevance); err != nil {
+		return retrieval.Document[TMeta]{}, ragy.WrapBackendError(err, "pgvector search scan")
+	}
+
+	meta, err := unmarshalMeta[TMeta](metaJSON)
+	if err != nil {
+		return retrieval.Document[TMeta]{}, err
+	}
+
+	doc := retrieval.Document[TMeta]{
+		ID:      id,
+		Content: content,
+		Score:   ragy.ClampScore(relevance),
+		Meta:    meta,
+	}
+	if err := retrieval.ValidateDocument(doc); err != nil {
+		return retrieval.Document[TMeta]{}, err
+	}
+	return doc, nil
+}
+
 // Upsert implements dense.Index.
-func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
+func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]) error {
 	if len(records) == 0 {
 		return nil
 	}
@@ -157,13 +178,15 @@ func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
 			return err
 		}
 
-		attrs, err := s.schema.NormalizeAttributes(record.Attributes)
+		metaJSON, err := record.MarshalMetaForSchema(s.schema)
 		if err != nil {
 			return err
 		}
-
-		attrsJSON, err := json.Marshal(attrs)
+		attrs, err := attributesFromJSON(metaJSON)
 		if err != nil {
+			return err
+		}
+		if _, err := s.schema.NormalizeAttributes(attrs); err != nil {
 			return err
 		}
 
@@ -178,7 +201,7 @@ func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
 				base+fieldsPerRecord-1,
 			),
 		)
-		args = append(args, record.ID, record.Content, attrsJSON, record.Vector)
+		args = append(args, record.ID, record.Content, metaJSON, record.Vector)
 	}
 
 	sql := fmt.Sprintf(
@@ -193,7 +216,7 @@ func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
 }
 
 // FindByIDs implements documents.Store.
-func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, error) {
+func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval.Document[TMeta], error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -209,24 +232,28 @@ func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, e
 	}
 	defer rows.Close()
 
-	var docs []ragy.Document
+	var docs []retrieval.Document[TMeta]
 	for rows.Next() {
 		var id, content string
-		var attrsJSON []byte
-		if err := rows.Scan(&id, &content, &attrsJSON); err != nil {
+		var metaJSON []byte
+		if err := rows.Scan(&id, &content, &metaJSON); err != nil {
 			return nil, ragy.WrapBackendError(err, "pgvector find by ids scan")
 		}
 
-		attrs, err := unmarshalAttributes(attrsJSON)
+		meta, err := unmarshalMeta[TMeta](metaJSON)
 		if err != nil {
 			return nil, err
 		}
 
-		doc, err := projectDocument(s.schema, id, content, attrs, 0)
-		if err != nil {
+		doc := retrieval.Document[TMeta]{
+			ID:      id,
+			Content: content,
+			Score:   0,
+			Meta:    meta,
+		}
+		if err := retrieval.ValidateDocument(doc); err != nil {
 			return nil, err
 		}
-
 		docs = append(docs, doc)
 	}
 
@@ -242,7 +269,7 @@ func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, e
 }
 
 // DeleteByIDs implements documents.Store.
-func (s *Store) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
+func (s *Store[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
 	if len(ids) == 0 {
 		return documents.DeleteResult{}, nil
 	}
@@ -257,18 +284,16 @@ func (s *Store) DeleteByIDs(ctx context.Context, ids []string) (documents.Delete
 }
 
 // DeleteByFilter implements documents.Store.
-func (s *Store) DeleteByFilter(ctx context.Context, expr filter.IR) (documents.DeleteResult, error) {
-	if expr == nil {
+func (s *Store[TMeta]) DeleteByFilter(ctx context.Context, cond filter.Condition) (documents.DeleteResult, error) {
+	ir := cond.IR()
+	if filter.IsEmpty(ir) {
 		return documents.DeleteResult{}, fmt.Errorf("%w: delete filter", ragy.ErrInvalidArgument)
 	}
-	if filter.IsEmpty(expr) {
-		return documents.DeleteResult{}, fmt.Errorf("%w: delete filter", ragy.ErrInvalidArgument)
-	}
-	if err := s.Schema().ValidateSchemaIR(expr); err != nil {
+	if err := s.Schema().ValidateSchemaIR(ir); err != nil {
 		return documents.DeleteResult{}, err
 	}
 
-	where, args, err := renderFilter(s.schema, expr, 1)
+	where, args, err := renderFilter(s.schema, ir, 1)
 	if err != nil {
 		return documents.DeleteResult{}, err
 	}
@@ -282,8 +307,30 @@ func (s *Store) DeleteByFilter(ctx context.Context, expr filter.IR) (documents.D
 }
 
 // Schema returns the finalized filter schema used by the store.
-func (s *Store) Schema() filter.Schema {
+func (s *Store[TMeta]) Schema() filter.Schema {
 	return s.schema
+}
+
+func unmarshalMeta[TMeta any](data []byte) (TMeta, error) {
+	var meta TMeta
+	if len(data) == 0 {
+		return meta, nil
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return meta, err
+	}
+	return meta, nil
+}
+
+func attributesFromJSON(data []byte) (filter.RawAttributes, error) {
+	if len(data) == 0 {
+		return filter.RawAttributes{}, nil
+	}
+	out := make(filter.RawAttributes)
+	if err := json.Unmarshal(data, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func renderFilter(schema filter.Schema, expr filter.IR, argStart int) (string, []any, error) {
@@ -338,43 +385,6 @@ func buildIDArgs(ids []string) (string, []any) {
 		args = append(args, id)
 	}
 	return strings.Join(placeholders, ","), args
-}
-
-func unmarshalAttributes(data []byte) (ragy.Attributes, error) {
-	if len(data) == 0 {
-		return ragy.Attributes{}, nil
-	}
-
-	out := make(ragy.Attributes)
-	if err := json.Unmarshal(data, &out); err != nil {
-		return nil, err
-	}
-
-	if len(out) == 0 {
-		return ragy.Attributes{}, nil
-	}
-
-	return out, nil
-}
-
-func projectDocument(
-	schema filter.Schema,
-	id, content string,
-	attrs ragy.Attributes,
-	relevance float64,
-) (ragy.Document, error) {
-	normalized, err := schema.NormalizeAttributes(attrs)
-	if err != nil {
-		return ragy.Document{}, err
-	}
-
-	doc := ragy.Document{
-		ID:         id,
-		Content:    content,
-		Attributes: ragy.CloneAttributes(normalized),
-		Relevance:  ragy.ClampRelevance(relevance),
-	}
-	return ragy.NormalizeDocument(doc)
 }
 
 func fieldExpr(schema filter.Schema, field string) (string, error) {
@@ -545,7 +555,7 @@ func (w *sqlFilterWalker) popFrame(op string) (sqlFrame, error) {
 }
 
 var (
-	_ dense.Searcher  = (*Store)(nil)
-	_ dense.Index     = (*Store)(nil)
-	_ documents.Store = (*Store)(nil)
+	_ retrieval.Backend[any] = (*Store[any])(nil)
+	_ dense.Index[any]       = (*Store[any])(nil)
+	_ documents.Store[any]   = (*Store[any])(nil)
 )

@@ -271,8 +271,12 @@ linters:
         - ^golang.org/x/tools/go/analysis.Analyzer$
         - ^google.golang.org/protobuf/.+Options$
         - ^gopkg.in/yaml.v3.Node$
-        # ragy: Document literals are often built incrementally in tests and examples.
-        - ^github\.com/skosovsky/ragy\.Document$
+        # ragy: partial literals by design in contract tests, builder, and graph fixtures.
+        - ^github\.com/skosovsky/ragy/retrieval\.Document
+        - ^github\.com/skosovsky/ragy/retrieval\.RetrieveOptions
+        - ^github\.com/skosovsky/ragy/graph\.Node
+        - ^github\.com/skosovsky/ragy/graph\.Edge
+        - ^github\.com/skosovsky/ragy/filter\.Builder
         # neo4j-go-driver: SessionConfig is typically partial (AccessMode only).
         - ^github\.com/neo4j/neo4j-go-driver/v5/neo4j\.SessionConfig$
         # cohere-go: Rerank request types are built with required fields only.

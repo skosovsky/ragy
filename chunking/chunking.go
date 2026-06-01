@@ -10,16 +10,17 @@ import (
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/internal/parallel"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 // Splitter splits a source document into typed chunks.
-type Splitter interface {
-	Split(ctx context.Context, doc ragy.Document) ([]ragy.Chunk, error)
+type Splitter[TMeta any] interface {
+	Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error)
 }
 
 // ContextGenerator derives chunk context without mutating raw chunk content.
-type ContextGenerator interface {
-	Context(ctx context.Context, source ragy.Document, chunk ragy.Chunk) (string, error)
+type ContextGenerator[TMeta any] interface {
+	Context(ctx context.Context, source retrieval.Document[TMeta], chunk Chunk[TMeta]) (string, error)
 }
 
 // SentenceSegmenter extracts sentences from text.
@@ -27,40 +28,35 @@ type SentenceSegmenter interface {
 	Split(text string) []string
 }
 
-func validateSource(doc ragy.Document) (ragy.Document, error) {
-	normalized, err := ragy.NormalizeDocument(doc)
-	if err != nil {
-		if doc.ID == "" {
-			return ragy.Document{}, fmt.Errorf("%w: source document id", ragy.ErrMissingSourceID)
-		}
-		return ragy.Document{}, err
+func validateSource[TMeta any](doc retrieval.Document[TMeta]) (retrieval.Document[TMeta], error) {
+	if doc.ID == "" {
+		return retrieval.Document[TMeta]{}, fmt.Errorf("%w: source document id", ragy.ErrMissingSourceID)
 	}
 	if strings.TrimSpace(doc.Content) == "" {
-		return ragy.Document{}, fmt.Errorf("%w: source document content", ragy.ErrEmptyText)
+		return retrieval.Document[TMeta]{}, fmt.Errorf("%w: source document content", ragy.ErrEmptyText)
 	}
-
-	return normalized, nil
+	return doc, nil
 }
 
-func buildChunks(doc ragy.Document, parts []string) []ragy.Chunk {
+func buildChunks[TMeta any](doc retrieval.Document[TMeta], parts []string) []Chunk[TMeta] {
 	if len(parts) == 0 {
 		return nil
 	}
 
-	chunks := make([]ragy.Chunk, 0, len(parts))
+	chunks := make([]Chunk[TMeta], 0, len(parts))
 	for index, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
 
-		chunks = append(chunks, ragy.Chunk{
-			ID:         fmt.Sprintf("%s_%d", doc.ID, index),
-			SourceID:   doc.ID,
-			Index:      index,
-			Content:    part,
-			Context:    "",
-			Attributes: ragy.CloneAttributes(doc.Attributes),
+		chunks = append(chunks, Chunk[TMeta]{
+			ID:       fmt.Sprintf("%s_%d", doc.ID, index),
+			SourceID: doc.ID,
+			Index:    index,
+			Content:  part,
+			Context:  "",
+			Meta:     doc.Meta,
 		})
 	}
 
@@ -68,14 +64,14 @@ func buildChunks(doc ragy.Document, parts []string) []ragy.Chunk {
 }
 
 // Recursive is an iterative chunk splitter.
-type Recursive struct {
+type Recursive[TMeta any] struct {
 	chunkSize  int
 	overlap    int
 	separators []string
 }
 
 // NewRecursive constructs a recursive splitter.
-func NewRecursive(chunkSize, overlap int, separators []string) (*Recursive, error) {
+func NewRecursive[TMeta any](chunkSize, overlap int, separators []string) (*Recursive[TMeta], error) {
 	if chunkSize <= 0 {
 		return nil, fmt.Errorf("%w: chunk size must be > 0", ragy.ErrInvalidArgument)
 	}
@@ -88,7 +84,7 @@ func NewRecursive(chunkSize, overlap int, separators []string) (*Recursive, erro
 		separators = []string{"\n\n", "\n", " "}
 	}
 
-	return &Recursive{
+	return &Recursive[TMeta]{
 		chunkSize:  chunkSize,
 		overlap:    overlap,
 		separators: separators,
@@ -96,7 +92,7 @@ func NewRecursive(chunkSize, overlap int, separators []string) (*Recursive, erro
 }
 
 // Split splits a source document.
-func (r *Recursive) Split(_ context.Context, doc ragy.Document) ([]ragy.Chunk, error) {
+func (r *Recursive[TMeta]) Split(_ context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
 	normalized, err := validateSource(doc)
 	if err != nil {
 		return nil, err
@@ -105,11 +101,10 @@ func (r *Recursive) Split(_ context.Context, doc ragy.Document) ([]ragy.Chunk, e
 	parts := splitIterative(normalized.Content, r.chunkSize, r.overlap, r.separators)
 	chunks := buildChunks(normalized, parts)
 	for i, chunk := range chunks {
-		normalizedChunk, err := ragy.NormalizeChunk(chunk)
-		if err != nil {
+		if err := ValidateChunk(chunk); err != nil {
 			return nil, err
 		}
-		chunks[i] = normalizedChunk
+		chunks[i] = chunk
 	}
 	return chunks, nil
 }
@@ -235,21 +230,21 @@ func runeLen(text string) int {
 }
 
 // Markdown splits markdown documents by headings first and then recursively.
-type Markdown struct {
-	base *Recursive
+type Markdown[TMeta any] struct {
+	base *Recursive[TMeta]
 }
 
 // NewMarkdown constructs a markdown splitter.
-func NewMarkdown(base *Recursive) (*Markdown, error) {
+func NewMarkdown[TMeta any](base *Recursive[TMeta]) (*Markdown[TMeta], error) {
 	if base == nil {
 		return nil, fmt.Errorf("%w: markdown base splitter", ragy.ErrInvalidArgument)
 	}
 
-	return &Markdown{base: base}, nil
+	return &Markdown[TMeta]{base: base}, nil
 }
 
 // Split splits a markdown document.
-func (m *Markdown) Split(ctx context.Context, doc ragy.Document) ([]ragy.Chunk, error) {
+func (m *Markdown[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
 	normalized, err := validateSource(doc)
 	if err != nil {
 		return nil, err
@@ -267,11 +262,10 @@ func (m *Markdown) Split(ctx context.Context, doc ragy.Document) ([]ragy.Chunk, 
 
 	chunks := buildChunks(normalized, parts)
 	for i, chunk := range chunks {
-		normalizedChunk, err := ragy.NormalizeChunk(chunk)
-		if err != nil {
+		if err := ValidateChunk(chunk); err != nil {
 			return nil, err
 		}
-		chunks[i] = normalizedChunk
+		chunks[i] = chunk
 	}
 	return chunks, nil
 }
@@ -342,7 +336,7 @@ func isSentenceBoundary(r rune) bool {
 }
 
 // Semantic groups caller-provided sentence segments by embedding similarity.
-type Semantic struct {
+type Semantic[TMeta any] struct {
 	embedder  dense.Embedder
 	segmenter SentenceSegmenter
 	threshold float64
@@ -350,12 +344,12 @@ type Semantic struct {
 }
 
 // NewSemantic constructs a semantic splitter with an explicit sentence segmentation strategy.
-func NewSemantic(
+func NewSemantic[TMeta any](
 	embedder dense.Embedder,
 	segmenter SentenceSegmenter,
 	threshold float64,
 	minGroup int,
-) (*Semantic, error) {
+) (*Semantic[TMeta], error) {
 	if embedder == nil {
 		return nil, fmt.Errorf("%w: semantic embedder", ragy.ErrInvalidArgument)
 	}
@@ -371,7 +365,7 @@ func NewSemantic(
 		return nil, fmt.Errorf("%w: min group must be > 0", ragy.ErrInvalidArgument)
 	}
 
-	return &Semantic{
+	return &Semantic[TMeta]{
 		embedder:  embedder,
 		segmenter: segmenter,
 		threshold: threshold,
@@ -380,7 +374,7 @@ func NewSemantic(
 }
 
 // Split splits a source document by semantic boundaries.
-func (s *Semantic) Split(ctx context.Context, doc ragy.Document) ([]ragy.Chunk, error) {
+func (s *Semantic[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
 	normalized, err := validateSource(doc)
 	if err != nil {
 		return nil, err
@@ -412,11 +406,10 @@ func (s *Semantic) Split(ctx context.Context, doc ragy.Document) ([]ragy.Chunk, 
 	parts := semanticGroups(sentences, embeddings, s.threshold, s.minGroup)
 	chunks := buildChunks(normalized, parts)
 	for i, chunk := range chunks {
-		normalizedChunk, err := ragy.NormalizeChunk(chunk)
-		if err != nil {
+		if err := ValidateChunk(chunk); err != nil {
 			return nil, err
 		}
-		chunks[i] = normalizedChunk
+		chunks[i] = chunk
 	}
 	return chunks, nil
 }
@@ -521,14 +514,18 @@ func sqrt(value float64) float64 {
 }
 
 // Contextual augments chunks with derived context.
-type Contextual struct {
-	base        Splitter
-	generator   ContextGenerator
+type Contextual[TMeta any] struct {
+	base        Splitter[TMeta]
+	generator   ContextGenerator[TMeta]
 	concurrency int
 }
 
 // NewContextual constructs a contextual splitter.
-func NewContextual(base Splitter, generator ContextGenerator, concurrency int) (*Contextual, error) {
+func NewContextual[TMeta any](
+	base Splitter[TMeta],
+	generator ContextGenerator[TMeta],
+	concurrency int,
+) (*Contextual[TMeta], error) {
 	if base == nil {
 		return nil, fmt.Errorf("%w: contextual base splitter", ragy.ErrInvalidArgument)
 	}
@@ -541,7 +538,7 @@ func NewContextual(base Splitter, generator ContextGenerator, concurrency int) (
 		return nil, fmt.Errorf("%w: contextual concurrency", ragy.ErrInvalidArgument)
 	}
 
-	return &Contextual{
+	return &Contextual[TMeta]{
 		base:        base,
 		generator:   generator,
 		concurrency: concurrency,
@@ -549,7 +546,7 @@ func NewContextual(base Splitter, generator ContextGenerator, concurrency int) (
 }
 
 // Split splits a source document and enriches chunk context in parallel.
-func (c *Contextual) Split(ctx context.Context, doc ragy.Document) ([]ragy.Chunk, error) {
+func (c *Contextual[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
 	chunks, err := c.base.Split(ctx, doc)
 	if err != nil {
 		return nil, err
@@ -559,10 +556,10 @@ func (c *Contextual) Split(ctx context.Context, doc ragy.Document) ([]ragy.Chunk
 		ctx,
 		c.concurrency,
 		chunks,
-		func(ctx context.Context, chunk ragy.Chunk) (ragy.Chunk, error) {
+		func(ctx context.Context, chunk Chunk[TMeta]) (Chunk[TMeta], error) {
 			contextText, contextErr := c.generator.Context(ctx, doc, chunk)
 			if contextErr != nil {
-				return ragy.Chunk{}, contextErr
+				return Chunk[TMeta]{}, contextErr
 			}
 
 			chunk.Context = contextText

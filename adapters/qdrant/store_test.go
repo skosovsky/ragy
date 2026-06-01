@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 type fakeClient struct {
@@ -31,7 +33,7 @@ func (c *fakeClient) Upsert(_ context.Context, _ string, points []Point) error {
 	return nil
 }
 
-func (c *fakeClient) Search(_ context.Context, _ string, _ []float32, cond Condition, _ *ragy.Page) ([]Point, error) {
+func (c *fakeClient) Search(_ context.Context, _ string, _ []float32, cond Condition, _ int) ([]Point, error) {
 	c.cond = cond
 	return c.searchPoints, nil
 }
@@ -102,7 +104,7 @@ func ageScoreSchema(t *testing.T) filter.Schema {
 	return schema
 }
 
-func TestSearchPreservesTypedFilterValue(t *testing.T) {
+func TestRetrievePreservesTypedFilterValue(t *testing.T) {
 	client := &fakeClient{}
 	builder := filter.NewSchema()
 	tenant, err := builder.Int("tenant")
@@ -113,19 +115,26 @@ func TestSearchPreservesTypedFilterValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
-	store, err := New(client, Config{Collection: "docs", Schema: schema})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: schema})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	expr, err := filter.Normalize(filter.Equal(tenant, int64(7)))
+	filterBuilder, err := filter.NewBuilder(schema)
 	if err != nil {
-		t.Fatalf("Normalize(): %v", err)
+		t.Fatalf("NewBuilder(): %v", err)
+	}
+	cond, err := filter.Eq(filterBuilder, tenant, int64(7)).Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
 	}
 
-	_, err = store.Search(context.Background(), dense.Request{Vector: []float32{1}, Filter: expr})
+	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector:  []float32{1},
+		Filters: cond,
+	})
 	if err != nil {
-		t.Fatalf("Search(): %v", err)
+		t.Fatalf("Retrieve(): %v", err)
 	}
 
 	eq, ok := client.cond.(EqCondition)
@@ -139,9 +148,9 @@ func TestSearchPreservesTypedFilterValue(t *testing.T) {
 }
 
 func TestDenseIndexConformance(t *testing.T) {
-	contracttest.RunDenseIndexSuite(t, func(t *testing.T) dense.Index {
+	contracttest.RunDenseIndexSuite(t, func(t *testing.T) dense.Index[contracttest.Meta] {
 		t.Helper()
-		store, err := New(&fakeClient{}, Config{
+		store, err := New[contracttest.Meta](&fakeClient{}, Config{
 			Collection: "docs",
 			Schema:     contracttest.TenantAgeSchema(t),
 		})
@@ -154,17 +163,12 @@ func TestDenseIndexConformance(t *testing.T) {
 
 func TestDeleteByFilterRejectsEmpty(t *testing.T) {
 	client := &fakeClient{}
-	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	expr, err := filter.Normalize(nil)
-	if err != nil {
-		t.Fatalf("Normalize(nil): %v", err)
-	}
-
-	if _, err := store.DeleteByFilter(context.Background(), expr); err == nil {
+	if _, err := store.DeleteByFilter(context.Background(), filter.Condition{}); err == nil {
 		t.Fatal("DeleteByFilter() error = nil, want error")
 	}
 
@@ -173,37 +177,39 @@ func TestDeleteByFilterRejectsEmpty(t *testing.T) {
 	}
 }
 
-func TestSearchReturnsNilAttributesWhenPayloadEmpty(t *testing.T) {
+func TestRetrieveReturnsNilMetaWhenPayloadEmpty(t *testing.T) {
 	client := &fakeClient{
 		searchPoints: []Point{{
 			ID:         "doc-1",
 			Content:    "hello",
-			Attributes: ragy.Attributes{},
+			Attributes: filter.RawAttributes{},
 			Score:      3,
 		}},
 	}
 
-	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Search(context.Background(), dense.Request{Vector: []float32{1}})
+	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector: []float32{1},
+	})
 	if err != nil {
-		t.Fatalf("Search(): %v", err)
+		t.Fatalf("Retrieve(): %v", err)
 	}
 
 	if len(out) != 1 {
 		t.Fatalf("len(out) = %d, want 1", len(out))
 	}
 
-	if out[0].Attributes != nil {
-		t.Fatalf("document attributes = %#v, want nil", out[0].Attributes)
+	if len(out[0].Meta) != 0 {
+		t.Fatalf("document meta = %#v, want empty", out[0].Meta)
 	}
 }
 
 func TestNewRejectsInvalidCollectionName(t *testing.T) {
-	if _, err := New(&fakeClient{}, Config{Collection: "1bad", Schema: emptySchema(t)}); err == nil {
+	if _, err := New[contracttest.Meta](&fakeClient{}, Config{Collection: "1bad", Schema: emptySchema(t)}); err == nil {
 		t.Fatal("New() error = nil, want error")
 	}
 }
@@ -215,7 +221,7 @@ func TestFindByIDsRejectsInvalidBackendPayload(t *testing.T) {
 			Content: "broken",
 		}},
 	}
-	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -227,7 +233,7 @@ func TestFindByIDsRejectsInvalidBackendPayload(t *testing.T) {
 
 func TestFindByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
 	client := &fakeClient{getErr: errors.New("upstream")}
-	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -242,7 +248,7 @@ func TestFindByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
 
 func TestDeleteByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
 	client := &fakeClient{deleteByIDsErr: errors.New("upstream")}
-	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -255,20 +261,18 @@ func TestDeleteByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
 	}
 }
 
-func TestUpsertRejectsWrongAttributeTypeBeforeWrite(t *testing.T) {
+func TestUpsertRejectsWrongMetaTypeBeforeWrite(t *testing.T) {
 	client := &fakeClient{}
-	store, err := New(client, Config{Collection: "docs", Schema: ageSchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: ageSchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	err = store.Upsert(context.Background(), []dense.Record{{
+	err = store.Upsert(context.Background(), []dense.Record[contracttest.Meta]{{
 		ID:      "doc-1",
 		Content: "hello",
 		Vector:  []float32{1},
-		Attributes: ragy.Attributes{
-			"age": "old",
-		},
+		Meta:    contracttest.Meta{"age": "old"},
 	}})
 	if err == nil {
 		t.Fatal("Upsert() error = nil, want error")
@@ -278,18 +282,18 @@ func TestUpsertRejectsWrongAttributeTypeBeforeWrite(t *testing.T) {
 	}
 }
 
-func TestUpsertCanonicalizesAttributesBeforeClientCall(t *testing.T) {
+func TestUpsertCanonicalizesMetaBeforeClientCall(t *testing.T) {
 	client := &fakeClient{}
-	store, err := New(client, Config{Collection: "docs", Schema: ageScoreSchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: ageScoreSchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	err = store.Upsert(context.Background(), []dense.Record{{
+	err = store.Upsert(context.Background(), []dense.Record[contracttest.Meta]{{
 		ID:      "doc-1",
 		Content: "hello",
 		Vector:  []float32{1},
-		Attributes: ragy.Attributes{
+		Meta: contracttest.Meta{
 			"age":   int(7),
 			"score": float32(1.5),
 		},
@@ -313,14 +317,14 @@ func TestUpsertCanonicalizesAttributesBeforeClientCall(t *testing.T) {
 	}
 }
 
-func TestUpsertCanonicalizesEmptyAttributesToNil(t *testing.T) {
+func TestUpsertCanonicalizesEmptyMetaToNil(t *testing.T) {
 	client := &fakeClient{}
-	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	err = store.Upsert(context.Background(), []dense.Record{{
+	err = store.Upsert(context.Background(), []dense.Record[contracttest.Meta]{{
 		ID:      "doc-1",
 		Content: "hello",
 		Vector:  []float32{1},
@@ -334,9 +338,9 @@ func TestUpsertCanonicalizesEmptyAttributesToNil(t *testing.T) {
 	}
 }
 
-func TestSearchRejectsUndeclaredFilterField(t *testing.T) {
+func TestRetrieveRejectsUndeclaredFilterField(t *testing.T) {
 	client := &fakeClient{}
-	store, err := New(client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -346,16 +350,24 @@ func TestSearchRejectsUndeclaredFilterField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("foreign.Int(other): %v", err)
 	}
-	expr, err := filter.Normalize(filter.Equal(tenant, int64(7)))
+	foreignSchema, err := foreign.Build()
 	if err != nil {
-		t.Fatalf("Normalize(): %v", err)
+		t.Fatalf("foreign.Build(): %v", err)
+	}
+	filterBuilder, err := filter.NewBuilder(foreignSchema)
+	if err != nil {
+		t.Fatalf("NewBuilder(): %v", err)
+	}
+	cond, err := filter.Eq(filterBuilder, tenant, int64(7)).Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
 	}
 
-	if _, err := store.Search(context.Background(), dense.Request{
-		Vector: []float32{1},
-		Filter: expr,
+	if _, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector:  []float32{1},
+		Filters: cond,
 	}); err == nil {
-		t.Fatal("Search() error = nil, want error")
+		t.Fatal("Retrieve() error = nil, want error")
 	}
 	if client.cond != nil {
 		t.Fatalf("condition = %#v, want no backend search call", client.cond)
@@ -363,17 +375,17 @@ func TestSearchRejectsUndeclaredFilterField(t *testing.T) {
 }
 
 type documentsClient struct {
-	docs map[string]ragy.Document
+	docs map[string]retrieval.Document[contracttest.Meta]
 }
 
-func newDocumentsClient(docs []ragy.Document) *documentsClient {
-	out := make(map[string]ragy.Document, len(docs))
+func newDocumentsClient(docs []retrieval.Document[contracttest.Meta]) *documentsClient {
+	out := make(map[string]retrieval.Document[contracttest.Meta], len(docs))
 	for _, doc := range docs {
-		out[doc.ID] = ragy.Document{
-			ID:         doc.ID,
-			Content:    doc.Content,
-			Attributes: ragy.CloneAttributes(doc.Attributes),
-			Relevance:  doc.Relevance,
+		out[doc.ID] = retrieval.Document[contracttest.Meta]{
+			ID:      doc.ID,
+			Content: doc.Content,
+			Meta:    doc.Meta,
+			Score:   doc.Score,
 		}
 	}
 	return &documentsClient{docs: out}
@@ -381,7 +393,7 @@ func newDocumentsClient(docs []ragy.Document) *documentsClient {
 
 func (c *documentsClient) Upsert(_ context.Context, _ string, _ []Point) error { return nil }
 
-func (c *documentsClient) Search(_ context.Context, _ string, _ []float32, _ Condition, _ *ragy.Page) ([]Point, error) {
+func (c *documentsClient) Search(_ context.Context, _ string, _ []float32, _ Condition, _ int) ([]Point, error) {
 	return nil, nil
 }
 
@@ -392,10 +404,12 @@ func (c *documentsClient) Get(_ context.Context, _ string, ids []string) ([]Poin
 		if !ok {
 			continue
 		}
+		attrs := filter.RawAttributes{}
+		maps.Copy(attrs, doc.Meta)
 		points = append(points, Point{
 			ID:         doc.ID,
 			Content:    doc.Content,
-			Attributes: ragy.CloneAttributes(doc.Attributes),
+			Attributes: attrs,
 		})
 	}
 	if len(points) == 0 {
@@ -433,25 +447,28 @@ func (c *documentsClient) DeleteByFilter(_ context.Context, _ string, cond Condi
 }
 
 func TestDocumentsStoreConformance(t *testing.T) {
-	contracttest.RunDocumentsStoreSuite(t, func(t *testing.T, docs []ragy.Document) documents.Store {
-		t.Helper()
-		builder := filter.NewSchema()
-		if _, err := builder.String("tenant"); err != nil {
-			t.Fatalf("builder.String(tenant): %v", err)
-		}
-		schema, err := builder.Build()
-		if err != nil {
-			t.Fatalf("Build(): %v", err)
-		}
-		store, err := New(newDocumentsClient(docs), Config{Collection: "docs", Schema: schema})
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return store
-	})
+	contracttest.RunDocumentsStoreSuite(
+		t,
+		func(t *testing.T, docs []retrieval.Document[contracttest.Meta]) documents.Store[contracttest.Meta] {
+			t.Helper()
+			builder := filter.NewSchema()
+			if _, err := builder.String("tenant"); err != nil {
+				t.Fatalf("builder.String(tenant): %v", err)
+			}
+			schema, err := builder.Build()
+			if err != nil {
+				t.Fatalf("Build(): %v", err)
+			}
+			store, err := New[contracttest.Meta](newDocumentsClient(docs), Config{Collection: "docs", Schema: schema})
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+	)
 }
 
-func matchesCondition(doc ragy.Document, cond Condition) (bool, error) {
+func matchesCondition(doc retrieval.Document[contracttest.Meta], cond Condition) (bool, error) {
 	switch node := cond.(type) {
 	case MatchAllCondition:
 		return true, nil
@@ -472,17 +489,17 @@ func matchesCondition(doc ragy.Document, cond Condition) (bool, error) {
 	}
 }
 
-func matchesEquality(doc ragy.Document, field string, expected any) (bool, error) {
+func matchesEquality(doc retrieval.Document[contracttest.Meta], field string, expected any) (bool, error) {
 	value, ok := documentField(doc, field)
 	return ok && value == expected, nil
 }
 
-func matchesInequality(doc ragy.Document, field string, expected any) (bool, error) {
+func matchesInequality(doc retrieval.Document[contracttest.Meta], field string, expected any) (bool, error) {
 	value, ok := documentField(doc, field)
 	return !ok || value != expected, nil
 }
 
-func matchesRange(doc ragy.Document, cond RangeCondition) (bool, error) {
+func matchesRange(doc retrieval.Document[contracttest.Meta], cond RangeCondition) (bool, error) {
 	value, ok := documentField(doc, cond.Field)
 	if !ok {
 		return false, nil
@@ -490,7 +507,7 @@ func matchesRange(doc ragy.Document, cond RangeCondition) (bool, error) {
 	return compareRange(value, cond.Value, cond.Op)
 }
 
-func matchesIn(doc ragy.Document, cond InCondition) (bool, error) {
+func matchesIn(doc retrieval.Document[contracttest.Meta], cond InCondition) (bool, error) {
 	value, ok := documentField(doc, cond.Field)
 	if !ok {
 		return false, nil
@@ -498,7 +515,7 @@ func matchesIn(doc ragy.Document, cond InCondition) (bool, error) {
 	return slices.Contains(cond.Values, value), nil
 }
 
-func matchesGroup(doc ragy.Document, cond GroupCondition) (bool, error) {
+func matchesGroup(doc retrieval.Document[contracttest.Meta], cond GroupCondition) (bool, error) {
 	switch cond.Op {
 	case "and":
 		return matchesAll(doc, cond.Items)
@@ -509,7 +526,7 @@ func matchesGroup(doc ragy.Document, cond GroupCondition) (bool, error) {
 	}
 }
 
-func matchesAll(doc ragy.Document, items []Condition) (bool, error) {
+func matchesAll(doc retrieval.Document[contracttest.Meta], items []Condition) (bool, error) {
 	for _, item := range items {
 		matched, err := matchesCondition(doc, item)
 		if err != nil || !matched {
@@ -519,7 +536,7 @@ func matchesAll(doc ragy.Document, items []Condition) (bool, error) {
 	return true, nil
 }
 
-func matchesAny(doc ragy.Document, items []Condition) (bool, error) {
+func matchesAny(doc retrieval.Document[contracttest.Meta], items []Condition) (bool, error) {
 	for _, item := range items {
 		matched, err := matchesCondition(doc, item)
 		if err != nil {
@@ -532,19 +549,19 @@ func matchesAny(doc ragy.Document, items []Condition) (bool, error) {
 	return false, nil
 }
 
-func matchesNot(doc ragy.Document, cond Condition) (bool, error) {
+func matchesNot(doc retrieval.Document[contracttest.Meta], cond Condition) (bool, error) {
 	matched, err := matchesCondition(doc, cond)
 	return !matched, err
 }
 
-func documentField(doc ragy.Document, field string) (any, bool) {
+func documentField(doc retrieval.Document[contracttest.Meta], field string) (any, bool) {
 	switch field {
 	case "id":
 		return doc.ID, true
 	case "content":
 		return doc.Content, true
 	default:
-		value, ok := doc.Attributes[field]
+		value, ok := doc.Meta[field]
 		return value, ok
 	}
 }
@@ -579,5 +596,123 @@ func toFloat(value any) (float64, bool) {
 		return v, true
 	default:
 		return 0, false
+	}
+}
+
+type tenantMeta struct {
+	Tenant string `json:"tenant"`
+}
+
+func TestRetrieveUnmarshalsStructMeta(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{
+		searchPoints: []Point{{
+			ID:         "doc-1",
+			Content:    "hello",
+			Attributes: filter.RawAttributes{"tenant": "acme"},
+			Vector:     []float32{1},
+			Score:      0.9,
+		}},
+	}
+
+	store, err := New[tenantMeta](client, Config{
+		Collection: "docs",
+		Schema:     contracttest.TenantSchema(t),
+	})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector: []float32{1},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	if len(out) != 1 || out[0].Meta.Tenant != "acme" {
+		t.Fatalf("Retrieve() = %#v, want tenant acme", out)
+	}
+}
+
+func TestRetrieveRejectsIncompatibleStructMeta(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{
+		searchPoints: []Point{{
+			ID:         "doc-1",
+			Content:    "hello",
+			Attributes: filter.RawAttributes{"tenant": 123},
+			Vector:     []float32{1},
+			Score:      0.9,
+		}},
+	}
+
+	store, err := New[tenantMeta](client, Config{
+		Collection: "docs",
+		Schema:     contracttest.TenantSchema(t),
+	})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector: []float32{1},
+	})
+	if err == nil {
+		t.Fatal("Retrieve() error = nil, want decode error")
+	}
+}
+
+func TestFindByIDsUnmarshalsStructMeta(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{
+		getPoints: []Point{{
+			ID:         "doc-1",
+			Content:    "hello",
+			Attributes: filter.RawAttributes{"tenant": "acme"},
+		}},
+	}
+
+	store, err := New[tenantMeta](client, Config{
+		Collection: "docs",
+		Schema:     contracttest.TenantSchema(t),
+	})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	out, err := store.FindByIDs(context.Background(), []string{"doc-1"})
+	if err != nil {
+		t.Fatalf("FindByIDs(): %v", err)
+	}
+	if len(out) != 1 || out[0].Meta.Tenant != "acme" {
+		t.Fatalf("FindByIDs() = %#v, want tenant acme", out)
+	}
+}
+
+func TestFindByIDsRejectsIncompatibleStructMeta(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{
+		getPoints: []Point{{
+			ID:         "doc-1",
+			Content:    "hello",
+			Attributes: filter.RawAttributes{"tenant": 123},
+		}},
+	}
+
+	store, err := New[tenantMeta](client, Config{
+		Collection: "docs",
+		Schema:     contracttest.TenantSchema(t),
+	})
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.FindByIDs(context.Background(), []string{"doc-1"})
+	if err == nil {
+		t.Fatal("FindByIDs() error = nil, want decode error")
 	}
 }

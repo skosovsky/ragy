@@ -27,12 +27,12 @@ func TestNormalizeRejectsDegenerateNodes(t *testing.T) {
 		t.Fatalf("schema.String(): %v", err)
 	}
 
-	if _, err := Normalize(OneOf(field)); !errors.Is(err, ragy.ErrInvalidArgument) {
-		t.Fatalf("Normalize(empty IN) error = %v", err)
+	if _, err := normalize(oneOf(field)); !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("normalize(empty IN) error = %v", err)
 	}
 
-	if _, err := Normalize(All()); !errors.Is(err, ragy.ErrInvalidArgument) {
-		t.Fatalf("Normalize(empty AND) error = %v", err)
+	if _, err := normalize(all()); !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("normalize(empty AND) error = %v", err)
 	}
 }
 
@@ -43,16 +43,16 @@ func TestNormalizeRejectsNonFiniteFloatValues(t *testing.T) {
 		t.Fatalf("schema.Float(score): %v", err)
 	}
 
-	if _, err := Normalize(Equal(score, math.NaN())); !errors.Is(err, ragy.ErrInvalidArgument) {
-		t.Fatalf("Normalize(Equal(NaN)) error = %v, want invalid argument", err)
+	if _, err := normalize(equal(score, math.NaN())); !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("normalize(equal(NaN)) error = %v, want invalid argument", err)
 	}
 
-	if _, err := Normalize(Greater(score, math.Inf(1))); !errors.Is(err, ragy.ErrInvalidArgument) {
-		t.Fatalf("Normalize(Greater(+Inf)) error = %v, want invalid argument", err)
+	if _, err := normalize(greater(score, math.Inf(1))); !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("normalize(greater(+Inf)) error = %v, want invalid argument", err)
 	}
 
-	if _, err := Normalize(OneOf(score, math.NaN())); !errors.Is(err, ragy.ErrInvalidArgument) {
-		t.Fatalf("Normalize(OneOf(NaN)) error = %v, want invalid argument", err)
+	if _, err := normalize(oneOf(score, math.NaN())); !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("normalize(oneOf(NaN)) error = %v, want invalid argument", err)
 	}
 }
 
@@ -90,7 +90,7 @@ func TestNormalizeBuildsTypedIR(t *testing.T) {
 		t.Fatalf("schema.Int(): %v", err)
 	}
 
-	ir, err := Normalize(All(Equal(tenant, "acme"), Greater(status, int64(1))))
+	ir, err := normalize(all(equal(tenant, "acme"), greater(status, int64(1))))
 	if err != nil {
 		t.Fatalf("Normalize(): %v", err)
 	}
@@ -151,11 +151,11 @@ func TestSchemaValidateAttributesRejectsUndeclaredAndWrongKinds(t *testing.T) {
 	}
 	schema := buildSchema(t, builder)
 
-	if err := schema.ValidateAttributes(ragy.Attributes{"tenant": "acme"}); !errors.Is(err, ragy.ErrInvalidArgument) {
+	if err := schema.ValidateAttributes(RawAttributes{"tenant": "acme"}); !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("ValidateAttributes(undeclared) error = %v", err)
 	}
 
-	if err := schema.ValidateAttributes(ragy.Attributes{"age": "old"}); !errors.Is(err, ragy.ErrInvalidArgument) {
+	if err := schema.ValidateAttributes(RawAttributes{"age": "old"}); !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("ValidateAttributes(wrong kind) error = %v", err)
 	}
 }
@@ -167,13 +167,13 @@ func TestSchemaNormalizeAttributesRejectsOverflowingIntegralValues(t *testing.T)
 	}
 	schema := buildSchema(t, builder)
 
-	if _, err := schema.NormalizeAttributes(ragy.Attributes{
+	if _, err := schema.NormalizeAttributes(RawAttributes{
 		"age": float64(1e20),
 	}); !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("NormalizeAttributes(overflow float) error = %v, want invalid argument", err)
 	}
 
-	if _, err := schema.NormalizeAttributes(ragy.Attributes{
+	if _, err := schema.NormalizeAttributes(RawAttributes{
 		"age": json.Number("9223372036854775808"),
 	}); !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("NormalizeAttributes(overflow json.Number) error = %v, want invalid argument", err)
@@ -186,7 +186,7 @@ func TestSchemaValidateIRRejectsUndeclaredField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sourceBuilder.String(): %v", err)
 	}
-	ir, err := Normalize(Equal(tenant, "acme"))
+	ir, err := normalize(equal(tenant, "acme"))
 	if err != nil {
 		t.Fatalf("Normalize(): %v", err)
 	}

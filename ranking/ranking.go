@@ -4,42 +4,47 @@ package ranking
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 // QueryReranker reranks documents using query-aware scoring.
-type QueryReranker interface {
-	Rerank(ctx context.Context, query string, docs []ragy.Document) ([]ragy.Document, error)
+type QueryReranker[TMeta any] interface {
+	Rerank(ctx context.Context, query string, docs []retrieval.Document[TMeta]) ([]retrieval.Document[TMeta], error)
 }
 
 // Merger merges already-ranked lists.
-type Merger interface {
-	Merge(ctx context.Context, lists ...[]ragy.Document) ([]ragy.Document, error)
+type Merger[TMeta any] interface {
+	Merge(ctx context.Context, lists ...[]retrieval.Document[TMeta]) ([]retrieval.Document[TMeta], error)
 }
 
 // ReciprocalRankFusion merges ranked lists with RRF.
-type ReciprocalRankFusion struct {
+type ReciprocalRankFusion[TMeta any] struct {
 	k int
 }
 
-type fusedState struct {
-	doc   ragy.Document
+type fusedState[TMeta any] struct {
+	doc   retrieval.Document[TMeta]
 	score float64
 }
 
 // NewReciprocalRankFusion constructs an RRF merger.
-func NewReciprocalRankFusion(k int) (*ReciprocalRankFusion, error) {
+func NewReciprocalRankFusion[TMeta any](k int) (*ReciprocalRankFusion[TMeta], error) {
 	if k <= 0 {
 		return nil, fmt.Errorf("%w: RRF k must be > 0", ragy.ErrInvalidArgument)
 	}
 
-	return &ReciprocalRankFusion{k: k}, nil
+	return &ReciprocalRankFusion[TMeta]{k: k}, nil
 }
 
 // Merge merges ranked lists by stable document ID.
-func (r *ReciprocalRankFusion) Merge(ctx context.Context, lists ...[]ragy.Document) ([]ragy.Document, error) {
+func (r *ReciprocalRankFusion[TMeta]) Merge(
+	ctx context.Context,
+	lists ...[]retrieval.Document[TMeta],
+) ([]retrieval.Document[TMeta], error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -74,11 +79,11 @@ func (r *ReciprocalRankFusion) Merge(ctx context.Context, lists ...[]ragy.Docume
 		return nil, err
 	}
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].Relevance == out[j].Relevance {
+		if out[i].Score == out[j].Score {
 			return out[i].ID < out[j].ID
 		}
 
-		return out[i].Relevance > out[j].Relevance
+		return out[i].Score > out[j].Score
 	})
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -87,11 +92,11 @@ func (r *ReciprocalRankFusion) Merge(ctx context.Context, lists ...[]ragy.Docume
 	return out, nil
 }
 
-func (r *ReciprocalRankFusion) mergeLists(
+func (r *ReciprocalRankFusion[TMeta]) mergeLists(
 	ctx context.Context,
-	lists ...[]ragy.Document,
-) (map[string]fusedState, error) {
-	seen := make(map[string]fusedState)
+	lists ...[]retrieval.Document[TMeta],
+) (map[string]fusedState[TMeta], error) {
+	seen := make(map[string]fusedState[TMeta])
 	for _, list := range lists {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -104,29 +109,25 @@ func (r *ReciprocalRankFusion) mergeLists(
 	return seen, nil
 }
 
-func (r *ReciprocalRankFusion) mergeList(ctx context.Context, seen map[string]fusedState, list []ragy.Document) error {
+func (r *ReciprocalRankFusion[TMeta]) mergeList(
+	ctx context.Context,
+	seen map[string]fusedState[TMeta],
+	list []retrieval.Document[TMeta],
+) error {
 	for rank, doc := range list {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 
-		normalized, err := ragy.NormalizeDocument(doc)
-		if err != nil {
+		if err := retrieval.ValidateDocument(doc); err != nil {
 			return err
 		}
-		doc = normalized
 
 		current := seen[doc.ID]
 		if current.doc.ID == "" {
 			current.doc = doc
-		} else {
-			same, err := samePayload(current.doc, doc)
-			if err != nil {
-				return err
-			}
-			if !same {
-				return fmt.Errorf("%w: conflicting payload for document %q", ragy.ErrInvalidArgument, doc.ID)
-			}
+		} else if !samePayload(current.doc, doc) {
+			return fmt.Errorf("%w: conflicting payload for document %q", ragy.ErrInvalidArgument, doc.ID)
 		}
 
 		if err := ctx.Err(); err != nil {
@@ -139,7 +140,7 @@ func (r *ReciprocalRankFusion) mergeList(ctx context.Context, seen map[string]fu
 	return nil
 }
 
-func maxMergedScore(ctx context.Context, seen map[string]fusedState) (float64, error) {
+func maxMergedScore[TMeta any](ctx context.Context, seen map[string]fusedState[TMeta]) (float64, error) {
 	maxScore := 0.0
 	for _, item := range seen {
 		if err := ctx.Err(); err != nil {
@@ -153,12 +154,12 @@ func maxMergedScore(ctx context.Context, seen map[string]fusedState) (float64, e
 	return maxScore, nil
 }
 
-func buildMergedDocuments(
+func buildMergedDocuments[TMeta any](
 	ctx context.Context,
-	seen map[string]fusedState,
+	seen map[string]fusedState[TMeta],
 	maxScore float64,
-) ([]ragy.Document, error) {
-	out := make([]ragy.Document, 0, len(seen))
+) ([]retrieval.Document[TMeta], error) {
+	out := make([]retrieval.Document[TMeta], 0, len(seen))
 	for _, item := range seen {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -166,7 +167,7 @@ func buildMergedDocuments(
 
 		doc := item.doc
 		if maxScore > 0 {
-			doc.Relevance = ragy.ClampRelevance(item.score / maxScore)
+			doc.Score = ragy.ClampScore(item.score / maxScore)
 		}
 		out = append(out, doc)
 	}
@@ -174,41 +175,6 @@ func buildMergedDocuments(
 	return out, nil
 }
 
-func samePayload(left, right ragy.Document) (bool, error) {
-	if left.Content != right.Content {
-		return false, nil
-	}
-
-	leftAttrs, err := ragy.NormalizeAttributes(left.Attributes)
-	if err != nil {
-		return false, err
-	}
-
-	rightAttrs, err := ragy.NormalizeAttributes(right.Attributes)
-	if err != nil {
-		return false, err
-	}
-
-	return equalAttributes(leftAttrs, rightAttrs), nil
-}
-
-func equalAttributes(left, right ragy.Attributes) bool {
-	if len(left) == 0 && len(right) == 0 {
-		return true
-	}
-	if len(left) != len(right) {
-		return false
-	}
-
-	for key, leftValue := range left {
-		rightValue, ok := right[key]
-		if !ok {
-			return false
-		}
-		if leftValue != rightValue {
-			return false
-		}
-	}
-
-	return true
+func samePayload[TMeta any](left, right retrieval.Document[TMeta]) bool {
+	return left.Content == right.Content && reflect.DeepEqual(left.Meta, right.Meta)
 }

@@ -258,20 +258,20 @@ func (s Schema) BoolField(name string) (Field[bool], error) {
 }
 
 // NormalizeAttributes validates and normalizes attributes to canonical schema kinds.
-func (s Schema) NormalizeAttributes(attrs ragy.Attributes) (ragy.Attributes, error) {
+func (s Schema) NormalizeAttributes(attrs RawAttributes) (RawAttributes, error) {
 	if err := s.validateFinalized(); err != nil {
 		return nil, err
 	}
-	canonical, err := ragy.NormalizeAttributes(attrs)
+	canonical, err := NormalizeRawAttributes(attrs)
 	if err != nil {
 		return nil, err
 	}
 	if len(canonical) == 0 {
-		var normalized ragy.Attributes
+		var normalized RawAttributes
 		return normalized, nil
 	}
 
-	out := make(ragy.Attributes, len(canonical))
+	out := make(RawAttributes, len(canonical))
 	for name, raw := range canonical {
 		kind, ok := s.Lookup(name)
 		if !ok {
@@ -289,7 +289,7 @@ func (s Schema) NormalizeAttributes(attrs ragy.Attributes) (ragy.Attributes, err
 }
 
 // ValidateAttributes checks that attributes use only declared fields with matching kinds.
-func (s Schema) ValidateAttributes(attrs ragy.Attributes) error {
+func (s Schema) ValidateAttributes(attrs RawAttributes) error {
 	_, err := s.NormalizeAttributes(attrs)
 	return err
 }
@@ -360,8 +360,8 @@ func toValue[T scalar](value T) Value {
 	}
 }
 
-// Expr is a builder node.
-type Expr interface {
+// expr is an internal builder node used only by Builder.
+type expr interface {
 	isExpr()
 }
 
@@ -415,55 +415,48 @@ type rawIn struct {
 func (rawIn) isExpr() {}
 
 type rawAnd struct {
-	exprs []Expr
+	exprs []expr
 }
 
 func (rawAnd) isExpr() {}
 
 type rawOr struct {
-	exprs []Expr
+	exprs []expr
 }
 
 func (rawOr) isExpr() {}
 
 type rawNot struct {
-	expr Expr
+	child expr
 }
 
 func (rawNot) isExpr() {}
 
-// Equal creates an equality predicate.
-func Equal[T scalar](field Field[T], value T) Expr {
+func equal[T scalar](field Field[T], value T) expr {
 	return rawEq{field: field.name, value: toValue(value)}
 }
 
-// NotEqual creates a not-equal predicate.
-func NotEqual[T scalar](field Field[T], value T) Expr {
+func notEqual[T scalar](field Field[T], value T) expr {
 	return rawNeq{field: field.name, value: toValue(value)}
 }
 
-// Greater creates a greater-than predicate.
-func Greater[T orderedScalar](field Field[T], value T) Expr {
+func greater[T orderedScalar](field Field[T], value T) expr {
 	return rawGt{field: field.name, value: toValue(value)}
 }
 
-// GreaterOrEqual creates a greater-or-equal predicate.
-func GreaterOrEqual[T orderedScalar](field Field[T], value T) Expr {
+func greaterOrEqual[T orderedScalar](field Field[T], value T) expr {
 	return rawGte{field: field.name, value: toValue(value)}
 }
 
-// Less creates a less-than predicate.
-func Less[T orderedScalar](field Field[T], value T) Expr {
+func less[T orderedScalar](field Field[T], value T) expr {
 	return rawLt{field: field.name, value: toValue(value)}
 }
 
-// LessOrEqual creates a less-or-equal predicate.
-func LessOrEqual[T orderedScalar](field Field[T], value T) Expr {
+func lessOrEqual[T orderedScalar](field Field[T], value T) expr {
 	return rawLte{field: field.name, value: toValue(value)}
 }
 
-// OneOf creates a membership predicate.
-func OneOf[T scalar](field Field[T], values ...T) Expr {
+func oneOf[T scalar](field Field[T], values ...T) expr {
 	normalized := make([]Value, 0, len(values))
 	for _, value := range values {
 		normalized = append(normalized, toValue(value))
@@ -472,19 +465,16 @@ func OneOf[T scalar](field Field[T], values ...T) Expr {
 	return rawIn{field: field.name, values: normalized}
 }
 
-// All creates a logical AND predicate.
-func All(exprs ...Expr) Expr {
+func all(exprs ...expr) expr {
 	return rawAnd{exprs: exprs}
 }
 
-// Any creates a logical OR predicate.
-func Any(exprs ...Expr) Expr {
+func anyOf(exprs ...expr) expr {
 	return rawOr{exprs: exprs}
 }
 
-// Inverse creates a logical NOT predicate.
-func Inverse(expr Expr) Expr {
-	return rawNot{expr: expr}
+func inverse(e expr) expr {
+	return rawNot{child: e}
 }
 
 // IR is the validated filter representation consumed by adapters.
@@ -653,9 +643,8 @@ func walkGroup(
 	return leave()
 }
 
-// Normalize validates and normalizes a builder expression to IR.
-func Normalize(expr Expr) (IR, error) {
-	switch e := expr.(type) {
+func normalize(node expr) (IR, error) {
+	switch e := node.(type) {
 	case nil:
 		return emptyExpr{}, nil
 	case rawEq:
@@ -696,18 +685,18 @@ func Normalize(expr Expr) (IR, error) {
 
 		return normalizeGroup(e.exprs, false)
 	case rawNot:
-		if e.expr == nil {
+		if e.child == nil {
 			return nil, fmt.Errorf("%w: nil NOT predicate", ragy.ErrInvalidArgument)
 		}
 
-		normalized, err := Normalize(e.expr)
+		normalized, err := normalize(e.child)
 		if err != nil {
 			return nil, err
 		}
 
 		return notExpr{expr: normalized}, nil
 	default:
-		return nil, fmt.Errorf("%w: unknown filter node %T", ragy.ErrInvalidArgument, expr)
+		return nil, fmt.Errorf("%w: unknown filter node %T", ragy.ErrInvalidArgument, node)
 	}
 }
 
@@ -789,14 +778,14 @@ func validateNot(node notExpr) error {
 	return ValidateIR(node.expr)
 }
 
-func normalizeGroup(exprs []Expr, isAnd bool) (IR, error) {
+func normalizeGroup(exprs []expr, isAnd bool) (IR, error) {
 	items := make([]IR, 0, len(exprs))
-	for _, expr := range exprs {
-		if expr == nil {
+	for _, item := range exprs {
+		if item == nil {
 			return nil, fmt.Errorf("%w: nil group member", ragy.ErrInvalidArgument)
 		}
 
-		normalized, err := Normalize(expr)
+		normalized, err := normalize(item)
 		if err != nil {
 			return nil, err
 		}

@@ -8,9 +8,10 @@ import (
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
-type DocumentsStoreFactory func(t *testing.T, docs []ragy.Document) documents.Store
+type DocumentsStoreFactory func(t *testing.T, docs []retrieval.Document[Meta]) documents.Store[Meta]
 
 // RunDocumentsStoreSuite checks common documents.Store semantics.
 func RunDocumentsStoreSuite(t *testing.T, factory DocumentsStoreFactory) {
@@ -22,10 +23,6 @@ func RunDocumentsStoreSuite(t *testing.T, factory DocumentsStoreFactory) {
 
 	t.Run("delete empty filter rejects", func(t *testing.T) {
 		testDeleteEmptyFilterRejects(t, factory)
-	})
-
-	t.Run("delete nil filter rejects without mutation", func(t *testing.T) {
-		testDeleteNilFilterRejectsWithoutMutation(t, factory)
 	})
 
 	t.Run("delete by filter reports count and mutates state", func(t *testing.T) {
@@ -40,7 +37,7 @@ func RunDocumentsStoreSuite(t *testing.T, factory DocumentsStoreFactory) {
 func testFindMissingReturnsNil(t *testing.T, factory DocumentsStoreFactory) {
 	t.Helper()
 
-	store := factory(t, []ragy.Document{{
+	store := factory(t, []retrieval.Document[Meta]{{
 		ID:      "doc-1",
 		Content: "hello",
 	}})
@@ -57,62 +54,29 @@ func testFindMissingReturnsNil(t *testing.T, factory DocumentsStoreFactory) {
 func testDeleteEmptyFilterRejects(t *testing.T, factory DocumentsStoreFactory) {
 	t.Helper()
 
-	store := factory(t, []ragy.Document{{
+	store := factory(t, []retrieval.Document[Meta]{{
 		ID:      "doc-1",
 		Content: "hello",
 	}})
 
-	expr, err := filter.Normalize(nil)
-	if err != nil {
-		t.Fatalf("Normalize(nil): %v", err)
-	}
-
-	if _, err := store.DeleteByFilter(context.Background(), expr); err == nil {
+	if _, err := store.DeleteByFilter(context.Background(), filter.Condition{}); err == nil {
 		t.Fatal("DeleteByFilter(empty) error = nil, want error")
-	}
-}
-
-func testDeleteNilFilterRejectsWithoutMutation(t *testing.T, factory DocumentsStoreFactory) {
-	t.Helper()
-
-	store := factory(t, []ragy.Document{{
-		ID:      "doc-1",
-		Content: "hello",
-		Attributes: ragy.Attributes{
-			"tenant": "acme",
-		},
-	}})
-
-	if _, err := store.DeleteByFilter(context.Background(), nil); err == nil {
-		t.Fatal("DeleteByFilter(nil) error = nil, want error")
-	}
-
-	remaining, err := store.FindByIDs(context.Background(), []string{"doc-1"})
-	if err != nil {
-		t.Fatalf("FindByIDs(remaining): %v", err)
-	}
-	if len(remaining) != 1 || remaining[0].ID != "doc-1" {
-		t.Fatalf("FindByIDs(remaining) = %#v, want doc-1", remaining)
 	}
 }
 
 func testDeleteByFilterMutatesState(t *testing.T, factory DocumentsStoreFactory) {
 	t.Helper()
 
-	store := factory(t, []ragy.Document{
+	store := factory(t, []retrieval.Document[Meta]{
 		{
 			ID:      "doc-1",
 			Content: "hello",
-			Attributes: ragy.Attributes{
-				"tenant": "acme",
-			},
+			Meta:    Meta{"tenant": tenantAcme},
 		},
 		{
 			ID:      "doc-2",
 			Content: "world",
-			Attributes: ragy.Attributes{
-				"tenant": "globex",
-			},
+			Meta:    Meta{"tenant": "globex"},
 		},
 	})
 
@@ -120,12 +84,16 @@ func testDeleteByFilterMutatesState(t *testing.T, factory DocumentsStoreFactory)
 	if err != nil {
 		t.Fatalf("Schema().StringField(tenant): %v", err)
 	}
-	expr, err := filter.Normalize(filter.Equal(tenant, "acme"))
+	builder, err := filter.NewBuilder(store.Schema())
 	if err != nil {
-		t.Fatalf("Normalize(): %v", err)
+		t.Fatalf("NewBuilder(): %v", err)
+	}
+	cond, err := filter.Eq(builder, tenant, tenantAcme).Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := store.DeleteByFilter(context.Background(), expr)
+	result, err := store.DeleteByFilter(context.Background(), cond)
 	if err != nil {
 		t.Fatalf("DeleteByFilter(): %v", err)
 	}
@@ -153,7 +121,7 @@ func testDeleteByFilterMutatesState(t *testing.T, factory DocumentsStoreFactory)
 func testDeleteUndeclaredFilterRejects(t *testing.T, factory DocumentsStoreFactory) {
 	t.Helper()
 
-	store := factory(t, []ragy.Document{{
+	store := factory(t, []retrieval.Document[Meta]{{
 		ID:      "doc-1",
 		Content: "hello",
 	}})

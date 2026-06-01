@@ -7,7 +7,8 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/lexical"
+	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 type fakeClient struct {
@@ -41,7 +42,7 @@ func schemaWithContentAndTenant(t *testing.T) filter.Schema {
 	return schema
 }
 
-func TestSearchProjectsCanonicalDocumentShape(t *testing.T) {
+func TestRetrieveProjectsCanonicalDocumentShape(t *testing.T) {
 	client := &fakeClient{
 		hits: []Hit{{
 			ID:    "doc-1",
@@ -53,7 +54,7 @@ func TestSearchProjectsCanonicalDocumentShape(t *testing.T) {
 		}},
 	}
 
-	searcher, err := New(client, Config{
+	store, err := New[contracttest.Meta](client, Config{
 		Index:        "docs",
 		SearchFields: []string{"content"},
 		Schema:       schemaWithContentAndTenant(t),
@@ -62,34 +63,40 @@ func TestSearchProjectsCanonicalDocumentShape(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	filterSchema := filter.NewSchema()
-	tenant, err := filterSchema.String("tenant")
+	schema := schemaWithContentAndTenant(t)
+	tenant, err := schema.StringField("tenant")
 	if err != nil {
-		t.Fatalf("schema.String(tenant): %v", err)
+		t.Fatalf("schema.StringField(tenant): %v", err)
 	}
-	expr, err := filter.Normalize(filter.Equal(tenant, "acme"))
+	filterBuilder, err := filter.NewBuilder(schema)
 	if err != nil {
-		t.Fatalf("Normalize(): %v", err)
+		t.Fatalf("NewBuilder(): %v", err)
+	}
+	cond, err := filter.Eq(filterBuilder, tenant, "acme").Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := searcher.Search(context.Background(), lexical.Request{Text: "hello", Filter: expr})
+	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+		Filters: cond,
+	})
 	if err != nil {
-		t.Fatalf("Search(): %v", err)
+		t.Fatalf("Retrieve(): %v", err)
 	}
 
 	if len(out) != 1 {
 		t.Fatalf("len(out) = %d, want 1", len(out))
 	}
 
-	if _, ok := out[0].Attributes["content"]; ok {
-		t.Fatal("document attributes unexpectedly contain content")
+	if _, ok := out[0].Meta["content"]; ok {
+		t.Fatal("document meta unexpectedly contains content")
 	}
-	if got := out[0].Attributes["tenant"]; got != "acme" {
+	if got := out[0].Meta["tenant"]; got != "acme" {
 		t.Fatalf("document tenant = %#v, want acme", got)
 	}
 }
 
-func TestSearchReturnsNilAttributesWhenOnlyContentIsPresent(t *testing.T) {
+func TestRetrieveReturnsNilMetaWhenOnlyContentIsPresent(t *testing.T) {
 	client := &fakeClient{
 		hits: []Hit{{
 			ID:    "doc-1",
@@ -100,7 +107,7 @@ func TestSearchReturnsNilAttributesWhenOnlyContentIsPresent(t *testing.T) {
 		}},
 	}
 
-	searcher, err := New(client, Config{
+	store, err := New[contracttest.Meta](client, Config{
 		Index:        "docs",
 		SearchFields: []string{"content"},
 		Schema:       schemaWithContent(t),
@@ -109,21 +116,21 @@ func TestSearchReturnsNilAttributesWhenOnlyContentIsPresent(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := searcher.Search(context.Background(), lexical.Request{Text: "hello"})
+	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{})
 	if err != nil {
-		t.Fatalf("Search(): %v", err)
+		t.Fatalf("Retrieve(): %v", err)
 	}
 
 	if len(out) != 1 {
 		t.Fatalf("len(out) = %d, want 1", len(out))
 	}
 
-	if out[0].Attributes != nil {
-		t.Fatalf("document attributes = %#v, want nil", out[0].Attributes)
+	if len(out[0].Meta) != 0 {
+		t.Fatalf("document meta = %#v, want empty", out[0].Meta)
 	}
 }
 
-func TestSearchRejectsMissingContent(t *testing.T) {
+func TestRetrieveRejectsMissingContent(t *testing.T) {
 	client := &fakeClient{
 		hits: []Hit{{
 			ID:     "doc-1",
@@ -132,7 +139,7 @@ func TestSearchRejectsMissingContent(t *testing.T) {
 		}},
 	}
 
-	searcher, err := New(client, Config{
+	store, err := New[contracttest.Meta](client, Config{
 		Index:        "docs",
 		SearchFields: []string{"content"},
 		Schema:       schemaWithContentAndTenant(t),
@@ -141,13 +148,13 @@ func TestSearchRejectsMissingContent(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	_, err = searcher.Search(context.Background(), lexical.Request{Text: "hello"})
+	_, err = store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{})
 	if !errors.Is(err, ragy.ErrProtocol) {
-		t.Fatalf("Search() error = %v, want protocol error", err)
+		t.Fatalf("Retrieve() error = %v, want protocol error", err)
 	}
 }
 
-func TestSearchRejectsNonStringContent(t *testing.T) {
+func TestRetrieveRejectsNonStringContent(t *testing.T) {
 	client := &fakeClient{
 		hits: []Hit{{
 			ID:    "doc-1",
@@ -158,7 +165,7 @@ func TestSearchRejectsNonStringContent(t *testing.T) {
 		}},
 	}
 
-	searcher, err := New(client, Config{
+	store, err := New[contracttest.Meta](client, Config{
 		Index:        "docs",
 		SearchFields: []string{"content"},
 		Schema:       schemaWithContent(t),
@@ -167,15 +174,15 @@ func TestSearchRejectsNonStringContent(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	_, err = searcher.Search(context.Background(), lexical.Request{Text: "hello"})
+	_, err = store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{})
 	if !errors.Is(err, ragy.ErrProtocol) {
-		t.Fatalf("Search() error = %v, want protocol error", err)
+		t.Fatalf("Retrieve() error = %v, want protocol error", err)
 	}
 }
 
-func TestSearchRejectsUndeclaredFilterField(t *testing.T) {
+func TestRetrieveRejectsUndeclaredFilterField(t *testing.T) {
 	client := &fakeClient{}
-	searcher, err := New(client, Config{
+	store, err := New[contracttest.Meta](client, Config{
 		Index:        "docs",
 		SearchFields: []string{"content"},
 		Schema:       schemaWithContent(t),
@@ -184,18 +191,28 @@ func TestSearchRejectsUndeclaredFilterField(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	filterSchema := filter.NewSchema()
-	tenant, err := filterSchema.String("tenant")
+	foreign := filter.NewSchema()
+	tenant, err := foreign.String("tenant")
 	if err != nil {
-		t.Fatalf("schema.String(tenant): %v", err)
+		t.Fatalf("foreign.String(tenant): %v", err)
 	}
-	expr, err := filter.Normalize(filter.Equal(tenant, "acme"))
+	foreignSchema, err := foreign.Build()
 	if err != nil {
-		t.Fatalf("Normalize(): %v", err)
+		t.Fatalf("foreign.Build(): %v", err)
+	}
+	filterBuilder, err := filter.NewBuilder(foreignSchema)
+	if err != nil {
+		t.Fatalf("NewBuilder(): %v", err)
+	}
+	cond, err := filter.Eq(filterBuilder, tenant, "acme").Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
 	}
 
-	if _, err := searcher.Search(context.Background(), lexical.Request{Text: "hello", Filter: expr}); err == nil {
-		t.Fatal("Search() error = nil, want error")
+	if _, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+		Filters: cond,
+	}); err == nil {
+		t.Fatal("Retrieve() error = nil, want error")
 	}
 	if client.body != nil {
 		t.Fatalf("body = %#v, want no backend call", client.body)
@@ -203,7 +220,7 @@ func TestSearchRejectsUndeclaredFilterField(t *testing.T) {
 }
 
 func TestNewRejectsInvalidIndexName(t *testing.T) {
-	if _, err := New(&fakeClient{}, Config{
+	if _, err := New[contracttest.Meta](&fakeClient{}, Config{
 		Index:        "1Bad",
 		SearchFields: []string{"content"},
 		Schema:       schemaWithContent(t),
@@ -213,7 +230,7 @@ func TestNewRejectsInvalidIndexName(t *testing.T) {
 }
 
 func TestNewRejectsInvalidSearchField(t *testing.T) {
-	if _, err := New(&fakeClient{}, Config{
+	if _, err := New[contracttest.Meta](&fakeClient{}, Config{
 		Index:        "docs",
 		SearchFields: []string{"1bad"},
 		Schema:       schemaWithContent(t),

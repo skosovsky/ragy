@@ -3,69 +3,43 @@ package tensor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 )
 
-// Request is a typed tensor-search request.
-type Request struct {
-	Query  Tensor
-	Filter filter.IR
-	Page   *ragy.Page
-}
-
-// Validate checks request invariants.
-func (r Request) Validate() error {
-	if len(r.Query) == 0 {
-		return fmt.Errorf("%w: tensor request", ragy.ErrEmptyVector)
-	}
-
-	if err := filter.ValidateIR(r.Filter); err != nil {
-		return err
-	}
-
-	return r.Page.Validate()
-}
-
 // Tensor is a document or query token matrix.
 type Tensor [][]float32
 
 // Record is a typed tensor-index record.
-type Record struct {
-	ID         string
-	Content    string
-	Attributes ragy.Attributes
-	Tensor     Tensor
+type Record[TMeta any] struct {
+	ID      string
+	Content string
+	Meta    TMeta
+	Tensor  Tensor
 }
 
 // Validate checks record invariants.
-func (r Record) Validate() error {
+func (r Record[TMeta]) Validate() error {
 	if r.ID == "" {
 		return fmt.Errorf("%w: tensor record id", ragy.ErrMissingID)
 	}
-
-	if _, err := ragy.NormalizeAttributes(r.Attributes); err != nil {
-		return err
-	}
-
 	if len(r.Tensor) == 0 {
 		return fmt.Errorf("%w: tensor record", ragy.ErrEmptyVector)
 	}
-
 	return nil
 }
 
-// Searcher executes tensor search.
-type Searcher interface {
-	Search(ctx context.Context, req Request) ([]ragy.Document, error)
-	Schema() filter.Schema
+// MarshalMeta serializes typed metadata for backend storage.
+func (r Record[TMeta]) MarshalMeta() ([]byte, error) {
+	return json.Marshal(r.Meta)
 }
 
 // Index writes tensor records.
-type Index interface {
-	Upsert(ctx context.Context, records []Record) error
+type Index[TMeta any] interface {
+	Upsert(ctx context.Context, records []Record[TMeta]) error
 	Schema() filter.Schema
 }
 

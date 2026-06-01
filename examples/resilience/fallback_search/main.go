@@ -1,4 +1,4 @@
-// Command fallback_search demonstrates a dense.Searcher decorator that falls back on ErrUnavailable.
+// Command fallback_search demonstrates a retrieval retriever decorator that falls back on ErrUnavailable.
 // Primary is a stub (not a live Qdrant client) so the example builds without external services;
 // the same pattern applies when Primary wraps a real vector backend.
 package main
@@ -9,14 +9,11 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
-const (
-	fallbackDocRelevance = 0.9
-	searchPageLimit      = 10
-)
+const fallbackDocScore = 0.9
 
 func main() {
 	schema, err := filter.NewSchema().Build()
@@ -24,30 +21,26 @@ func main() {
 		panic(err)
 	}
 
-	primary := &stubSearcher{
+	primary := &stubBackend{
 		schema: schema,
 		fail:   true,
 		docs:   nil,
 	}
-	fallback := &stubSearcher{
+	fallback := &stubBackend{
 		schema: schema,
 		fail:   false,
-		docs: []ragy.Document{
-			{ID: "fb-1", Content: "fallback hit", Relevance: fallbackDocRelevance},
+		docs: []retrieval.Document[struct{}]{
+			{ID: "fb-1", Content: "fallback hit", Score: fallbackDocScore},
 		},
 	}
 
-	combo := fallbackSearcher{Primary: primary, Fallback: fallback}
-	page, err := ragy.NewPage(searchPageLimit, 0)
-	if err != nil {
-		panic(err)
-	}
+	combo := fallbackRetriever{Primary: primary, Fallback: fallback}
 
 	ctx := context.Background()
-	docs, err := combo.Search(ctx, dense.Request{
+	const topK = 10
+	docs, err := combo.Retrieve(ctx, "hello", retrieval.RetrieveOptions{
+		TopK:   topK,
 		Vector: []float32{1, 0, 0},
-		Filter: nil,
-		Page:   page,
 	})
 	if err != nil {
 		panic(err)
@@ -55,43 +48,47 @@ func main() {
 	if len(docs) != 1 || docs[0].ID != "fb-1" {
 		panic("expected fallback document")
 	}
-	fmt.Printf("ok: %q relevance=%.2f\n", docs[0].Content, docs[0].Relevance)
+	fmt.Printf("ok: %q score=%.2f\n", docs[0].Content, docs[0].Score)
 }
 
-type stubSearcher struct {
+type stubBackend struct {
 	schema filter.Schema
 	fail   bool
-	docs   []ragy.Document
+	docs   []retrieval.Document[struct{}]
 }
 
-func (s *stubSearcher) Schema() filter.Schema { return s.schema }
+func (s *stubBackend) Schema() filter.Schema { return s.schema }
 
-func (s *stubSearcher) Search(_ context.Context, _ dense.Request) ([]ragy.Document, error) {
+func (s *stubBackend) Retrieve(
+	_ context.Context,
+	_ string,
+	_ retrieval.RetrieveOptions,
+) ([]retrieval.Document[struct{}], error) {
 	if s.fail {
 		return nil, fmt.Errorf("%w: primary vector store down", ragy.ErrUnavailable)
 	}
-	out := make([]ragy.Document, len(s.docs))
+	out := make([]retrieval.Document[struct{}], len(s.docs))
 	copy(out, s.docs)
 	return out, nil
 }
 
-type fallbackSearcher struct {
-	Primary  dense.Searcher
-	Fallback dense.Searcher
+type fallbackRetriever struct {
+	Primary  retrieval.Backend[struct{}]
+	Fallback retrieval.Backend[struct{}]
 }
 
-func (f fallbackSearcher) Schema() filter.Schema {
-	return f.Primary.Schema()
-}
-
-func (f fallbackSearcher) Search(ctx context.Context, req dense.Request) ([]ragy.Document, error) {
-	docs, err := f.Primary.Search(ctx, req)
+func (f fallbackRetriever) Retrieve(
+	ctx context.Context,
+	query string,
+	opts retrieval.RetrieveOptions,
+) ([]retrieval.Document[struct{}], error) {
+	docs, err := f.Primary.Retrieve(ctx, query, opts)
 	if err == nil {
 		return docs, nil
 	}
 	// Only degrade on transient failures; see README "Resilience & execution control".
 	if errors.Is(err, ragy.ErrUnavailable) {
-		return f.Fallback.Search(ctx, req)
+		return f.Fallback.Retrieve(ctx, query, opts)
 	}
 	return nil, err
 }

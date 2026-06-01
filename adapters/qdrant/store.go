@@ -2,6 +2,7 @@ package qdrant
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 const logisticClamp = 20.0
@@ -75,7 +77,7 @@ func (MatchAllCondition) isCondition() {}
 type Point struct {
 	ID         string
 	Content    string
-	Attributes ragy.Attributes
+	Attributes filter.RawAttributes
 	Vector     []float32
 	Score      float64
 }
@@ -83,7 +85,7 @@ type Point struct {
 // Client executes qdrant operations.
 type Client interface {
 	Upsert(ctx context.Context, collection string, points []Point) error
-	Search(ctx context.Context, collection string, vector []float32, cond Condition, page *ragy.Page) ([]Point, error)
+	Search(ctx context.Context, collection string, vector []float32, cond Condition, limit int) ([]Point, error)
 	Get(ctx context.Context, collection string, ids []string) ([]Point, error)
 	DeleteByIDs(ctx context.Context, collection string, ids []string) (int, error)
 	DeleteByFilter(ctx context.Context, collection string, cond Condition) (int, error)
@@ -96,14 +98,14 @@ type Config struct {
 }
 
 // Store is a dense qdrant-backed store.
-type Store struct {
+type Store[TMeta any] struct {
 	client     Client
 	collection string
 	schema     filter.Schema
 }
 
 // New constructs a store.
-func New(client Client, cfg Config) (*Store, error) {
+func New[TMeta any](client Client, cfg Config) (*Store[TMeta], error) {
 	if client == nil {
 		return nil, fmt.Errorf("%w: qdrant client", ragy.ErrInvalidArgument)
 	}
@@ -115,24 +117,31 @@ func New(client Client, cfg Config) (*Store, error) {
 		return nil, fmt.Errorf("%w: qdrant schema", ragy.ErrInvalidArgument)
 	}
 
-	return &Store{client: client, collection: cfg.Collection, schema: cfg.Schema}, nil
+	return &Store[TMeta]{client: client, collection: cfg.Collection, schema: cfg.Schema}, nil
 }
 
-// Search implements dense.Searcher.
-func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document, error) {
-	if err := req.Validate(); err != nil {
+// Retrieve implements retrieval.Backend.
+func (s *Store[TMeta]) Retrieve(
+	ctx context.Context,
+	_ string,
+	opts retrieval.RetrieveOptions,
+) ([]retrieval.Document[TMeta], error) {
+	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
-	if err := s.Schema().ValidateSchemaIR(req.Filter); err != nil {
+	if len(opts.Vector) == 0 {
+		return nil, fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
+	}
+	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
 		return nil, err
 	}
 
-	cond, err := renderFilter(req.Filter)
+	cond, err := renderFilter(opts.Filters.IR())
 	if err != nil {
 		return nil, err
 	}
 
-	points, err := s.client.Search(ctx, s.collection, req.Vector, cond, req.Page)
+	points, err := s.client.Search(ctx, s.collection, opts.Vector, cond, opts.TopK)
 	if err != nil {
 		return nil, ragy.WrapBackendError(err, "qdrant search")
 	}
@@ -141,13 +150,12 @@ func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document,
 		return nil, nil
 	}
 
-	docs := make([]ragy.Document, 0, len(points))
+	docs := make([]retrieval.Document[TMeta], 0, len(points))
 	for _, point := range points {
-		doc, err := projectDocument(s.schema, point, logistic(point.Score))
+		doc, err := s.projectPoint(point, logistic(point.Score))
 		if err != nil {
 			return nil, err
 		}
-
 		docs = append(docs, doc)
 	}
 
@@ -155,7 +163,7 @@ func (s *Store) Search(ctx context.Context, req dense.Request) ([]ragy.Document,
 }
 
 // Upsert implements dense.Index.
-func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
+func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]) error {
 	if len(records) == 0 {
 		return nil
 	}
@@ -165,7 +173,7 @@ func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
 		if err := record.Validate(); err != nil {
 			return err
 		}
-		attrs, err := s.schema.NormalizeAttributes(record.Attributes)
+		attrs, err := dense.NormalizeRecordMeta(s.schema, record.Meta)
 		if err != nil {
 			return err
 		}
@@ -173,7 +181,7 @@ func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
 		points = append(points, Point{
 			ID:         record.ID,
 			Content:    record.Content,
-			Attributes: ragy.CloneAttributes(attrs),
+			Attributes: filter.CloneRawAttributes(attrs),
 			Vector:     append([]float32(nil), record.Vector...),
 			Score:      0,
 		})
@@ -183,7 +191,7 @@ func (s *Store) Upsert(ctx context.Context, records []dense.Record) error {
 }
 
 // FindByIDs implements documents.Store.
-func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, error) {
+func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval.Document[TMeta], error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -197,9 +205,9 @@ func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, e
 		return nil, nil
 	}
 
-	docs := make([]ragy.Document, 0, len(points))
+	docs := make([]retrieval.Document[TMeta], 0, len(points))
 	for _, point := range points {
-		doc, err := projectDocument(s.schema, point, 0)
+		doc, err := s.projectPoint(point, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -210,7 +218,7 @@ func (s *Store) FindByIDs(ctx context.Context, ids []string) ([]ragy.Document, e
 }
 
 // DeleteByIDs implements documents.Store.
-func (s *Store) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
+func (s *Store[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
 	if len(ids) == 0 {
 		return documents.DeleteResult{}, nil
 	}
@@ -224,23 +232,21 @@ func (s *Store) DeleteByIDs(ctx context.Context, ids []string) (documents.Delete
 }
 
 // DeleteByFilter implements documents.Store.
-func (s *Store) DeleteByFilter(ctx context.Context, expr filter.IR) (documents.DeleteResult, error) {
-	if expr == nil {
+func (s *Store[TMeta]) DeleteByFilter(ctx context.Context, cond filter.Condition) (documents.DeleteResult, error) {
+	ir := cond.IR()
+	if filter.IsEmpty(ir) {
 		return documents.DeleteResult{}, fmt.Errorf("%w: delete filter", ragy.ErrInvalidArgument)
 	}
-	if filter.IsEmpty(expr) {
-		return documents.DeleteResult{}, fmt.Errorf("%w: delete filter", ragy.ErrInvalidArgument)
-	}
-	if err := s.Schema().ValidateSchemaIR(expr); err != nil {
+	if err := s.Schema().ValidateSchemaIR(ir); err != nil {
 		return documents.DeleteResult{}, err
 	}
 
-	cond, err := renderFilter(expr)
+	rendered, err := renderFilter(ir)
 	if err != nil {
 		return documents.DeleteResult{}, err
 	}
 
-	deleted, err := s.client.DeleteByFilter(ctx, s.collection, cond)
+	deleted, err := s.client.DeleteByFilter(ctx, s.collection, rendered)
 	if err != nil {
 		return documents.DeleteResult{}, ragy.WrapBackendError(err, "qdrant delete by filter")
 	}
@@ -249,8 +255,46 @@ func (s *Store) DeleteByFilter(ctx context.Context, expr filter.IR) (documents.D
 }
 
 // Schema returns the finalized filter schema used by the store.
-func (s *Store) Schema() filter.Schema {
+func (s *Store[TMeta]) Schema() filter.Schema {
 	return s.schema
+}
+
+func (s *Store[TMeta]) projectPoint(point Point, relevance float64) (retrieval.Document[TMeta], error) {
+	normalized, err := s.schema.NormalizeAttributes(point.Attributes)
+	if err != nil {
+		return retrieval.Document[TMeta]{}, err
+	}
+
+	meta, err := decodeMeta[TMeta](normalized)
+	if err != nil {
+		return retrieval.Document[TMeta]{}, err
+	}
+
+	doc := retrieval.Document[TMeta]{
+		ID:      point.ID,
+		Content: point.Content,
+		Score:   ragy.ClampScore(relevance),
+		Meta:    meta,
+	}
+	if err := retrieval.ValidateDocument(doc); err != nil {
+		return retrieval.Document[TMeta]{}, err
+	}
+	return doc, nil
+}
+
+func decodeMeta[TMeta any](attrs filter.RawAttributes) (TMeta, error) {
+	var meta TMeta
+	if len(attrs) == 0 {
+		return meta, nil
+	}
+	data, err := json.Marshal(attrs)
+	if err != nil {
+		return meta, err
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return meta, err
+	}
+	return meta, nil
 }
 
 func renderFilter(expr filter.IR) (Condition, error) {
@@ -380,23 +424,8 @@ func logistic(score float64) float64 {
 	return 1.0 / (1.0 + math.Exp(-score))
 }
 
-func projectDocument(schema filter.Schema, point Point, relevance float64) (ragy.Document, error) {
-	attrs, err := schema.NormalizeAttributes(point.Attributes)
-	if err != nil {
-		return ragy.Document{}, err
-	}
-
-	doc := ragy.Document{
-		ID:         point.ID,
-		Content:    point.Content,
-		Attributes: ragy.CloneAttributes(attrs),
-		Relevance:  ragy.ClampRelevance(relevance),
-	}
-	return ragy.NormalizeDocument(doc)
-}
-
 var (
-	_ dense.Searcher  = (*Store)(nil)
-	_ dense.Index     = (*Store)(nil)
-	_ documents.Store = (*Store)(nil)
+	_ retrieval.Backend[any] = (*Store[any])(nil)
+	_ dense.Index[any]       = (*Store[any])(nil)
+	_ documents.Store[any]   = (*Store[any])(nil)
 )

@@ -8,9 +8,11 @@ import (
 	"github.com/skosovsky/ragy/filter"
 )
 
+type testMeta map[string]any
+
 func TestSnapshotValidateRejectsDuplicateNodeIDs(t *testing.T) {
-	err := Snapshot{
-		Nodes: []Node{
+	err := Snapshot[testMeta]{
+		Nodes: []Node[testMeta]{
 			{ID: "n1", Labels: []string{"Doc"}},
 			{ID: "n1", Labels: []string{"Doc"}},
 		},
@@ -21,12 +23,12 @@ func TestSnapshotValidateRejectsDuplicateNodeIDs(t *testing.T) {
 }
 
 func TestSnapshotValidateRejectsDuplicateEdgeIDs(t *testing.T) {
-	err := Snapshot{
-		Nodes: []Node{
+	err := Snapshot[testMeta]{
+		Nodes: []Node[testMeta]{
 			{ID: "n1", Labels: []string{"Doc"}},
 			{ID: "n2", Labels: []string{"Doc"}},
 		},
-		Edges: []Edge{
+		Edges: []Edge[testMeta]{
 			{ID: "e1", SourceID: "n1", TargetID: "n2", Type: "LINKS"},
 			{ID: "e1", SourceID: "n2", TargetID: "n1", Type: "LINKS"},
 		},
@@ -37,11 +39,11 @@ func TestSnapshotValidateRejectsDuplicateEdgeIDs(t *testing.T) {
 }
 
 func TestSnapshotValidateRejectsDanglingEdges(t *testing.T) {
-	err := Snapshot{
-		Nodes: []Node{
+	err := Snapshot[testMeta]{
+		Nodes: []Node[testMeta]{
 			{ID: "n1", Labels: []string{"Doc"}},
 		},
-		Edges: []Edge{{
+		Edges: []Edge[testMeta]{{
 			ID:       "e1",
 			SourceID: "n1",
 			TargetID: "missing",
@@ -74,14 +76,22 @@ func TestSchemaValidateTraversalRejectsUndeclaredAndWrongKind(t *testing.T) {
 		t.Fatalf("NewSchema(): %v", err)
 	}
 
-	undeclaredBuilder := filter.NewSchema()
-	other, err := undeclaredBuilder.String("other")
+	undeclaredSchemaBuilder := filter.NewSchema()
+	other, err := undeclaredSchemaBuilder.String("other")
 	if err != nil {
-		t.Fatalf("undeclaredBuilder.String(other): %v", err)
+		t.Fatalf("undeclaredSchemaBuilder.String(other): %v", err)
 	}
-	undeclaredFilter, err := filter.Normalize(filter.Equal(other, "acme"))
+	undeclaredSchema, err := undeclaredSchemaBuilder.Build()
 	if err != nil {
-		t.Fatalf("Normalize(undeclaredFilter): %v", err)
+		t.Fatalf("undeclaredSchemaBuilder.Build(): %v", err)
+	}
+	undeclaredFilterBuilder, err := filter.NewBuilder(undeclaredSchema)
+	if err != nil {
+		t.Fatalf("NewBuilder(undeclared): %v", err)
+	}
+	undeclaredFilter, err := filter.Eq(undeclaredFilterBuilder, other, "acme").Build()
+	if err != nil {
+		t.Fatalf("Build(undeclaredFilter): %v", err)
 	}
 
 	err = schema.ValidateTraversal(TraversalRequest{
@@ -94,14 +104,22 @@ func TestSchemaValidateTraversalRejectsUndeclaredAndWrongKind(t *testing.T) {
 		t.Fatalf("ValidateTraversal(undeclared) error = %v, want invalid argument", err)
 	}
 
-	wrongKindBuilder := filter.NewSchema()
-	wrongKindField, err := wrongKindBuilder.Int("tenant")
+	wrongKindSchemaBuilder := filter.NewSchema()
+	wrongKindField, err := wrongKindSchemaBuilder.Int("tenant")
 	if err != nil {
-		t.Fatalf("wrongKindBuilder.Int(tenant): %v", err)
+		t.Fatalf("wrongKindSchemaBuilder.Int(tenant): %v", err)
 	}
-	wrongKindFilter, err := filter.Normalize(filter.Equal(wrongKindField, int64(7)))
+	wrongKindSchema, err := wrongKindSchemaBuilder.Build()
 	if err != nil {
-		t.Fatalf("Normalize(wrongKindFilter): %v", err)
+		t.Fatalf("wrongKindSchemaBuilder.Build(): %v", err)
+	}
+	wrongKindFilterBuilder, err := filter.NewBuilder(wrongKindSchema)
+	if err != nil {
+		t.Fatalf("NewBuilder(wrongKind): %v", err)
+	}
+	wrongKindFilter, err := filter.Eq(wrongKindFilterBuilder, wrongKindField, int64(7)).Build()
+	if err != nil {
+		t.Fatalf("Build(wrongKindFilter): %v", err)
 	}
 
 	err = schema.ValidateTraversal(TraversalRequest{
@@ -114,9 +132,13 @@ func TestSchemaValidateTraversalRejectsUndeclaredAndWrongKind(t *testing.T) {
 		t.Fatalf("ValidateTraversal(wrong kind) error = %v, want invalid argument", err)
 	}
 
-	validFilter, err := filter.Normalize(filter.Equal(tenant, "acme"))
+	validFilterBuilder, err := filter.NewBuilder(nodeSchema)
 	if err != nil {
-		t.Fatalf("Normalize(validFilter): %v", err)
+		t.Fatalf("NewBuilder(node): %v", err)
+	}
+	validFilter, err := filter.Eq(validFilterBuilder, tenant, "acme").Build()
+	if err != nil {
+		t.Fatalf("Build(validFilter): %v", err)
 	}
 
 	if err := schema.ValidateTraversal(TraversalRequest{
@@ -157,28 +179,28 @@ func TestSchemaNormalizeSnapshotRejectsWrongAttributeKinds(t *testing.T) {
 		t.Fatalf("NewSchema(): %v", err)
 	}
 
-	_, err = schema.NormalizeSnapshot(Snapshot{
-		Nodes: []Node{{
-			ID:         "n1",
-			Labels:     []string{"Doc"},
-			Attributes: ragy.Attributes{"tenant": 1},
+	_, err = NormalizeSnapshot(schema, Snapshot[testMeta]{
+		Nodes: []Node[testMeta]{{
+			ID:     "n1",
+			Labels: []string{"Doc"},
+			Meta:   testMeta{"tenant": 1},
 		}},
 	})
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("NormalizeSnapshot(node wrong kind) error = %v, want invalid argument", err)
 	}
 
-	_, err = schema.NormalizeSnapshot(Snapshot{
-		Nodes: []Node{
+	_, err = NormalizeSnapshot(schema, Snapshot[testMeta]{
+		Nodes: []Node[testMeta]{
 			{ID: "n1", Labels: []string{"Doc"}},
 			{ID: "n2", Labels: []string{"Doc"}},
 		},
-		Edges: []Edge{{
-			ID:         "e1",
-			SourceID:   "n1",
-			TargetID:   "n2",
-			Type:       "LINKS",
-			Attributes: ragy.Attributes{"weight": "heavy"},
+		Edges: []Edge[testMeta]{{
+			ID:       "e1",
+			SourceID: "n1",
+			TargetID: "n2",
+			Type:     "LINKS",
+			Meta:     testMeta{"weight": "heavy"},
 		}},
 	})
 	if !errors.Is(err, ragy.ErrInvalidArgument) {

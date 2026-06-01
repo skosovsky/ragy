@@ -6,19 +6,20 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/lexical"
-	"github.com/skosovsky/ragy/tensor"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
-type DenseSearcherFactory func(t *testing.T, docs []ragy.Document) dense.Searcher
-type LexicalSearcherFactory func(t *testing.T, docs []ragy.Document) lexical.Searcher
-type TensorSearcherFactory func(t *testing.T, docs []ragy.Document) tensor.Searcher
+// Meta is a flexible metadata type for contract tests.
+type Meta map[string]any
 
 const wantedDocID = "doc-1"
+const tenantAcme = "acme"
 
-func tenantFilter(t *testing.T, schema filter.Schema, value string) filter.IR {
+type DenseBackendFactory func(t *testing.T, docs []retrieval.Document[Meta]) retrieval.Backend[Meta]
+type LexicalBackendFactory func(t *testing.T, docs []retrieval.Document[Meta]) retrieval.Backend[Meta]
+
+func tenantCondition(t *testing.T, schema filter.Schema, value string) filter.Condition {
 	t.Helper()
 
 	tenant, err := schema.StringField("tenant")
@@ -26,229 +27,162 @@ func tenantFilter(t *testing.T, schema filter.Schema, value string) filter.IR {
 		t.Fatalf("Schema().StringField(tenant): %v", err)
 	}
 
-	expr, err := filter.Normalize(filter.Equal(tenant, value))
+	builder, err := filter.NewBuilder(schema)
 	if err != nil {
-		t.Fatalf("Normalize(): %v", err)
+		t.Fatalf("NewBuilder(): %v", err)
 	}
 
-	return expr
+	cond, err := filter.Eq(builder, tenant, value).Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	return cond
 }
 
-func RunDenseSearcherSuite(t *testing.T, factory DenseSearcherFactory) {
+func RunDenseBackendSuite(t *testing.T, factory DenseBackendFactory) {
 	t.Helper()
 
 	t.Run("valid docs pass through", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{ID: wantedDocID, Content: "hello"}})
-		out, err := searcher.Search(context.Background(), dense.Request{
+		backend := factory(t, []retrieval.Document[Meta]{{ID: wantedDocID, Content: "hello"}})
+		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
 			Vector: []float32{1},
-			Filter: nil,
-			Page:   nil,
 		})
 		if err != nil {
-			t.Fatalf("Search(): %v", err)
+			t.Fatalf("Retrieve(): %v", err)
 		}
 		if len(out) != 1 || out[0].ID != wantedDocID {
-			t.Fatalf("Search() = %#v, want doc-1", out)
+			t.Fatalf("Retrieve() = %#v, want doc-1", out)
 		}
 	})
 
-	t.Run("declared filter built from schema passes", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{
-			ID:         wantedDocID,
-			Content:    "hello",
-			Attributes: ragy.Attributes{"tenant": "acme"},
+	t.Run("declared filter built from builder passes", func(t *testing.T) {
+		backend := factory(t, []retrieval.Document[Meta]{{
+			ID:      wantedDocID,
+			Content: "hello",
+			Meta:    Meta{"tenant": tenantAcme},
 		}})
-		out, err := searcher.Search(context.Background(), dense.Request{
-			Vector: []float32{1},
-			Filter: tenantFilter(t, searcher.Schema(), "acme"),
-			Page:   nil,
+		schema := schemaFromBackend(t, backend)
+		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+			Vector:  []float32{1},
+			Filters: tenantCondition(t, schema, tenantAcme),
 		})
 		if err != nil {
-			t.Fatalf("Search(): %v", err)
+			t.Fatalf("Retrieve(): %v", err)
 		}
 		if len(out) != 1 || out[0].ID != wantedDocID {
-			t.Fatalf("Search() = %#v, want doc-1", out)
+			t.Fatalf("Retrieve() = %#v, want doc-1", out)
 		}
 	})
 
 	t.Run("invalid docs reject", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{Content: "broken"}})
-		_, err := searcher.Search(context.Background(), dense.Request{
+		backend := factory(t, []retrieval.Document[Meta]{{Content: "broken"}})
+		_, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
 			Vector: []float32{1},
-			Filter: nil,
-			Page:   nil,
 		})
 		if err == nil {
-			t.Fatal("Search() error = nil, want error")
+			t.Fatal("Retrieve() error = nil, want error")
 		}
 	})
 
 	t.Run("no results returns nil", func(t *testing.T) {
-		searcher := factory(t, nil)
-		out, err := searcher.Search(context.Background(), dense.Request{
+		backend := factory(t, nil)
+		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
 			Vector: []float32{1},
-			Filter: nil,
-			Page:   nil,
 		})
 		if err != nil {
-			t.Fatalf("Search(): %v", err)
+			t.Fatalf("Retrieve(): %v", err)
 		}
 		if out != nil {
-			t.Fatalf("Search() = %#v, want nil", out)
+			t.Fatalf("Retrieve() = %#v, want nil", out)
 		}
 	})
 
 	t.Run("undeclared filter rejects", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{ID: wantedDocID}})
-		_, err := searcher.Schema().StringField("missing")
+		backend := factory(t, []retrieval.Document[Meta]{{ID: wantedDocID}})
+		schema := schemaFromBackend(t, backend)
+		_, err := schema.StringField("missing")
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Schema().StringField(missing) error = %v, want invalid argument", err)
 		}
 	})
 }
 
-func RunLexicalSearcherSuite(t *testing.T, factory LexicalSearcherFactory) {
+func RunLexicalBackendSuite(t *testing.T, factory LexicalBackendFactory) {
 	t.Helper()
 
 	t.Run("valid docs pass through", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{ID: wantedDocID, Content: "hello"}})
-		out, err := searcher.Search(context.Background(), lexical.Request{
-			Text:   "hello",
-			Filter: nil,
-			Page:   nil,
-		})
+		backend := factory(t, []retrieval.Document[Meta]{{ID: wantedDocID, Content: "hello"}})
+		out, err := backend.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{})
 		if err != nil {
-			t.Fatalf("Search(): %v", err)
+			t.Fatalf("Retrieve(): %v", err)
 		}
 		if len(out) != 1 || out[0].ID != wantedDocID {
-			t.Fatalf("Search() = %#v, want doc-1", out)
+			t.Fatalf("Retrieve() = %#v, want doc-1", out)
 		}
 	})
 
-	t.Run("declared filter built from schema passes", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{
-			ID:         wantedDocID,
-			Content:    "hello",
-			Attributes: ragy.Attributes{"tenant": "acme"},
+	t.Run("declared filter built from builder passes", func(t *testing.T) {
+		backend := factory(t, []retrieval.Document[Meta]{{
+			ID:      wantedDocID,
+			Content: "hello",
+			Meta:    Meta{"tenant": tenantAcme},
 		}})
-		out, err := searcher.Search(context.Background(), lexical.Request{
-			Text:   "hello",
-			Filter: tenantFilter(t, searcher.Schema(), "acme"),
-			Page:   nil,
+		schema := schemaFromBackend(t, backend)
+		out, err := backend.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+			Filters: tenantCondition(t, schema, tenantAcme),
 		})
 		if err != nil {
-			t.Fatalf("Search(): %v", err)
+			t.Fatalf("Retrieve(): %v", err)
 		}
 		if len(out) != 1 || out[0].ID != wantedDocID {
-			t.Fatalf("Search() = %#v, want doc-1", out)
+			t.Fatalf("Retrieve() = %#v, want doc-1", out)
 		}
 	})
 
 	t.Run("invalid docs reject", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{Content: "broken"}})
-		_, err := searcher.Search(context.Background(), lexical.Request{
-			Text:   "hello",
-			Filter: nil,
-			Page:   nil,
-		})
+		backend := factory(t, []retrieval.Document[Meta]{{Content: "broken"}})
+		_, err := backend.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{})
 		if err == nil {
-			t.Fatal("Search() error = nil, want error")
+			t.Fatal("Retrieve() error = nil, want error")
 		}
 	})
 
 	t.Run("no results returns nil", func(t *testing.T) {
-		searcher := factory(t, nil)
-		out, err := searcher.Search(context.Background(), lexical.Request{
-			Text:   "hello",
-			Filter: nil,
-			Page:   nil,
-		})
+		backend := factory(t, nil)
+		out, err := backend.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{})
 		if err != nil {
-			t.Fatalf("Search(): %v", err)
+			t.Fatalf("Retrieve(): %v", err)
 		}
 		if out != nil {
-			t.Fatalf("Search() = %#v, want nil", out)
+			t.Fatalf("Retrieve() = %#v, want nil", out)
 		}
 	})
 
 	t.Run("undeclared filter rejects", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{ID: wantedDocID}})
-		_, err := searcher.Schema().StringField("missing")
+		backend := factory(t, []retrieval.Document[Meta]{{ID: wantedDocID}})
+		schema := schemaFromBackend(t, backend)
+		_, err := schema.StringField("missing")
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Schema().StringField(missing) error = %v, want invalid argument", err)
 		}
 	})
 }
 
-func RunTensorSearcherSuite(t *testing.T, factory TensorSearcherFactory) {
+type schemaProvider interface {
+	Schema() filter.Schema
+}
+
+func schemaFromTypedBackend[TMeta any](t *testing.T, backend retrieval.Backend[TMeta]) filter.Schema {
 	t.Helper()
 
-	t.Run("valid docs pass through", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{ID: wantedDocID, Content: "hello"}})
-		out, err := searcher.Search(context.Background(), tensor.Request{
-			Query:  tensor.Tensor{{1}},
-			Filter: nil,
-			Page:   nil,
-		})
-		if err != nil {
-			t.Fatalf("Search(): %v", err)
-		}
-		if len(out) != 1 || out[0].ID != wantedDocID {
-			t.Fatalf("Search() = %#v, want doc-1", out)
-		}
-	})
+	provider, ok := backend.(schemaProvider)
+	if !ok {
+		t.Fatal("backend does not expose Schema()")
+	}
+	return provider.Schema()
+}
 
-	t.Run("declared filter built from schema passes", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{
-			ID:         wantedDocID,
-			Content:    "hello",
-			Attributes: ragy.Attributes{"tenant": "acme"},
-		}})
-		out, err := searcher.Search(context.Background(), tensor.Request{
-			Query:  tensor.Tensor{{1}},
-			Filter: tenantFilter(t, searcher.Schema(), "acme"),
-			Page:   nil,
-		})
-		if err != nil {
-			t.Fatalf("Search(): %v", err)
-		}
-		if len(out) != 1 || out[0].ID != wantedDocID {
-			t.Fatalf("Search() = %#v, want doc-1", out)
-		}
-	})
-
-	t.Run("invalid docs reject", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{Content: "broken"}})
-		_, err := searcher.Search(context.Background(), tensor.Request{
-			Query:  tensor.Tensor{{1}},
-			Filter: nil,
-			Page:   nil,
-		})
-		if err == nil {
-			t.Fatal("Search() error = nil, want error")
-		}
-	})
-
-	t.Run("no results returns nil", func(t *testing.T) {
-		searcher := factory(t, nil)
-		out, err := searcher.Search(context.Background(), tensor.Request{
-			Query:  tensor.Tensor{{1}},
-			Filter: nil,
-			Page:   nil,
-		})
-		if err != nil {
-			t.Fatalf("Search(): %v", err)
-		}
-		if out != nil {
-			t.Fatalf("Search() = %#v, want nil", out)
-		}
-	})
-
-	t.Run("undeclared filter rejects", func(t *testing.T) {
-		searcher := factory(t, []ragy.Document{{ID: wantedDocID}})
-		_, err := searcher.Schema().StringField("missing")
-		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Schema().StringField(missing) error = %v, want invalid argument", err)
-		}
-	})
+func schemaFromBackend(t *testing.T, backend retrieval.Backend[Meta]) filter.Schema {
+	return schemaFromTypedBackend(t, backend)
 }

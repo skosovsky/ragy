@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/retrieval"
 )
 
 func TestCosineSimilarity(t *testing.T) {
@@ -40,7 +40,7 @@ func TestCosineSimilarity_positive(t *testing.T) {
 }
 
 func TestDeduplicateDocuments(t *testing.T) {
-	docs := []ragy.Document{
+	docs := []retrieval.Document[struct{}]{
 		{ID: "1", Content: "a"},
 		{ID: "2", Content: "b"},
 		{ID: "1", Content: "a again"},
@@ -58,14 +58,14 @@ func TestDeduplicateDocuments(t *testing.T) {
 }
 
 func TestDeduplicateDocuments_empty(t *testing.T) {
-	out := DeduplicateDocuments(nil)
+	out := DeduplicateDocuments[struct{}](nil)
 	assert.Nil(t, out)
-	out = DeduplicateDocuments([]ragy.Document{})
+	out = DeduplicateDocuments([]retrieval.Document[struct{}]{})
 	assert.Empty(t, out)
 }
 
 func TestDeduplicateDocuments_no_dupes(t *testing.T) {
-	docs := []ragy.Document{
+	docs := []retrieval.Document[struct{}]{
 		{ID: "1", Content: "a"},
 		{ID: "2", Content: "b"},
 	}

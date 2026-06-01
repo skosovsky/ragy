@@ -13,14 +13,10 @@ import (
 
 const sampleCount = 7
 
-type DenseIndexFactory func(t *testing.T) dense.Index
-type TensorIndexFactory func(t *testing.T) tensor.Index
+type DenseIndexFactory func(t *testing.T) dense.Index[Meta]
+type TensorIndexFactory func(t *testing.T) tensor.Index[Meta]
 
 // RunDenseIndexSuite checks common dense.Index write semantics.
-//
-// Adapter-specific payload canonicalization remains covered by backend tests.
-// Generic conformance here is intentionally limited to schema exposure and
-// write-boundary rejection semantics.
 func RunDenseIndexSuite(t *testing.T, factory DenseIndexFactory) {
 	t.Helper()
 
@@ -36,11 +32,11 @@ func RunDenseIndexSuite(t *testing.T, factory DenseIndexFactory) {
 
 	t.Run("invalid attrs reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []dense.Record{{
-			ID:         "doc-1",
-			Content:    "hello",
-			Attributes: ragy.Attributes{"tenant": []string{"x"}},
-			Vector:     []float32{1},
+		err := index.Upsert(context.Background(), []dense.Record[Meta]{{
+			ID:      "doc-1",
+			Content: "hello",
+			Meta:    Meta{"tenant": []string{"x"}},
+			Vector:  []float32{1},
 		}})
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Upsert(invalid attrs) error = %v, want invalid argument", err)
@@ -49,11 +45,11 @@ func RunDenseIndexSuite(t *testing.T, factory DenseIndexFactory) {
 
 	t.Run("bad keys reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []dense.Record{{
-			ID:         "doc-1",
-			Content:    "hello",
-			Attributes: ragy.Attributes{"bad-field": "x"},
-			Vector:     []float32{1},
+		err := index.Upsert(context.Background(), []dense.Record[Meta]{{
+			ID:      "doc-1",
+			Content: "hello",
+			Meta:    Meta{"bad-field": "x"},
+			Vector:  []float32{1},
 		}})
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Upsert(bad key) error = %v, want invalid argument", err)
@@ -62,11 +58,11 @@ func RunDenseIndexSuite(t *testing.T, factory DenseIndexFactory) {
 
 	t.Run("unsigned attrs reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []dense.Record{{
-			ID:         "doc-1",
-			Content:    "hello",
-			Attributes: ragy.Attributes{"age": uint8(sampleCount)},
-			Vector:     []float32{1},
+		err := index.Upsert(context.Background(), []dense.Record[Meta]{{
+			ID:      "doc-1",
+			Content: "hello",
+			Meta:    Meta{"age": uint8(sampleCount)},
+			Vector:  []float32{1},
 		}})
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Upsert(unsigned attr) error = %v, want invalid argument", err)
@@ -75,10 +71,6 @@ func RunDenseIndexSuite(t *testing.T, factory DenseIndexFactory) {
 }
 
 // RunTensorIndexSuite checks common tensor.Index write semantics.
-//
-// Adapter-specific payload canonicalization remains covered by backend tests.
-// Generic conformance here is intentionally limited to schema exposure and
-// write-boundary rejection semantics.
 func RunTensorIndexSuite(t *testing.T, factory TensorIndexFactory) {
 	t.Helper()
 
@@ -91,11 +83,11 @@ func RunTensorIndexSuite(t *testing.T, factory TensorIndexFactory) {
 
 	t.Run("invalid attrs reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []tensor.Record{{
-			ID:         "doc-1",
-			Content:    "hello",
-			Attributes: ragy.Attributes{"tenant": []string{"x"}},
-			Tensor:     tensor.Tensor{{1}},
+		err := index.Upsert(context.Background(), []tensor.Record[Meta]{{
+			ID:      "doc-1",
+			Content: "hello",
+			Meta:    Meta{"tenant": []string{"x"}},
+			Tensor:  tensor.Tensor{{1}},
 		}})
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Upsert(invalid attrs) error = %v, want invalid argument", err)
@@ -104,11 +96,11 @@ func RunTensorIndexSuite(t *testing.T, factory TensorIndexFactory) {
 
 	t.Run("bad keys reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []tensor.Record{{
-			ID:         "doc-1",
-			Content:    "hello",
-			Attributes: ragy.Attributes{"bad-field": "x"},
-			Tensor:     tensor.Tensor{{1}},
+		err := index.Upsert(context.Background(), []tensor.Record[Meta]{{
+			ID:      "doc-1",
+			Content: "hello",
+			Meta:    Meta{"bad-field": "x"},
+			Tensor:  tensor.Tensor{{1}},
 		}})
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Upsert(bad key) error = %v, want invalid argument", err)
@@ -117,11 +109,11 @@ func RunTensorIndexSuite(t *testing.T, factory TensorIndexFactory) {
 
 	t.Run("unsigned attrs reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []tensor.Record{{
-			ID:         "doc-1",
-			Content:    "hello",
-			Attributes: ragy.Attributes{"tenant": jsonlessUint8(sampleCount)},
-			Tensor:     tensor.Tensor{{1}},
+		err := index.Upsert(context.Background(), []tensor.Record[Meta]{{
+			ID:      "doc-1",
+			Content: "hello",
+			Meta:    Meta{"tenant": jsonlessUint8(sampleCount)},
+			Tensor:  tensor.Tensor{{1}},
 		}})
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Upsert(unsigned attr) error = %v, want invalid argument", err)
