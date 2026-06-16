@@ -2,6 +2,7 @@ package parallel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -42,19 +43,47 @@ func MapOrdered[T any, R any](
 	go closeResultsOnWait(&wg, resultCh)
 
 	out := make([]R, len(items))
+	got := make([]bool, len(items))
+	firstErr, fatalErr := collectOrderedResults(resultCh, out, got)
+	if fatalErr != nil {
+		return nil, fatalErr
+	}
+	return finalizeMapOrdered(ctx, out, got, firstErr)
+}
+
+func collectOrderedResults[R any](resultCh <-chan result[R], out []R, got []bool) (error, error) {
+	var firstErr error
 	for result := range resultCh {
 		if result.err != nil {
-			var zero []R
-			return zero, result.err
+			if !errors.Is(result.err, context.Canceled) && !errors.Is(result.err, context.DeadlineExceeded) {
+				return firstErr, result.err
+			}
+			if firstErr == nil {
+				firstErr = result.err
+			}
 		}
-
 		out[result.index] = result.value
+		got[result.index] = true
 	}
+	return firstErr, nil
+}
 
-	if err := ctx.Err(); err != nil {
-		return nil, err
+func finalizeMapOrdered[R any](ctx context.Context, out []R, got []bool, firstErr error) ([]R, error) {
+	for i := range got {
+		if got[i] {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			return out, firstErr
+		}
+		return nil, fmt.Errorf("%w: parallel map missing result at index %d", ragy.ErrProtocol, i)
 	}
-
+	if firstErr != nil {
+		return out, firstErr
+	}
 	return out, nil
 }
 
@@ -70,11 +99,14 @@ func startWorkers[T any, R any](
 		wg.Go(func() {
 			for task := range taskCh {
 				value, err := fn(ctx, task.item)
-				select {
-				case <-ctx.Done():
-					return
-				case resultCh <- result[R]{index: task.index, value: value, err: err}:
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					if err != nil {
+						err = fmt.Errorf("%w: %w", ctxErr, err)
+					} else {
+						err = ctxErr
+					}
 				}
+				resultCh <- result[R]{index: task.index, value: value, err: err}
 			}
 		})
 	}
@@ -83,6 +115,7 @@ func startWorkers[T any, R any](
 func dispatchTasks[T any](ctx context.Context, taskCh chan<- task[T], items []T) {
 	defer close(taskCh)
 
+	// Early return on cancel may leave unprocessed items; MapOrdered detects missing slots.
 	for index, item := range items {
 		select {
 		case <-ctx.Done():

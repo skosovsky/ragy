@@ -2,10 +2,17 @@ package retrieval
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
+
+	ragy "github.com/skosovsky/ragy"
 )
+
+type ppMeta struct {
+	Group string
+}
 
 func TestDefaultMergeStrategyUsesBestScoreMeta(t *testing.T) {
 	t.Parallel()
@@ -45,17 +52,23 @@ func TestPipelineAppliesProcessors(t *testing.T) {
 		},
 	}
 
-	pipeline := NewPipeline[meta](
-		backend,
-		GroupBy(func(m meta) string { return m.Group }, DefaultMergeStrategy[meta]()),
-	)
+	pipeline, err := NewPipelineBuilder[struct{}, meta]().
+		WithRoot(RetrieverNode[struct{}, meta]{Backend: backend}).
+		WithPostProcessors(GroupBy(func(m meta) string { return m.Group }, DefaultMergeStrategy[meta]())).
+		Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
 
-	out, err := pipeline.Retrieve(context.Background(), "query", RetrieveOptions{TopK: 10})
+	out, err := pipeline.Retrieve(context.Background(), Query[struct{}]{
+		Text:    "query",
+		Options: RetrieveOptions{TopK: 10},
+	})
 	if err != nil {
 		t.Fatalf("Retrieve: %v", err)
 	}
-	if len(out) != 2 {
-		t.Fatalf("len(out) = %d, want 2", len(out))
+	if out.Len() != 2 {
+		t.Fatalf("Len() = %d, want 2", out.Len())
 	}
 }
 
@@ -77,79 +90,214 @@ func TestPipelineAppliesTopKAfterGroupBy(t *testing.T) {
 		})
 	}
 
-	pipeline := NewPipeline[meta](
-		stubBackend[meta]{docs: docs},
-		GroupBy(func(m meta) string { return m.Group }, DefaultMergeStrategy[meta]()),
-	)
-
-	out, err := pipeline.Retrieve(context.Background(), "query", RetrieveOptions{TopK: 3})
+	pipeline, err := NewPipelineBuilder[struct{}, meta]().
+		WithRoot(RetrieverNode[struct{}, meta]{Backend: stubBackend[meta]{docs: docs}}).
+		WithPostProcessors(GroupBy(func(m meta) string { return m.Group }, DefaultMergeStrategy[meta]())).
+		Build()
 	if err != nil {
-		t.Fatalf("Retrieve: %v", err)
+		t.Fatalf("Build(): %v", err)
 	}
-	if len(out) != 3 {
-		t.Fatalf("len(out) = %d, want 3", len(out))
-	}
-}
 
-func TestPipelineNormalizesFetchLimitFromTopK(t *testing.T) {
-	t.Parallel()
-
-	backend := &capturingBackend[struct{}]{
-		docs: []Document[struct{}]{{ID: "doc-1", Content: "ok", Score: 0.5}},
-	}
-	pipeline := NewPipeline[struct{}](backend)
-
-	_, err := pipeline.Retrieve(context.Background(), "query", RetrieveOptions{TopK: 7})
-	if err != nil {
-		t.Fatalf("Retrieve: %v", err)
-	}
-	if backend.lastOpts.FetchLimit != 7 {
-		t.Fatalf("FetchLimit = %d, want 7", backend.lastOpts.FetchLimit)
-	}
-}
-
-func TestPipelinePreservesExplicitFetchLimit(t *testing.T) {
-	t.Parallel()
-
-	backend := &capturingBackend[struct{}]{
-		docs: []Document[struct{}]{{ID: "doc-1", Content: "ok", Score: 0.5}},
-	}
-	pipeline := NewPipeline[struct{}](backend)
-
-	_, err := pipeline.Retrieve(context.Background(), "query", RetrieveOptions{
-		FetchLimit: 50,
-		TopK:       10,
+	out, err := pipeline.Retrieve(context.Background(), Query[struct{}]{
+		Text:    "query",
+		Options: RetrieveOptions{TopK: 3},
 	})
 	if err != nil {
 		t.Fatalf("Retrieve: %v", err)
 	}
-	if backend.lastOpts.FetchLimit != 50 {
-		t.Fatalf("FetchLimit = %d, want 50", backend.lastOpts.FetchLimit)
+	if out.Len() != 3 {
+		t.Fatalf("Len() = %d, want 3", out.Len())
 	}
-}
-
-type capturingBackend[TMeta any] struct {
-	docs     []Document[TMeta]
-	lastOpts RetrieveOptions
-}
-
-func (s *capturingBackend[TMeta]) Retrieve(
-	_ context.Context,
-	_ string,
-	opts RetrieveOptions,
-) ([]Document[TMeta], error) {
-	s.lastOpts = opts
-	out := make([]Document[TMeta], len(s.docs))
-	copy(out, s.docs)
-	return out, nil
 }
 
 type stubBackend[TMeta any] struct {
 	docs []Document[TMeta]
 }
 
-func (s stubBackend[TMeta]) Retrieve(_ context.Context, _ string, _ RetrieveOptions) ([]Document[TMeta], error) {
+func (s stubBackend[TMeta]) Retrieve(_ context.Context, _ string, _ RetrieveOptions) (ResultSet[TMeta], error) {
 	out := make([]Document[TMeta], len(s.docs))
 	copy(out, s.docs)
-	return out, nil
+	return NewResultSet(out, DocumentIDResolver[TMeta]{}), nil
+}
+
+func TestGroupByPreservesPartialResultOnMergeStrategyError(t *testing.T) {
+	t.Parallel()
+
+	type meta struct {
+		Group string
+	}
+
+	calls := 0
+	merge := func(docs []Document[meta]) (Document[meta], error) {
+		calls++
+		if calls == 2 {
+			return Document[meta]{}, ragy.ErrInvalidArgument
+		}
+		return DefaultMergeStrategy[meta]()(docs)
+	}
+
+	processor := GroupBy(func(m meta) string { return m.Group }, merge)
+	rs := NewResultSet([]Document[meta]{
+		{ID: "1", Content: "a", Score: 0.9, Meta: meta{Group: "g1"}},
+		{ID: "2", Content: "b", Score: 0.8, Meta: meta{Group: "g2"}},
+		{ID: "3", Content: "c", Score: 0.7, Meta: meta{Group: "g3"}},
+	}, DocumentIDResolver[meta]{})
+
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Process() error = %v, want invalid argument", err)
+	}
+	if out.Len() != 1 {
+		t.Fatalf("Len() = %d, want one merged group preserved", out.Len())
+	}
+}
+
+func TestGroupByRejectsNilKeySelector(t *testing.T) {
+	t.Parallel()
+
+	processor := GroupBy[ppMeta](nil, DefaultMergeStrategy[ppMeta]())
+	rs := NewResultSet([]Document[ppMeta]{{ID: "1", Meta: ppMeta{Group: "g1"}}}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Process() error = %v, want invalid argument", err)
+	}
+	if out.Len() != 1 {
+		t.Fatalf("Len() = %d, want preserved input doc", out.Len())
+	}
+}
+
+func TestTopPerGroupRejectsNilKeySelector(t *testing.T) {
+	t.Parallel()
+
+	processor := TopPerGroup[ppMeta](nil, 1)
+	rs := NewResultSet([]Document[ppMeta]{{ID: "1", Meta: ppMeta{Group: "g1"}}}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Process() error = %v, want invalid argument", err)
+	}
+	if out.Len() != 1 {
+		t.Fatalf("Len() = %d, want preserved input doc", out.Len())
+	}
+}
+
+func TestTopPerGroupRejectsNonPositiveLimit(t *testing.T) {
+	t.Parallel()
+
+	processor := TopPerGroup(func(m ppMeta) string { return m.Group }, 0)
+	rs := NewResultSet([]Document[ppMeta]{{ID: "1", Meta: ppMeta{Group: "g1"}}}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Process() error = %v, want invalid argument", err)
+	}
+	if out.Len() != 1 {
+		t.Fatalf("Len() = %d, want preserved input doc", out.Len())
+	}
+}
+
+func TestRerankRejectsNilLess(t *testing.T) {
+	t.Parallel()
+
+	processor := Rerank[ppMeta](nil)
+	rs := NewResultSet([]Document[ppMeta]{{ID: "1", Meta: ppMeta{Group: "g1"}}}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Process() error = %v, want invalid argument", err)
+	}
+	if out.Len() != 1 {
+		t.Fatalf("Len() = %d, want preserved input doc", out.Len())
+	}
+}
+
+func TestGroupByRejectsInvalidDocument(t *testing.T) {
+	t.Parallel()
+
+	processor := GroupBy(func(m ppMeta) string { return m.Group }, DefaultMergeStrategy[ppMeta]())
+	rs := NewResultSet([]Document[ppMeta]{
+		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
+		{Content: "broken", Score: 0.5, Meta: ppMeta{Group: "g2"}},
+	}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrMissingID) {
+		t.Fatalf("Process() error = %v, want missing id", err)
+	}
+	if out.Len() != 2 {
+		t.Fatalf("Len() = %d, want preserved input docs", out.Len())
+	}
+	if out.Documents()[0].ID != "ok" {
+		t.Fatalf("Documents()[0].ID = %q, want ok", out.Documents()[0].ID)
+	}
+}
+
+func TestTopPerGroupRejectsInvalidDocument(t *testing.T) {
+	t.Parallel()
+
+	processor := TopPerGroup(func(m ppMeta) string { return m.Group }, 1)
+	rs := NewResultSet([]Document[ppMeta]{
+		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
+		{Content: "broken", Score: 0.5, Meta: ppMeta{Group: "g2"}},
+	}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrMissingID) {
+		t.Fatalf("Process() error = %v, want missing id", err)
+	}
+	if out.Len() != 2 {
+		t.Fatalf("Len() = %d, want preserved input docs", out.Len())
+	}
+	if out.Documents()[0].ID != "ok" {
+		t.Fatalf("Documents()[0].ID = %q, want ok", out.Documents()[0].ID)
+	}
+}
+
+func TestRerankRejectsInvalidDocument(t *testing.T) {
+	t.Parallel()
+
+	processor := Rerank(func(a, b Document[ppMeta]) bool { return a.Score > b.Score })
+	rs := NewResultSet([]Document[ppMeta]{
+		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
+		{Content: "broken", Score: 0.5, Meta: ppMeta{Group: "g2"}},
+	}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrMissingID) {
+		t.Fatalf("Process() error = %v, want missing id", err)
+	}
+	if out.Len() != 2 {
+		t.Fatalf("Len() = %d, want preserved input docs", out.Len())
+	}
+	if out.Documents()[0].ID != "ok" {
+		t.Fatalf("Documents()[0].ID = %q, want ok", out.Documents()[0].ID)
+	}
+}
+
+func TestGroupByRejectsEmptyGroupKey(t *testing.T) {
+	t.Parallel()
+
+	processor := GroupBy(func(m ppMeta) string { return m.Group }, DefaultMergeStrategy[ppMeta]())
+	rs := NewResultSet([]Document[ppMeta]{
+		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
+		{ID: "bad", Content: "other", Score: 0.4, Meta: ppMeta{Group: ""}},
+	}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Process() error = %v, want invalid argument", err)
+	}
+	if out.Len() != 2 {
+		t.Fatalf("Len() = %d, want preserved input docs", out.Len())
+	}
+}
+
+func TestTopPerGroupRejectsEmptyGroupKey(t *testing.T) {
+	t.Parallel()
+
+	processor := TopPerGroup(func(m ppMeta) string { return m.Group }, 1)
+	rs := NewResultSet([]Document[ppMeta]{
+		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
+		{ID: "bad", Content: "other", Score: 0.4, Meta: ppMeta{Group: ""}},
+	}, DocumentIDResolver[ppMeta]{})
+	out, err := processor.Process(rs)
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Process() error = %v, want invalid argument", err)
+	}
+	if out.Len() != 2 {
+		t.Fatalf("Len() = %d, want preserved input docs", out.Len())
+	}
 }

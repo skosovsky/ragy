@@ -8,11 +8,17 @@ import (
 	"github.com/skosovsky/ragy/filter"
 )
 
-type testMeta map[string]any
+type wrongNodeMeta struct {
+	Tenant int `json:"tenant"`
+}
+
+type wrongEdgeMeta struct {
+	Weight string `json:"weight"`
+}
 
 func TestSnapshotValidateRejectsDuplicateNodeIDs(t *testing.T) {
-	err := Snapshot[testMeta]{
-		Nodes: []Node[testMeta]{
+	err := Snapshot[struct{}]{
+		Nodes: []Node[struct{}]{
 			{ID: "n1", Labels: []string{"Doc"}},
 			{ID: "n1", Labels: []string{"Doc"}},
 		},
@@ -23,12 +29,12 @@ func TestSnapshotValidateRejectsDuplicateNodeIDs(t *testing.T) {
 }
 
 func TestSnapshotValidateRejectsDuplicateEdgeIDs(t *testing.T) {
-	err := Snapshot[testMeta]{
-		Nodes: []Node[testMeta]{
+	err := Snapshot[struct{}]{
+		Nodes: []Node[struct{}]{
 			{ID: "n1", Labels: []string{"Doc"}},
 			{ID: "n2", Labels: []string{"Doc"}},
 		},
-		Edges: []Edge[testMeta]{
+		Edges: []Edge[struct{}]{
 			{ID: "e1", SourceID: "n1", TargetID: "n2", Type: "LINKS"},
 			{ID: "e1", SourceID: "n2", TargetID: "n1", Type: "LINKS"},
 		},
@@ -39,11 +45,11 @@ func TestSnapshotValidateRejectsDuplicateEdgeIDs(t *testing.T) {
 }
 
 func TestSnapshotValidateRejectsDanglingEdges(t *testing.T) {
-	err := Snapshot[testMeta]{
-		Nodes: []Node[testMeta]{
+	err := Snapshot[struct{}]{
+		Nodes: []Node[struct{}]{
 			{ID: "n1", Labels: []string{"Doc"}},
 		},
-		Edges: []Edge[testMeta]{{
+		Edges: []Edge[struct{}]{{
 			ID:       "e1",
 			SourceID: "n1",
 			TargetID: "missing",
@@ -179,31 +185,175 @@ func TestSchemaNormalizeSnapshotRejectsWrongAttributeKinds(t *testing.T) {
 		t.Fatalf("NewSchema(): %v", err)
 	}
 
-	_, err = NormalizeSnapshot(schema, Snapshot[testMeta]{
-		Nodes: []Node[testMeta]{{
+	_, err = NormalizeSnapshot(schema, Snapshot[wrongNodeMeta]{
+		Nodes: []Node[wrongNodeMeta]{{
 			ID:     "n1",
 			Labels: []string{"Doc"},
-			Meta:   testMeta{"tenant": 1},
+			Meta:   wrongNodeMeta{Tenant: 1},
 		}},
 	})
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("NormalizeSnapshot(node wrong kind) error = %v, want invalid argument", err)
 	}
 
-	_, err = NormalizeSnapshot(schema, Snapshot[testMeta]{
-		Nodes: []Node[testMeta]{
+	_, err = NormalizeSnapshot(schema, Snapshot[wrongEdgeMeta]{
+		Nodes: []Node[wrongEdgeMeta]{
 			{ID: "n1", Labels: []string{"Doc"}},
 			{ID: "n2", Labels: []string{"Doc"}},
 		},
-		Edges: []Edge[testMeta]{{
+		Edges: []Edge[wrongEdgeMeta]{{
 			ID:       "e1",
 			SourceID: "n1",
 			TargetID: "n2",
 			Type:     "LINKS",
-			Meta:     testMeta{"weight": "heavy"},
+			Meta:     wrongEdgeMeta{Weight: "heavy"},
 		}},
 	})
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("NormalizeSnapshot(edge wrong kind) error = %v, want invalid argument", err)
+	}
+}
+
+func TestSnapshotValidateRejectsMapMeta(t *testing.T) {
+	type stringMeta map[string]string
+
+	err := Snapshot[stringMeta]{
+		Nodes: []Node[stringMeta]{{
+			ID:     "n1",
+			Labels: []string{"Doc"},
+			Meta:   stringMeta{"tenant": "acme"},
+		}},
+	}.Validate()
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Validate(map meta) error = %v, want invalid argument", err)
+	}
+}
+
+func TestNormalizeMetaRejectsMapStringAny(t *testing.T) {
+	t.Parallel()
+
+	schema, err := filter.NewSchema().Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	var meta = map[string]any{"tenant": "acme"}
+	if _, err := NormalizeMeta(schema, meta); !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("NormalizeMeta(map[string]any) error = %v, want invalid argument", err)
+	}
+}
+
+func TestNodeValidateRejectsMapStringAny(t *testing.T) {
+	t.Parallel()
+
+	var meta = map[string]any{"tenant": "acme"}
+	err := Node[map[string]any]{
+		ID:     "n1",
+		Labels: []string{"Doc"},
+		Meta:   meta,
+	}.Validate()
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Validate(map[string]any meta) error = %v, want invalid argument", err)
+	}
+}
+
+func TestEdgeValidateRejectsMapStringAny(t *testing.T) {
+	t.Parallel()
+
+	var meta = map[string]any{"weight": 1}
+	err := Edge[map[string]any]{
+		ID:       "e1",
+		SourceID: "n1",
+		TargetID: "n2",
+		Type:     "LINKS",
+		Meta:     meta,
+	}.Validate()
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Validate(map[string]any edge meta) error = %v, want invalid argument", err)
+	}
+}
+
+func TestNormalizeSnapshotRejectsMapStringAny(t *testing.T) {
+	t.Parallel()
+
+	schema, err := NewSchema(filter.EmptySchema(), filter.EmptySchema())
+	if err != nil {
+		t.Fatalf("NewSchema(): %v", err)
+	}
+
+	var meta = map[string]any{"tenant": "acme"}
+	_, err = NormalizeSnapshot(schema, Snapshot[map[string]any]{
+		Nodes: []Node[map[string]any]{{
+			ID:     "n1",
+			Labels: []string{"Doc"},
+			Meta:   meta,
+		}},
+	})
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("NormalizeSnapshot(map meta) error = %v, want invalid argument", err)
+	}
+}
+
+type badMarshalMeta struct{}
+
+func (badMarshalMeta) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("marshal failed")
+}
+
+type badEncodeUnmarshalMeta struct{}
+
+func (badEncodeUnmarshalMeta) MarshalJSON() ([]byte, error) {
+	return []byte(`"not-an-object"`), nil
+}
+
+func TestNormalizeMetaEncodeWrapsUnmarshalError(t *testing.T) {
+	t.Parallel()
+
+	schema, err := filter.NewSchema().Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	if _, err := NormalizeMeta(schema, badEncodeUnmarshalMeta{}); !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("NormalizeMeta() error = %v, want invalid argument", err)
+	}
+}
+
+func TestNormalizeMetaWrapsMarshalError(t *testing.T) {
+	t.Parallel()
+
+	schema, err := filter.NewSchema().Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	if _, err := NormalizeMeta(schema, badMarshalMeta{}); !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("NormalizeMeta() error = %v, want invalid argument", err)
+	}
+}
+
+type badDecodeMeta struct {
+	Tenant string `json:"tenant"`
+}
+
+func (badDecodeMeta) UnmarshalJSON([]byte) error {
+	return errors.New("unmarshal failed")
+}
+
+func TestNormalizeMetaDecodeWrapsUnmarshalError(t *testing.T) {
+	t.Parallel()
+
+	builder := filter.NewSchema()
+	if _, err := builder.String("tenant"); err != nil {
+		t.Fatalf("String(tenant): %v", err)
+	}
+	schema, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	_, err = NormalizeMeta(schema, badDecodeMeta{Tenant: "acme"})
+	if !errors.Is(err, ragy.ErrProtocol) {
+		t.Fatalf("NormalizeMeta() error = %v, want protocol", err)
 	}
 }

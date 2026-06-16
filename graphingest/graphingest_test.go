@@ -2,7 +2,10 @@ package graphingest
 
 import (
 	"context"
+	"errors"
 	"testing"
+
+	ragy "github.com/skosovsky/ragy"
 
 	"github.com/skosovsky/ragy/chunking"
 	"github.com/skosovsky/ragy/graph"
@@ -12,28 +15,31 @@ import (
 )
 
 type stubSplitter struct {
-	chunks []chunking.Chunk[contracttest.Meta]
+	chunks []chunking.Chunk[contracttest.StructMeta]
 	err    error
 }
 
 func (s *stubSplitter) Split(
 	_ context.Context,
-	_ retrieval.Document[contracttest.Meta],
-) ([]chunking.Chunk[contracttest.Meta], error) {
+	_ retrieval.Document[contracttest.StructMeta],
+) ([]chunking.Chunk[contracttest.StructMeta], error) {
 	return s.chunks, s.err
 }
 
 type recordingStore struct {
 	calls    int
-	snapshot graph.Snapshot[contracttest.Meta]
+	snapshot graph.Snapshot[contracttest.StructMeta]
 	schema   graph.Schema
 }
 
-func (s *recordingStore) Traverse(context.Context, graph.TraversalRequest) (graph.Snapshot[contracttest.Meta], error) {
-	return graph.Snapshot[contracttest.Meta]{}, nil
+func (s *recordingStore) Traverse(
+	context.Context,
+	graph.TraversalRequest,
+) (graph.Snapshot[contracttest.StructMeta], error) {
+	return graph.Snapshot[contracttest.StructMeta]{}, nil
 }
 
-func (s *recordingStore) Upsert(_ context.Context, snapshot graph.Snapshot[contracttest.Meta]) error {
+func (s *recordingStore) Upsert(_ context.Context, snapshot graph.Snapshot[contracttest.StructMeta]) error {
 	s.calls++
 	s.snapshot = snapshot
 	return nil
@@ -50,20 +56,26 @@ func TestNewStageRejectsMissingDependencies(t *testing.T) {
 
 	if _, err := NewStage(nil, provider, store); err == nil {
 		t.Fatal("NewStage(nil, provider, store) error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("NewStage(nil, provider, store) error = %v, want invalid argument", err)
 	}
 
 	if _, err := NewStage(base, nil, store); err == nil {
 		t.Fatal("NewStage(base, nil, store) error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("NewStage(base, nil, store) error = %v, want invalid argument", err)
 	}
 
 	if _, err := NewStage(base, provider, nil); err == nil {
 		t.Fatal("NewStage(base, provider, nil) error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("NewStage(base, provider, nil) error = %v, want invalid argument", err)
 	}
 }
 
 func TestStageRunExtractsAndUpsertsGraph(t *testing.T) {
 	base := &stubSplitter{
-		chunks: []chunking.Chunk[contracttest.Meta]{{
+		chunks: []chunking.Chunk[contracttest.StructMeta]{{
 			ID:       "chunk-1",
 			SourceID: "doc-1",
 			Index:    0,
@@ -71,8 +83,8 @@ func TestStageRunExtractsAndUpsertsGraph(t *testing.T) {
 		}},
 	}
 	provider := &testutil.GraphProvider{
-		Snapshot: graph.Snapshot[contracttest.Meta]{
-			Nodes: []graph.Node[contracttest.Meta]{{
+		Snapshot: graph.Snapshot[contracttest.StructMeta]{
+			Nodes: []graph.Node[contracttest.StructMeta]{{
 				ID:     "node-1",
 				Labels: []string{"Doc"},
 			}},
@@ -85,11 +97,11 @@ func TestStageRunExtractsAndUpsertsGraph(t *testing.T) {
 		t.Fatalf("NewStage(): %v", err)
 	}
 
-	if _, ok := any(stage).(chunking.Splitter[contracttest.Meta]); ok {
+	if _, ok := any(stage).(chunking.Splitter[contracttest.StructMeta]); ok {
 		t.Fatal("Stage must not implement chunking.Splitter")
 	}
 
-	result, err := stage.Run(context.Background(), retrieval.Document[contracttest.Meta]{
+	result, err := stage.Run(context.Background(), retrieval.Document[contracttest.StructMeta]{
 		ID:      "doc-1",
 		Content: "hello",
 	})
@@ -112,7 +124,7 @@ func TestStageRunExtractsAndUpsertsGraph(t *testing.T) {
 
 func TestStageRunRejectsInvalidProviderSnapshotBeforeUpsert(t *testing.T) {
 	base := &stubSplitter{
-		chunks: []chunking.Chunk[contracttest.Meta]{{
+		chunks: []chunking.Chunk[contracttest.StructMeta]{{
 			ID:       "chunk-1",
 			SourceID: "doc-1",
 			Index:    0,
@@ -120,8 +132,8 @@ func TestStageRunRejectsInvalidProviderSnapshotBeforeUpsert(t *testing.T) {
 		}},
 	}
 	provider := &testutil.GraphProvider{
-		Snapshot: graph.Snapshot[contracttest.Meta]{
-			Nodes: []graph.Node[contracttest.Meta]{{
+		Snapshot: graph.Snapshot[contracttest.StructMeta]{
+			Nodes: []graph.Node[contracttest.StructMeta]{{
 				ID:     "node-1",
 				Labels: []string{"bad-label"},
 			}},
@@ -134,12 +146,14 @@ func TestStageRunRejectsInvalidProviderSnapshotBeforeUpsert(t *testing.T) {
 		t.Fatalf("NewStage(): %v", err)
 	}
 
-	_, err = stage.Run(context.Background(), retrieval.Document[contracttest.Meta]{
+	_, err = stage.Run(context.Background(), retrieval.Document[contracttest.StructMeta]{
 		ID:      "doc-1",
 		Content: "hello",
 	})
 	if err == nil {
 		t.Fatal("Run() error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Run() error = %v, want invalid argument", err)
 	}
 	if store.calls != 0 {
 		t.Fatalf("upsert calls = %d, want 0", store.calls)
@@ -148,7 +162,7 @@ func TestStageRunRejectsInvalidProviderSnapshotBeforeUpsert(t *testing.T) {
 
 func TestStageRunRejectsDanglingProviderSnapshotBeforeUpsert(t *testing.T) {
 	base := &stubSplitter{
-		chunks: []chunking.Chunk[contracttest.Meta]{{
+		chunks: []chunking.Chunk[contracttest.StructMeta]{{
 			ID:       "chunk-1",
 			SourceID: "doc-1",
 			Index:    0,
@@ -156,12 +170,12 @@ func TestStageRunRejectsDanglingProviderSnapshotBeforeUpsert(t *testing.T) {
 		}},
 	}
 	provider := &testutil.GraphProvider{
-		Snapshot: graph.Snapshot[contracttest.Meta]{
-			Nodes: []graph.Node[contracttest.Meta]{{
+		Snapshot: graph.Snapshot[contracttest.StructMeta]{
+			Nodes: []graph.Node[contracttest.StructMeta]{{
 				ID:     "node-1",
 				Labels: []string{"Doc"},
 			}},
-			Edges: []graph.Edge[contracttest.Meta]{{
+			Edges: []graph.Edge[contracttest.StructMeta]{{
 				ID:       "edge-1",
 				SourceID: "node-1",
 				TargetID: "missing",
@@ -176,12 +190,14 @@ func TestStageRunRejectsDanglingProviderSnapshotBeforeUpsert(t *testing.T) {
 		t.Fatalf("NewStage(): %v", err)
 	}
 
-	_, err = stage.Run(context.Background(), retrieval.Document[contracttest.Meta]{
+	_, err = stage.Run(context.Background(), retrieval.Document[contracttest.StructMeta]{
 		ID:      "doc-1",
 		Content: "hello",
 	})
 	if err == nil {
 		t.Fatal("Run() error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidGraph) {
+		t.Fatalf("Run() error = %v, want invalid graph", err)
 	}
 	if store.calls != 0 {
 		t.Fatalf("upsert calls = %d, want 0", store.calls)

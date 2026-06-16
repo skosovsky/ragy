@@ -12,6 +12,7 @@ import (
 )
 
 // RawAttributes stores scalar metadata at storage adapter boundaries.
+// It is the wire/storage codec boundary for filter IR — not a domain metadata type.
 type RawAttributes map[string]any
 
 // CloneRawAttributes returns a shallow copy of raw attributes.

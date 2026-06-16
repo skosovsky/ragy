@@ -12,3 +12,8 @@ type Backend[TMeta any] interface {
 	Schema() filter.Schema
 	LexicalBackend()
 }
+
+// LexicalRetriever is the typed lexical retrieval backend alias.
+//
+//nolint:revive // intentional API alias matching task9 naming.
+type LexicalRetriever[TMeta any] = Backend[TMeta]

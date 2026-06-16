@@ -13,8 +13,8 @@ import (
 
 const sampleCount = 7
 
-type DenseIndexFactory func(t *testing.T) dense.Index[Meta]
-type TensorIndexFactory func(t *testing.T) tensor.Index[Meta]
+type DenseIndexFactory func(t *testing.T) dense.Index[StructMeta]
+type TensorIndexFactory func(t *testing.T) tensor.Index[StructMeta]
 
 // RunDenseIndexSuite checks common dense.Index write semantics.
 func RunDenseIndexSuite(t *testing.T, factory DenseIndexFactory) {
@@ -32,40 +32,38 @@ func RunDenseIndexSuite(t *testing.T, factory DenseIndexFactory) {
 
 	t.Run("invalid attrs reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []dense.Record[Meta]{{
+		err := index.Upsert(context.Background(), []dense.Record[StructMeta]{{
 			ID:      "doc-1",
 			Content: "hello",
-			Meta:    Meta{"tenant": []string{"x"}},
-			Vector:  []float32{1},
+			Meta:    StructMeta{Tenant: "x"},
+			Vector:  nil,
 		}})
-		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Upsert(invalid attrs) error = %v, want invalid argument", err)
+		if err == nil {
+			t.Fatal("Upsert(empty vector) error = nil, want error")
+		}
+		if !errors.Is(err, ragy.ErrEmptyVector) {
+			t.Fatalf("Upsert(empty vector) error = %v, want empty vector", err)
 		}
 	})
 
 	t.Run("bad keys reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []dense.Record[Meta]{{
-			ID:      "doc-1",
-			Content: "hello",
-			Meta:    Meta{"bad-field": "x"},
-			Vector:  []float32{1},
-		}})
+		_, err := index.Schema().StringField("bad-field")
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Upsert(bad key) error = %v, want invalid argument", err)
+			t.Fatalf("Schema().StringField(bad-field) error = %v, want invalid argument", err)
 		}
 	})
 
 	t.Run("unsigned attrs reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []dense.Record[Meta]{{
-			ID:      "doc-1",
+		err := index.Upsert(context.Background(), []dense.Record[StructMeta]{{
+			ID:      "",
 			Content: "hello",
-			Meta:    Meta{"age": uint8(sampleCount)},
+			Meta:    StructMeta{Age: sampleCount},
 			Vector:  []float32{1},
 		}})
-		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Upsert(unsigned attr) error = %v, want invalid argument", err)
+		if !errors.Is(err, ragy.ErrMissingID) {
+			t.Fatalf("Upsert(missing id) error = %v, want missing id", err)
 		}
 	})
 }
@@ -83,45 +81,41 @@ func RunTensorIndexSuite(t *testing.T, factory TensorIndexFactory) {
 
 	t.Run("invalid attrs reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []tensor.Record[Meta]{{
+		err := index.Upsert(context.Background(), []tensor.Record[StructMeta]{{
 			ID:      "doc-1",
 			Content: "hello",
-			Meta:    Meta{"tenant": []string{"x"}},
-			Tensor:  tensor.Tensor{{1}},
+			Meta:    StructMeta{Tenant: "x"},
+			Tensor:  nil,
 		}})
-		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Upsert(invalid attrs) error = %v, want invalid argument", err)
+		if err == nil {
+			t.Fatal("Upsert(empty tensor) error = nil, want error")
+		}
+		if !errors.Is(err, ragy.ErrEmptyVector) {
+			t.Fatalf("Upsert(empty tensor) error = %v, want empty vector", err)
 		}
 	})
 
 	t.Run("bad keys reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []tensor.Record[Meta]{{
-			ID:      "doc-1",
-			Content: "hello",
-			Meta:    Meta{"bad-field": "x"},
-			Tensor:  tensor.Tensor{{1}},
-		}})
+		_, err := index.Schema().StringField("bad-field")
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Upsert(bad key) error = %v, want invalid argument", err)
+			t.Fatalf("Schema().StringField(bad-field) error = %v, want invalid argument", err)
 		}
 	})
 
 	t.Run("unsigned attrs reject on write", func(t *testing.T) {
 		index := factory(t)
-		err := index.Upsert(context.Background(), []tensor.Record[Meta]{{
-			ID:      "doc-1",
+		err := index.Upsert(context.Background(), []tensor.Record[StructMeta]{{
+			ID:      "",
 			Content: "hello",
-			Meta:    Meta{"tenant": jsonlessUint8(sampleCount)},
+			Meta:    StructMeta{Tenant: "x"},
 			Tensor:  tensor.Tensor{{1}},
 		}})
-		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Upsert(unsigned attr) error = %v, want invalid argument", err)
+		if !errors.Is(err, ragy.ErrMissingID) {
+			t.Fatalf("Upsert(missing id) error = %v, want missing id", err)
 		}
 	})
 }
-
-type jsonlessUint8 uint8
 
 func TenantAgeSchema(t *testing.T) filter.Schema {
 	t.Helper()

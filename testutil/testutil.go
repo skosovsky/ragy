@@ -4,7 +4,6 @@ package testutil
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/chunking"
@@ -38,56 +37,21 @@ func (e *DenseEmbedder) Embed(_ context.Context, texts []string) ([][]float32, e
 	return out, nil
 }
 
-// RetrievalBackend is a fake retrieval.Backend.
-type RetrievalBackend struct {
-	Docs           []retrieval.Document[contracttest.Meta]
-	Err            error
-	Requests       []retrieval.RetrieveOptions
-	FilterSchema   filter.Schema
-	VectorRequired bool
-}
+// RetrievalBackend is an alias for StructRetrievalBackend.
+type RetrievalBackend = StructRetrievalBackend
 
-// Retrieve implements retrieval.Backend.
-func (b *RetrievalBackend) Retrieve(
-	_ context.Context,
-	query string,
-	opts retrieval.RetrieveOptions,
-) ([]retrieval.Document[contracttest.Meta], error) {
-	b.Requests = append(b.Requests, opts)
-	if b.Err != nil {
-		return nil, b.Err
-	}
-	if err := opts.Validate(); err != nil {
-		return nil, err
-	}
-	if b.VectorRequired {
-		if len(opts.Vector) == 0 {
-			return nil, fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
-		}
-	} else if strings.TrimSpace(query) == "" {
-		return nil, fmt.Errorf("%w: retrieve query", ragy.ErrEmptyText)
-	}
-	if err := b.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
-		return nil, err
-	}
-
-	return validateRetrievalDocuments(b.Docs)
-}
-
-// Schema returns the configured filter schema used by the fake backend.
-func (b *RetrievalBackend) Schema() filter.Schema {
-	return b.FilterSchema
-}
+// DocumentStore is an alias for StructDocumentStore.
+type DocumentStore = StructDocumentStore
 
 // DenseIndex is a fake dense index.
 type DenseIndex struct {
-	Records      [][]dense.Record[contracttest.Meta]
+	Records      [][]dense.Record[contracttest.StructMeta]
 	Err          error
 	FilterSchema filter.Schema
 }
 
 // Upsert implements dense.Index.
-func (i *DenseIndex) Upsert(_ context.Context, records []dense.Record[contracttest.Meta]) error {
+func (i *DenseIndex) Upsert(_ context.Context, records []dense.Record[contracttest.StructMeta]) error {
 	if i.Err != nil {
 		return i.Err
 	}
@@ -95,21 +59,26 @@ func (i *DenseIndex) Upsert(_ context.Context, records []dense.Record[contractte
 		return fmt.Errorf("%w: dense index schema", ragy.ErrInvalidArgument)
 	}
 
-	copied := make([]dense.Record[contracttest.Meta], len(records))
+	copied := make([]dense.Record[contracttest.StructMeta], len(records))
 	for index, record := range records {
 		if err := record.Validate(); err != nil {
 			return err
 		}
 
-		attrs, err := i.FilterSchema.NormalizeAttributes(filter.RawAttributes(record.Meta))
+		codec := retrieval.NewJSONCodec[contracttest.StructMeta](i.FilterSchema)
+		attrs, err := codec.Encode(record.Meta)
+		if err != nil {
+			return err
+		}
+		meta, err := codec.Decode(attrs)
 		if err != nil {
 			return err
 		}
 
-		copied[index] = dense.Record[contracttest.Meta]{
+		copied[index] = dense.Record[contracttest.StructMeta]{
 			ID:      record.ID,
 			Content: record.Content,
-			Meta:    contracttest.Meta(filter.CloneRawAttributes(attrs)),
+			Meta:    meta,
 			Vector:  append([]float32(nil), record.Vector...),
 		}
 	}
@@ -124,13 +93,13 @@ func (i *DenseIndex) Schema() filter.Schema {
 
 // TensorIndex is a fake tensor index.
 type TensorIndex struct {
-	Records      [][]tensor.Record[contracttest.Meta]
+	Records      [][]tensor.Record[contracttest.StructMeta]
 	Err          error
 	FilterSchema filter.Schema
 }
 
 // Upsert implements tensor.Index.
-func (i *TensorIndex) Upsert(_ context.Context, records []tensor.Record[contracttest.Meta]) error {
+func (i *TensorIndex) Upsert(_ context.Context, records []tensor.Record[contracttest.StructMeta]) error {
 	if i.Err != nil {
 		return i.Err
 	}
@@ -138,21 +107,26 @@ func (i *TensorIndex) Upsert(_ context.Context, records []tensor.Record[contract
 		return fmt.Errorf("%w: tensor index schema", ragy.ErrInvalidArgument)
 	}
 
-	copied := make([]tensor.Record[contracttest.Meta], len(records))
+	copied := make([]tensor.Record[contracttest.StructMeta], len(records))
 	for index, record := range records {
 		if err := record.Validate(); err != nil {
 			return err
 		}
 
-		attrs, err := i.FilterSchema.NormalizeAttributes(filter.RawAttributes(record.Meta))
+		codec := retrieval.NewJSONCodec[contracttest.StructMeta](i.FilterSchema)
+		attrs, err := codec.Encode(record.Meta)
+		if err != nil {
+			return err
+		}
+		meta, err := codec.Decode(attrs)
 		if err != nil {
 			return err
 		}
 
-		copied[index] = tensor.Record[contracttest.Meta]{
+		copied[index] = tensor.Record[contracttest.StructMeta]{
 			ID:      record.ID,
 			Content: record.Content,
-			Meta:    contracttest.Meta(filter.CloneRawAttributes(attrs)),
+			Meta:    meta,
 			Tensor:  cloneTensor(record.Tensor),
 		}
 	}
@@ -163,90 +137,6 @@ func (i *TensorIndex) Upsert(_ context.Context, records []tensor.Record[contract
 // Schema returns the configured filter schema used by the fake index.
 func (i *TensorIndex) Schema() filter.Schema {
 	return i.FilterSchema
-}
-
-// DocumentStore is a memory-backed documents.Store fake.
-type DocumentStore struct {
-	Docs         []retrieval.Document[contracttest.Meta]
-	Err          error
-	FindCalls    [][]string
-	FilterSchema filter.Schema
-}
-
-// FindByIDs implements documents.Store.
-func (s *DocumentStore) FindByIDs(_ context.Context, ids []string) ([]retrieval.Document[contracttest.Meta], error) {
-	s.FindCalls = append(s.FindCalls, append([]string(nil), ids...))
-	if s.Err != nil {
-		return nil, s.Err
-	}
-
-	if len(ids) == 0 {
-		return nil, nil
-	}
-
-	byID := make(map[string]retrieval.Document[contracttest.Meta], len(s.Docs))
-	for _, doc := range s.Docs {
-		byID[doc.ID] = cloneRetrievalDocument(doc)
-	}
-
-	out := make([]retrieval.Document[contracttest.Meta], 0, len(ids))
-	for _, id := range ids {
-		doc, ok := byID[id]
-		if !ok {
-			continue
-		}
-		out = append(out, doc)
-	}
-
-	if len(out) == 0 {
-		return nil, nil
-	}
-
-	return validateRetrievalDocuments(out)
-}
-
-// DeleteByIDs implements documents.Store.
-func (s *DocumentStore) DeleteByIDs(_ context.Context, ids []string) (documents.DeleteResult, error) {
-	if s.Err != nil {
-		return documents.DeleteResult{}, s.Err
-	}
-
-	if len(ids) == 0 {
-		return documents.DeleteResult{}, nil
-	}
-
-	remove := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		remove[id] = struct{}{}
-	}
-
-	deleted := 0
-	kept := make([]retrieval.Document[contracttest.Meta], 0, len(s.Docs))
-	for _, doc := range s.Docs {
-		if _, ok := remove[doc.ID]; ok {
-			deleted++
-			continue
-		}
-		kept = append(kept, cloneRetrievalDocument(doc))
-	}
-
-	s.Docs = kept
-	return documents.DeleteResult{Deleted: deleted}, nil
-}
-
-// DeleteByFilter implements documents.Store.
-func (s *DocumentStore) DeleteByFilter(_ context.Context, cond filter.Condition) (documents.DeleteResult, error) {
-	return deleteByFilter(
-		s.Docs,
-		cond,
-		s.Schema(),
-		matchDocument,
-		cloneRetrievalDocument,
-		s.Err,
-		func(docs []retrieval.Document[contracttest.Meta]) {
-			s.Docs = docs
-		},
-	)
 }
 
 func deleteByFilter[TMeta any](
@@ -288,14 +178,9 @@ func deleteByFilter[TMeta any](
 	return documents.DeleteResult{Deleted: deleted}, nil
 }
 
-// Schema returns the configured filter schema used by the fake store.
-func (s *DocumentStore) Schema() filter.Schema {
-	return s.FilterSchema
-}
-
 // GraphStore is a memory-backed graph.Store fake.
 type GraphStore struct {
-	Snapshot    graph.Snapshot[contracttest.Meta]
+	Snapshot    graph.Snapshot[contracttest.StructMeta]
 	GraphSchema graph.Schema
 	Err         error
 	Requests    []graph.TraversalRequest
@@ -305,29 +190,29 @@ type GraphStore struct {
 func (s *GraphStore) Traverse(
 	_ context.Context,
 	req graph.TraversalRequest,
-) (graph.Snapshot[contracttest.Meta], error) {
+) (graph.Snapshot[contracttest.StructMeta], error) {
 	s.Requests = append(s.Requests, cloneTraversalRequest(req))
 	if s.Err != nil {
-		return graph.Snapshot[contracttest.Meta]{}, s.Err
+		return graph.Snapshot[contracttest.StructMeta]{}, s.Err
 	}
 	if err := s.GraphSchema.ValidateTraversal(req); err != nil {
-		return graph.Snapshot[contracttest.Meta]{}, err
+		return graph.Snapshot[contracttest.StructMeta]{}, err
 	}
 	snapshot, err := graph.NormalizeSnapshot(s.GraphSchema, s.Snapshot)
 	if err != nil {
-		return graph.Snapshot[contracttest.Meta]{}, err
+		return graph.Snapshot[contracttest.StructMeta]{}, err
 	}
 
-	out, err := traverseSnapshot(snapshot, req)
+	out, err := traverseSnapshot(snapshot, req, s.GraphSchema.NodeAttributes, s.GraphSchema.EdgeAttributes)
 	if err != nil {
-		return graph.Snapshot[contracttest.Meta]{}, err
+		return graph.Snapshot[contracttest.StructMeta]{}, err
 	}
 
 	return graph.NormalizeSnapshot(s.GraphSchema, out)
 }
 
 // Upsert implements graph.Store.
-func (s *GraphStore) Upsert(_ context.Context, snapshot graph.Snapshot[contracttest.Meta]) error {
+func (s *GraphStore) Upsert(_ context.Context, snapshot graph.Snapshot[contracttest.StructMeta]) error {
 	if s.Err != nil {
 		return s.Err
 	}
@@ -354,56 +239,24 @@ type ContextGenerator struct {
 // Context implements chunking.ContextGenerator.
 func (g *ContextGenerator) Context(
 	_ context.Context,
-	_ retrieval.Document[contracttest.Meta],
-	_ chunking.Chunk[contracttest.Meta],
+	_ retrieval.Document[contracttest.StructMeta],
+	_ chunking.Chunk[contracttest.StructMeta],
 ) (string, error) {
 	return g.Value, g.Err
 }
 
 // GraphProvider is a fake graph extraction provider.
 type GraphProvider struct {
-	Snapshot graph.Snapshot[contracttest.Meta]
+	Snapshot graph.Snapshot[contracttest.StructMeta]
 	Err      error
 }
 
 // Extract extracts a graph snapshot from chunks.
 func (p *GraphProvider) Extract(
 	_ context.Context,
-	_ []chunking.Chunk[contracttest.Meta],
-) (graph.Snapshot[contracttest.Meta], error) {
+	_ []chunking.Chunk[contracttest.StructMeta],
+) (graph.Snapshot[contracttest.StructMeta], error) {
 	return cloneSnapshot(p.Snapshot), p.Err
-}
-
-func validateRetrievalDocuments(
-	in []retrieval.Document[contracttest.Meta],
-) ([]retrieval.Document[contracttest.Meta], error) {
-	if len(in) == 0 {
-		return nil, nil
-	}
-
-	out := make([]retrieval.Document[contracttest.Meta], len(in))
-	for i, doc := range in {
-		if err := retrieval.ValidateDocument(doc); err != nil {
-			return nil, err
-		}
-		out[i] = cloneRetrievalDocument(doc)
-	}
-
-	return out, nil
-}
-
-func cloneRetrievalDocument(in retrieval.Document[contracttest.Meta]) retrieval.Document[contracttest.Meta] {
-	var meta contracttest.Meta
-	if len(in.Meta) > 0 {
-		meta = contracttest.Meta(filter.CloneRawAttributes(filter.RawAttributes(in.Meta)))
-	}
-
-	return retrieval.Document[contracttest.Meta]{
-		ID:      in.ID,
-		Content: in.Content,
-		Score:   in.Score,
-		Meta:    meta,
-	}
 }
 
 func cloneTensor(in tensor.Tensor) tensor.Tensor {
@@ -419,37 +272,29 @@ func cloneTensor(in tensor.Tensor) tensor.Tensor {
 	return out
 }
 
-func cloneNode(in graph.Node[contracttest.Meta]) graph.Node[contracttest.Meta] {
-	var meta contracttest.Meta
-	if len(in.Meta) > 0 {
-		meta = contracttest.Meta(filter.CloneRawAttributes(filter.RawAttributes(in.Meta)))
-	}
-	return graph.Node[contracttest.Meta]{
+func cloneNode(in graph.Node[contracttest.StructMeta]) graph.Node[contracttest.StructMeta] {
+	return graph.Node[contracttest.StructMeta]{
 		ID:      in.ID,
 		Labels:  append([]string(nil), in.Labels...),
 		Content: in.Content,
-		Meta:    meta,
+		Meta:    in.Meta,
 	}
 }
 
-func cloneEdge(in graph.Edge[contracttest.Meta]) graph.Edge[contracttest.Meta] {
-	var meta contracttest.Meta
-	if len(in.Meta) > 0 {
-		meta = contracttest.Meta(filter.CloneRawAttributes(filter.RawAttributes(in.Meta)))
-	}
-	return graph.Edge[contracttest.Meta]{
+func cloneEdge(in graph.Edge[contracttest.StructMeta]) graph.Edge[contracttest.StructMeta] {
+	return graph.Edge[contracttest.StructMeta]{
 		ID:       in.ID,
 		SourceID: in.SourceID,
 		TargetID: in.TargetID,
 		Type:     in.Type,
-		Meta:     meta,
+		Meta:     in.Meta,
 	}
 }
 
-func cloneSnapshot(in graph.Snapshot[contracttest.Meta]) graph.Snapshot[contracttest.Meta] {
-	out := graph.Snapshot[contracttest.Meta]{
-		Nodes: make([]graph.Node[contracttest.Meta], len(in.Nodes)),
-		Edges: make([]graph.Edge[contracttest.Meta], len(in.Edges)),
+func cloneSnapshot(in graph.Snapshot[contracttest.StructMeta]) graph.Snapshot[contracttest.StructMeta] {
+	out := graph.Snapshot[contracttest.StructMeta]{
+		Nodes: make([]graph.Node[contracttest.StructMeta], len(in.Nodes)),
+		Edges: make([]graph.Edge[contracttest.StructMeta], len(in.Edges)),
 	}
 	for i := range in.Nodes {
 		out.Nodes[i] = cloneNode(in.Nodes[i])
@@ -460,7 +305,7 @@ func cloneSnapshot(in graph.Snapshot[contracttest.Meta]) graph.Snapshot[contract
 	return out
 }
 
-func mergeSnapshot(base, incoming graph.Snapshot[contracttest.Meta]) graph.Snapshot[contracttest.Meta] {
+func mergeSnapshot(base, incoming graph.Snapshot[contracttest.StructMeta]) graph.Snapshot[contracttest.StructMeta] {
 	out := cloneSnapshot(base)
 
 	nodeIndex := make(map[string]int, len(out.Nodes))
@@ -511,33 +356,35 @@ func cloneTraversalRequest(in graph.TraversalRequest) graph.TraversalRequest {
 }
 
 func traverseSnapshot(
-	snapshot graph.Snapshot[contracttest.Meta],
+	snapshot graph.Snapshot[contracttest.StructMeta],
 	req graph.TraversalRequest,
-) (graph.Snapshot[contracttest.Meta], error) {
+	nodeSchema filter.Schema,
+	edgeSchema filter.Schema,
+) (graph.Snapshot[contracttest.StructMeta], error) {
 	nodesByID := indexNodes(snapshot.Nodes)
 	visitedNodes, frontier := seedFrontier(nodesByID, req.Seeds)
-	visitedEdges, err := expandTraversal(snapshot.Edges, nodesByID, visitedNodes, frontier, req)
+	visitedEdges, err := expandTraversal(snapshot.Edges, nodesByID, visitedNodes, frontier, req, edgeSchema)
 	if err != nil {
-		return graph.Snapshot[contracttest.Meta]{}, err
+		return graph.Snapshot[contracttest.StructMeta]{}, err
 	}
 
-	nodes, allowedNodes, err := projectNodes(snapshot.Nodes, visitedNodes, req.NodeFilter)
+	nodes, allowedNodes, err := projectNodes(snapshot.Nodes, visitedNodes, req.NodeFilter, nodeSchema)
 	if err != nil {
-		return graph.Snapshot[contracttest.Meta]{}, err
+		return graph.Snapshot[contracttest.StructMeta]{}, err
 	}
 	if req.Page != nil {
 		nodes, allowedNodes = pageNodes(nodes, req.Page)
 	}
 
-	edges, err := projectEdges(snapshot.Edges, visitedEdges, allowedNodes, req.EdgeFilter)
+	edges, err := projectEdges(snapshot.Edges, visitedEdges, allowedNodes, req.EdgeFilter, edgeSchema)
 	if err != nil {
-		return graph.Snapshot[contracttest.Meta]{}, err
+		return graph.Snapshot[contracttest.StructMeta]{}, err
 	}
 
-	return graph.Snapshot[contracttest.Meta]{Nodes: nodes, Edges: edges}, nil
+	return graph.Snapshot[contracttest.StructMeta]{Nodes: nodes, Edges: edges}, nil
 }
 
-func traversesEdge(edge graph.Edge[contracttest.Meta], current string, direction graph.Direction) (bool, string) {
+func traversesEdge(edge graph.Edge[contracttest.StructMeta], current string, direction graph.Direction) (bool, string) {
 	switch direction {
 	case graph.DirectionOutbound:
 		return edge.SourceID == current, edge.TargetID
@@ -557,15 +404,18 @@ func traversesEdge(edge graph.Edge[contracttest.Meta], current string, direction
 	}
 }
 
-func indexNodes(nodes []graph.Node[contracttest.Meta]) map[string]graph.Node[contracttest.Meta] {
-	out := make(map[string]graph.Node[contracttest.Meta], len(nodes))
+func indexNodes(nodes []graph.Node[contracttest.StructMeta]) map[string]graph.Node[contracttest.StructMeta] {
+	out := make(map[string]graph.Node[contracttest.StructMeta], len(nodes))
 	for _, node := range nodes {
 		out[node.ID] = node
 	}
 	return out
 }
 
-func seedFrontier(nodesByID map[string]graph.Node[contracttest.Meta], seeds []string) (map[string]struct{}, []string) {
+func seedFrontier(
+	nodesByID map[string]graph.Node[contracttest.StructMeta],
+	seeds []string,
+) (map[string]struct{}, []string) {
 	visited := make(map[string]struct{}, len(seeds))
 	frontier := make([]string, 0, len(seeds))
 	for _, seed := range seeds {
@@ -582,16 +432,18 @@ func seedFrontier(nodesByID map[string]graph.Node[contracttest.Meta], seeds []st
 }
 
 func expandTraversal(
-	edges []graph.Edge[contracttest.Meta],
-	nodesByID map[string]graph.Node[contracttest.Meta],
+	edges []graph.Edge[contracttest.StructMeta],
+	nodesByID map[string]graph.Node[contracttest.StructMeta],
 	visitedNodes map[string]struct{},
 	frontier []string,
 	req graph.TraversalRequest,
+	edgeSchema filter.Schema,
 ) (map[string]struct{}, error) {
 	visitedEdges := make(map[string]struct{})
+	edgeCodec := retrieval.NewJSONCodec[contracttest.StructMeta](edgeSchema)
 	for level := 0; level < req.Depth && len(frontier) > 0; level++ {
 		var err error
-		frontier, err = expandLevel(edges, nodesByID, visitedNodes, visitedEdges, frontier, req)
+		frontier, err = expandLevel(edges, nodesByID, visitedNodes, visitedEdges, frontier, req, edgeCodec)
 		if err != nil {
 			return nil, err
 		}
@@ -600,12 +452,13 @@ func expandTraversal(
 }
 
 func expandLevel(
-	edges []graph.Edge[contracttest.Meta],
-	nodesByID map[string]graph.Node[contracttest.Meta],
+	edges []graph.Edge[contracttest.StructMeta],
+	nodesByID map[string]graph.Node[contracttest.StructMeta],
 	visitedNodes map[string]struct{},
 	visitedEdges map[string]struct{},
 	frontier []string,
 	req graph.TraversalRequest,
+	edgeCodec retrieval.MetadataCodec[contracttest.StructMeta],
 ) ([]string, error) {
 	nextFrontier := make([]string, 0)
 	nextSeen := make(map[string]struct{})
@@ -616,7 +469,7 @@ func expandLevel(
 				continue
 			}
 
-			matched, err := matchEdge(edge, req.EdgeFilter)
+			matched, err := matchGraphMeta(edge.Meta, req.EdgeFilter, edgeCodec)
 			if err != nil {
 				return nil, err
 			}
@@ -640,18 +493,20 @@ func expandLevel(
 }
 
 func projectNodes(
-	nodes []graph.Node[contracttest.Meta],
+	nodes []graph.Node[contracttest.StructMeta],
 	visited map[string]struct{},
 	cond filter.Condition,
-) ([]graph.Node[contracttest.Meta], map[string]struct{}, error) {
-	out := make([]graph.Node[contracttest.Meta], 0, len(visited))
+	schema filter.Schema,
+) ([]graph.Node[contracttest.StructMeta], map[string]struct{}, error) {
+	out := make([]graph.Node[contracttest.StructMeta], 0, len(visited))
 	allowed := make(map[string]struct{}, len(visited))
+	codec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
 	for _, node := range nodes {
 		if _, ok := visited[node.ID]; !ok {
 			continue
 		}
 
-		matched, err := matchNode(node, cond)
+		matched, err := matchGraphMeta(node.Meta, cond, codec)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -667,12 +522,12 @@ func projectNodes(
 }
 
 func pageNodes(
-	nodes []graph.Node[contracttest.Meta],
+	nodes []graph.Node[contracttest.StructMeta],
 	page *ragy.Page,
-) ([]graph.Node[contracttest.Meta], map[string]struct{}) {
+) ([]graph.Node[contracttest.StructMeta], map[string]struct{}) {
 	start := minInt(page.Offset, len(nodes))
 	end := minInt(start+page.Limit, len(nodes))
-	paged := append([]graph.Node[contracttest.Meta](nil), nodes[start:end]...)
+	paged := append([]graph.Node[contracttest.StructMeta](nil), nodes[start:end]...)
 	allowed := make(map[string]struct{}, len(paged))
 	for _, node := range paged {
 		allowed[node.ID] = struct{}{}
@@ -681,12 +536,14 @@ func pageNodes(
 }
 
 func projectEdges(
-	edges []graph.Edge[contracttest.Meta],
+	edges []graph.Edge[contracttest.StructMeta],
 	visited map[string]struct{},
 	allowedNodes map[string]struct{},
 	cond filter.Condition,
-) ([]graph.Edge[contracttest.Meta], error) {
-	out := make([]graph.Edge[contracttest.Meta], 0, len(visited))
+	schema filter.Schema,
+) ([]graph.Edge[contracttest.StructMeta], error) {
+	out := make([]graph.Edge[contracttest.StructMeta], 0, len(visited))
+	codec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
 	for _, edge := range edges {
 		if _, ok := visited[edge.ID]; !ok {
 			continue
@@ -698,7 +555,7 @@ func projectEdges(
 			continue
 		}
 
-		matched, err := matchEdge(edge, cond)
+		matched, err := matchGraphMeta(edge.Meta, cond, codec)
 		if err != nil {
 			return nil, err
 		}
@@ -710,338 +567,12 @@ func projectEdges(
 	return out, nil
 }
 
-func matchDocument(doc retrieval.Document[contracttest.Meta], cond filter.Condition) (bool, error) {
-	return matchFilter(cond.IR(), func(field string) (any, bool) {
-		value, ok := doc.Meta[field]
-		return value, ok
-	})
-}
-
-func matchNode(node graph.Node[contracttest.Meta], cond filter.Condition) (bool, error) {
-	return matchFilter(cond.IR(), func(field string) (any, bool) {
-		value, ok := node.Meta[field]
-		return value, ok
-	})
-}
-
-func matchEdge(edge graph.Edge[contracttest.Meta], cond filter.Condition) (bool, error) {
-	return matchFilter(cond.IR(), func(field string) (any, bool) {
-		value, ok := edge.Meta[field]
-		return value, ok
-	})
-}
-
-func matchFilter(expr filter.IR, lookup func(field string) (any, bool)) (bool, error) {
-	matcher := &filterMatcher{
-		lookup: lookup,
-		stack:  nil,
-		result: false,
-	}
-	if err := filter.Walk(expr, matcher); err != nil {
-		return false, err
-	}
-
-	return matcher.result, nil
-}
-
-type matchFrame struct {
-	op     string
-	values []bool
-}
-
-type filterMatcher struct {
-	lookup func(string) (any, bool)
-	stack  []matchFrame
-	result bool
-}
-
-func (m *filterMatcher) OnEmpty() error {
-	return m.push(true)
-}
-
-func (m *filterMatcher) OnEq(field string, value filter.Value) error {
-	matched, err := compareEqual(m.lookup, field, value)
-	if err != nil {
-		return err
-	}
-
-	return m.push(matched)
-}
-
-func (m *filterMatcher) OnNeq(field string, value filter.Value) error {
-	matched, err := compareEqual(m.lookup, field, value)
-	if err != nil {
-		return err
-	}
-
-	return m.push(!matched)
-}
-
-func (m *filterMatcher) OnGt(field string, value filter.Value) error {
-	return m.pushOrdered(field, value, func(cmp int) bool { return cmp > 0 })
-}
-
-func (m *filterMatcher) OnGte(field string, value filter.Value) error {
-	return m.pushOrdered(field, value, func(cmp int) bool { return cmp >= 0 })
-}
-
-func (m *filterMatcher) OnLt(field string, value filter.Value) error {
-	return m.pushOrdered(field, value, func(cmp int) bool { return cmp < 0 })
-}
-
-func (m *filterMatcher) OnLte(field string, value filter.Value) error {
-	return m.pushOrdered(field, value, func(cmp int) bool { return cmp <= 0 })
-}
-
-func (m *filterMatcher) OnIn(field string, values []filter.Value) error {
-	for _, value := range values {
-		matched, err := compareEqual(m.lookup, field, value)
-		if err != nil {
-			return err
-		}
-		if matched {
-			return m.push(true)
-		}
-	}
-
-	return m.push(false)
-}
-
-func (m *filterMatcher) EnterAnd(_ int) error {
-	m.stack = append(m.stack, matchFrame{op: "and", values: nil})
-	return nil
-}
-
-func (m *filterMatcher) LeaveAnd() error {
-	frame, err := m.popFrame("and")
-	if err != nil {
-		return err
-	}
-
-	result := true
-	for _, value := range frame.values {
-		if !value {
-			result = false
-			break
-		}
-	}
-
-	return m.push(result)
-}
-
-func (m *filterMatcher) EnterOr(_ int) error {
-	m.stack = append(m.stack, matchFrame{op: "or", values: nil})
-	return nil
-}
-
-func (m *filterMatcher) LeaveOr() error {
-	frame, err := m.popFrame("or")
-	if err != nil {
-		return err
-	}
-
-	result := false
-	for _, value := range frame.values {
-		if value {
-			result = true
-			break
-		}
-	}
-
-	return m.push(result)
-}
-
-func (m *filterMatcher) EnterNot() error {
-	m.stack = append(m.stack, matchFrame{op: "not", values: nil})
-	return nil
-}
-
-func (m *filterMatcher) LeaveNot() error {
-	frame, err := m.popFrame("not")
-	if err != nil {
-		return err
-	}
-	if len(frame.values) != 1 {
-		return fmt.Errorf("%w: NOT matcher arity", ragy.ErrUnsupported)
-	}
-
-	return m.push(!frame.values[0])
-}
-
-func (m *filterMatcher) pushOrdered(field string, value filter.Value, check func(int) bool) error {
-	matched, err := compareOrdered(m.lookup, field, value, check)
-	if err != nil {
-		return err
-	}
-
-	return m.push(matched)
-}
-
-func (m *filterMatcher) push(value bool) error {
-	if len(m.stack) == 0 {
-		m.result = value
-		return nil
-	}
-
-	last := len(m.stack) - 1
-	m.stack[last].values = append(m.stack[last].values, value)
-	return nil
-}
-
-func (m *filterMatcher) popFrame(op string) (matchFrame, error) {
-	if len(m.stack) == 0 {
-		return matchFrame{}, fmt.Errorf("%w: unmatched filter group", ragy.ErrUnsupported)
-	}
-
-	last := len(m.stack) - 1
-	frame := m.stack[last]
-	m.stack = m.stack[:last]
-	if frame.op != op {
-		return matchFrame{}, fmt.Errorf("%w: unexpected filter group %q", ragy.ErrUnsupported, frame.op)
-	}
-
-	return frame, nil
-}
-
-func compareEqual(lookup func(string) (any, bool), field string, expected filter.Value) (bool, error) {
-	actual, ok := lookup(field)
-	if !ok {
-		return false, nil
-	}
-
-	switch expected.Kind() {
-	case filter.KindString:
-		value, ok := actual.(string)
-		expectedValue, expectedOK := expected.Raw().(string)
-		if !expectedOK {
-			return false, fmt.Errorf("%w: invalid string filter value", ragy.ErrUnsupported)
-		}
-		return ok && value == expectedValue, nil
-	case filter.KindBool:
-		value, ok := actual.(bool)
-		expectedValue, expectedOK := expected.Raw().(bool)
-		if !expectedOK {
-			return false, fmt.Errorf("%w: invalid bool filter value", ragy.ErrUnsupported)
-		}
-		return ok && value == expectedValue, nil
-	case filter.KindInt:
-		value, ok := toInt64(actual)
-		expectedValue, expectedOK := expected.Raw().(int64)
-		if !expectedOK {
-			return false, fmt.Errorf("%w: invalid int filter value", ragy.ErrUnsupported)
-		}
-		return ok && value == expectedValue, nil
-	case filter.KindFloat:
-		value, ok := toFloat64(actual)
-		expectedValue, expectedOK := expected.Raw().(float64)
-		if !expectedOK {
-			return false, fmt.Errorf("%w: invalid float filter value", ragy.ErrUnsupported)
-		}
-		return ok && value == expectedValue, nil
-	default:
-		return false, fmt.Errorf("%w: unsupported filter kind %q", ragy.ErrUnsupported, expected.Kind())
-	}
-}
-
-func compareOrdered(
-	lookup func(string) (any, bool),
-	field string,
-	expected filter.Value,
-	check func(int) bool,
+func matchGraphMeta(
+	meta contracttest.StructMeta,
+	cond filter.Condition,
+	codec retrieval.MetadataCodec[contracttest.StructMeta],
 ) (bool, error) {
-	actual, ok := lookup(field)
-	if !ok {
-		return false, nil
-	}
-
-	switch expected.Kind() {
-	case filter.KindString:
-		return false, fmt.Errorf("%w: unsupported ordered filter kind %q", ragy.ErrUnsupported, expected.Kind())
-	case filter.KindInt:
-		value, ok := toInt64(actual)
-		if !ok {
-			return false, nil
-		}
-		expectedValue, expectedOK := expected.Raw().(int64)
-		if !expectedOK {
-			return false, fmt.Errorf("%w: invalid int filter value", ragy.ErrUnsupported)
-		}
-		return check(compareInts(value, expectedValue)), nil
-	case filter.KindFloat:
-		value, ok := toFloat64(actual)
-		if !ok {
-			return false, nil
-		}
-		expectedValue, expectedOK := expected.Raw().(float64)
-		if !expectedOK {
-			return false, fmt.Errorf("%w: invalid float filter value", ragy.ErrUnsupported)
-		}
-		return check(compareFloats(value, expectedValue)), nil
-	case filter.KindBool:
-		return false, fmt.Errorf("%w: unsupported ordered filter kind %q", ragy.ErrUnsupported, expected.Kind())
-	default:
-		return false, fmt.Errorf("%w: unsupported ordered filter kind %q", ragy.ErrUnsupported, expected.Kind())
-	}
-}
-
-func toInt64(value any) (int64, bool) {
-	switch v := value.(type) {
-	case int:
-		return int64(v), true
-	case int8:
-		return int64(v), true
-	case int16:
-		return int64(v), true
-	case int32:
-		return int64(v), true
-	case int64:
-		return v, true
-	default:
-		return 0, false
-	}
-}
-
-func toFloat64(value any) (float64, bool) {
-	switch v := value.(type) {
-	case int:
-		return float64(v), true
-	case int8:
-		return float64(v), true
-	case int16:
-		return float64(v), true
-	case int32:
-		return float64(v), true
-	case int64:
-		return float64(v), true
-	case float32:
-		return float64(v), true
-	case float64:
-		return v, true
-	default:
-		return 0, false
-	}
-}
-
-func compareInts(left, right int64) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	default:
-		return 0
-	}
-}
-
-func compareFloats(left, right float64) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	default:
-		return 0
-	}
+	return retrieval.MatchDocument(codec, retrieval.Document[contracttest.StructMeta]{Meta: meta}, cond)
 }
 
 func minInt(left, right int) int {
@@ -1052,11 +583,11 @@ func minInt(left, right int) int {
 }
 
 var (
-	_ dense.Embedder                               = (*DenseEmbedder)(nil)
-	_ dense.Index[contracttest.Meta]               = (*DenseIndex)(nil)
-	_ retrieval.Backend[contracttest.Meta]         = (*RetrievalBackend)(nil)
-	_ tensor.Index[contracttest.Meta]              = (*TensorIndex)(nil)
-	_ documents.Store[contracttest.Meta]           = (*DocumentStore)(nil)
-	_ graph.Store[contracttest.Meta]               = (*GraphStore)(nil)
-	_ chunking.ContextGenerator[contracttest.Meta] = (*ContextGenerator)(nil)
+	_ dense.Embedder                                     = (*DenseEmbedder)(nil)
+	_ dense.Index[contracttest.StructMeta]               = (*DenseIndex)(nil)
+	_ retrieval.Backend[contracttest.StructMeta]         = (*StructRetrievalBackend)(nil)
+	_ tensor.Index[contracttest.StructMeta]              = (*TensorIndex)(nil)
+	_ documents.Store[contracttest.StructMeta]           = (*StructDocumentStore)(nil)
+	_ graph.Store[contracttest.StructMeta]               = (*GraphStore)(nil)
+	_ chunking.ContextGenerator[contracttest.StructMeta] = (*ContextGenerator)(nil)
 )

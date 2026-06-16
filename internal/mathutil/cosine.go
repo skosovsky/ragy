@@ -1,10 +1,8 @@
-// Package mathutil provides math utilities for ragy (cosine similarity, document deduplication).
+// Package mathutil provides math utilities for ragy (cosine similarity).
 package mathutil
 
 import (
 	"math"
-
-	"github.com/skosovsky/ragy/retrieval"
 )
 
 // CosineSimilarity returns the cosine similarity between two vectors:
@@ -27,23 +25,4 @@ func CosineSimilarity(a, b []float32) float32 {
 		return 0
 	}
 	return dot / denom
-}
-
-// DeduplicateDocuments returns a slice of documents with duplicate IDs removed.
-// The first occurrence of each ID is kept; order is preserved.
-// Returns nil for nil or empty input.
-func DeduplicateDocuments[TMeta any](docs []retrieval.Document[TMeta]) []retrieval.Document[TMeta] {
-	if len(docs) == 0 {
-		return nil
-	}
-	seen := make(map[string]struct{}, len(docs))
-	out := make([]retrieval.Document[TMeta], 0, len(docs))
-	for _, d := range docs {
-		if _, ok := seen[d.ID]; ok {
-			continue
-		}
-		seen[d.ID] = struct{}{}
-		out = append(out, d)
-	}
-	return out
 }

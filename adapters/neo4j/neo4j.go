@@ -26,14 +26,20 @@ type Runner[TMeta any] interface {
 	Upsert(ctx context.Context, snapshot graph.Snapshot[TMeta]) error
 }
 
+// Config configures the store.
+type Config[TMeta any] struct {
+	Resolver retrieval.IdentityResolver[TMeta]
+}
+
 // Store is a Neo4j retrieval backend and graph store.
 type Store[TMeta any] struct {
-	runner Runner[TMeta]
-	schema graph.Schema
+	runner   Runner[TMeta]
+	schema   graph.Schema
+	resolver retrieval.IdentityResolver[TMeta]
 }
 
 // New constructs a store.
-func New[TMeta any](runner Runner[TMeta], schema graph.Schema) (*Store[TMeta], error) {
+func New[TMeta any](runner Runner[TMeta], schema graph.Schema, cfg Config[TMeta]) (*Store[TMeta], error) {
 	if runner == nil {
 		return nil, fmt.Errorf("%w: neo4j runner", ragy.ErrInvalidArgument)
 	}
@@ -41,7 +47,11 @@ func New[TMeta any](runner Runner[TMeta], schema graph.Schema) (*Store[TMeta], e
 		return nil, err
 	}
 
-	return &Store[TMeta]{runner: runner, schema: schema}, nil
+	return &Store[TMeta]{
+		runner:   runner,
+		schema:   schema,
+		resolver: retrieval.DefaultResolver(cfg.Resolver),
+	}, nil
 }
 
 // Retrieve implements retrieval.Backend by traversing the graph and projecting nodes to documents.
@@ -49,15 +59,27 @@ func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
 	_ string,
 	opts retrieval.RetrieveOptions,
-) ([]retrieval.Document[TMeta], error) {
+) (retrieval.ResultSet[TMeta], error) {
 	if err := opts.Validate(); err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 	if opts.Graph == nil {
-		return nil, fmt.Errorf("%w: neo4j retrieve requires graph options", ragy.ErrInvalidArgument)
+		return retrieval.NewResultSet[TMeta](nil, s.resolver),
+			fmt.Errorf("%w: neo4j retrieve requires graph options", ragy.ErrInvalidArgument)
 	}
 
-	snapshot, err := s.Traverse(ctx, graph.TraversalRequest{
+	if err := s.schema.ValidateTraversal(graph.TraversalRequest{
+		Seeds:      opts.Graph.Seeds,
+		Direction:  opts.Graph.Direction,
+		Depth:      opts.Graph.Depth,
+		NodeFilter: opts.Graph.NodeFilter,
+		EdgeFilter: opts.Graph.EdgeFilter,
+		Page:       opts.Graph.Page,
+	}); err != nil {
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
+	}
+
+	snapshot, err := s.runner.Traverse(ctx, Query{
 		Seeds:      append([]string(nil), opts.Graph.Seeds...),
 		Direction:  opts.Graph.Direction,
 		Depth:      opts.Graph.Depth,
@@ -66,11 +88,12 @@ func (s *Store[TMeta]) Retrieve(
 		Page:       opts.Graph.Page,
 	})
 	if err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver),
+			ragy.WrapBackendError(err, "neo4j traverse")
 	}
 
 	if len(snapshot.Nodes) == 0 {
-		return nil, nil
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), nil
 	}
 
 	docs := make([]retrieval.Document[TMeta], 0, len(snapshot.Nodes))
@@ -82,17 +105,23 @@ func (s *Store[TMeta]) Retrieve(
 			Meta:    node.Meta,
 		}
 		if err := retrieval.ValidateDocument(doc); err != nil {
-			return nil, err
+			rs := retrieval.NewResultSet(docs, s.resolver)
+			return retrieval.PreserveResultOnError(
+				rs,
+				ragy.WrapProjectionError(err, "neo4j validate"),
+				s.resolver,
+			)
 		}
 		docs = append(docs, doc)
 	}
 
 	limit := opts.BackendFetchLimit()
+	// BackendFetchLimit truncates by traversal order; scores are not ranked for graph nodes.
 	if limit > 0 && len(docs) > limit {
 		docs = docs[:limit]
 	}
 
-	return docs, nil
+	return retrieval.NewResultSet(docs, s.resolver), nil
 }
 
 // Traverse implements graph.Store.
@@ -110,7 +139,7 @@ func (s *Store[TMeta]) Traverse(ctx context.Context, req graph.TraversalRequest)
 		Page:       req.Page,
 	})
 	if err != nil {
-		return graph.Snapshot[TMeta]{}, err
+		return graph.Snapshot[TMeta]{}, ragy.WrapBackendError(err, "neo4j traverse")
 	}
 	return graph.NormalizeSnapshot(s.schema, snapshot)
 }
@@ -121,7 +150,10 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, snapshot graph.Snapshot[TMeta
 	if err != nil {
 		return err
 	}
-	return s.runner.Upsert(ctx, normalized)
+	if err := s.runner.Upsert(ctx, normalized); err != nil {
+		return ragy.WrapBackendError(err, "neo4j upsert")
+	}
+	return nil
 }
 
 // Schema returns the finalized graph schema used by the store.

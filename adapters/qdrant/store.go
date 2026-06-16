@@ -2,7 +2,6 @@ package qdrant
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 
@@ -92,9 +91,10 @@ type Client interface {
 }
 
 // Config configures the store.
-type Config struct {
+type Config[TMeta any] struct {
 	Collection string
 	Schema     filter.Schema
+	Resolver   retrieval.IdentityResolver[TMeta]
 }
 
 // Store is a dense qdrant-backed store.
@@ -102,12 +102,17 @@ type Store[TMeta any] struct {
 	client     Client
 	collection string
 	schema     filter.Schema
+	codec      retrieval.MetadataCodec[TMeta]
+	resolver   retrieval.IdentityResolver[TMeta]
 }
 
 // New constructs a store.
-func New[TMeta any](client Client, cfg Config) (*Store[TMeta], error) {
+func New[TMeta any](client Client, cfg Config[TMeta], codec retrieval.MetadataCodec[TMeta]) (*Store[TMeta], error) {
 	if client == nil {
 		return nil, fmt.Errorf("%w: qdrant client", ragy.ErrInvalidArgument)
+	}
+	if codec == nil {
+		return nil, fmt.Errorf("%w: metadata codec", ragy.ErrInvalidArgument)
 	}
 
 	if err := filter.ValidateCollectionName(cfg.Collection); err != nil {
@@ -117,7 +122,13 @@ func New[TMeta any](client Client, cfg Config) (*Store[TMeta], error) {
 		return nil, fmt.Errorf("%w: qdrant schema", ragy.ErrInvalidArgument)
 	}
 
-	return &Store[TMeta]{client: client, collection: cfg.Collection, schema: cfg.Schema}, nil
+	return &Store[TMeta]{
+		client:     client,
+		collection: cfg.Collection,
+		schema:     cfg.Schema,
+		codec:      codec,
+		resolver:   retrieval.DefaultResolver(cfg.Resolver),
+	}, nil
 }
 
 // Retrieve implements retrieval.Backend.
@@ -125,41 +136,44 @@ func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
 	_ string,
 	opts retrieval.RetrieveOptions,
-) ([]retrieval.Document[TMeta], error) {
+) (retrieval.ResultSet[TMeta], error) {
 	if err := opts.Validate(); err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 	if len(opts.Vector) == 0 {
-		return nil, fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
+		return retrieval.NewResultSet[TMeta](nil, s.resolver),
+			fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
 	}
 	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 
 	cond, err := renderFilter(opts.Filters.IR())
 	if err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 
 	points, err := s.client.Search(ctx, s.collection, opts.Vector, cond, opts.BackendFetchLimit())
 	if err != nil {
-		return nil, ragy.WrapBackendError(err, "qdrant search")
+		return retrieval.NewResultSet[TMeta](nil, s.resolver),
+			ragy.WrapBackendError(err, "qdrant search")
 	}
 
 	if len(points) == 0 {
-		return nil, nil
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), nil
 	}
 
 	docs := make([]retrieval.Document[TMeta], 0, len(points))
 	for _, point := range points {
 		doc, err := s.projectPoint(point, logistic(point.Score))
 		if err != nil {
-			return nil, err
+			rs := retrieval.NewResultSet(docs, s.resolver)
+			return retrieval.PreserveResultOnError(rs, err, s.resolver)
 		}
 		docs = append(docs, doc)
 	}
 
-	return docs, nil
+	return retrieval.NewResultSet(docs, s.resolver), nil
 }
 
 // Upsert implements dense.Index.
@@ -173,7 +187,7 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]
 		if err := record.Validate(); err != nil {
 			return err
 		}
-		attrs, err := dense.NormalizeRecordMeta(s.schema, record.Meta)
+		attrs, err := s.codec.Encode(record.Meta)
 		if err != nil {
 			return err
 		}
@@ -209,7 +223,7 @@ func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval
 	for _, point := range points {
 		doc, err := s.projectPoint(point, 0)
 		if err != nil {
-			return nil, err
+			return docs, err
 		}
 		docs = append(docs, doc)
 	}
@@ -262,12 +276,12 @@ func (s *Store[TMeta]) Schema() filter.Schema {
 func (s *Store[TMeta]) projectPoint(point Point, relevance float64) (retrieval.Document[TMeta], error) {
 	normalized, err := s.schema.NormalizeAttributes(point.Attributes)
 	if err != nil {
-		return retrieval.Document[TMeta]{}, err
+		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "qdrant normalize")
 	}
 
-	meta, err := decodeMeta[TMeta](normalized)
+	meta, err := s.codec.Decode(normalized)
 	if err != nil {
-		return retrieval.Document[TMeta]{}, err
+		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "qdrant decode")
 	}
 
 	doc := retrieval.Document[TMeta]{
@@ -277,24 +291,9 @@ func (s *Store[TMeta]) projectPoint(point Point, relevance float64) (retrieval.D
 		Meta:    meta,
 	}
 	if err := retrieval.ValidateDocument(doc); err != nil {
-		return retrieval.Document[TMeta]{}, err
+		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "qdrant validate")
 	}
 	return doc, nil
-}
-
-func decodeMeta[TMeta any](attrs filter.RawAttributes) (TMeta, error) {
-	var meta TMeta
-	if len(attrs) == 0 {
-		return meta, nil
-	}
-	data, err := json.Marshal(attrs)
-	if err != nil {
-		return meta, err
-	}
-	if err := json.Unmarshal(data, &meta); err != nil {
-		return meta, err
-	}
-	return meta, nil
 }
 
 func renderFilter(expr filter.IR) (Condition, error) {

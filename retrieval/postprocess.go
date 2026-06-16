@@ -33,22 +33,42 @@ func DefaultMergeStrategy[TMeta any]() MergeStrategy[TMeta] {
 
 		merged := best
 		merged.Content = strings.Join(parts, "\n\n")
-		return merged, ValidateDocument(merged)
+		return merged, ragy.WrapProjectionError(ValidateDocument(merged), "merge strategy validate")
 	}
+}
+
+type invalidPostProcessor[TMeta any] struct {
+	err      error
+	resolver IdentityResolver[TMeta]
+}
+
+func invalidPostProcessorFor[TMeta any](err error) PostProcessor[TMeta] {
+	return invalidPostProcessor[TMeta]{
+		err:      err,
+		resolver: DocumentIDResolver[TMeta]{},
+	}
+}
+
+func (p invalidPostProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+	return preserveResultOnError(rs, p.err, p.resolver)
 }
 
 type groupByProcessor[TMeta any] struct {
 	keySelector   func(TMeta) string
 	mergeStrategy MergeStrategy[TMeta]
+	resolver      IdentityResolver[TMeta]
 }
 
-// GroupBy groups documents by a meta-derived key and merges each group.
+// GroupBy groups documents by a business field from Meta and merges each group.
+// For identity-based deduplication use ResultSet.Merge or ResultSet.Dedup with IdentityResolver.
 func GroupBy[TMeta any](
 	keySelector func(TMeta) string,
 	mergeStrategy MergeStrategy[TMeta],
 ) PostProcessor[TMeta] {
 	if keySelector == nil {
-		panic("retrieval.GroupBy: keySelector must not be nil")
+		return invalidPostProcessorFor[TMeta](
+			fmt.Errorf("%w: group by key selector", ragy.ErrInvalidArgument),
+		)
 	}
 	if mergeStrategy == nil {
 		mergeStrategy = DefaultMergeStrategy[TMeta]()
@@ -56,29 +76,39 @@ func GroupBy[TMeta any](
 	return groupByProcessor[TMeta]{
 		keySelector:   keySelector,
 		mergeStrategy: mergeStrategy,
+		resolver:      DocumentIDResolver[TMeta]{},
 	}
 }
 
-func (p groupByProcessor[TMeta]) Process(docs []Document[TMeta]) ([]Document[TMeta], error) {
-	if len(docs) == 0 {
-		return nil, nil
+func (p groupByProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+	if rs == nil || rs.IsEmpty() {
+		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
+	if err := validateResultSet(rs); err != nil {
+		return preserveResultOnError(rs, err, p.resolver)
+	}
+	docs := rs.Documents()
 
 	groups := make(map[string][]Document[TMeta])
-	order := make([]string, 0)
 	for _, doc := range docs {
 		key := p.keySelector(doc.Meta)
-		if _, ok := groups[key]; !ok {
-			order = append(order, key)
+		if key == "" {
+			return preserveResultOnError(rs, fmt.Errorf("%w: empty group key", ragy.ErrInvalidArgument), p.resolver)
 		}
 		groups[key] = append(groups[key], doc)
 	}
 
-	out := make([]Document[TMeta], 0, len(order))
-	for _, key := range order {
+	groupKeys := make([]string, 0, len(groups))
+	for key := range groups {
+		groupKeys = append(groupKeys, key)
+	}
+	sort.Strings(groupKeys)
+
+	out := make([]Document[TMeta], 0, len(groupKeys))
+	for _, key := range groupKeys {
 		merged, err := p.mergeStrategy(groups[key])
 		if err != nil {
-			return nil, err
+			return preserveResultOnError(NewResultSet(out, p.resolver), err, p.resolver)
 		}
 		out = append(out, merged)
 	}
@@ -86,38 +116,62 @@ func (p groupByProcessor[TMeta]) Process(docs []Document[TMeta]) ([]Document[TMe
 	sort.SliceStable(out, func(i, j int) bool {
 		return out[i].Score > out[j].Score
 	})
-	return out, nil
+	return NewResultSet(out, p.resolver), nil
 }
 
 type topPerGroupProcessor[TMeta any] struct {
 	keySelector func(TMeta) string
 	limit       int
+	resolver    IdentityResolver[TMeta]
 }
 
-// TopPerGroup keeps at most limit highest-scoring documents per group key.
+// TopPerGroup keeps at most limit highest-scoring documents per business group from Meta.
+// For identity-based deduplication use ResultSet.Merge or ResultSet.Dedup with IdentityResolver.
 func TopPerGroup[TMeta any](keySelector func(TMeta) string, limit int) PostProcessor[TMeta] {
 	if keySelector == nil {
-		panic("retrieval.TopPerGroup: keySelector must not be nil")
+		return invalidPostProcessorFor[TMeta](
+			fmt.Errorf("%w: top per group key selector", ragy.ErrInvalidArgument),
+		)
 	}
 	if limit <= 0 {
-		panic("retrieval.TopPerGroup: limit must be > 0")
+		return invalidPostProcessorFor[TMeta](
+			fmt.Errorf("%w: top per group limit must be > 0", ragy.ErrInvalidArgument),
+		)
 	}
-	return topPerGroupProcessor[TMeta]{keySelector: keySelector, limit: limit}
+	return topPerGroupProcessor[TMeta]{
+		keySelector: keySelector,
+		limit:       limit,
+		resolver:    DocumentIDResolver[TMeta]{},
+	}
 }
 
-func (p topPerGroupProcessor[TMeta]) Process(docs []Document[TMeta]) ([]Document[TMeta], error) {
-	if len(docs) == 0 {
-		return nil, nil
+func (p topPerGroupProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+	if rs == nil || rs.IsEmpty() {
+		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
+	if err := validateResultSet(rs); err != nil {
+		return preserveResultOnError(rs, err, p.resolver)
+	}
+	docs := rs.Documents()
 
 	groups := make(map[string][]Document[TMeta])
 	for _, doc := range docs {
 		key := p.keySelector(doc.Meta)
+		if key == "" {
+			return preserveResultOnError(rs, fmt.Errorf("%w: empty group key", ragy.ErrInvalidArgument), p.resolver)
+		}
 		groups[key] = append(groups[key], doc)
 	}
 
+	groupKeys := make([]string, 0, len(groups))
+	for key := range groups {
+		groupKeys = append(groupKeys, key)
+	}
+	sort.Strings(groupKeys)
+
 	out := make([]Document[TMeta], 0, len(docs))
-	for _, group := range groups {
+	for _, key := range groupKeys {
+		group := groups[key]
 		sort.SliceStable(group, func(i, j int) bool {
 			return group[i].Score > group[j].Score
 		})
@@ -130,27 +184,34 @@ func (p topPerGroupProcessor[TMeta]) Process(docs []Document[TMeta]) ([]Document
 	sort.SliceStable(out, func(i, j int) bool {
 		return out[i].Score > out[j].Score
 	})
-	return out, nil
+	return NewResultSet(out, p.resolver), nil
 }
 
 type rerankProcessor[TMeta any] struct {
-	less func(a, b Document[TMeta]) bool
+	less     func(a, b Document[TMeta]) bool
+	resolver IdentityResolver[TMeta]
 }
 
 // Rerank sorts documents with a caller-provided ordering function.
 func Rerank[TMeta any](less func(a, b Document[TMeta]) bool) PostProcessor[TMeta] {
 	if less == nil {
-		panic("retrieval.Rerank: less must not be nil")
+		return invalidPostProcessorFor[TMeta](
+			fmt.Errorf("%w: rerank less function", ragy.ErrInvalidArgument),
+		)
 	}
-	return rerankProcessor[TMeta]{less: less}
+	return rerankProcessor[TMeta]{less: less, resolver: DocumentIDResolver[TMeta]{}}
 }
 
-func (p rerankProcessor[TMeta]) Process(docs []Document[TMeta]) ([]Document[TMeta], error) {
-	if len(docs) == 0 {
-		return nil, nil
+func (p rerankProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+	if rs == nil || rs.IsEmpty() {
+		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
+	if err := validateResultSet(rs); err != nil {
+		return preserveResultOnError(rs, err, p.resolver)
+	}
+	docs := rs.Documents()
 	sort.SliceStable(docs, func(i, j int) bool {
 		return p.less(docs[i], docs[j])
 	})
-	return docs, nil
+	return NewResultSet(docs, p.resolver), nil
 }

@@ -11,22 +11,22 @@ import (
 	"github.com/skosovsky/ragy/graph"
 )
 
-type GraphStoreFactory func(t *testing.T, snapshot graph.Snapshot[Meta], schema graph.Schema) graph.Store[Meta]
+type GraphStoreFactory func(t *testing.T, snapshot graph.Snapshot[StructMeta], schema graph.Schema) graph.Store[StructMeta]
 
 // RunGraphStoreSuite checks common graph.Store traversal semantics.
 func RunGraphStoreSuite(t *testing.T, factory GraphStoreFactory) {
 	t.Helper()
 
-	base := graph.Snapshot[Meta]{
-		Nodes: []graph.Node[Meta]{
-			{ID: "n1", Labels: []string{"Doc"}, Content: "", Meta: Meta{"tenant": tenantAcme}},
-			{ID: "n2", Labels: []string{"Doc"}, Content: "", Meta: Meta{"tenant": tenantAcme}},
-			{ID: "n3", Labels: []string{"Doc"}, Content: "", Meta: Meta{"tenant": "globex"}},
+	base := graph.Snapshot[StructMeta]{
+		Nodes: []graph.Node[StructMeta]{
+			{ID: "n1", Labels: []string{"Doc"}, Content: "", Meta: StructMeta{Tenant: tenantAcme}},
+			{ID: "n2", Labels: []string{"Doc"}, Content: "", Meta: StructMeta{Tenant: tenantAcme}},
+			{ID: "n3", Labels: []string{"Doc"}, Content: "", Meta: StructMeta{Tenant: "globex"}},
 		},
-		Edges: []graph.Edge[Meta]{
-			{ID: "e12", SourceID: "n1", TargetID: "n2", Type: "LINKS", Meta: Meta{"kind": "keep"}},
-			{ID: "e23", SourceID: "n2", TargetID: "n3", Type: "LINKS", Meta: Meta{"kind": "drop"}},
-			{ID: "e31", SourceID: "n3", TargetID: "n1", Type: "LINKS", Meta: Meta{"kind": "keep"}},
+		Edges: []graph.Edge[StructMeta]{
+			{ID: "e12", SourceID: "n1", TargetID: "n2", Type: "LINKS", Meta: StructMeta{Kind: "keep"}},
+			{ID: "e23", SourceID: "n2", TargetID: "n3", Type: "LINKS", Meta: StructMeta{Kind: "drop"}},
+			{ID: "e31", SourceID: "n3", TargetID: "n1", Type: "LINKS", Meta: StructMeta{Kind: "keep"}},
 		},
 	}
 
@@ -98,7 +98,12 @@ func buildGraphSchema(t *testing.T) graph.Schema {
 	return schema
 }
 
-func testDirectionAndDepth(t *testing.T, factory GraphStoreFactory, base graph.Snapshot[Meta], schema graph.Schema) {
+func testDirectionAndDepth(
+	t *testing.T,
+	factory GraphStoreFactory,
+	base graph.Snapshot[StructMeta],
+	schema graph.Schema,
+) {
 	t.Helper()
 
 	store := factory(t, base, schema)
@@ -144,7 +149,7 @@ func testDirectionAndDepth(t *testing.T, factory GraphStoreFactory, base graph.S
 func testNodeAndEdgeFilters(
 	t *testing.T,
 	factory GraphStoreFactory,
-	base graph.Snapshot[Meta],
+	base graph.Snapshot[StructMeta],
 	schema graph.Schema,
 ) {
 	t.Helper()
@@ -198,7 +203,7 @@ func testNodeAndEdgeFilters(
 func testPageTrimsNodesAndEdges(
 	t *testing.T,
 	factory GraphStoreFactory,
-	base graph.Snapshot[Meta],
+	base graph.Snapshot[StructMeta],
 	schema graph.Schema,
 ) {
 	t.Helper()
@@ -232,13 +237,13 @@ func testPageTrimsNodesAndEdges(
 func testInvalidTraverseOutputRejects(t *testing.T, factory GraphStoreFactory, schema graph.Schema) {
 	t.Helper()
 
-	store := factory(t, graph.Snapshot[Meta]{
-		Nodes: []graph.Node[Meta]{{
+	store := factory(t, graph.Snapshot[StructMeta]{
+		Nodes: []graph.Node[StructMeta]{{
 			ID:      "n1",
 			Labels:  []string{"Doc"},
 			Content: "",
 		}},
-		Edges: []graph.Edge[Meta]{{
+		Edges: []graph.Edge[StructMeta]{{
 			ID:       "e1",
 			SourceID: "n1",
 			TargetID: "missing",
@@ -254,45 +259,45 @@ func testInvalidTraverseOutputRejects(t *testing.T, factory GraphStoreFactory, s
 		EdgeFilter: emptyFilter(t, schema.EdgeAttributes),
 		Page:       nil,
 	})
-	if err == nil {
-		t.Fatal("Traverse() error = nil, want invalid snapshot error")
+	if !errors.Is(err, ragy.ErrInvalidGraph) {
+		t.Fatalf("Traverse() error = %v, want invalid graph", err)
 	}
 }
 
 func testInvalidUpsertSnapshotRejects(t *testing.T, factory GraphStoreFactory, schema graph.Schema) {
 	t.Helper()
 
-	store := factory(t, graph.Snapshot[Meta]{
+	store := factory(t, graph.Snapshot[StructMeta]{
 		Nodes: nil,
 		Edges: nil,
 	}, schema)
-	err := store.Upsert(context.Background(), graph.Snapshot[Meta]{
-		Nodes: []graph.Node[Meta]{{
+	err := store.Upsert(context.Background(), graph.Snapshot[StructMeta]{
+		Nodes: []graph.Node[StructMeta]{{
 			ID:      "n1",
 			Labels:  []string{"Doc"},
 			Content: "",
 		}},
-		Edges: []graph.Edge[Meta]{{
+		Edges: []graph.Edge[StructMeta]{{
 			ID:       "e1",
 			SourceID: "n1",
 			TargetID: "missing",
 			Type:     "LINKS",
 		}},
 	})
-	if err == nil {
-		t.Fatal("Upsert() error = nil, want invalid snapshot error")
+	if !errors.Is(err, ragy.ErrInvalidGraph) {
+		t.Fatalf("Upsert() error = %v, want invalid graph", err)
 	}
 }
 
 func testSchemaInvalidTraverseOutputRejects(t *testing.T, factory GraphStoreFactory, schema graph.Schema) {
 	t.Helper()
 
-	store := factory(t, graph.Snapshot[Meta]{
-		Nodes: []graph.Node[Meta]{{
+	store := factory(t, graph.Snapshot[StructMeta]{
+		Nodes: []graph.Node[StructMeta]{{
 			ID:      "n1",
-			Labels:  []string{"Doc"},
+			Labels:  []string{"bad-label"},
 			Content: "",
-			Meta:    Meta{"tenant": 1},
+			Meta:    StructMeta{Tenant: tenantAcme},
 		}},
 		Edges: nil,
 	}, schema)
@@ -305,38 +310,38 @@ func testSchemaInvalidTraverseOutputRejects(t *testing.T, factory GraphStoreFact
 		EdgeFilter: emptyFilter(t, schema.EdgeAttributes),
 		Page:       nil,
 	})
-	if err == nil {
-		t.Fatal("Traverse() error = nil, want schema-invalid snapshot error")
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Traverse() error = %v, want invalid argument", err)
 	}
 }
 
 func testSchemaInvalidUpsertSnapshotRejects(t *testing.T, factory GraphStoreFactory, schema graph.Schema) {
 	t.Helper()
 
-	store := factory(t, graph.Snapshot[Meta]{Nodes: nil, Edges: nil}, schema)
+	store := factory(t, graph.Snapshot[StructMeta]{Nodes: nil, Edges: nil}, schema)
 
-	err := store.Upsert(context.Background(), graph.Snapshot[Meta]{
-		Nodes: []graph.Node[Meta]{
+	err := store.Upsert(context.Background(), graph.Snapshot[StructMeta]{
+		Nodes: []graph.Node[StructMeta]{
 			{ID: "n1", Labels: []string{"Doc"}, Content: ""},
 			{ID: "n2", Labels: []string{"Doc"}, Content: ""},
 		},
-		Edges: []graph.Edge[Meta]{{
+		Edges: []graph.Edge[StructMeta]{{
 			ID:       "e1",
 			SourceID: "n1",
 			TargetID: "n2",
-			Type:     "LINKS",
-			Meta:     Meta{"kind": true},
+			Type:     "bad-type",
+			Meta:     StructMeta{Kind: "keep"},
 		}},
 	})
-	if err == nil {
-		t.Fatal("Upsert() error = nil, want schema-invalid snapshot error")
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Upsert() error = %v, want invalid argument", err)
 	}
 }
 
 func testUndeclaredGraphFilterRejects(
 	t *testing.T,
 	factory GraphStoreFactory,
-	base graph.Snapshot[Meta],
+	base graph.Snapshot[StructMeta],
 	schema graph.Schema,
 ) {
 	t.Helper()
@@ -351,7 +356,7 @@ func testUndeclaredGraphFilterRejects(
 func testWrongGraphFilterKindRejects(
 	t *testing.T,
 	factory GraphStoreFactory,
-	base graph.Snapshot[Meta],
+	base graph.Snapshot[StructMeta],
 	schema graph.Schema,
 ) {
 	t.Helper()
@@ -377,7 +382,7 @@ func emptyFilter(t *testing.T, schema filter.Schema) filter.Condition {
 	return cond
 }
 
-func idsOfNodes(nodes []graph.Node[Meta]) []string {
+func idsOfNodes(nodes []graph.Node[StructMeta]) []string {
 	out := make([]string, len(nodes))
 	for i, node := range nodes {
 		out[i] = node.ID
@@ -385,7 +390,7 @@ func idsOfNodes(nodes []graph.Node[Meta]) []string {
 	return out
 }
 
-func idsOfEdges(edges []graph.Edge[Meta]) []string {
+func idsOfEdges(edges []graph.Edge[StructMeta]) []string {
 	out := make([]string, len(edges))
 	for i, edge := range edges {
 		out[i] = edge.ID

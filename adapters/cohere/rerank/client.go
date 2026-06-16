@@ -81,38 +81,42 @@ type rerankResponse struct {
 	} `json:"results"`
 }
 
-// Rerank implements ranking.QueryReranker.
-func (c *Client[TMeta]) Rerank(
-	ctx context.Context,
-	query string,
-	docs []retrieval.Document[TMeta],
-) ([]retrieval.Document[TMeta], error) {
-	if strings.TrimSpace(query) == "" {
-		return nil, fmt.Errorf("%w: rerank query", ragy.ErrEmptyText)
+func emptyResultSet[TMeta any](resolver retrieval.IdentityResolver[TMeta]) retrieval.ResultSet[TMeta] {
+	if resolver == nil {
+		resolver = retrieval.DocumentIDResolver[TMeta]{}
 	}
+	return retrieval.NewResultSet[TMeta](nil, resolver)
+}
 
-	if len(docs) == 0 {
-		return nil, nil
-	}
-
+func (c *Client[TMeta]) prepareRerankPayload(
+	rs retrieval.ResultSet[TMeta],
+) ([]retrieval.Document[TMeta], []string, error) {
+	docs := rs.Documents()
 	payloadDocs := make([]string, 0, len(docs))
-	normalizedDocs := make([]retrieval.Document[TMeta], len(docs))
-	for i, doc := range docs {
+	normalizedDocs := make([]retrieval.Document[TMeta], 0, len(docs))
+	for _, doc := range docs {
 		if err := retrieval.ValidateDocument(doc); err != nil {
-			return nil, err
+			return normalizedDocs, payloadDocs, ragy.WrapProjectionError(err, "rerank validate")
 		}
-		normalizedDocs[i] = doc
+		normalizedDocs = append(normalizedDocs, doc)
 		payloadDocs = append(payloadDocs, doc.Content)
 	}
+	return normalizedDocs, payloadDocs, nil
+}
 
+func (c *Client[TMeta]) postRerank(
+	ctx context.Context,
+	query string,
+	payloadDocs []string,
+) (rerankResponse, error) {
 	body, err := json.Marshal(rerankRequest{Model: c.model, Query: query, Documents: payloadDocs})
 	if err != nil {
-		return nil, err
+		return rerankResponse{}, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/rerank", bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		return rerankResponse{}, err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
@@ -120,13 +124,13 @@ func (c *Client[TMeta]) Rerank(
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, ragy.WrapTransportError(err)
+		return rerankResponse{}, ragy.WrapTransportError(err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		payload, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
-		return nil, ragy.ErrorFromHTTPResponse(
+		return rerankResponse{}, ragy.ErrorFromHTTPResponse(
 			resp.StatusCode,
 			"cohere rerank",
 			strings.TrimSpace(string(payload)),
@@ -135,17 +139,27 @@ func (c *Client[TMeta]) Rerank(
 
 	var decoded rerankResponse
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		return nil, fmt.Errorf("%w: cohere rerank decode: %w", ragy.ErrProtocol, err)
+		return rerankResponse{}, fmt.Errorf(
+			"%w: cohere rerank decode: %w",
+			ragy.ErrProtocol,
+			err,
+		)
 	}
+	return decoded, nil
+}
 
-	if len(decoded.Results) != len(docs) {
+func applyRerankResults[TMeta any](
+	normalizedDocs []retrieval.Document[TMeta],
+	decoded rerankResponse,
+) ([]retrieval.Document[TMeta], error) {
+	if len(decoded.Results) != len(normalizedDocs) {
 		return nil, fmt.Errorf("%w: rerank cardinality mismatch", ragy.ErrProtocol)
 	}
 
-	out := make([]retrieval.Document[TMeta], len(docs))
-	seen := make([]bool, len(docs))
+	out := make([]retrieval.Document[TMeta], len(normalizedDocs))
+	seen := make([]bool, len(normalizedDocs))
 	for _, result := range decoded.Results {
-		if result.Index < 0 || result.Index >= len(docs) || seen[result.Index] {
+		if result.Index < 0 || result.Index >= len(normalizedDocs) || seen[result.Index] {
 			return nil, fmt.Errorf("%w: rerank index %d", ragy.ErrProtocol, result.Index)
 		}
 
@@ -161,14 +175,47 @@ func (c *Client[TMeta]) Rerank(
 		}
 	}
 
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Score == out[j].Score {
-			return out[i].ID < out[j].ID
-		}
+	sort.SliceStable(out, func(i, j int) bool {
 		return out[i].Score > out[j].Score
 	})
 
 	return out, nil
+}
+
+// Rerank implements ranking.QueryReranker.
+// Nil or empty result sets are returned unchanged without error.
+// Empty query is a validation error and returns an empty ResultSet (input docs are not preserved).
+// Runtime and payload errors preserve the input ResultSet via retrieval.PreserveResultOnError.
+func (c *Client[TMeta]) Rerank(
+	ctx context.Context,
+	query string,
+	rs retrieval.ResultSet[TMeta],
+) (retrieval.ResultSet[TMeta], error) {
+	if strings.TrimSpace(query) == "" {
+		return emptyResultSet[TMeta](retrieval.ResolverFor(rs)), fmt.Errorf("%w: rerank query", ragy.ErrEmptyText)
+	}
+	if rs == nil || rs.IsEmpty() {
+		return emptyResultSet[TMeta](retrieval.ResolverFor(rs)), nil
+	}
+
+	normalizedDocs, payloadDocs, err := c.prepareRerankPayload(rs)
+	resolver := retrieval.ResolverFor(rs)
+	if err != nil {
+		partial := retrieval.NewResultSet(normalizedDocs, resolver)
+		return retrieval.PreserveResultOnError(partial, err, resolver)
+	}
+
+	decoded, err := c.postRerank(ctx, query, payloadDocs)
+	if err != nil {
+		return retrieval.PreserveResultOnError(rs, err, resolver)
+	}
+
+	out, err := applyRerankResults(normalizedDocs, decoded)
+	if err != nil {
+		return retrieval.PreserveResultOnError(rs, err, resolver)
+	}
+
+	return retrieval.NewResultSet(out, resolver), nil
 }
 
 var _ ranking.QueryReranker[any] = (*Client[any])(nil)

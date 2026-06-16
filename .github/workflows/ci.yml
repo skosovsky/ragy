@@ -54,3 +54,16 @@ jobs:
       - name: Run tests
         working-directory: ${{ matrix.module }}
         run: go test -v -race ./...
+
+  examples:
+    name: Examples
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          cache: true
+          go-version-file: go.mod
+      - name: Build and test planner/resilience examples
+        run: make test-examples

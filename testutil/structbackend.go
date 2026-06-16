@@ -2,8 +2,6 @@ package testutil
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/documents"
@@ -19,33 +17,25 @@ type StructRetrievalBackend struct {
 	Requests       []retrieval.RetrieveOptions
 	FilterSchema   filter.Schema
 	VectorRequired bool
+	Resolver       retrieval.IdentityResolver[contracttest.StructMeta]
 }
 
-// Retrieve implements retrieval.Backend.
+// Retrieve implements retrieval.Backend for struct-based contract tests.
 func (b *StructRetrievalBackend) Retrieve(
 	_ context.Context,
 	query string,
 	opts retrieval.RetrieveOptions,
-) ([]retrieval.Document[contracttest.StructMeta], error) {
+) (retrieval.ResultSet[contracttest.StructMeta], error) {
 	b.Requests = append(b.Requests, opts)
-	if b.Err != nil {
-		return nil, b.Err
-	}
-	if err := opts.Validate(); err != nil {
-		return nil, err
-	}
-	if b.VectorRequired {
-		if len(opts.Vector) == 0 {
-			return nil, fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
-		}
-	} else if strings.TrimSpace(query) == "" {
-		return nil, fmt.Errorf("%w: retrieve query", ragy.ErrEmptyText)
-	}
-	if err := b.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
-		return nil, err
-	}
-
-	return validateStructDocuments(b.Docs)
+	return runFakeRetrieve(
+		b.Err,
+		query,
+		opts,
+		b.VectorRequired,
+		b.Schema(),
+		b.Docs,
+		retrieval.DefaultResolver(b.Resolver),
+	)
 }
 
 // Schema returns the configured filter schema used by the fake backend.
@@ -122,11 +112,15 @@ func (s *StructDocumentStore) DeleteByIDs(_ context.Context, ids []string) (docu
 
 // DeleteByFilter implements documents.Store.
 func (s *StructDocumentStore) DeleteByFilter(_ context.Context, cond filter.Condition) (documents.DeleteResult, error) {
+	schema := s.Schema()
+	codec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
 	return deleteByFilter(
 		s.Docs,
 		cond,
-		s.Schema(),
-		matchStructDocument,
+		schema,
+		func(doc retrieval.Document[contracttest.StructMeta], condition filter.Condition) (bool, error) {
+			return retrieval.MatchDocument(codec, doc, condition)
+		},
 		cloneStructDocument,
 		s.Err,
 		func(docs []retrieval.Document[contracttest.StructMeta]) {
@@ -147,12 +141,12 @@ func validateStructDocuments(
 		return nil, nil
 	}
 
-	out := make([]retrieval.Document[contracttest.StructMeta], len(in))
-	for i, doc := range in {
+	out := make([]retrieval.Document[contracttest.StructMeta], 0, len(in))
+	for _, doc := range in {
 		if err := retrieval.ValidateDocument(doc); err != nil {
-			return nil, err
+			return out, ragy.WrapProjectionError(err, "testutil validate struct documents")
 		}
-		out[i] = cloneStructDocument(doc)
+		out = append(out, cloneStructDocument(doc))
 	}
 
 	return out, nil
@@ -165,17 +159,6 @@ func cloneStructDocument(in retrieval.Document[contracttest.StructMeta]) retriev
 		Score:   in.Score,
 		Meta:    in.Meta,
 	}
-}
-
-func matchStructDocument(doc retrieval.Document[contracttest.StructMeta], cond filter.Condition) (bool, error) {
-	return matchFilter(cond.IR(), func(field string) (any, bool) {
-		switch field {
-		case "tenant":
-			return doc.Meta.Tenant, doc.Meta.Tenant != ""
-		default:
-			return nil, false
-		}
-	})
 }
 
 var (

@@ -42,7 +42,6 @@ type RetrieveOptions struct {
 	FetchLimit    int
 	TopK          int
 	MinSimilarity float64
-	HybridWeight  float64
 	Filters       filter.Condition
 	Vector        []float32
 	Graph         *GraphOptions
@@ -56,6 +55,9 @@ func (o RetrieveOptions) Validate() error {
 	if o.TopK < 0 {
 		return fmt.Errorf("%w: top_k must be >= 0", ragy.ErrInvalidArgument)
 	}
+	if o.TopK == 0 && o.FetchLimit == 0 {
+		return fmt.Errorf("%w: top_k and fetch_limit cannot both be zero", ragy.ErrInvalidArgument)
+	}
 	if o.FetchLimit > 0 && o.TopK > 0 && o.FetchLimit < o.TopK {
 		return fmt.Errorf(
 			"%w: fetch_limit (%d) cannot be less than top_k (%d)",
@@ -66,9 +68,6 @@ func (o RetrieveOptions) Validate() error {
 	}
 	if o.MinSimilarity < 0 || o.MinSimilarity > 1 {
 		return fmt.Errorf("%w: min_similarity must be in [0,1]", ragy.ErrInvalidArgument)
-	}
-	if o.HybridWeight < 0 || o.HybridWeight > 1 {
-		return fmt.Errorf("%w: hybrid_weight must be in [0,1]", ragy.ErrInvalidArgument)
 	}
 	if err := filter.ValidateCondition(o.Filters); err != nil {
 		return err

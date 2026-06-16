@@ -6,9 +6,8 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/internal/ident"
+	"github.com/skosovsky/ragy/internal/metaattrs"
 )
 
 // Direction controls edge traversal semantics.
@@ -120,14 +119,8 @@ func (s Snapshot[TMeta]) Validate() error {
 }
 
 func validateMetaKeys[TMeta any](meta TMeta) error {
-	attrs, ok := dense.MetaRawAttributes(meta)
-	if !ok {
-		return nil
-	}
-	for key := range attrs {
-		if !ident.IsField(key) {
-			return fmt.Errorf("%w: invalid identifier %q", ragy.ErrInvalidArgument, key)
-		}
+	if _, ok := metaattrs.FromValue(meta); ok {
+		return fmt.Errorf("%w: map metadata is not supported in public API", ragy.ErrInvalidArgument)
 	}
 	return nil
 }

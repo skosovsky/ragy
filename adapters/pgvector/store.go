@@ -35,22 +35,28 @@ type DB interface {
 }
 
 // Config configures the store.
-type Config struct {
-	Table  string
-	Schema filter.Schema
+type Config[TMeta any] struct {
+	Table    string
+	Schema   filter.Schema
+	Resolver retrieval.IdentityResolver[TMeta]
 }
 
 // Store is a dense pgvector-backed retrieval backend.
 type Store[TMeta any] struct {
-	db     DB
-	table  string
-	schema filter.Schema
+	db       DB
+	table    string
+	schema   filter.Schema
+	codec    retrieval.MetadataCodec[TMeta]
+	resolver retrieval.IdentityResolver[TMeta]
 }
 
 // New constructs a store.
-func New[TMeta any](db DB, cfg Config) (*Store[TMeta], error) {
+func New[TMeta any](db DB, cfg Config[TMeta], codec retrieval.MetadataCodec[TMeta]) (*Store[TMeta], error) {
 	if db == nil {
 		return nil, fmt.Errorf("%w: pgvector db", ragy.ErrInvalidArgument)
+	}
+	if codec == nil {
+		return nil, fmt.Errorf("%w: metadata codec", ragy.ErrInvalidArgument)
 	}
 
 	if err := filter.ValidateSQLIdentifier(cfg.Table); err != nil {
@@ -60,7 +66,13 @@ func New[TMeta any](db DB, cfg Config) (*Store[TMeta], error) {
 		return nil, fmt.Errorf("%w: pgvector schema", ragy.ErrInvalidArgument)
 	}
 
-	return &Store[TMeta]{db: db, table: cfg.Table, schema: cfg.Schema}, nil
+	return &Store[TMeta]{
+		db:       db,
+		table:    cfg.Table,
+		schema:   cfg.Schema,
+		codec:    codec,
+		resolver: retrieval.DefaultResolver(cfg.Resolver),
+	}, nil
 }
 
 // Retrieve implements retrieval.Backend.
@@ -68,25 +80,27 @@ func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
 	_ string,
 	opts retrieval.RetrieveOptions,
-) ([]retrieval.Document[TMeta], error) {
+) (retrieval.ResultSet[TMeta], error) {
 	if err := opts.Validate(); err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 	if len(opts.Vector) == 0 {
-		return nil, fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
+		return retrieval.NewResultSet[TMeta](nil, s.resolver),
+			fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
 	}
 	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 
 	sql, args, err := s.renderSearch(opts)
 	if err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 
 	rows, err := s.db.Query(ctx, sql, args...)
 	if err != nil {
-		return nil, ragy.WrapBackendError(err, "pgvector search query")
+		return retrieval.NewResultSet[TMeta](nil, s.resolver),
+			ragy.WrapBackendError(err, "pgvector search query")
 	}
 	defer rows.Close()
 
@@ -94,20 +108,22 @@ func (s *Store[TMeta]) Retrieve(
 	for rows.Next() {
 		doc, err := s.scanDocument(rows)
 		if err != nil {
-			return nil, err
+			rs := retrieval.NewResultSet(docs, s.resolver)
+			return retrieval.PreserveResultOnError(rs, err, s.resolver)
 		}
 		docs = append(docs, doc)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, ragy.WrapBackendError(err, "pgvector search rows")
+		rs := retrieval.NewResultSet(docs, s.resolver)
+		return retrieval.PreserveResultOnError(
+			rs,
+			ragy.WrapBackendError(err, "pgvector search rows"),
+			s.resolver,
+		)
 	}
 
-	if len(docs) == 0 {
-		return nil, nil
-	}
-
-	return docs, nil
+	return retrieval.NewResultSet(docs, s.resolver), nil
 }
 
 func (s *Store[TMeta]) renderSearch(opts retrieval.RetrieveOptions) (string, []any, error) {
@@ -149,9 +165,9 @@ func (s *Store[TMeta]) scanDocument(rows Rows) (retrieval.Document[TMeta], error
 		return retrieval.Document[TMeta]{}, ragy.WrapBackendError(err, "pgvector search scan")
 	}
 
-	meta, err := unmarshalMeta[TMeta](metaJSON)
+	meta, err := s.decodeStoredMeta(metaJSON)
 	if err != nil {
-		return retrieval.Document[TMeta]{}, err
+		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "pgvector search decode")
 	}
 
 	doc := retrieval.Document[TMeta]{
@@ -161,7 +177,7 @@ func (s *Store[TMeta]) scanDocument(rows Rows) (retrieval.Document[TMeta], error
 		Meta:    meta,
 	}
 	if err := retrieval.ValidateDocument(doc); err != nil {
-		return retrieval.Document[TMeta]{}, err
+		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "pgvector search validate")
 	}
 	return doc, nil
 }
@@ -179,16 +195,18 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]
 			return err
 		}
 
-		metaJSON, err := record.MarshalMetaForSchema(s.schema)
+		attrs, err := s.codec.Encode(record.Meta)
 		if err != nil {
 			return err
 		}
-		attrs, err := attributesFromJSON(metaJSON)
+		metaJSON, err := json.Marshal(attrs)
 		if err != nil {
 			return err
 		}
-		if _, err := s.schema.NormalizeAttributes(attrs); err != nil {
-			return err
+		if len(attrs) > 0 {
+			if _, err := s.schema.NormalizeAttributes(attrs); err != nil {
+				return err
+			}
 		}
 
 		base := index*fieldsPerRecord + 1
@@ -238,12 +256,12 @@ func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval
 		var id, content string
 		var metaJSON []byte
 		if err := rows.Scan(&id, &content, &metaJSON); err != nil {
-			return nil, ragy.WrapBackendError(err, "pgvector find by ids scan")
+			return docs, ragy.WrapBackendError(err, "pgvector find by ids scan")
 		}
 
-		meta, err := unmarshalMeta[TMeta](metaJSON)
+		meta, err := s.decodeStoredMeta(metaJSON)
 		if err != nil {
-			return nil, err
+			return docs, ragy.WrapProjectionError(err, "pgvector find by ids decode")
 		}
 
 		doc := retrieval.Document[TMeta]{
@@ -253,13 +271,13 @@ func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval
 			Meta:    meta,
 		}
 		if err := retrieval.ValidateDocument(doc); err != nil {
-			return nil, err
+			return docs, ragy.WrapProjectionError(err, "pgvector find by ids validate")
 		}
 		docs = append(docs, doc)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, ragy.WrapBackendError(err, "pgvector find by ids rows")
+		return docs, ragy.WrapBackendError(err, "pgvector find by ids rows")
 	}
 
 	if len(docs) == 0 {
@@ -312,15 +330,16 @@ func (s *Store[TMeta]) Schema() filter.Schema {
 	return s.schema
 }
 
-func unmarshalMeta[TMeta any](data []byte) (TMeta, error) {
+func (s *Store[TMeta]) decodeStoredMeta(data []byte) (TMeta, error) {
 	var meta TMeta
 	if len(data) == 0 {
 		return meta, nil
 	}
-	if err := json.Unmarshal(data, &meta); err != nil {
+	attrs, err := attributesFromJSON(data)
+	if err != nil {
 		return meta, err
 	}
-	return meta, nil
+	return s.codec.Decode(attrs)
 }
 
 func attributesFromJSON(data []byte) (filter.RawAttributes, error) {
@@ -329,7 +348,7 @@ func attributesFromJSON(data []byte) (filter.RawAttributes, error) {
 	}
 	out := make(filter.RawAttributes)
 	if err := json.Unmarshal(data, &out); err != nil {
-		return nil, err
+		return nil, ragy.WrapProjectionError(err, "pgvector attributes json")
 	}
 	return out, nil
 }

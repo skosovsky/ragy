@@ -1,6 +1,9 @@
 package ragy
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	ErrInvalidArgument = errors.New("invalid argument")
@@ -16,3 +19,11 @@ var (
 	ErrInvalidPage     = errors.New("invalid page")
 	ErrInvalidGraph    = errors.New("invalid graph")
 )
+
+// WrapProjectionError classifies document projection failures (decode, validate, wire shape).
+func WrapProjectionError(err error, operation string) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w: %s projection: %w", ErrProtocol, operation, err)
+}

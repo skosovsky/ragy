@@ -3,8 +3,10 @@ package ranking
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
+	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -23,6 +25,22 @@ func newCancelOnErrCallContext(cancelOnCall int) *cancelOnErrCallContext {
 	}
 }
 
+func resultSet(docs ...retrieval.Document[contracttest.StructMeta]) retrieval.ResultSet[contracttest.StructMeta] {
+	return retrieval.NewResultSet(docs, retrieval.DocumentIDResolver[contracttest.StructMeta]{})
+}
+
+func mergeDocLists(
+	ctx context.Context,
+	merger Merger[contracttest.StructMeta],
+	lists ...[]retrieval.Document[contracttest.StructMeta],
+) (retrieval.ResultSet[contracttest.StructMeta], error) {
+	sets := make([]retrieval.ResultSet[contracttest.StructMeta], len(lists))
+	for i, list := range lists {
+		sets[i] = resultSet(list...)
+	}
+	return merger.Merge(ctx, sets...)
+}
+
 func nilContext() context.Context {
 	return nil
 }
@@ -36,40 +54,43 @@ func (c *cancelOnErrCallContext) Err() error {
 	return nil
 }
 
-func assertCanceledMerge(
+func assertCanceledMergePreserves(
 	ctx context.Context,
 	t *testing.T,
-	lists ...[]retrieval.Document[contracttest.Meta],
+	wantMinLen int,
+	lists ...[]retrieval.Document[contracttest.StructMeta],
 ) {
 	t.Helper()
 
-	merger, err := NewReciprocalRankFusion[contracttest.Meta](60)
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	out, err := merger.Merge(ctx, lists...)
+	out, err := mergeDocLists(ctx, merger, lists...)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("Merge() error = %v, want context.Canceled", err)
 	}
-	if out != nil {
-		t.Fatalf("Merge() out = %#v, want nil", out)
+	if out == nil {
+		t.Fatal("Merge() out = nil, want non-nil ResultSet")
+	}
+	if out.Len() < wantMinLen {
+		t.Fatalf("Merge() Len() = %d, want at least %d preserved docs", out.Len(), wantMinLen)
 	}
 }
 
 func TestRRFMergeNormalizesScore(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.Meta](60)
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	out, err := merger.Merge(
-		context.Background(),
-		[]retrieval.Document[contracttest.Meta]{
+	out, err := mergeDocLists(context.Background(), merger,
+		[]retrieval.Document[contracttest.StructMeta]{
 			{ID: "a", Content: "A", Score: 0.1},
 			{ID: "b", Content: "B", Score: 0.1},
 		},
-		[]retrieval.Document[contracttest.Meta]{
+		[]retrieval.Document[contracttest.StructMeta]{
 			{ID: "b", Content: "B", Score: 0.1},
 			{ID: "a", Content: "A", Score: 0.1},
 		},
@@ -78,28 +99,28 @@ func TestRRFMergeNormalizesScore(t *testing.T) {
 		t.Fatalf("Merge(): %v", err)
 	}
 
-	if len(out) != 2 {
-		t.Fatalf("len(out) = %d, want 2", len(out))
+	if out.Len() != 2 {
+		t.Fatalf("out.Len() = %d, want 2", out.Len())
 	}
 
-	if out[0].Score <= 0 || out[0].Score > 1 {
-		t.Fatalf("out[0].Score = %f, want in (0,1]", out[0].Score)
+	if out.Documents()[0].Score <= 0 || out.Documents()[0].Score > 1 {
+		t.Fatalf("out.Documents()[0].Score = %f, want in (0,1]", out.Documents()[0].Score)
 	}
 }
 
 func TestRRFMergeTreatsNilContextAsBackground(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.Meta](60)
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	lists := [][]retrieval.Document[contracttest.Meta]{
+	lists := [][]retrieval.Document[contracttest.StructMeta]{
 		{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
 		{{ID: "b", Content: "B"}, {ID: "a", Content: "A"}},
 	}
 
 	var (
-		nilOut []retrieval.Document[contracttest.Meta]
+		nilOut retrieval.ResultSet[contracttest.StructMeta]
 		nilErr error
 	)
 	func() {
@@ -108,156 +129,201 @@ func TestRRFMergeTreatsNilContextAsBackground(t *testing.T) {
 				t.Fatalf("Merge(nil, ...) panicked: %v", r)
 			}
 		}()
-		nilOut, nilErr = merger.Merge(nilContext(), lists...)
+		nilOut, nilErr = mergeDocLists(nilContext(), merger, lists...)
 	}()
 	if nilErr != nil {
 		t.Fatalf("Merge(nil, ...) error = %v, want nil", nilErr)
 	}
 
-	bgOut, bgErr := merger.Merge(context.Background(), lists...)
+	bgOut, bgErr := mergeDocLists(context.Background(), merger, lists...)
 	if bgErr != nil {
 		t.Fatalf("Merge(background) error = %v", bgErr)
 	}
 
-	if len(nilOut) != len(bgOut) {
-		t.Fatalf("len(Merge(nil)) = %d, want %d", len(nilOut), len(bgOut))
+	if nilOut.Len() != bgOut.Len() {
+		t.Fatalf("Len(Merge(nil)) = %d, want %d", nilOut.Len(), bgOut.Len())
 	}
-	for i := range bgOut {
-		if nilOut[i].ID != bgOut[i].ID ||
-			nilOut[i].Content != bgOut[i].Content ||
-			nilOut[i].Score != bgOut[i].Score {
-			t.Fatalf("Merge(nil) result[%d] = %#v, want %#v", i, nilOut[i], bgOut[i])
+	bgDocs := bgOut.Documents()
+	nilDocs := nilOut.Documents()
+	for i := range bgDocs {
+		if nilDocs[i].ID != bgDocs[i].ID ||
+			nilDocs[i].Content != bgDocs[i].Content ||
+			nilDocs[i].Score != bgDocs[i].Score {
+			t.Fatalf("Merge(nil) result[%d] = %#v, want %#v", i, nilDocs[i], bgDocs[i])
 		}
 
-		if !samePayload(nilOut[i], bgOut[i]) {
-			t.Fatalf("Merge(nil) payload[%d] = %#v, want %#v", i, nilOut[i], bgOut[i])
+		if !rrfSamePayload(nilDocs[i], bgDocs[i]) {
+			t.Fatalf("Merge(nil) payload[%d] = %#v, want %#v", i, nilDocs[i], bgDocs[i])
 		}
 	}
 }
 
 func TestRRFRejectsDocumentsWithoutID(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.Meta](60)
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	if _, err := merger.Merge(
-		context.Background(),
-		[]retrieval.Document[contracttest.Meta]{{Content: "broken"}},
+	if _, err := mergeDocLists(context.Background(), merger,
+		[]retrieval.Document[contracttest.StructMeta]{{Content: "broken"}},
 	); err == nil {
 		t.Fatal("Merge() error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrProtocol) {
+		t.Fatalf("Merge() error = %v, want protocol", err)
 	}
 }
 
 func TestRRFRejectsConflictingContentForSameID(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.Meta](60)
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	_, err = merger.Merge(
-		context.Background(),
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A"}},
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "B"}},
+	_, err = mergeDocLists(context.Background(), merger,
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A"}},
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "B"}},
 	)
 	if err == nil {
 		t.Fatal("Merge() error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Merge() error = %v, want invalid argument", err)
 	}
 }
 
 func TestRRFRejectsConflictingMetaForSameID(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.Meta](60)
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	_, err = merger.Merge(
+	_, err = mergeDocLists(
 		context.Background(),
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A", Meta: contracttest.Meta{"tenant": "acme"}}},
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A", Meta: contracttest.Meta{"tenant": "globex"}}},
+		merger,
+		[]retrieval.Document[contracttest.StructMeta]{
+			{ID: "a", Content: "A", Meta: contracttest.StructMeta{Tenant: "acme"}},
+		},
+		[]retrieval.Document[contracttest.StructMeta]{
+			{ID: "a", Content: "A", Meta: contracttest.StructMeta{Tenant: "globex"}},
+		},
 	)
 	if err == nil {
 		t.Fatal("Merge() error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Merge() error = %v, want invalid argument", err)
 	}
 }
 
 func TestRRFTreatsNilAndEmptyMetaAsDistinct(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.Meta](60)
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	_, err = merger.Merge(
-		context.Background(),
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A", Meta: nil}},
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A", Meta: contracttest.Meta{}}},
+	_, err = mergeDocLists(context.Background(), merger,
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A", Meta: contracttest.StructMeta{}}},
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A", Meta: contracttest.StructMeta{}}},
 	)
-	if err == nil {
-		t.Fatal("Merge() error = nil, want conflicting payload error")
+	if err != nil {
+		t.Fatalf("Merge() error = %v, want nil for matching empty meta", err)
 	}
 }
 
 func TestRRFMergesMatchingMeta(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.Meta](60)
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	out, err := merger.Merge(
-		context.Background(),
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A", Meta: contracttest.Meta{"age": int64(7)}}},
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A", Meta: contracttest.Meta{"age": int64(7)}}},
+	out, err := mergeDocLists(context.Background(), merger,
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A", Meta: contracttest.StructMeta{Age: 7}}},
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A", Meta: contracttest.StructMeta{Age: 7}}},
 	)
 	if err != nil {
 		t.Fatalf("Merge(): %v", err)
 	}
 
-	value, ok := out[0].Meta["age"].(int64)
-	if !ok || value != 7 {
-		t.Fatalf("merged age = %#v, want int64(7)", out[0].Meta["age"])
+	if out.Documents()[0].Meta.Age != 7 {
+		t.Fatalf("merged age = %d, want 7", out.Documents()[0].Meta.Age)
 	}
+}
+
+func TestRRFMergeUsesMergeKey(t *testing.T) {
+	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, tenantResolver{})
+	if err != nil {
+		t.Fatalf("NewReciprocalRankFusion(): %v", err)
+	}
+
+	out, err := mergeDocLists(context.Background(), merger,
+		[]retrieval.Document[contracttest.StructMeta]{
+			{ID: "a", Content: "A", Score: 0.1, Meta: contracttest.StructMeta{Tenant: "acme"}},
+		},
+		[]retrieval.Document[contracttest.StructMeta]{
+			{ID: "b", Content: "A", Score: 0.1, Meta: contracttest.StructMeta{Tenant: "acme"}},
+		},
+	)
+	if err != nil {
+		t.Fatalf("Merge(): %v", err)
+	}
+	if out.Len() != 1 {
+		t.Fatalf("out.Len() = %d, want 1 merged tenant", out.Len())
+	}
+}
+
+type tenantResolver struct{}
+
+func (tenantResolver) Resolve(doc retrieval.Document[contracttest.StructMeta]) retrieval.Identity {
+	return retrieval.Identity{MergeKey: doc.Meta.Tenant, DocumentID: doc.ID}
 }
 
 func TestRRFMergeFailsFastOnPreCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	assertCanceledMerge(
+	assertCanceledMergePreserves(
 		ctx,
 		t,
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A"}},
-		[]retrieval.Document[contracttest.Meta]{{ID: "b", Content: "B"}},
+		1,
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A"}},
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "b", Content: "B"}},
 	)
 }
 
 func TestRRFMergeFailsFastOnMidMergeCancellation(t *testing.T) {
-	assertCanceledMerge(
+	assertCanceledMergePreserves(
 		newCancelOnErrCallContext(5),
 		t,
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
+		1,
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
 	)
 }
 
 func TestRRFMergeFailsFastDuringMaxMergedScore(t *testing.T) {
-	assertCanceledMerge(
-		newCancelOnErrCallContext(8),
+	assertCanceledMergePreserves(
+		newCancelOnErrCallContext(4),
 		t,
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
+		1,
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
 	)
 }
 
 func TestRRFMergeFailsFastDuringBuildMergedDocuments(t *testing.T) {
-	assertCanceledMerge(
-		newCancelOnErrCallContext(10),
+	assertCanceledMergePreserves(
+		newCancelOnErrCallContext(6),
 		t,
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
+		2,
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
 	)
 }
 
 func TestRRFMergeFailsFastAfterSort(t *testing.T) {
-	assertCanceledMerge(
-		newCancelOnErrCallContext(13),
+	assertCanceledMergePreserves(
+		newCancelOnErrCallContext(7),
 		t,
-		[]retrieval.Document[contracttest.Meta]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
+		2,
+		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
 	)
+}
+
+func rrfSamePayload(left, right retrieval.Document[contracttest.StructMeta]) bool {
+	return left.Content == right.Content && reflect.DeepEqual(left.Meta, right.Meta)
 }

@@ -20,6 +20,7 @@ func TestErrorFromHTTPResponse(t *testing.T) {
 		{"401", http.StatusUnauthorized, ErrInvalidArgument},
 		{"404", http.StatusNotFound, ErrInvalidArgument},
 		{"429", http.StatusTooManyRequests, ErrUnavailable},
+		{"503", http.StatusServiceUnavailable, ErrUnavailable},
 		{"500", http.StatusInternalServerError, ErrUnavailable},
 		{"502", http.StatusBadGateway, ErrUnavailable},
 		{"200", http.StatusOK, ErrProtocol},

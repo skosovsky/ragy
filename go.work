@@ -11,5 +11,6 @@ use (
 	./adapters/openai
 	./adapters/pgvector
 	./adapters/qdrant
+	./examples/planner
 	./examples/resilience
 )

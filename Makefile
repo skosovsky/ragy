@@ -1,7 +1,7 @@
 GO      := go
 MODULES := $(shell find . -type d \( -name ".*" -not -name "." -o -name "vendor" \) -prune -o -type f -name "go.mod" -exec dirname {} \;)
 
-.PHONY: lint fix test bench bench-hotpath fuzz cover release-patch release-break
+.PHONY: lint fix test examples test-examples bench bench-hotpath fuzz cover release-patch release-break
 
 lint:
 	@for dir in $(MODULES); do \
@@ -22,6 +22,19 @@ test:
 		echo "test - $$dir"; \
 		(cd "$$dir" && $(GO) test -v -race ./...) || exit 1; \
 	done
+	@$(MAKE) test-examples
+
+test-examples:
+	@for ex in catalog_vector_fallback partial_failure_aggregate rescue_fallback_aggregate vector_bm25_aggregate; do \
+		echo "build examples/planner/$$ex"; \
+		$(GO) build -o /dev/null ./examples/planner/$$ex/... || exit 1; \
+	done
+	@echo "build examples/resilience"
+	@cd examples/resilience && $(GO) build -o /dev/null ./...
+	@echo "test examples/planner"
+	@cd examples/planner && $(GO) test -race ./...
+	@echo "test examples/resilience"
+	@cd examples/resilience && $(GO) test -race ./...
 
 bench:
 	@for dir in $(MODULES); do \

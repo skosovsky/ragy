@@ -2,7 +2,7 @@ package elasticsearch
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -16,37 +16,48 @@ import (
 
 const logisticClamp = 20.0
 
-// Hit is an Elasticsearch hit projection.
+// Hit is an Elasticsearch search hit in wire form (not a domain document).
+// Source holds raw _source JSON; adapters project into retrieval.Document[TMeta].
 type Hit struct {
 	ID     string
 	Score  float64
 	Source map[string]any
 }
 
-// Client executes lexical searches.
+// Client executes lexical searches against Elasticsearch wire APIs.
 type Client interface {
 	Search(ctx context.Context, index string, body map[string]any) ([]Hit, error)
 }
 
 // Config configures the store.
-type Config struct {
+type Config[TMeta any] struct {
 	Index        string
 	SearchFields []string
 	Schema       filter.Schema
+	Synonyms     lexical.SynonymMap
+	Tokenizer    lexical.Tokenizer
+	Resolver     retrieval.IdentityResolver[TMeta]
 }
 
 // Store is an Elasticsearch lexical retrieval backend.
 type Store[TMeta any] struct {
-	client Client
-	index  string
-	fields []string
-	schema filter.Schema
+	client    Client
+	index     string
+	fields    []string
+	schema    filter.Schema
+	codec     retrieval.MetadataCodec[TMeta]
+	synonyms  lexical.SynonymMap
+	tokenizer lexical.Tokenizer
+	resolver  retrieval.IdentityResolver[TMeta]
 }
 
 // New constructs a lexical store.
-func New[TMeta any](client Client, cfg Config) (*Store[TMeta], error) {
+func New[TMeta any](client Client, cfg Config[TMeta], codec retrieval.MetadataCodec[TMeta]) (*Store[TMeta], error) {
 	if client == nil {
 		return nil, fmt.Errorf("%w: elasticsearch client", ragy.ErrInvalidArgument)
+	}
+	if codec == nil {
+		return nil, fmt.Errorf("%w: metadata codec", ragy.ErrInvalidArgument)
 	}
 
 	if err := filter.ValidateElasticsearchIndexName(cfg.Index); err != nil {
@@ -60,20 +71,26 @@ func New[TMeta any](client Client, cfg Config) (*Store[TMeta], error) {
 		return nil, fmt.Errorf("%w: elasticsearch search fields", ragy.ErrInvalidArgument)
 	}
 
-	fields := make([]string, 0, len(cfg.SearchFields))
-	seen := make(map[string]struct{}, len(cfg.SearchFields))
-	for _, fieldName := range cfg.SearchFields {
-		if err := validateSearchField(fieldName); err != nil {
-			return nil, err
-		}
-		if _, exists := seen[fieldName]; exists {
-			return nil, fmt.Errorf("%w: duplicate elasticsearch search field %q", ragy.ErrInvalidArgument, fieldName)
-		}
-		seen[fieldName] = struct{}{}
-		fields = append(fields, fieldName)
+	fields := append([]string(nil), cfg.SearchFields...)
+	if err := lexical.ValidateSearchFields(cfg.Schema, fields); err != nil {
+		return nil, err
 	}
 
-	return &Store[TMeta]{client: client, index: cfg.Index, fields: fields, schema: cfg.Schema}, nil
+	tokenizer := cfg.Tokenizer
+	if tokenizer == nil {
+		tokenizer = lexical.DefaultTokenizer{}
+	}
+
+	return &Store[TMeta]{
+		client:    client,
+		index:     cfg.Index,
+		fields:    fields,
+		schema:    cfg.Schema,
+		codec:     codec,
+		synonyms:  cfg.Synonyms,
+		tokenizer: tokenizer,
+		resolver:  retrieval.DefaultResolver(cfg.Resolver),
+	}, nil
 }
 
 // Retrieve implements retrieval.Backend.
@@ -81,41 +98,47 @@ func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
 	query string,
 	opts retrieval.RetrieveOptions,
-) ([]retrieval.Document[TMeta], error) {
+) (retrieval.ResultSet[TMeta], error) {
 	if err := opts.Validate(); err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 	if strings.TrimSpace(query) == "" {
-		return nil, fmt.Errorf("%w: retrieve query", ragy.ErrEmptyText)
+		return retrieval.NewResultSet[TMeta](nil, s.resolver),
+			fmt.Errorf("%w: retrieve query", ragy.ErrEmptyText)
 	}
 	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
+	}
+	if len(s.queryTokens(query)) == 0 {
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), nil
 	}
 
 	body, err := s.render(query, opts)
 	if err != nil {
-		return nil, err
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
 
 	hits, err := s.client.Search(ctx, s.index, body)
 	if err != nil {
-		return nil, ragy.WrapBackendError(err, "elasticsearch search")
+		return retrieval.NewResultSet[TMeta](nil, s.resolver),
+			ragy.WrapBackendError(err, "elasticsearch search")
 	}
 
 	if len(hits) == 0 {
-		return nil, nil
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), nil
 	}
 
 	docs := make([]retrieval.Document[TMeta], 0, len(hits))
 	for _, hit := range hits {
 		doc, err := s.projectHit(hit)
 		if err != nil {
-			return nil, err
+			rs := retrieval.NewResultSet(docs, s.resolver)
+			return retrieval.PreserveResultOnError(rs, err, s.resolver)
 		}
 		docs = append(docs, doc)
 	}
 
-	return docs, nil
+	return retrieval.NewResultSet(docs, s.resolver), nil
 }
 
 // Schema returns the finalized filter schema used by the store.
@@ -124,8 +147,9 @@ func (s *Store[TMeta]) Schema() filter.Schema {
 }
 
 func (s *Store[TMeta]) render(query string, opts retrieval.RetrieveOptions) (map[string]any, error) {
+	searchQuery := s.expandQuery(query)
 	multiMatch := map[string]any{
-		"query":  query,
+		"query":  searchQuery,
 		"fields": slices.Clone(s.fields),
 	}
 
@@ -158,6 +182,22 @@ func (s *Store[TMeta]) render(query string, opts retrieval.RetrieveOptions) (map
 	return body, nil
 }
 
+func (s *Store[TMeta]) queryTokens(query string) []string {
+	tokens := s.tokenizer.Tokenize(query)
+	if len(s.synonyms) == 0 {
+		return tokens
+	}
+	return s.synonyms.Expand(tokens)
+}
+
+func (s *Store[TMeta]) expandQuery(query string) string {
+	tokens := s.queryTokens(query)
+	if len(tokens) == 0 {
+		return ""
+	}
+	return strings.Join(tokens, " ")
+}
+
 func renderFilter(expr filter.IR) (map[string]any, error) {
 	walker := &esFilterWalker{stack: nil, result: nil}
 	if err := filter.Walk(expr, walker); err != nil {
@@ -167,24 +207,35 @@ func renderFilter(expr filter.IR) (map[string]any, error) {
 }
 
 func (s *Store[TMeta]) projectHit(hit Hit) (retrieval.Document[TMeta], error) {
+	contentRequired := slices.Contains(s.fields, "content")
 	contentValue, ok := hit.Source["content"]
+	var content string
 	if !ok {
-		return retrieval.Document[TMeta]{}, fmt.Errorf("%w: elasticsearch content missing", ragy.ErrProtocol)
-	}
-
-	content, ok := contentValue.(string)
-	if !ok {
-		return retrieval.Document[TMeta]{}, fmt.Errorf("%w: elasticsearch content must be string", ragy.ErrProtocol)
+		if contentRequired {
+			return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(
+				errors.New("elasticsearch content missing"),
+				"elasticsearch content",
+			)
+		}
+	} else {
+		var typeOK bool
+		content, typeOK = contentValue.(string)
+		if !typeOK {
+			return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(
+				errors.New("elasticsearch content must be string"),
+				"elasticsearch content",
+			)
+		}
 	}
 
 	attrs, err := s.projectAttributes(hit.Source)
 	if err != nil {
-		return retrieval.Document[TMeta]{}, err
+		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "elasticsearch attributes")
 	}
 
-	meta, err := decodeMeta[TMeta](attrs)
+	meta, err := s.codec.Decode(attrs)
 	if err != nil {
-		return retrieval.Document[TMeta]{}, err
+		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "elasticsearch decode")
 	}
 
 	doc := retrieval.Document[TMeta]{
@@ -194,7 +245,7 @@ func (s *Store[TMeta]) projectHit(hit Hit) (retrieval.Document[TMeta], error) {
 		Meta:    meta,
 	}
 	if err := retrieval.ValidateDocument(doc); err != nil {
-		return retrieval.Document[TMeta]{}, err
+		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "elasticsearch validate")
 	}
 	return doc, nil
 }
@@ -226,32 +277,6 @@ func (s *Store[TMeta]) projectAttributes(source map[string]any) (filter.RawAttri
 	}
 
 	return attrs, nil
-}
-
-func decodeMeta[TMeta any](attrs filter.RawAttributes) (TMeta, error) {
-	var meta TMeta
-	if len(attrs) == 0 {
-		return meta, nil
-	}
-	data, err := json.Marshal(attrs)
-	if err != nil {
-		return meta, err
-	}
-	if err := json.Unmarshal(data, &meta); err != nil {
-		return meta, err
-	}
-	return meta, nil
-}
-
-func validateSearchField(fieldName string) error {
-	switch fieldName {
-	case "":
-		return fmt.Errorf("%w: elasticsearch search field", ragy.ErrInvalidArgument)
-	case "content":
-		return nil
-	default:
-		return filter.ValidateIdentifier(fieldName)
-	}
 }
 
 type esFrame struct {

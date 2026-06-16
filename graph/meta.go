@@ -2,36 +2,31 @@ package graph
 
 import (
 	"encoding/json"
+	"fmt"
 
-	"github.com/skosovsky/ragy/dense"
+	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/internal/metaattrs"
 )
 
 // NormalizeMeta validates and canonicalizes typed metadata against a schema.
 func NormalizeMeta[TMeta any](schema filter.Schema, meta TMeta) (TMeta, error) {
-	attrs, err := metaToRawAttributes(meta)
+	attrs, err := encodeMeta(schema, meta)
 	if err != nil {
 		var zero TMeta
 		return zero, err
 	}
-
-	normalized, err := schema.NormalizeAttributes(attrs)
-	if err != nil {
-		var zero TMeta
-		return zero, err
-	}
-
-	return rawAttributesToMeta[TMeta](normalized)
+	return decodeMeta[TMeta](schema, attrs)
 }
 
-func metaToRawAttributes[TMeta any](meta TMeta) (filter.RawAttributes, error) {
-	if attrs, ok := dense.MetaRawAttributes(meta); ok {
-		return attrs, nil
+func encodeMeta[TMeta any](schema filter.Schema, meta TMeta) (filter.RawAttributes, error) {
+	if _, ok := metaattrs.FromValue(meta); ok {
+		return nil, fmt.Errorf("%w: map metadata is not supported in public API", ragy.ErrInvalidArgument)
 	}
 
 	data, err := json.Marshal(meta)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: encode metadata: %w", ragy.ErrInvalidArgument, err)
 	}
 	if string(data) == "null" {
 		return filter.RawAttributes{}, nil
@@ -39,23 +34,28 @@ func metaToRawAttributes[TMeta any](meta TMeta) (filter.RawAttributes, error) {
 
 	attrs := make(filter.RawAttributes)
 	if err := json.Unmarshal(data, &attrs); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: encode metadata json: %w", ragy.ErrInvalidArgument, err)
 	}
-	return attrs, nil
+	return schema.NormalizeAttributes(attrs)
 }
 
-func rawAttributesToMeta[TMeta any](attrs filter.RawAttributes) (TMeta, error) {
-	var out TMeta
-	if len(attrs) == 0 {
-		return out, nil
+func decodeMeta[TMeta any](schema filter.Schema, attrs filter.RawAttributes) (TMeta, error) {
+	var meta TMeta
+
+	normalized, err := schema.NormalizeAttributes(attrs)
+	if err != nil {
+		return meta, err
+	}
+	if len(normalized) == 0 {
+		return meta, nil
 	}
 
-	data, err := json.Marshal(attrs)
+	data, err := json.Marshal(normalized)
 	if err != nil {
-		return out, err
+		return meta, ragy.WrapProjectionError(err, "decode metadata marshal")
 	}
-	if err := json.Unmarshal(data, &out); err != nil {
-		return out, err
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return meta, ragy.WrapProjectionError(err, "decode metadata")
 	}
-	return out, nil
+	return meta, nil
 }

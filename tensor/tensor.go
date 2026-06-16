@@ -3,7 +3,6 @@ package tensor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
@@ -30,11 +29,6 @@ func (r Record[TMeta]) Validate() error {
 		return fmt.Errorf("%w: tensor record", ragy.ErrEmptyVector)
 	}
 	return nil
-}
-
-// MarshalMeta serializes typed metadata for backend storage.
-func (r Record[TMeta]) MarshalMeta() ([]byte, error) {
-	return json.Marshal(r.Meta)
 }
 
 // Index writes tensor records.

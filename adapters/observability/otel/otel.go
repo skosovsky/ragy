@@ -43,35 +43,35 @@ func (w *DenseEmbedder) Embed(ctx context.Context, texts []string) ([][]float32,
 	return w.next.Embed(ctx, texts)
 }
 
-// Retriever wraps a typed retriever with tracing.
-type Retriever[TMeta any] struct {
-	next   retrieval.Retriever[TMeta]
+// Backend wraps a typed retrieval backend with tracing.
+type Backend[TMeta any] struct {
+	next   retrieval.Backend[TMeta]
 	tracer trace.Tracer
 }
 
-// WrapRetriever constructs a traced retriever.
-func WrapRetriever[TMeta any](next retrieval.Retriever[TMeta], tracer trace.Tracer) (*Retriever[TMeta], error) {
+// WrapBackend constructs a traced retrieval backend.
+func WrapBackend[TMeta any](next retrieval.Backend[TMeta], tracer trace.Tracer) (*Backend[TMeta], error) {
 	if next == nil {
-		return nil, fmt.Errorf("%w: retriever", ragy.ErrInvalidArgument)
+		return nil, fmt.Errorf("%w: retrieval backend", ragy.ErrInvalidArgument)
 	}
-
 	if tracer == nil {
 		return nil, fmt.Errorf("%w: tracer", ragy.ErrInvalidArgument)
 	}
-
-	return &Retriever[TMeta]{next: next, tracer: tracer}, nil
+	return &Backend[TMeta]{next: next, tracer: tracer}, nil
 }
 
-// Retrieve implements retrieval.Retriever.
-func (w *Retriever[TMeta]) Retrieve(
+// Retrieve implements retrieval.Backend.
+func (w *Backend[TMeta]) Retrieve(
 	ctx context.Context,
 	query string,
 	opts retrieval.RetrieveOptions,
-) ([]retrieval.Document[TMeta], error) {
-	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.retrieve")
+) (retrieval.ResultSet[TMeta], error) {
+	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.backend")
 	defer span.End()
 	return w.next.Retrieve(ctx, query, opts)
 }
+
+var _ retrieval.Backend[any] = (*Backend[any])(nil)
 
 // DenseIndex wraps a dense index with tracing.
 type DenseIndex[TMeta any] struct {
@@ -298,11 +298,41 @@ func WrapQueryReranker[TMeta any](
 func (w *QueryReranker[TMeta]) Rerank(
 	ctx context.Context,
 	query string,
-	docs []retrieval.Document[TMeta],
-) ([]retrieval.Document[TMeta], error) {
+	rs retrieval.ResultSet[TMeta],
+) (retrieval.ResultSet[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.ranking.rerank")
 	defer span.End()
-	return w.next.Rerank(ctx, query, docs)
+	return w.next.Rerank(ctx, query, rs)
+}
+
+// Pipeline wraps a declarative retrieval orchestrator with tracing.
+type Pipeline[TIntent, TMeta any] struct {
+	next   *retrieval.Pipeline[TIntent, TMeta]
+	tracer trace.Tracer
+}
+
+// WrapPipeline constructs a traced retrieval orchestrator.
+func WrapPipeline[TIntent, TMeta any](
+	next *retrieval.Pipeline[TIntent, TMeta],
+	tracer trace.Tracer,
+) (*Pipeline[TIntent, TMeta], error) {
+	if next == nil {
+		return nil, fmt.Errorf("%w: retrieval pipeline", ragy.ErrInvalidArgument)
+	}
+	if tracer == nil {
+		return nil, fmt.Errorf("%w: tracer", ragy.ErrInvalidArgument)
+	}
+	return &Pipeline[TIntent, TMeta]{next: next, tracer: tracer}, nil
+}
+
+// Retrieve implements orchestrator retrieval with pipeline span.
+func (w *Pipeline[TIntent, TMeta]) Retrieve(
+	ctx context.Context,
+	query retrieval.Query[TIntent],
+) (retrieval.ResultSet[TMeta], error) {
+	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.pipeline")
+	defer span.End()
+	return w.next.Retrieve(ctx, query)
 }
 
 // Merger wraps a ranked-list merger with tracing.
@@ -327,16 +357,16 @@ func WrapMerger[TMeta any](next ranking.Merger[TMeta], tracer trace.Tracer) (*Me
 // Merge implements ranking.Merger.
 func (w *Merger[TMeta]) Merge(
 	ctx context.Context,
-	lists ...[]retrieval.Document[TMeta],
-) ([]retrieval.Document[TMeta], error) {
+	sets ...retrieval.ResultSet[TMeta],
+) (retrieval.ResultSet[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.ranking.merge")
 	defer span.End()
-	return w.next.Merge(ctx, lists...)
+	return w.next.Merge(ctx, sets...)
 }
 
 var (
 	_ dense.Embedder             = (*DenseEmbedder)(nil)
-	_ retrieval.Retriever[any]   = (*Retriever[any])(nil)
+	_ retrieval.Backend[any]     = (*Backend[any])(nil)
 	_ dense.Index[any]           = (*DenseIndex[any])(nil)
 	_ tensor.Embedder            = (*TensorEmbedder)(nil)
 	_ tensor.Index[any]          = (*TensorIndex[any])(nil)

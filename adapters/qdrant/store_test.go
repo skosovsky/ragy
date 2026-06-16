@@ -2,9 +2,9 @@ package qdrant
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"testing"
 
@@ -17,26 +17,35 @@ import (
 )
 
 type fakeClient struct {
-	cond           Condition
-	searchLimit    int
-	searchPoints   []Point
-	getPoints      []Point
-	upsertPoints   []Point
-	upsertCalls    int
-	deleteCalls    int
-	getErr         error
-	deleteByIDsErr error
+	cond              Condition
+	searchLimit       int
+	searchPoints      []Point
+	searchErr         error
+	getPoints         []Point
+	upsertPoints      []Point
+	upsertCalls       int
+	deleteCalls       int
+	getErr            error
+	deleteByIDsErr    error
+	upsertErr         error
+	deleteByFilterErr error
 }
 
 func (c *fakeClient) Upsert(_ context.Context, _ string, points []Point) error {
 	c.upsertCalls++
 	c.upsertPoints = append([]Point(nil), points...)
+	if c.upsertErr != nil {
+		return c.upsertErr
+	}
 	return nil
 }
 
 func (c *fakeClient) Search(_ context.Context, _ string, _ []float32, cond Condition, limit int) ([]Point, error) {
 	c.cond = cond
 	c.searchLimit = limit
+	if c.searchErr != nil {
+		return nil, c.searchErr
+	}
 	return c.searchPoints, nil
 }
 
@@ -57,6 +66,9 @@ func (c *fakeClient) DeleteByIDs(_ context.Context, _ string, _ []string) (int, 
 func (c *fakeClient) DeleteByFilter(_ context.Context, _ string, cond Condition) (int, error) {
 	c.deleteCalls++
 	c.cond = cond
+	if c.deleteByFilterErr != nil {
+		return 0, c.deleteByFilterErr
+	}
 	return 0, nil
 }
 
@@ -117,7 +129,11 @@ func TestRetrievePreservesTypedFilterValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: schema})
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: schema},
+		retrieval.NewJSONCodec[contracttest.StructMeta](schema),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -133,6 +149,7 @@ func TestRetrievePreservesTypedFilterValue(t *testing.T) {
 
 	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
 		Vector:  []float32{1},
+		TopK:    10,
 		Filters: cond,
 	})
 	if err != nil {
@@ -153,7 +170,11 @@ func TestRetrieveUsesFetchLimitForSearch(t *testing.T) {
 	t.Parallel()
 
 	client := &fakeClient{}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -175,7 +196,11 @@ func TestRetrieveFallsBackToTopKWhenFetchLimitZero(t *testing.T) {
 	t.Parallel()
 
 	client := &fakeClient{}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -192,52 +217,19 @@ func TestRetrieveFallsBackToTopKWhenFetchLimitZero(t *testing.T) {
 	}
 }
 
-func TestRetrieveRejectsFetchLimitLessThanTopK(t *testing.T) {
-	t.Parallel()
-
-	store, err := New[contracttest.Meta](&fakeClient{}, Config{Collection: "docs", Schema: emptySchema(t)})
-	if err != nil {
-		t.Fatalf("New(): %v", err)
-	}
-
-	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
-		Vector:     []float32{1},
-		FetchLimit: 5,
-		TopK:       10,
-	})
-	if err == nil {
-		t.Fatal("Retrieve() error = nil, want invalid argument")
-	}
-}
-
 func TestDenseIndexConformance(t *testing.T) {
-	contracttest.RunDenseIndexSuite(t, func(t *testing.T) dense.Index[contracttest.Meta] {
+	contracttest.RunDenseIndexSuite(t, func(t *testing.T) dense.Index[contracttest.StructMeta] {
 		t.Helper()
-		store, err := New[contracttest.Meta](&fakeClient{}, Config{
+		schema := contracttest.TenantAgeSchema(t)
+		store, err := New[contracttest.StructMeta](&fakeClient{}, Config[contracttest.StructMeta]{
 			Collection: "docs",
-			Schema:     contracttest.TenantAgeSchema(t),
-		})
+			Schema:     schema,
+		}, contracttest.JSONCodec[contracttest.StructMeta](t, schema))
 		if err != nil {
 			t.Fatalf("New(): %v", err)
 		}
 		return store
 	})
-}
-
-func TestDeleteByFilterRejectsEmpty(t *testing.T) {
-	client := &fakeClient{}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
-	if err != nil {
-		t.Fatalf("New(): %v", err)
-	}
-
-	if _, err := store.DeleteByFilter(context.Background(), filter.Condition{}); err == nil {
-		t.Fatal("DeleteByFilter() error = nil, want error")
-	}
-
-	if client.deleteCalls != 0 {
-		t.Fatalf("deleteCalls = %d, want 0", client.deleteCalls)
-	}
 }
 
 func TestRetrieveReturnsNilMetaWhenPayloadEmpty(t *testing.T) {
@@ -250,53 +242,53 @@ func TestRetrieveReturnsNilMetaWhenPayloadEmpty(t *testing.T) {
 		}},
 	}
 
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
 	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
+		TopK:   10,
 	})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
 
-	if len(out) != 1 {
-		t.Fatalf("len(out) = %d, want 1", len(out))
+	docs := out.Documents()
+	if len(docs) != 1 {
+		t.Fatalf("len(docs) = %d, want 1", len(docs))
 	}
 
-	if len(out[0].Meta) != 0 {
-		t.Fatalf("document meta = %#v, want empty", out[0].Meta)
+	if docs[0].Meta != (contracttest.StructMeta{}) {
+		t.Fatalf("document meta = %#v, want empty", docs[0].Meta)
 	}
 }
 
 func TestNewRejectsInvalidCollectionName(t *testing.T) {
-	if _, err := New[contracttest.Meta](&fakeClient{}, Config{Collection: "1bad", Schema: emptySchema(t)}); err == nil {
+	if _, err := New(
+		&fakeClient{},
+		Config[contracttest.StructMeta]{Collection: "1bad", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	); err == nil {
 		t.Fatal("New() error = nil, want error")
-	}
-}
-
-func TestFindByIDsRejectsInvalidBackendPayload(t *testing.T) {
-	client := &fakeClient{
-		getPoints: []Point{{
-			ID:      "",
-			Content: "broken",
-		}},
-	}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
-	if err != nil {
-		t.Fatalf("New(): %v", err)
-	}
-
-	if _, err := store.FindByIDs(context.Background(), []string{"doc-1"}); err == nil {
-		t.Fatal("FindByIDs() error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("New() error = %v, want invalid argument", err)
 	}
 }
 
 func TestFindByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
-	client := &fakeClient{getErr: errors.New("upstream")}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	raw := errors.New("upstream")
+	client := &fakeClient{getErr: raw}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -307,11 +299,19 @@ func TestFindByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("FindByIDs() error = %v, want errors.Is(..., ErrUnavailable)", err)
 	}
+	if !errors.Is(err, raw) {
+		t.Fatalf("error chain lost upstream: %v", err)
+	}
 }
 
 func TestDeleteByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
-	client := &fakeClient{deleteByIDsErr: errors.New("upstream")}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	raw := errors.New("upstream")
+	client := &fakeClient{deleteByIDsErr: raw}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -322,23 +322,107 @@ func TestDeleteByIDsWrapsClientErrorWithErrUnavailable(t *testing.T) {
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("DeleteByIDs() error = %v, want errors.Is(..., ErrUnavailable)", err)
 	}
+	if !errors.Is(err, raw) {
+		t.Fatalf("error chain lost upstream: %v", err)
+	}
 }
 
-func TestUpsertRejectsWrongMetaTypeBeforeWrite(t *testing.T) {
-	client := &fakeClient{}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: ageSchema(t)})
+func TestUpsertWrapsRawClientError(t *testing.T) {
+	t.Parallel()
+
+	raw := errors.New("upstream")
+	client := &fakeClient{upsertErr: raw}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	err = store.Upsert(context.Background(), []dense.Record[contracttest.Meta]{{
-		ID:      "doc-1",
-		Content: "hello",
+	err = store.Upsert(context.Background(), []dense.Record[contracttest.StructMeta]{{
+		ID:      "d1",
+		Content: "c",
 		Vector:  []float32{1},
-		Meta:    contracttest.Meta{"age": "old"},
 	}})
 	if err == nil {
 		t.Fatal("Upsert() error = nil, want error")
+	}
+	if !errors.Is(err, ragy.ErrUnavailable) {
+		t.Fatalf("Upsert() error = %v, want unavailable", err)
+	}
+	if !errors.Is(err, raw) {
+		t.Fatalf("error chain lost upstream: %v", err)
+	}
+}
+
+func TestDeleteByFilterWrapsRawClientError(t *testing.T) {
+	t.Parallel()
+
+	raw := errors.New("upstream")
+	client := &fakeClient{deleteByFilterErr: raw}
+
+	builder := filter.NewSchema()
+	tenant, err := builder.Int("tenant")
+	if err != nil {
+		t.Fatalf("builder.Int(tenant): %v", err)
+	}
+	schema, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: schema},
+		retrieval.NewJSONCodec[contracttest.StructMeta](schema),
+	)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	filterBuilder, err := filter.NewBuilder(schema)
+	if err != nil {
+		t.Fatalf("NewBuilder(): %v", err)
+	}
+	cond, err := filter.Eq(filterBuilder, tenant, int64(7)).Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	_, err = store.DeleteByFilter(context.Background(), cond)
+	if err == nil {
+		t.Fatal("DeleteByFilter() error = nil, want error")
+	}
+	if !errors.Is(err, ragy.ErrUnavailable) {
+		t.Fatalf("DeleteByFilter() error = %v, want unavailable", err)
+	}
+	if !errors.Is(err, raw) {
+		t.Fatalf("error chain lost upstream: %v", err)
+	}
+}
+
+func TestUpsertRejectsWrongMetaTypeBeforeWrite(t *testing.T) {
+	client := &fakeClient{}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: ageSchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, ageSchema(t)),
+	)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	err = store.Upsert(context.Background(), []dense.Record[contracttest.StructMeta]{{
+		ID:      "doc-1",
+		Content: "hello",
+		Vector:  []float32{1},
+		Meta:    contracttest.StructMeta{Tenant: "acme"},
+	}})
+	if err == nil {
+		t.Fatal("Upsert() error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Upsert() error = %v, want invalid argument", err)
 	}
 	if client.upsertCalls != 0 {
 		t.Fatalf("upsertCalls = %d, want 0", client.upsertCalls)
@@ -347,18 +431,22 @@ func TestUpsertRejectsWrongMetaTypeBeforeWrite(t *testing.T) {
 
 func TestUpsertCanonicalizesMetaBeforeClientCall(t *testing.T) {
 	client := &fakeClient{}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: ageScoreSchema(t)})
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: ageScoreSchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, ageScoreSchema(t)),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	err = store.Upsert(context.Background(), []dense.Record[contracttest.Meta]{{
+	err = store.Upsert(context.Background(), []dense.Record[contracttest.StructMeta]{{
 		ID:      "doc-1",
 		Content: "hello",
 		Vector:  []float32{1},
-		Meta: contracttest.Meta{
-			"age":   int(7),
-			"score": float32(1.5),
+		Meta: contracttest.StructMeta{
+			Age:   7,
+			Score: 1.5,
 		},
 	}})
 	if err != nil {
@@ -380,14 +468,71 @@ func TestUpsertCanonicalizesMetaBeforeClientCall(t *testing.T) {
 	}
 }
 
-func TestUpsertCanonicalizesEmptyMetaToNil(t *testing.T) {
+func TestUpsertFindByIDsRoundTrip(t *testing.T) {
+	t.Parallel()
+
 	client := &fakeClient{}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	schema := contracttest.TenantSchema(t)
+	store, err := New[contracttest.TenantOnlyMeta](
+		client,
+		Config[contracttest.TenantOnlyMeta]{Collection: "docs", Schema: schema},
+		contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, schema),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	err = store.Upsert(context.Background(), []dense.Record[contracttest.Meta]{{
+	err = store.Upsert(context.Background(), []dense.Record[contracttest.TenantOnlyMeta]{{
+		ID:      "doc-1",
+		Content: "hello",
+		Vector:  []float32{1},
+		Meta:    contracttest.TenantOnlyMeta{Tenant: "acme"},
+	}})
+	if err != nil {
+		t.Fatalf("Upsert(): %v", err)
+	}
+
+	client.getPoints = client.upsertPoints
+	out, err := store.FindByIDs(context.Background(), []string{"doc-1"})
+	if err != nil {
+		t.Fatalf("FindByIDs(): %v", err)
+	}
+	if len(out) != 1 || out[0].Meta.Tenant != "acme" || out[0].Content != "hello" {
+		t.Fatalf("FindByIDs() = %#v, want round-trip doc", out)
+	}
+}
+
+func TestRetrieveEmptyVectorReturnsNonNilResultSet(t *testing.T) {
+	t.Parallel()
+
+	store, err := New[contracttest.StructMeta](
+		&fakeClient{},
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	out, err := store.Retrieve(context.Background(), "q", retrieval.RetrieveOptions{TopK: 1})
+	contracttest.RequireErrorResultSet(t, out, err)
+	if !errors.Is(err, ragy.ErrEmptyVector) {
+		t.Fatalf("Retrieve() error = %v, want empty vector", err)
+	}
+}
+
+func TestUpsertCanonicalizesEmptyMetaToNil(t *testing.T) {
+	client := &fakeClient{}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	err = store.Upsert(context.Background(), []dense.Record[contracttest.StructMeta]{{
 		ID:      "doc-1",
 		Content: "hello",
 		Vector:  []float32{1},
@@ -403,7 +548,11 @@ func TestUpsertCanonicalizesEmptyMetaToNil(t *testing.T) {
 
 func TestRetrieveRejectsUndeclaredFilterField(t *testing.T) {
 	client := &fakeClient{}
-	store, err := New[contracttest.Meta](client, Config{Collection: "docs", Schema: emptySchema(t)})
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -426,11 +575,13 @@ func TestRetrieveRejectsUndeclaredFilterField(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	if _, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
 		Vector:  []float32{1},
 		Filters: cond,
-	}); err == nil {
-		t.Fatal("Retrieve() error = nil, want error")
+	})
+	contracttest.RequireErrorResultSet(t, out, err)
+	if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 	}
 	if client.cond != nil {
 		t.Fatalf("condition = %#v, want no backend search call", client.cond)
@@ -438,13 +589,13 @@ func TestRetrieveRejectsUndeclaredFilterField(t *testing.T) {
 }
 
 type documentsClient struct {
-	docs map[string]retrieval.Document[contracttest.Meta]
+	docs map[string]retrieval.Document[contracttest.StructMeta]
 }
 
-func newDocumentsClient(docs []retrieval.Document[contracttest.Meta]) *documentsClient {
-	out := make(map[string]retrieval.Document[contracttest.Meta], len(docs))
+func newDocumentsClient(docs []retrieval.Document[contracttest.StructMeta]) *documentsClient {
+	out := make(map[string]retrieval.Document[contracttest.StructMeta], len(docs))
 	for _, doc := range docs {
-		out[doc.ID] = retrieval.Document[contracttest.Meta]{
+		out[doc.ID] = retrieval.Document[contracttest.StructMeta]{
 			ID:      doc.ID,
 			Content: doc.Content,
 			Meta:    doc.Meta,
@@ -467,8 +618,10 @@ func (c *documentsClient) Get(_ context.Context, _ string, ids []string) ([]Poin
 		if !ok {
 			continue
 		}
-		attrs := filter.RawAttributes{}
-		maps.Copy(attrs, doc.Meta)
+		attrs, err := structMetaToRawAttributes(doc.Meta)
+		if err != nil {
+			return nil, err
+		}
 		points = append(points, Point{
 			ID:         doc.ID,
 			Content:    doc.Content,
@@ -510,9 +663,9 @@ func (c *documentsClient) DeleteByFilter(_ context.Context, _ string, cond Condi
 }
 
 func TestDocumentsStoreConformance(t *testing.T) {
-	contracttest.RunDocumentsStoreSuite(
+	contracttest.RunDocumentsStructStoreSuite(
 		t,
-		func(t *testing.T, docs []retrieval.Document[contracttest.Meta]) documents.Store[contracttest.Meta] {
+		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) documents.Store[contracttest.StructMeta] {
 			t.Helper()
 			builder := filter.NewSchema()
 			if _, err := builder.String("tenant"); err != nil {
@@ -522,7 +675,11 @@ func TestDocumentsStoreConformance(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Build(): %v", err)
 			}
-			store, err := New[contracttest.Meta](newDocumentsClient(docs), Config{Collection: "docs", Schema: schema})
+			store, err := New[contracttest.StructMeta](
+				newDocumentsClient(docs),
+				Config[contracttest.StructMeta]{Collection: "docs", Schema: schema},
+				contracttest.JSONCodec[contracttest.StructMeta](t, schema),
+			)
 			if err != nil {
 				t.Fatalf("New(): %v", err)
 			}
@@ -531,7 +688,76 @@ func TestDocumentsStoreConformance(t *testing.T) {
 	)
 }
 
-func matchesCondition(doc retrieval.Document[contracttest.Meta], cond Condition) (bool, error) {
+func TestDocumentsPartialFindByIDsConformance(t *testing.T) {
+	contracttest.RunDocumentsPartialFindByIDsSuite(t, func(t *testing.T) documents.Store[contracttest.StructMeta] {
+		t.Helper()
+
+		client := &fakeClient{
+			getPoints: []Point{
+				{ID: "ok", Content: "good", Attributes: filter.RawAttributes{}},
+				{ID: "", Content: "bad", Attributes: filter.RawAttributes{}},
+			},
+		}
+		store, err := New[contracttest.StructMeta](
+			client,
+			Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+			contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+		)
+		if err != nil {
+			t.Fatalf("New(): %v", err)
+		}
+		return store
+	})
+}
+
+func TestRetrievePartialProjectionConformance(t *testing.T) {
+	contracttest.RunRetrievePartialProjectionSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
+		t.Helper()
+
+		schema := emptySchema(t)
+		client := &fakeClient{
+			searchPoints: []Point{
+				{ID: "ok", Content: "good", Attributes: filter.RawAttributes{}, Score: 0.9},
+				{ID: "", Content: "bad", Attributes: filter.RawAttributes{}, Score: 0.5},
+			},
+		}
+		store, err := New[contracttest.StructMeta](
+			client,
+			Config[contracttest.StructMeta]{Collection: "docs", Schema: schema},
+			contracttest.JSONCodec[contracttest.StructMeta](t, schema),
+		)
+		if err != nil {
+			t.Fatalf("New(): %v", err)
+		}
+		return store
+	}, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
+		t.Helper()
+
+		schema := contracttest.TenantSchema(t)
+		resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
+		client := &fakeClient{
+			searchPoints: []Point{
+				{ID: "ok", Content: "merge-key", Attributes: filter.RawAttributes{"tenant": "acme"}, Score: 0.9},
+				{ID: "bad", Content: "bad", Attributes: filter.RawAttributes{"tenant": 123}, Score: 0.5},
+			},
+		}
+		store, err := New[contracttest.StructMeta](
+			client,
+			Config[contracttest.StructMeta]{
+				Collection: "docs",
+				Schema:     schema,
+				Resolver:   resolver,
+			},
+			contracttest.JSONCodec[contracttest.StructMeta](t, schema),
+		)
+		if err != nil {
+			t.Fatalf("New(): %v", err)
+		}
+		return store
+	})
+}
+
+func matchesCondition(doc retrieval.Document[contracttest.StructMeta], cond Condition) (bool, error) {
 	switch node := cond.(type) {
 	case MatchAllCondition:
 		return true, nil
@@ -552,17 +778,17 @@ func matchesCondition(doc retrieval.Document[contracttest.Meta], cond Condition)
 	}
 }
 
-func matchesEquality(doc retrieval.Document[contracttest.Meta], field string, expected any) (bool, error) {
+func matchesEquality(doc retrieval.Document[contracttest.StructMeta], field string, expected any) (bool, error) {
 	value, ok := documentField(doc, field)
 	return ok && value == expected, nil
 }
 
-func matchesInequality(doc retrieval.Document[contracttest.Meta], field string, expected any) (bool, error) {
+func matchesInequality(doc retrieval.Document[contracttest.StructMeta], field string, expected any) (bool, error) {
 	value, ok := documentField(doc, field)
 	return !ok || value != expected, nil
 }
 
-func matchesRange(doc retrieval.Document[contracttest.Meta], cond RangeCondition) (bool, error) {
+func matchesRange(doc retrieval.Document[contracttest.StructMeta], cond RangeCondition) (bool, error) {
 	value, ok := documentField(doc, cond.Field)
 	if !ok {
 		return false, nil
@@ -570,7 +796,7 @@ func matchesRange(doc retrieval.Document[contracttest.Meta], cond RangeCondition
 	return compareRange(value, cond.Value, cond.Op)
 }
 
-func matchesIn(doc retrieval.Document[contracttest.Meta], cond InCondition) (bool, error) {
+func matchesIn(doc retrieval.Document[contracttest.StructMeta], cond InCondition) (bool, error) {
 	value, ok := documentField(doc, cond.Field)
 	if !ok {
 		return false, nil
@@ -578,7 +804,7 @@ func matchesIn(doc retrieval.Document[contracttest.Meta], cond InCondition) (boo
 	return slices.Contains(cond.Values, value), nil
 }
 
-func matchesGroup(doc retrieval.Document[contracttest.Meta], cond GroupCondition) (bool, error) {
+func matchesGroup(doc retrieval.Document[contracttest.StructMeta], cond GroupCondition) (bool, error) {
 	switch cond.Op {
 	case "and":
 		return matchesAll(doc, cond.Items)
@@ -589,7 +815,7 @@ func matchesGroup(doc retrieval.Document[contracttest.Meta], cond GroupCondition
 	}
 }
 
-func matchesAll(doc retrieval.Document[contracttest.Meta], items []Condition) (bool, error) {
+func matchesAll(doc retrieval.Document[contracttest.StructMeta], items []Condition) (bool, error) {
 	for _, item := range items {
 		matched, err := matchesCondition(doc, item)
 		if err != nil || !matched {
@@ -599,7 +825,7 @@ func matchesAll(doc retrieval.Document[contracttest.Meta], items []Condition) (b
 	return true, nil
 }
 
-func matchesAny(doc retrieval.Document[contracttest.Meta], items []Condition) (bool, error) {
+func matchesAny(doc retrieval.Document[contracttest.StructMeta], items []Condition) (bool, error) {
 	for _, item := range items {
 		matched, err := matchesCondition(doc, item)
 		if err != nil {
@@ -612,20 +838,54 @@ func matchesAny(doc retrieval.Document[contracttest.Meta], items []Condition) (b
 	return false, nil
 }
 
-func matchesNot(doc retrieval.Document[contracttest.Meta], cond Condition) (bool, error) {
+func matchesNot(doc retrieval.Document[contracttest.StructMeta], cond Condition) (bool, error) {
 	matched, err := matchesCondition(doc, cond)
 	return !matched, err
 }
 
-func documentField(doc retrieval.Document[contracttest.Meta], field string) (any, bool) {
+func structMetaToRawAttributes(meta contracttest.StructMeta) (filter.RawAttributes, error) {
+	data, err := json.Marshal(meta)
+	if err != nil {
+		return nil, err
+	}
+	var attrs filter.RawAttributes
+	if err := json.Unmarshal(data, &attrs); err != nil {
+		return nil, err
+	}
+	if len(attrs) == 0 {
+		return filter.RawAttributes{}, nil
+	}
+	return attrs, nil
+}
+
+func documentField(doc retrieval.Document[contracttest.StructMeta], field string) (any, bool) {
 	switch field {
 	case "id":
 		return doc.ID, true
 	case "content":
 		return doc.Content, true
+	case "tenant":
+		if doc.Meta.Tenant == "" {
+			return nil, false
+		}
+		return doc.Meta.Tenant, true
+	case "age":
+		if doc.Meta.Age == 0 {
+			return nil, false
+		}
+		return doc.Meta.Age, true
+	case "score":
+		if doc.Meta.Score == 0 {
+			return nil, false
+		}
+		return doc.Meta.Score, true
+	case "kind":
+		if doc.Meta.Kind == "" {
+			return nil, false
+		}
+		return doc.Meta.Kind, true
 	default:
-		value, ok := doc.Meta[field]
-		return value, ok
+		return nil, false
 	}
 }
 
@@ -662,10 +922,6 @@ func toFloat(value any) (float64, bool) {
 	}
 }
 
-type tenantMeta struct {
-	Tenant string `json:"tenant"`
-}
-
 func TestRetrieveUnmarshalsStructMeta(t *testing.T) {
 	t.Parallel()
 
@@ -679,22 +935,25 @@ func TestRetrieveUnmarshalsStructMeta(t *testing.T) {
 		}},
 	}
 
-	store, err := New[tenantMeta](client, Config{
+	schema := contracttest.TenantSchema(t)
+	store, err := New[contracttest.TenantOnlyMeta](client, Config[contracttest.TenantOnlyMeta]{
 		Collection: "docs",
-		Schema:     contracttest.TenantSchema(t),
-	})
+		Schema:     schema,
+	}, contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, schema))
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
 	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
+		TopK:   10,
 	})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
-	if len(out) != 1 || out[0].Meta.Tenant != "acme" {
-		t.Fatalf("Retrieve() = %#v, want tenant acme", out)
+	docs := out.Documents()
+	if len(docs) != 1 || docs[0].Meta.Tenant != "acme" {
+		t.Fatalf("Retrieve() = %#v, want tenant acme", docs)
 	}
 }
 
@@ -711,19 +970,22 @@ func TestRetrieveRejectsIncompatibleStructMeta(t *testing.T) {
 		}},
 	}
 
-	store, err := New[tenantMeta](client, Config{
+	schema := contracttest.TenantSchema(t)
+	store, err := New[contracttest.TenantOnlyMeta](client, Config[contracttest.TenantOnlyMeta]{
 		Collection: "docs",
-		Schema:     contracttest.TenantSchema(t),
-	})
+		Schema:     schema,
+	}, contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, schema))
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
-	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
+		TopK:   10,
 	})
-	if err == nil {
-		t.Fatal("Retrieve() error = nil, want decode error")
+	contracttest.RequireErrorResultSet(t, out, err)
+	if !errors.Is(err, ragy.ErrProtocol) {
+		t.Fatalf("Retrieve() error = %v, want protocol", err)
 	}
 }
 
@@ -738,10 +1000,11 @@ func TestFindByIDsUnmarshalsStructMeta(t *testing.T) {
 		}},
 	}
 
-	store, err := New[tenantMeta](client, Config{
+	schema := contracttest.TenantSchema(t)
+	store, err := New[contracttest.TenantOnlyMeta](client, Config[contracttest.TenantOnlyMeta]{
 		Collection: "docs",
-		Schema:     contracttest.TenantSchema(t),
-	})
+		Schema:     schema,
+	}, contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, schema))
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -766,16 +1029,162 @@ func TestFindByIDsRejectsIncompatibleStructMeta(t *testing.T) {
 		}},
 	}
 
-	store, err := New[tenantMeta](client, Config{
+	schema := contracttest.TenantSchema(t)
+	store, err := New[contracttest.TenantOnlyMeta](client, Config[contracttest.TenantOnlyMeta]{
 		Collection: "docs",
-		Schema:     contracttest.TenantSchema(t),
-	})
+		Schema:     schema,
+	}, contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, schema))
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
 
 	_, err = store.FindByIDs(context.Background(), []string{"doc-1"})
-	if err == nil {
-		t.Fatal("FindByIDs() error = nil, want decode error")
+	if !errors.Is(err, ragy.ErrProtocol) {
+		t.Fatalf("FindByIDs() error = %v, want protocol", err)
+	}
+}
+
+func newDenseStructBackend(
+	t *testing.T,
+	docs []retrieval.Document[contracttest.StructMeta],
+) retrieval.Backend[contracttest.StructMeta] {
+	t.Helper()
+
+	schema := contracttest.TenantAgeSchema(t)
+	codec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
+	points := make([]Point, 0, len(docs))
+	for _, doc := range docs {
+		attrs, err := codec.Encode(doc.Meta)
+		if err != nil {
+			t.Fatalf("Encode(): %v", err)
+		}
+		points = append(points, Point{
+			ID:         doc.ID,
+			Content:    doc.Content,
+			Attributes: attrs,
+			Score:      1,
+		})
+	}
+
+	client := &fakeClient{searchPoints: points}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: schema},
+		codec,
+	)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+	return store
+}
+
+func TestDenseStructBackendConformance(t *testing.T) {
+	contracttest.RunDenseStructBackendSuite(t, newDenseStructBackend)
+}
+
+func TestRetrieveOptionsInvalidConformance(t *testing.T) {
+	contracttest.RunRetrieveOptionsInvalidSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
+		t.Helper()
+		store, err := New[contracttest.StructMeta](
+			&fakeClient{},
+			Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+			contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+		)
+		if err != nil {
+			t.Fatalf("New(): %v", err)
+		}
+		return store
+	})
+}
+
+func TestNewRejectsNilCodec(t *testing.T) {
+	if _, err := New[contracttest.StructMeta](
+		&fakeClient{},
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		nil,
+	); err == nil {
+		t.Fatal("New() error = nil, want error")
+	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("New() error = %v, want invalid argument", err)
+	}
+}
+
+func TestFindByIDsPreservesPartialOnProjectError(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{
+		getPoints: []Point{
+			{ID: "ok", Content: "good", Attributes: filter.RawAttributes{}},
+			{ID: "", Content: "bad", Attributes: filter.RawAttributes{}},
+		},
+	}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	out, err := store.FindByIDs(context.Background(), []string{"ok", "bad"})
+	if !errors.Is(err, ragy.ErrMissingID) {
+		t.Fatalf("FindByIDs() error = %v, want missing id", err)
+	}
+	if !errors.Is(err, ragy.ErrProtocol) {
+		t.Fatalf("FindByIDs() error = %v, want protocol", err)
+	}
+	if len(out) != 1 || out[0].ID != "ok" {
+		t.Fatalf("FindByIDs() = %#v, want partial ok point", out)
+	}
+}
+
+func TestRetrieveSearchErrorReturnsEmptyResultSet(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{searchErr: ragy.ErrUnavailable}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector: []float32{1},
+		TopK:   5,
+	})
+	contracttest.RequireErrorResultSet(t, out, err)
+	if !errors.Is(err, ragy.ErrUnavailable) {
+		t.Fatalf("Retrieve() error = %v, want unavailable", err)
+	}
+}
+
+func TestRetrieveWrapsRawClientError(t *testing.T) {
+	t.Parallel()
+
+	raw := errors.New("upstream")
+	client := &fakeClient{searchErr: raw}
+	store, err := New[contracttest.StructMeta](
+		client,
+		Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+	)
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		Vector: []float32{1},
+		TopK:   5,
+	})
+	contracttest.RequireErrorResultSet(t, out, err)
+	if !errors.Is(err, ragy.ErrUnavailable) {
+		t.Fatalf("Retrieve() error = %v, want unavailable", err)
+	}
+	if !errors.Is(err, raw) {
+		t.Fatalf("error chain lost upstream: %v", err)
 	}
 }
