@@ -28,8 +28,7 @@ func (s *stubBackend) Schema() filter.Schema { return s.schema }
 
 func (s *stubBackend) Retrieve(
 	_ context.Context,
-	_ string,
-	_ retrieval.RetrieveOptions,
+	_ retrieval.Query[intent],
 ) (retrieval.ResultSet[struct{}], error) {
 	if s.fail {
 		return retrieval.NewResultSet[struct{}](nil, retrieval.DocumentIDResolver[struct{}]{}),

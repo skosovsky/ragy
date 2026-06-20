@@ -14,6 +14,15 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 )
 
+func retrieveBM25[TMeta any](
+	ctx context.Context,
+	idx *BM25Index[TMeta],
+	text string,
+	opts retrieval.RetrieveOptions,
+) (retrieval.ResultSet[TMeta], error) {
+	return idx.Retrieve(ctx, retrieval.Query[struct{}]{Text: text, Options: opts})
+}
+
 func TestBM25RetrieveRace(t *testing.T) {
 	builder := filter.NewSchema()
 	if _, err := builder.String("tenant"); err != nil {
@@ -49,7 +58,7 @@ func TestBM25RetrieveRace(t *testing.T) {
 	for range workers {
 		go func() {
 			defer wg.Done()
-			rs, err := idx.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 2})
+			rs, err := retrieveBM25(context.Background(), idx, "hello", retrieval.RetrieveOptions{TopK: 2})
 			if err != nil {
 				t.Error(err)
 				return
@@ -60,6 +69,86 @@ func TestBM25RetrieveRace(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestBM25RetrieveUsesPlannedExpandedText(t *testing.T) {
+	t.Parallel()
+
+	schema, err := filter.NewSchema().Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+	idx, err := NewBM25Index[struct{}](
+		schema,
+		Config[struct{}]{SearchFields: []string{"content"}},
+		DefaultTokenizer{},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewBM25Index(): %v", err)
+	}
+	if upsertErr := idx.Upsert(retrieval.Document[struct{}]{
+		ID:      "planned",
+		Content: "expanded token",
+	}); upsertErr != nil {
+		t.Fatalf("Upsert(): %v", upsertErr)
+	}
+
+	rs, err := idx.Retrieve(context.Background(), retrieval.Query[struct{}]{
+		Text: "missing",
+		Plan: &retrieval.PlannedQuery[struct{}]{
+			ExpandedText: "expanded",
+		},
+		Options: retrieval.RetrieveOptions{TopK: 1},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	if rs.Len() != 1 || rs.Documents()[0].ID != "planned" {
+		t.Fatalf("Documents() = %#v, want planned text hit", rs.Documents())
+	}
+}
+
+func TestBM25RetrieveMarksRankedDocsScorePresent(t *testing.T) {
+	t.Parallel()
+
+	schema, err := filter.NewSchema().Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+	idx, err := NewBM25Index[struct{}](
+		schema,
+		Config[struct{}]{SearchFields: []string{"content"}},
+		DefaultTokenizer{},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewBM25Index(): %v", err)
+	}
+	if upsertErr := idx.Upsert(retrieval.Document[struct{}]{
+		ID:         "rank-only-source",
+		Content:    "alpha beta",
+		ScoreState: retrieval.ScoreAbsent,
+		Rank:       1,
+	}); upsertErr != nil {
+		t.Fatalf("Upsert(): %v", upsertErr)
+	}
+
+	rs, err := idx.Retrieve(context.Background(), retrieval.Query[struct{}]{
+		Text:    "alpha",
+		Options: retrieval.RetrieveOptions{TopK: 1},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	docs := rs.Documents()
+	if len(docs) != 1 {
+		t.Fatalf("len(Documents()) = %d, want 1", len(docs))
+	}
+	if docs[0].ScoreState != retrieval.ScorePresent || docs[0].Score <= 0 || docs[0].Rank != 1 {
+		t.Fatalf("score/rank = (%v,%v,%d), want present positive score with rank 1",
+			docs[0].ScoreState, docs[0].Score, docs[0].Rank)
+	}
 }
 
 func TestBM25AppliesDeclaredFilter(t *testing.T) {
@@ -112,7 +201,7 @@ func TestBM25AppliesDeclaredFilter(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := idx.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+	rs, err := retrieveBM25(context.Background(), idx, "hello", retrieval.RetrieveOptions{
 		TopK:    10,
 		Filters: cond,
 	})
@@ -148,7 +237,7 @@ func TestBM25SynonymsAffectScoring(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	rs, err := idx.Retrieve(context.Background(), "automobile", retrieval.RetrieveOptions{TopK: 1})
+	rs, err := retrieveBM25(context.Background(), idx, "automobile", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -183,7 +272,7 @@ func TestBM25RankPreservesTieOrder(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	rs, err := idx.Retrieve(context.Background(), "tie query terms", retrieval.RetrieveOptions{TopK: 2})
+	rs, err := retrieveBM25(context.Background(), idx, "tie query terms", retrieval.RetrieveOptions{TopK: 2})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -225,7 +314,7 @@ func TestBM25UpsertZeroTokensReturnsError(t *testing.T) {
 		t.Fatalf("Upsert() error = %v, want empty text", err)
 	}
 
-	rs, err := idx.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 1})
+	rs, err := retrieveBM25(context.Background(), idx, "hello", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -268,8 +357,7 @@ type bm25ContractBackend struct {
 
 func (b *bm25ContractBackend) Retrieve(
 	ctx context.Context,
-	query string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
 	for _, doc := range b.staged {
 		if err := retrieval.ValidateDocument(doc); err != nil {
@@ -279,13 +367,13 @@ func (b *bm25ContractBackend) Retrieve(
 			), ragy.WrapProjectionError(err, "bm25 contract validate")
 		}
 	}
-	return b.BM25Index.Retrieve(ctx, query, opts)
+	return b.BM25Index.Retrieve(ctx, req)
 }
 
 func newBM25LexicalStructBackend(
 	t *testing.T,
 	docs []retrieval.Document[contracttest.StructMeta],
-) retrieval.Backend[contracttest.StructMeta] {
+) retrieval.Backend[struct{}, contracttest.StructMeta] {
 	t.Helper()
 
 	schema := contracttest.TenantAgeSchema(t)
@@ -329,23 +417,27 @@ func TestBM25LexicalStructBackendConformance(t *testing.T) {
 }
 
 func TestRetrieveOptionsInvalidConformance(t *testing.T) {
-	contracttest.RunRetrieveOptionsInvalidSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
-		schema, err := filter.NewSchema().Build()
-		if err != nil {
-			t.Fatalf("Build(): %v", err)
-		}
-		idx, err := NewBM25Index[contracttest.StructMeta](
-			schema,
-			Config[contracttest.StructMeta]{SearchFields: []string{"content"}},
-			DefaultTokenizer{},
-			nil,
-		)
-		if err != nil {
-			t.Fatalf("NewBM25Index(): %v", err)
-		}
-		return idx
-	}, contracttest.RetrieveOptionsInvalidConfig{Query: "hello", Vector: nil})
+	contracttest.RunRetrieveOptionsInvalidSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
+			schema, err := filter.NewSchema().Build()
+			if err != nil {
+				t.Fatalf("Build(): %v", err)
+			}
+			idx, err := NewBM25Index[contracttest.StructMeta](
+				schema,
+				Config[contracttest.StructMeta]{SearchFields: []string{"content"}},
+				DefaultTokenizer{},
+				nil,
+			)
+			if err != nil {
+				t.Fatalf("NewBM25Index(): %v", err)
+			}
+			return idx
+		},
+		contracttest.RetrieveOptionsInvalidConfig{Query: "hello", Vector: nil},
+	)
 }
 
 type failingAfterFirstEncodeCodec[TMeta any] struct {
@@ -373,95 +465,99 @@ type bm25PartialProjectionBackend struct {
 
 func (b *bm25PartialProjectionBackend) Retrieve(
 	ctx context.Context,
-	query string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
+	opts := req.Options
 	opts.Filters = b.filters
-	return b.BM25Index.Retrieve(ctx, query, opts)
+	req.Options = opts
+	return b.BM25Index.Retrieve(ctx, req)
 }
 
 func TestRetrievePartialProjectionConformance(t *testing.T) {
-	contracttest.RunRetrievePartialProjectionSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+	contracttest.RunRetrievePartialProjectionSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		schema := contracttest.TenantAgeSchema(t)
-		innerCodec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
-		idx, err := NewBM25Index[contracttest.StructMeta](
-			schema,
-			Config[contracttest.StructMeta]{
-				SearchFields: []string{"content"},
-				Codec:        &failingAfterFirstEncodeCodec[contracttest.StructMeta]{inner: innerCodec},
-			},
-			DefaultTokenizer{},
-			nil,
-		)
-		if err != nil {
-			t.Fatalf("NewBM25Index(): %v", err)
-		}
+			schema := contracttest.TenantAgeSchema(t)
+			innerCodec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
+			idx, err := NewBM25Index[contracttest.StructMeta](
+				schema,
+				Config[contracttest.StructMeta]{
+					SearchFields: []string{"content"},
+					Codec:        &failingAfterFirstEncodeCodec[contracttest.StructMeta]{inner: innerCodec},
+				},
+				DefaultTokenizer{},
+				nil,
+			)
+			if err != nil {
+				t.Fatalf("NewBM25Index(): %v", err)
+			}
 
-		tenant, err := schema.StringField("tenant")
-		if err != nil {
-			t.Fatalf("Schema().StringField(tenant): %v", err)
-		}
-		builder, err := filter.NewBuilder(schema)
-		if err != nil {
-			t.Fatalf("NewBuilder(): %v", err)
-		}
-		cond, err := filter.In(builder, tenant, "acme", "globex").Build()
-		if err != nil {
-			t.Fatalf("Build(): %v", err)
-		}
+			tenant, err := schema.StringField("tenant")
+			if err != nil {
+				t.Fatalf("Schema().StringField(tenant): %v", err)
+			}
+			builder, err := filter.NewBuilder(schema)
+			if err != nil {
+				t.Fatalf("NewBuilder(): %v", err)
+			}
+			cond, err := filter.In(builder, tenant, "acme", "globex").Build()
+			if err != nil {
+				t.Fatalf("Build(): %v", err)
+			}
 
-		if err := idx.Index([]retrieval.Document[contracttest.StructMeta]{
-			{ID: "ok", Content: "q good", Meta: contracttest.StructMeta{Tenant: "acme"}},
-			{ID: "zzbad", Content: "q bad", Meta: contracttest.StructMeta{Tenant: "globex"}},
-		}); err != nil {
-			t.Fatalf("Index(): %v", err)
-		}
+			if err := idx.Index([]retrieval.Document[contracttest.StructMeta]{
+				{ID: "ok", Content: "q good", Meta: contracttest.StructMeta{Tenant: "acme"}},
+				{ID: "zzbad", Content: "q bad", Meta: contracttest.StructMeta{Tenant: "globex"}},
+			}); err != nil {
+				t.Fatalf("Index(): %v", err)
+			}
 
-		return &bm25PartialProjectionBackend{BM25Index: idx, filters: cond}
-	}, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+			return &bm25PartialProjectionBackend{BM25Index: idx, filters: cond}
+		},
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		schema := contracttest.TenantAgeSchema(t)
-		innerCodec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
-		resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
-		idx, err := NewBM25Index[contracttest.StructMeta](
-			schema,
-			Config[contracttest.StructMeta]{
-				SearchFields: []string{"content"},
-				Codec:        &failingAfterFirstEncodeCodec[contracttest.StructMeta]{inner: innerCodec},
-				Resolver:     resolver,
-			},
-			DefaultTokenizer{},
-			nil,
-		)
-		if err != nil {
-			t.Fatalf("NewBM25Index(): %v", err)
-		}
+			schema := contracttest.TenantAgeSchema(t)
+			innerCodec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
+			resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
+			idx, err := NewBM25Index[contracttest.StructMeta](
+				schema,
+				Config[contracttest.StructMeta]{
+					SearchFields: []string{"content"},
+					Codec:        &failingAfterFirstEncodeCodec[contracttest.StructMeta]{inner: innerCodec},
+					Resolver:     resolver,
+				},
+				DefaultTokenizer{},
+				nil,
+			)
+			if err != nil {
+				t.Fatalf("NewBM25Index(): %v", err)
+			}
 
-		tenant, err := schema.StringField("tenant")
-		if err != nil {
-			t.Fatalf("Schema().StringField(tenant): %v", err)
-		}
-		builder, err := filter.NewBuilder(schema)
-		if err != nil {
-			t.Fatalf("NewBuilder(): %v", err)
-		}
-		cond, err := filter.In(builder, tenant, "acme", "globex").Build()
-		if err != nil {
-			t.Fatalf("Build(): %v", err)
-		}
+			tenant, err := schema.StringField("tenant")
+			if err != nil {
+				t.Fatalf("Schema().StringField(tenant): %v", err)
+			}
+			builder, err := filter.NewBuilder(schema)
+			if err != nil {
+				t.Fatalf("NewBuilder(): %v", err)
+			}
+			cond, err := filter.In(builder, tenant, "acme", "globex").Build()
+			if err != nil {
+				t.Fatalf("Build(): %v", err)
+			}
 
-		if indexErr := idx.Index([]retrieval.Document[contracttest.StructMeta]{
-			{ID: "ok", Content: "q merge-key", Meta: contracttest.StructMeta{Tenant: "acme"}},
-			{ID: "zzbad", Content: "q bad", Meta: contracttest.StructMeta{Tenant: "globex"}},
-		}); indexErr != nil {
-			t.Fatalf("Index(): %v", indexErr)
-		}
+			if indexErr := idx.Index([]retrieval.Document[contracttest.StructMeta]{
+				{ID: "ok", Content: "q merge-key", Meta: contracttest.StructMeta{Tenant: "acme"}},
+				{ID: "zzbad", Content: "q bad", Meta: contracttest.StructMeta{Tenant: "globex"}},
+			}); indexErr != nil {
+				t.Fatalf("Index(): %v", indexErr)
+			}
 
-		return &bm25PartialProjectionBackend{BM25Index: idx, filters: cond}
-	})
+			return &bm25PartialProjectionBackend{BM25Index: idx, filters: cond}
+		})
 }
 
 func TestBM25RetrieveErrorReturnsNonNilResultSet(t *testing.T) {
@@ -481,7 +577,7 @@ func TestBM25RetrieveErrorReturnsNonNilResultSet(t *testing.T) {
 		t.Fatalf("NewBM25Index(): %v", err)
 	}
 
-	out, err := idx.Retrieve(context.Background(), "   ", retrieval.RetrieveOptions{TopK: 1})
+	out, err := retrieveBM25(context.Background(), idx, "   ", retrieval.RetrieveOptions{TopK: 1})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrEmptyText) {
 		t.Fatalf("Retrieve() error = %v, want empty text", err)
@@ -635,7 +731,7 @@ func TestBM25SearchFieldsExcludesContentWhenNotDeclared(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	byContent, err := idx.Retrieve(context.Background(), "secret", retrieval.RetrieveOptions{TopK: 1})
+	byContent, err := retrieveBM25(context.Background(), idx, "secret", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("Retrieve(by content): %v", err)
 	}
@@ -643,7 +739,7 @@ func TestBM25SearchFieldsExcludesContentWhenNotDeclared(t *testing.T) {
 		t.Fatalf("Retrieve(by content) = %#v, want no hits without content field", byContent.Documents())
 	}
 
-	byTenant, err := idx.Retrieve(context.Background(), "acme", retrieval.RetrieveOptions{TopK: 1})
+	byTenant, err := retrieveBM25(context.Background(), idx, "acme", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("Retrieve(by tenant): %v", err)
 	}
@@ -683,7 +779,7 @@ func TestBM25FieldValueUsesConfigCodec(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	byMarker, err := idx.Retrieve(context.Background(), "encvacme", retrieval.RetrieveOptions{TopK: 1})
+	byMarker, err := retrieveBM25(context.Background(), idx, "encvacme", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("Retrieve(marker token): %v", err)
 	}
@@ -691,7 +787,7 @@ func TestBM25FieldValueUsesConfigCodec(t *testing.T) {
 		t.Fatalf("Retrieve(marker token) = %#v, want doc 1 via custom codec", byMarker.Documents())
 	}
 
-	byPlain, err := idx.Retrieve(context.Background(), "acme", retrieval.RetrieveOptions{TopK: 1})
+	byPlain, err := retrieveBM25(context.Background(), idx, "acme", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("Retrieve(plain token): %v", err)
 	}

@@ -10,7 +10,7 @@ import (
 
 func retrieveWithPostProcessors[TMeta any](
 	t *testing.T,
-	backend Backend[TMeta],
+	backend Backend[struct{}, TMeta],
 	resolver IdentityResolver[TMeta],
 	query string,
 	opts RetrieveOptions,
@@ -109,13 +109,13 @@ func TestPostProcessorChainRejectsInvalidProcessorScore(t *testing.T) {
 
 type invalidBackend struct{}
 
-func (invalidBackend) Retrieve(_ context.Context, _ string, _ RetrieveOptions) (ResultSet[struct{}], error) {
+func (invalidBackend) Retrieve(_ context.Context, _ Query[struct{}]) (ResultSet[struct{}], error) {
 	return NewResultSet([]Document[struct{}]{{Content: "broken", Score: 0.5}}, DocumentIDResolver[struct{}]{}), nil
 }
 
 type invalidScoreBackend struct{}
 
-func (invalidScoreBackend) Retrieve(_ context.Context, _ string, _ RetrieveOptions) (ResultSet[struct{}], error) {
+func (invalidScoreBackend) Retrieve(_ context.Context, _ Query[struct{}]) (ResultSet[struct{}], error) {
 	return NewResultSet(
 		[]Document[struct{}]{{ID: "doc-1", Content: "broken", Score: 1.5}},
 		DocumentIDResolver[struct{}]{},
@@ -149,7 +149,7 @@ func TestCustomPostProcessorMustUseConstructorResolver(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	backend := orchestratorStubBackend[struct{}]{docs: []Document[struct{}]{
+	backend := orchestratorStubBackend[struct{}, struct{}]{docs: []Document[struct{}]{
 		{ID: "a", Content: "grp", Score: 1},
 	}}
 	rs, err := retrieveWithPostProcessors(
@@ -178,7 +178,7 @@ func TestPostProcessorChainDoesNotInjectResolverIntoCustomProcessor(t *testing.T
 	t.Parallel()
 
 	mergeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	backend := orchestratorStubBackend[struct{}]{docs: []Document[struct{}]{
+	backend := orchestratorStubBackend[struct{}, struct{}]{docs: []Document[struct{}]{
 		{ID: "a", Content: "same-key", Score: 0.9},
 		{ID: "b", Content: "same-key", Score: 0.5},
 	}}
@@ -213,7 +213,7 @@ func TestPostProcessorChainPreservesBackendResultOnError(t *testing.T) {
 
 	out, err := retrieveWithPostProcessors(
 		t,
-		partialBackend[struct{}]{
+		partialBackend[struct{}, struct{}]{
 			docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}},
 			err:  ragy.ErrUnavailable,
 		},
@@ -235,7 +235,7 @@ func TestPostProcessorChainProcessPreservesResultOnInvalidOptions(t *testing.T) 
 	rs := NewResultSet([]Document[struct{}]{{ID: "a", Content: "hit", Score: 1}}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChain[struct{}]()
 
-	out, err := chain.Process(context.Background(), "q", RetrieveOptions{FetchLimit: 1, TopK: 3}, rs)
+	out, err := chain.Process(context.Background(), RetrieveOptions{FetchLimit: 1, TopK: 3}, rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}
@@ -250,7 +250,7 @@ func TestPostProcessorChainInitialValidationPreservesResult(t *testing.T) {
 	rs := NewResultSet([]Document[struct{}]{{Content: "broken", Score: 0.5}}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChain[struct{}]()
 
-	out, err := chain.Process(context.Background(), "q", RetrieveOptions{TopK: 1}, rs)
+	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 1}, rs)
 	if !errors.Is(err, ragy.ErrMissingID) {
 		t.Fatalf("Process() error = %v, want missing id", err)
 	}
@@ -306,7 +306,7 @@ func TestPostProcessorChainRewrapsOnNoOpMinSimilarity(t *testing.T) {
 	rs := NewResultSet([]Document[struct{}]{{ID: "a", Content: "grp", Score: 0.5}}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChainWithResolver[struct{}](resolver)
 
-	out, err := chain.Process(context.Background(), "q", RetrieveOptions{TopK: 1, MinSimilarity: 0}, rs)
+	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 1, MinSimilarity: 0}, rs)
 	if err != nil {
 		t.Fatalf("Process(): %v", err)
 	}
@@ -331,7 +331,7 @@ func TestPostProcessorChainRewrapsOnNoOpTopK(t *testing.T) {
 	}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChainWithResolver[struct{}](resolver)
 
-	out, err := chain.Process(context.Background(), "q", RetrieveOptions{TopK: 0, FetchLimit: 10}, rs)
+	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 0, FetchLimit: 10}, rs)
 	if err != nil {
 		t.Fatalf("Process(): %v", err)
 	}
@@ -399,7 +399,7 @@ func TestPostProcessorChainRewrapsOnActiveMinSimilarity(t *testing.T) {
 	}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChainWithResolver[struct{}](resolver)
 
-	out, err := chain.Process(context.Background(), "q", RetrieveOptions{TopK: 5, MinSimilarity: 0.5}, rs)
+	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 5, MinSimilarity: 0.5}, rs)
 	if err != nil {
 		t.Fatalf("Process(): %v", err)
 	}
@@ -427,7 +427,7 @@ func TestPostProcessorChainRewrapsOnActiveTopK(t *testing.T) {
 	}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChainWithResolver[struct{}](resolver)
 
-	out, err := chain.Process(context.Background(), "q", RetrieveOptions{TopK: 1}, rs)
+	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 1}, rs)
 	if err != nil {
 		t.Fatalf("Process(): %v", err)
 	}

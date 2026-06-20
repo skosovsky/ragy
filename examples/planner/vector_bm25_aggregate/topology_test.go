@@ -11,7 +11,7 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 )
 
-func testFixtures(t *testing.T) (vectorBackend, retrieval.Backend[struct{}]) {
+func testFixtures(t *testing.T) (vectorBackend, retrieval.Backend[struct{}, struct{}]) {
 	t.Helper()
 
 	schema, err := filter.NewSchema().Build()

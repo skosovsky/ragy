@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/internal/parallel"
 )
 
@@ -26,21 +27,27 @@ func partialSuccessRS[TMeta any](rs ResultSet[TMeta], err error) bool {
 
 const defaultAggregateRRFK = 60
 
-// Node executes retrieval for a query and always returns a non-nil ResultSet.
-type Node[TIntent, TMeta any] interface {
-	Retrieve(ctx context.Context, query Query[TIntent]) (ResultSet[TMeta], error)
+// RequestNode executes retrieval for a request and always returns a non-nil ResultSet.
+type RequestNode[TIntent, TRequestMeta, TMeta any] interface {
+	Retrieve(ctx context.Context, req Request[TIntent, TRequestMeta]) (ResultSet[TMeta], error)
 }
 
-// RetrieverNode wraps a Backend as an orchestrator node.
-type RetrieverNode[TIntent, TMeta any] struct {
-	Backend  Backend[TMeta]
+// Node is the no-request-metadata request node shape.
+type Node[TIntent, TMeta any] = RequestNode[TIntent, NoRequestMeta, TMeta]
+
+// RequestRetrieverNode wraps a RequestBackend as an orchestrator node.
+type RequestRetrieverNode[TIntent, TRequestMeta, TMeta any] struct {
+	Backend  RequestBackend[TIntent, TRequestMeta, TMeta]
 	Resolver IdentityResolver[TMeta]
 }
 
+// RetrieverNode is the no-request-metadata retriever node.
+type RetrieverNode[TIntent, TMeta any] = RequestRetrieverNode[TIntent, NoRequestMeta, TMeta]
+
 // Retrieve implements Node.
-func (n RetrieverNode[TIntent, TMeta]) Retrieve(
+func (n RequestRetrieverNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
-	query Query[TIntent],
+	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
 	resolver := n.Resolver
 	if resolver == nil {
@@ -50,10 +57,10 @@ func (n RetrieverNode[TIntent, TMeta]) Retrieve(
 		return NewResultSet[TMeta](nil, resolver),
 			fmt.Errorf("%w: retriever node backend", ragy.ErrInvalidArgument)
 	}
-	if err := query.Options.Validate(); err != nil {
+	if err := req.Options.Validate(); err != nil {
 		return NewResultSet[TMeta](nil, resolver), err
 	}
-	rs, err := n.Backend.Retrieve(ctx, query.Text, query.Options)
+	rs, err := n.Backend.Retrieve(ctx, req)
 	if err != nil {
 		return preserveResultOnError(rs, err, resolver)
 	}
@@ -63,19 +70,22 @@ func (n RetrieverNode[TIntent, TMeta]) Retrieve(
 	return RewrapResultSet(rs, resolver), nil
 }
 
-// FallbackNode runs secondary when primary succeeds (err == nil) and ResultSet is empty.
+// RequestFallbackNode runs secondary when primary succeeds (err == nil) and ResultSet is empty.
 // On primary error with empty ResultSet, the error is propagated and secondary is not called.
 // On partial success (error with non-empty docs), primary documents are preserved.
-type FallbackNode[TIntent, TMeta any] struct {
-	Primary   Node[TIntent, TMeta]
-	Secondary Node[TIntent, TMeta]
+type RequestFallbackNode[TIntent, TRequestMeta, TMeta any] struct {
+	Primary   RequestNode[TIntent, TRequestMeta, TMeta]
+	Secondary RequestNode[TIntent, TRequestMeta, TMeta]
 	Resolver  IdentityResolver[TMeta]
 }
 
+// FallbackNode is the no-request-metadata fallback node.
+type FallbackNode[TIntent, TMeta any] = RequestFallbackNode[TIntent, NoRequestMeta, TMeta]
+
 // Retrieve implements Node.
-func (n FallbackNode[TIntent, TMeta]) Retrieve(
+func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
-	query Query[TIntent],
+	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
 	resolver := n.Resolver
 	if resolver == nil {
@@ -86,7 +96,7 @@ func (n FallbackNode[TIntent, TMeta]) Retrieve(
 			fmt.Errorf("%w: fallback primary node", ragy.ErrInvalidArgument)
 	}
 
-	primary, err := n.Primary.Retrieve(ctx, query)
+	primary, err := n.Primary.Retrieve(ctx, req)
 	if err != nil {
 		if partialSuccessRS(primary, err) {
 			return preserveResultOnError(primary, err, resolver)
@@ -99,27 +109,30 @@ func (n FallbackNode[TIntent, TMeta]) Retrieve(
 	if n.Secondary == nil {
 		return NewResultSet[TMeta](nil, resolver), nil
 	}
-	rs, err := n.Secondary.Retrieve(ctx, query)
+	rs, err := n.Secondary.Retrieve(ctx, req)
 	if err != nil {
 		return preserveResultOnError(rs, err, resolver)
 	}
 	return RewrapResultSet(rs, resolver), nil
 }
 
-// RescueNode runs secondary when primary returns an error and ResultSet is empty.
+// RequestRescueNode runs secondary when primary returns an error and ResultSet is empty.
 // On primary success with empty ResultSet, returns empty without calling secondary.
 // On partial success, preserves primary documents.
 // Rescue with non-empty secondary returns nil error; empty secondary propagates primary error.
-type RescueNode[TIntent, TMeta any] struct {
-	Primary   Node[TIntent, TMeta]
-	Secondary Node[TIntent, TMeta]
+type RequestRescueNode[TIntent, TRequestMeta, TMeta any] struct {
+	Primary   RequestNode[TIntent, TRequestMeta, TMeta]
+	Secondary RequestNode[TIntent, TRequestMeta, TMeta]
 	Resolver  IdentityResolver[TMeta]
 }
 
+// RescueNode is the no-request-metadata rescue node.
+type RescueNode[TIntent, TMeta any] = RequestRescueNode[TIntent, NoRequestMeta, TMeta]
+
 // Retrieve implements Node.
-func (n RescueNode[TIntent, TMeta]) Retrieve(
+func (n RequestRescueNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
-	query Query[TIntent],
+	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
 	resolver := n.Resolver
 	if resolver == nil {
@@ -130,7 +143,7 @@ func (n RescueNode[TIntent, TMeta]) Retrieve(
 			fmt.Errorf("%w: rescue primary node", ragy.ErrInvalidArgument)
 	}
 
-	primary, err := n.Primary.Retrieve(ctx, query)
+	primary, err := n.Primary.Retrieve(ctx, req)
 	if err != nil {
 		if partialSuccessRS(primary, err) {
 			return preserveResultOnError(primary, err, resolver)
@@ -138,7 +151,7 @@ func (n RescueNode[TIntent, TMeta]) Retrieve(
 		if n.Secondary == nil {
 			return NewResultSet[TMeta](nil, resolver), err
 		}
-		secondary, secErr := n.Secondary.Retrieve(ctx, query)
+		secondary, secErr := n.Secondary.Retrieve(ctx, req)
 		if secErr != nil {
 			wrapped := fmt.Errorf("%w; rescue secondary: %w", err, secErr)
 			return preserveResultOnError(secondary, wrapped, resolver)
@@ -154,17 +167,20 @@ func (n RescueNode[TIntent, TMeta]) Retrieve(
 	return NewResultSet[TMeta](nil, resolver), nil
 }
 
-// AggregateNode runs child nodes in parallel and merges their ResultSets.
+// RequestAggregateNode runs child nodes in parallel and merges their ResultSets.
 // When Merger is nil, ReciprocalRankFusion is used (recommended for heterogeneous sources).
 // For homogeneous score scales, set Merger to NewScoreMerger explicitly.
 // When merger.Merge fails, degraded fallback uses sequential ResultSet.Merge (score-by-MergeKey),
 // not RRF — ordering may differ from the success-path merger.
-type AggregateNode[TIntent, TMeta any] struct {
-	Nodes       []Node[TIntent, TMeta]
+type RequestAggregateNode[TIntent, TRequestMeta, TMeta any] struct {
+	Nodes       []RequestNode[TIntent, TRequestMeta, TMeta]
 	Concurrency int
 	Resolver    IdentityResolver[TMeta]
 	Merger      ResultMerger[TMeta]
 }
+
+// AggregateNode is the no-request-metadata aggregate node.
+type AggregateNode[TIntent, TMeta any] = RequestAggregateNode[TIntent, NoRequestMeta, TMeta]
 
 // aggregateChildResult captures one aggregate branch outcome.
 type aggregateChildResult[TMeta any] struct {
@@ -173,9 +189,9 @@ type aggregateChildResult[TMeta any] struct {
 }
 
 // Retrieve implements Node.
-func (n AggregateNode[TIntent, TMeta]) Retrieve(
+func (n RequestAggregateNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
-	query Query[TIntent],
+	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
 	resolver := n.Resolver
 	if resolver == nil {
@@ -185,7 +201,7 @@ func (n AggregateNode[TIntent, TMeta]) Retrieve(
 		return NewResultSet[TMeta](nil, resolver), nil
 	}
 
-	nodes := make([]Node[TIntent, TMeta], 0, len(n.Nodes))
+	nodes := make([]RequestNode[TIntent, TRequestMeta, TMeta], 0, len(n.Nodes))
 	for i, node := range n.Nodes {
 		if node == nil {
 			return NewResultSet[TMeta](nil, resolver),
@@ -203,8 +219,8 @@ func (n AggregateNode[TIntent, TMeta]) Retrieve(
 		ctx,
 		concurrency,
 		nodes,
-		func(ctx context.Context, node Node[TIntent, TMeta]) (aggregateChildResult[TMeta], error) {
-			return runAggregateChild(ctx, node, query, resolver), nil
+		func(ctx context.Context, node RequestNode[TIntent, TRequestMeta, TMeta]) (aggregateChildResult[TMeta], error) {
+			return runAggregateChild(ctx, node, req, resolver), nil
 		},
 	)
 	if err != nil {
@@ -322,13 +338,13 @@ func tryAggregateFallback[TMeta any](
 	return fallback, fbErr
 }
 
-func runAggregateChild[TIntent, TMeta any](
+func runAggregateChild[TIntent, TRequestMeta, TMeta any](
 	ctx context.Context,
-	node Node[TIntent, TMeta],
-	query Query[TIntent],
+	node RequestNode[TIntent, TRequestMeta, TMeta],
+	req Request[TIntent, TRequestMeta],
 	resolver IdentityResolver[TMeta],
 ) aggregateChildResult[TMeta] {
-	rs, retrieveErr := node.Retrieve(ctx, query)
+	rs, retrieveErr := node.Retrieve(ctx, req)
 	if retrieveErr != nil {
 		rs, _ = preserveResultOnError(rs, retrieveErr, resolver)
 		return aggregateChildResult[TMeta]{
@@ -375,31 +391,34 @@ func fallbackUnmergedSets[TMeta any](
 	return merged, nil
 }
 
-// ConditionalNode skips the child when predicate is false.
-type ConditionalNode[TIntent, TMeta any] struct {
-	Predicate func(Query[TIntent]) bool
-	Child     Node[TIntent, TMeta]
+// RequestConditionalNode skips the child when predicate is false.
+type RequestConditionalNode[TIntent, TRequestMeta, TMeta any] struct {
+	Predicate func(Request[TIntent, TRequestMeta]) bool
+	Child     RequestNode[TIntent, TRequestMeta, TMeta]
 	Resolver  IdentityResolver[TMeta]
 }
 
+// ConditionalNode is the no-request-metadata conditional node.
+type ConditionalNode[TIntent, TMeta any] = RequestConditionalNode[TIntent, NoRequestMeta, TMeta]
+
 // Retrieve implements Node.
-func (n ConditionalNode[TIntent, TMeta]) Retrieve(
+func (n RequestConditionalNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
-	query Query[TIntent],
+	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
 	resolver := n.Resolver
 	if resolver == nil {
 		resolver = DocumentIDResolver[TMeta]{}
 	}
 	// Nil Predicate is treated as always true (child always runs).
-	if n.Predicate != nil && !n.Predicate(query) {
+	if n.Predicate != nil && !n.Predicate(req) {
 		return NewResultSet[TMeta](nil, resolver), nil
 	}
 	if n.Child == nil {
 		return NewResultSet[TMeta](nil, resolver),
 			fmt.Errorf("%w: conditional child node", ragy.ErrInvalidArgument)
 	}
-	rs, err := n.Child.Retrieve(ctx, query)
+	rs, err := n.Child.Retrieve(ctx, req)
 	if err != nil {
 		return preserveResultOnError(rs, err, resolver)
 	}
@@ -409,19 +428,30 @@ func (n ConditionalNode[TIntent, TMeta]) Retrieve(
 	return RewrapResultSet(rs, resolver), nil
 }
 
-type PipelineBuilder[TIntent, TMeta any] struct {
-	root      Node[TIntent, TMeta]
+type RequestPipelineBuilder[TIntent, TRequestMeta, TMeta any] struct {
+	root      RequestNode[TIntent, TRequestMeta, TMeta]
 	postChain *PostProcessorChain[TMeta]
 	resolver  IdentityResolver[TMeta]
+	planner   QueryPlanner[TIntent, TRequestMeta]
 }
 
-// NewPipelineBuilder starts orchestrator construction.
-func NewPipelineBuilder[TIntent, TMeta any]() *PipelineBuilder[TIntent, TMeta] {
-	return &PipelineBuilder[TIntent, TMeta]{}
+// PipelineBuilder is the no-request-metadata pipeline builder.
+type PipelineBuilder[TIntent, TMeta any] = RequestPipelineBuilder[TIntent, NoRequestMeta, TMeta]
+
+// NewRequestPipelineBuilder starts request-metadata-aware orchestrator construction.
+func NewRequestPipelineBuilder[TIntent, TRequestMeta, TMeta any]() *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
+	return &RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]{}
+}
+
+// NewPipelineBuilder starts orchestrator construction for requests without request metadata.
+func NewPipelineBuilder[TIntent, TMeta any]() *RequestPipelineBuilder[TIntent, NoRequestMeta, TMeta] {
+	return NewRequestPipelineBuilder[TIntent, NoRequestMeta, TMeta]()
 }
 
 // WithRoot sets the root retrieval node.
-func (b *PipelineBuilder[TIntent, TMeta]) WithRoot(node Node[TIntent, TMeta]) *PipelineBuilder[TIntent, TMeta] {
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithRoot(
+	node RequestNode[TIntent, TRequestMeta, TMeta],
+) *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
 	b.root = node
 	return b
 }
@@ -429,18 +459,22 @@ func (b *PipelineBuilder[TIntent, TMeta]) WithRoot(node Node[TIntent, TMeta]) *P
 // WithFallback configures primary/secondary fallback routing.
 // Shorthand methods (WithFallback, WithRescue, WithAggregate, WithConditional) replace the
 // current root node. Compose complex graphs via WithRoot explicitly.
-func (b *PipelineBuilder[TIntent, TMeta]) WithFallback(
-	primary, secondary Node[TIntent, TMeta],
-) *PipelineBuilder[TIntent, TMeta] {
-	b.root = FallbackNode[TIntent, TMeta]{Primary: primary, Secondary: secondary}
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithFallback(
+	primary, secondary RequestNode[TIntent, TRequestMeta, TMeta],
+) *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
+	b.root = RequestFallbackNode[TIntent, TRequestMeta, TMeta]{
+		Primary:   primary,
+		Secondary: secondary,
+		Resolver:  nil,
+	}
 	return b
 }
 
 // WithRescue configures primary/secondary rescue routing on primary errors.
-func (b *PipelineBuilder[TIntent, TMeta]) WithRescue(
-	primary, secondary Node[TIntent, TMeta],
-) *PipelineBuilder[TIntent, TMeta] {
-	b.root = RescueNode[TIntent, TMeta]{ //nolint:exhaustruct // Resolver injected in Build()
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithRescue(
+	primary, secondary RequestNode[TIntent, TRequestMeta, TMeta],
+) *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
+	b.root = RequestRescueNode[TIntent, TRequestMeta, TMeta]{ //nolint:exhaustruct // Resolver injected in Build()
 		Primary:   primary,
 		Secondary: secondary,
 	}
@@ -449,49 +483,62 @@ func (b *PipelineBuilder[TIntent, TMeta]) WithRescue(
 
 // WithAggregate configures parallel aggregate routing.
 // Pass nil merger to use ReciprocalRankFusion (recommended for heterogeneous sources).
-func (b *PipelineBuilder[TIntent, TMeta]) WithAggregate(
-	nodes []Node[TIntent, TMeta],
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithAggregate(
+	nodes []RequestNode[TIntent, TRequestMeta, TMeta],
 	concurrency int,
 	merger ResultMerger[TMeta],
-) *PipelineBuilder[TIntent, TMeta] {
-	b.root = AggregateNode[TIntent, TMeta]{
+) *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
+	b.root = RequestAggregateNode[TIntent, TRequestMeta, TMeta]{
 		Nodes:       nodes,
 		Concurrency: concurrency,
 		Merger:      merger,
+		Resolver:    nil,
 	}
 	return b
 }
 
 // WithConditional wraps a node behind a predicate.
-func (b *PipelineBuilder[TIntent, TMeta]) WithConditional(
-	predicate func(Query[TIntent]) bool,
-	child Node[TIntent, TMeta],
-) *PipelineBuilder[TIntent, TMeta] {
-	b.root = ConditionalNode[TIntent, TMeta]{Predicate: predicate, Child: child}
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithConditional(
+	predicate func(Request[TIntent, TRequestMeta]) bool,
+	child RequestNode[TIntent, TRequestMeta, TMeta],
+) *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
+	b.root = RequestConditionalNode[TIntent, TRequestMeta, TMeta]{
+		Predicate: predicate,
+		Child:     child,
+		Resolver:  nil,
+	}
 	return b
 }
 
 // WithPostProcessors attaches a post-processing chain after retrieval.
 // Replaces any previously configured post-processor chain. Shorthand root methods do not clear postChain.
-func (b *PipelineBuilder[TIntent, TMeta]) WithPostProcessors(
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithPostProcessors(
 	processors ...PostProcessor[TMeta],
-) *PipelineBuilder[TIntent, TMeta] {
+) *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
 	b.postChain = NewPostProcessorChain[TMeta](processors...)
+	return b
+}
+
+// WithPlanner runs planner before the retrieval graph and attaches its output to Request.Plan.
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithPlanner(
+	planner QueryPlanner[TIntent, TRequestMeta],
+) *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
+	b.planner = planner
 	return b
 }
 
 // WithResolver sets the identity resolver for known node types and post-processors.
 // Custom Node implementations (types not handled by injectNodeResolver) are not
 // modified; set Resolver on those nodes explicitly before Build.
-func (b *PipelineBuilder[TIntent, TMeta]) WithResolver(
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithResolver(
 	resolver IdentityResolver[TMeta],
-) *PipelineBuilder[TIntent, TMeta] {
+) *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta] {
 	b.resolver = resolver
 	return b
 }
 
 // Build returns the configured orchestrator pipeline.
-func (b *PipelineBuilder[TIntent, TMeta]) Build() (*Pipeline[TIntent, TMeta], error) {
+func (b *RequestPipelineBuilder[TIntent, TRequestMeta, TMeta]) Build() (*RequestPipeline[TIntent, TRequestMeta, TMeta], error) {
 	if b.root == nil {
 		return nil, fmt.Errorf("%w: pipeline root node", ragy.ErrInvalidArgument)
 	}
@@ -510,41 +557,48 @@ func (b *PipelineBuilder[TIntent, TMeta]) Build() (*Pipeline[TIntent, TMeta], er
 	if postChain != nil {
 		postChain = postChain.withResolver(resolver)
 	}
-	return &Pipeline[TIntent, TMeta]{
+	return &RequestPipeline[TIntent, TRequestMeta, TMeta]{
 		root:      root,
 		postChain: postChain,
 		resolver:  resolver,
+		planner:   b.planner,
 	}, nil
 }
 
-func validateNodeTree[TIntent, TMeta any](node Node[TIntent, TMeta]) error {
+func validateNodeTree[TIntent, TRequestMeta, TMeta any](
+	node RequestNode[TIntent, TRequestMeta, TMeta],
+) error {
 	if node == nil {
 		return fmt.Errorf("%w: pipeline node", ragy.ErrInvalidArgument)
 	}
 	switch n := node.(type) {
-	case FallbackNode[TIntent, TMeta]:
+	case RequestFallbackNode[TIntent, TRequestMeta, TMeta]:
 		return validateBinaryNodeTree(n.Primary, "fallback primary node", n.Secondary)
-	case RescueNode[TIntent, TMeta]:
+	case RequestRescueNode[TIntent, TRequestMeta, TMeta]:
 		return validateBinaryNodeTree(n.Primary, "rescue primary node", n.Secondary)
-	case AggregateNode[TIntent, TMeta]:
+	case RequestAggregateNode[TIntent, TRequestMeta, TMeta]:
 		return validateAggregateNodeTree(n.Nodes)
-	case ConditionalNode[TIntent, TMeta]:
+	case RequestConditionalNode[TIntent, TRequestMeta, TMeta]:
 		if n.Child == nil {
 			return fmt.Errorf("%w: conditional child node", ragy.ErrInvalidArgument)
 		}
 		return validateNodeTree(n.Child)
-	case RetrieverNode[TIntent, TMeta]:
+	case RequestRetrieverNode[TIntent, TRequestMeta, TMeta]:
 		if n.Backend == nil {
 			return fmt.Errorf("%w: retriever node backend", ragy.ErrInvalidArgument)
+		}
+	default:
+		if n, ok := node.(interface{ validateNode() error }); ok {
+			return n.validateNode()
 		}
 	}
 	return nil
 }
 
-func validateBinaryNodeTree[TIntent, TMeta any](
-	primary Node[TIntent, TMeta],
+func validateBinaryNodeTree[TIntent, TRequestMeta, TMeta any](
+	primary RequestNode[TIntent, TRequestMeta, TMeta],
 	primaryLabel string,
-	secondary Node[TIntent, TMeta],
+	secondary RequestNode[TIntent, TRequestMeta, TMeta],
 ) error {
 	if primary == nil {
 		return fmt.Errorf("%w: %s", ragy.ErrInvalidArgument, primaryLabel)
@@ -558,7 +612,9 @@ func validateBinaryNodeTree[TIntent, TMeta any](
 	return nil
 }
 
-func validateAggregateNodeTree[TIntent, TMeta any](nodes []Node[TIntent, TMeta]) error {
+func validateAggregateNodeTree[TIntent, TRequestMeta, TMeta any](
+	nodes []RequestNode[TIntent, TRequestMeta, TMeta],
+) error {
 	for i, child := range nodes {
 		if child == nil {
 			return fmt.Errorf("%w: aggregate node child at index %d", ragy.ErrInvalidArgument, i)
@@ -570,35 +626,40 @@ func validateAggregateNodeTree[TIntent, TMeta any](nodes []Node[TIntent, TMeta])
 	return nil
 }
 
-func injectNodeResolver[TIntent, TMeta any](
-	node Node[TIntent, TMeta],
+func injectNodeResolver[TIntent, TRequestMeta, TMeta any](
+	node RequestNode[TIntent, TRequestMeta, TMeta],
 	resolver IdentityResolver[TMeta],
-) (Node[TIntent, TMeta], error) {
+) (RequestNode[TIntent, TRequestMeta, TMeta], error) {
 	if node == nil {
-		var zero Node[TIntent, TMeta]
+		var zero RequestNode[TIntent, TRequestMeta, TMeta]
 		return zero, nil // unreachable after validateNodeTree; kept as defense-in-depth
 	}
 	switch n := node.(type) {
-	case FallbackNode[TIntent, TMeta]:
+	case RequestFallbackNode[TIntent, TRequestMeta, TMeta]:
 		return injectFallbackResolver(n, resolver)
-	case RescueNode[TIntent, TMeta]:
+	case RequestRescueNode[TIntent, TRequestMeta, TMeta]:
 		return injectRescueResolver(n, resolver)
-	case AggregateNode[TIntent, TMeta]:
+	case RequestAggregateNode[TIntent, TRequestMeta, TMeta]:
 		return injectAggregateResolver(n, resolver)
-	case ConditionalNode[TIntent, TMeta]:
+	case RequestConditionalNode[TIntent, TRequestMeta, TMeta]:
 		return injectConditionalResolver(n, resolver)
-	case RetrieverNode[TIntent, TMeta]:
+	case RequestRetrieverNode[TIntent, TRequestMeta, TMeta]:
 		n.Resolver = resolver
 		return n, nil
 	default:
+		if n, ok := node.(interface {
+			withResolver(IdentityResolver[TMeta]) (RequestNode[TIntent, TRequestMeta, TMeta], error)
+		}); ok {
+			return n.withResolver(resolver)
+		}
 		return node, nil
 	}
 }
 
-func injectFallbackResolver[TIntent, TMeta any](
-	n FallbackNode[TIntent, TMeta],
+func injectFallbackResolver[TIntent, TRequestMeta, TMeta any](
+	n RequestFallbackNode[TIntent, TRequestMeta, TMeta],
 	resolver IdentityResolver[TMeta],
-) (Node[TIntent, TMeta], error) {
+) (RequestNode[TIntent, TRequestMeta, TMeta], error) {
 	n.Resolver = resolver
 	var err error
 	n.Primary, err = injectNodeResolver(n.Primary, resolver)
@@ -612,10 +673,10 @@ func injectFallbackResolver[TIntent, TMeta any](
 	return n, nil
 }
 
-func injectRescueResolver[TIntent, TMeta any](
-	n RescueNode[TIntent, TMeta],
+func injectRescueResolver[TIntent, TRequestMeta, TMeta any](
+	n RequestRescueNode[TIntent, TRequestMeta, TMeta],
 	resolver IdentityResolver[TMeta],
-) (Node[TIntent, TMeta], error) {
+) (RequestNode[TIntent, TRequestMeta, TMeta], error) {
 	n.Resolver = resolver
 	var err error
 	n.Primary, err = injectNodeResolver(n.Primary, resolver)
@@ -629,10 +690,10 @@ func injectRescueResolver[TIntent, TMeta any](
 	return n, nil
 }
 
-func injectAggregateResolver[TIntent, TMeta any](
-	n AggregateNode[TIntent, TMeta],
+func injectAggregateResolver[TIntent, TRequestMeta, TMeta any](
+	n RequestAggregateNode[TIntent, TRequestMeta, TMeta],
 	resolver IdentityResolver[TMeta],
-) (Node[TIntent, TMeta], error) {
+) (RequestNode[TIntent, TRequestMeta, TMeta], error) {
 	n.Resolver = resolver
 	for i, child := range n.Nodes {
 		rebound, err := injectNodeResolver(child, resolver)
@@ -649,10 +710,10 @@ func injectAggregateResolver[TIntent, TMeta any](
 	return n, nil
 }
 
-func injectConditionalResolver[TIntent, TMeta any](
-	n ConditionalNode[TIntent, TMeta],
+func injectConditionalResolver[TIntent, TRequestMeta, TMeta any](
+	n RequestConditionalNode[TIntent, TRequestMeta, TMeta],
 	resolver IdentityResolver[TMeta],
-) (Node[TIntent, TMeta], error) {
+) (RequestNode[TIntent, TRequestMeta, TMeta], error) {
 	n.Resolver = resolver
 	rebound, err := injectNodeResolver(n.Child, resolver)
 	if err != nil {
@@ -681,27 +742,39 @@ func rebindAggregateMerger[TMeta any](
 	}
 }
 
-// Pipeline is a declarative retrieval orchestrator.
-type Pipeline[TIntent, TMeta any] struct {
-	root      Node[TIntent, TMeta]
+// RequestPipeline is a declarative retrieval orchestrator.
+type RequestPipeline[TIntent, TRequestMeta, TMeta any] struct {
+	root      RequestNode[TIntent, TRequestMeta, TMeta]
 	postChain *PostProcessorChain[TMeta]
 	resolver  IdentityResolver[TMeta]
+	planner   QueryPlanner[TIntent, TRequestMeta]
 }
 
+// Pipeline is the no-request-metadata retrieval pipeline.
+type Pipeline[TIntent, TMeta any] = RequestPipeline[TIntent, NoRequestMeta, TMeta]
+
 // Retrieve executes the configured graph and optional post-processors.
-func (p *Pipeline[TIntent, TMeta]) Retrieve(
+func (p *RequestPipeline[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
-	query Query[TIntent],
+	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
 	if p == nil || p.root == nil {
 		return NewResultSet[TMeta](nil, DocumentIDResolver[TMeta]{}),
 			fmt.Errorf("%w: pipeline root", ragy.ErrInvalidArgument)
 	}
-	if err := query.Options.Validate(); err != nil {
+	if err := req.Options.Validate(); err != nil {
+		return NewResultSet[TMeta](nil, p.resolver), err
+	}
+	var planErr error
+	req, planErr = p.planQuery(ctx, req)
+	if planErr != nil {
+		return NewResultSet[TMeta](nil, p.resolver), planErr
+	}
+	if err := req.Options.Validate(); err != nil {
 		return NewResultSet[TMeta](nil, p.resolver), err
 	}
 
-	rs, err := p.root.Retrieve(ctx, query)
+	rs, err := p.root.Retrieve(ctx, req)
 	partialErr := err
 	if partialErr != nil {
 		rs, _ = preserveResultOnError(rs, partialErr, p.resolver)
@@ -710,7 +783,7 @@ func (p *Pipeline[TIntent, TMeta]) Retrieve(
 	}
 	if p.postChain != nil {
 		var postErr error
-		rs, postErr = p.postChain.Process(ctx, query.Text, query.Options, rs)
+		rs, postErr = p.postChain.Process(ctx, req.Options, rs)
 		if postErr != nil {
 			rs, _ = preserveResultOnError(rs, postErr, p.resolver)
 			final := NewResultSet(rs.Documents(), p.resolver)
@@ -720,11 +793,40 @@ func (p *Pipeline[TIntent, TMeta]) Retrieve(
 			return final, postErr
 		}
 	} else {
-		rs = applyTerminalOptions(rs, query.Options, p.resolver)
+		rs = applyTerminalOptions(rs, req.Options, p.resolver)
 	}
 	final := NewResultSet(rs.Documents(), p.resolver)
 	if partialErr != nil {
 		return final, syncPartialFailureResult(partialErr, final)
 	}
 	return final, nil
+}
+
+func (p *RequestPipeline[TIntent, TRequestMeta, TMeta]) planQuery(
+	ctx context.Context,
+	req Request[TIntent, TRequestMeta],
+) (Request[TIntent, TRequestMeta], error) {
+	if req.Plan != nil {
+		return applyPlannedQuery(req), nil
+	}
+	if p.planner == nil {
+		return req, nil
+	}
+	plan, err := p.planner.Plan(ctx, req)
+	if err != nil {
+		return req, err
+	}
+	return applyPlannedQuery(req.WithPlan(plan)), nil
+}
+
+func applyPlannedQuery[TIntent, TRequestMeta any](
+	req Request[TIntent, TRequestMeta],
+) Request[TIntent, TRequestMeta] {
+	if req.Plan == nil {
+		return req
+	}
+	if !filter.IsEmpty(req.Plan.Filters.IR()) {
+		req.Options.Filters = req.Plan.Filters
+	}
+	return req
 }

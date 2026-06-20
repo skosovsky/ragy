@@ -23,9 +23,10 @@ type StructRetrievalBackend struct {
 // Retrieve implements retrieval.Backend for struct-based contract tests.
 func (b *StructRetrievalBackend) Retrieve(
 	_ context.Context,
-	query string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
+	query := req.EffectiveText()
+	opts := req.Options
 	b.Requests = append(b.Requests, opts)
 	return runFakeRetrieve(
 		b.Err,
@@ -146,7 +147,14 @@ func validateStructDocuments(
 		if err := retrieval.ValidateDocument(doc); err != nil {
 			return out, ragy.WrapProjectionError(err, "testutil validate struct documents")
 		}
-		out = append(out, cloneStructDocument(doc))
+		lookupDoc := cloneStructDocument(doc)
+		lookupDoc.Score = 0
+		lookupDoc.ScoreState = retrieval.ScoreAbsent
+		lookupDoc.Rank = 0
+		if err := retrieval.ValidateDocument(lookupDoc); err != nil {
+			return out, ragy.WrapProjectionError(err, "testutil validate struct lookup documents")
+		}
+		out = append(out, lookupDoc)
 	}
 
 	return out, nil
@@ -154,14 +162,16 @@ func validateStructDocuments(
 
 func cloneStructDocument(in retrieval.Document[contracttest.StructMeta]) retrieval.Document[contracttest.StructMeta] {
 	return retrieval.Document[contracttest.StructMeta]{
-		ID:      in.ID,
-		Content: in.Content,
-		Score:   in.Score,
-		Meta:    in.Meta,
+		ID:         in.ID,
+		Content:    in.Content,
+		Score:      in.Score,
+		ScoreState: in.ScoreState,
+		Rank:       in.Rank,
+		Meta:       in.Meta,
 	}
 }
 
 var (
-	_ retrieval.Backend[contracttest.StructMeta] = (*StructRetrievalBackend)(nil)
-	_ documents.Store[contracttest.StructMeta]   = (*StructDocumentStore)(nil)
+	_ retrieval.Backend[struct{}, contracttest.StructMeta] = (*StructRetrievalBackend)(nil)
+	_ documents.Store[contracttest.StructMeta]             = (*StructDocumentStore)(nil)
 )

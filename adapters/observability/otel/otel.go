@@ -43,35 +43,48 @@ func (w *DenseEmbedder) Embed(ctx context.Context, texts []string) ([][]float32,
 	return w.next.Embed(ctx, texts)
 }
 
-// Backend wraps a typed retrieval backend with tracing.
-type Backend[TMeta any] struct {
-	next   retrieval.Backend[TMeta]
+// RequestBackend wraps a typed retrieval backend with tracing.
+type RequestBackend[TIntent, TRequestMeta, TMeta any] struct {
+	next   retrieval.RequestBackend[TIntent, TRequestMeta, TMeta]
 	tracer trace.Tracer
 }
 
-// WrapBackend constructs a traced retrieval backend.
-func WrapBackend[TMeta any](next retrieval.Backend[TMeta], tracer trace.Tracer) (*Backend[TMeta], error) {
+// Backend is the no-request-metadata traced retrieval backend.
+type Backend[TIntent, TMeta any] = RequestBackend[TIntent, retrieval.NoRequestMeta, TMeta]
+
+// WrapRequestBackend constructs a traced request-metadata-aware retrieval backend.
+func WrapRequestBackend[TIntent, TRequestMeta, TMeta any](
+	next retrieval.RequestBackend[TIntent, TRequestMeta, TMeta],
+	tracer trace.Tracer,
+) (*RequestBackend[TIntent, TRequestMeta, TMeta], error) {
 	if next == nil {
 		return nil, fmt.Errorf("%w: retrieval backend", ragy.ErrInvalidArgument)
 	}
 	if tracer == nil {
 		return nil, fmt.Errorf("%w: tracer", ragy.ErrInvalidArgument)
 	}
-	return &Backend[TMeta]{next: next, tracer: tracer}, nil
+	return &RequestBackend[TIntent, TRequestMeta, TMeta]{next: next, tracer: tracer}, nil
 }
 
-// Retrieve implements retrieval.Backend.
-func (w *Backend[TMeta]) Retrieve(
+// WrapBackend constructs a traced no-request-metadata retrieval backend.
+func WrapBackend[TIntent, TMeta any](
+	next retrieval.Backend[TIntent, TMeta],
+	tracer trace.Tracer,
+) (*Backend[TIntent, TMeta], error) {
+	return WrapRequestBackend[TIntent, retrieval.NoRequestMeta, TMeta](next, tracer)
+}
+
+// Retrieve implements retrieval.RequestBackend.
+func (w *RequestBackend[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
-	query string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Request[TIntent, TRequestMeta],
 ) (retrieval.ResultSet[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.backend")
 	defer span.End()
-	return w.next.Retrieve(ctx, query, opts)
+	return w.next.Retrieve(ctx, req)
 }
 
-var _ retrieval.Backend[any] = (*Backend[any])(nil)
+var _ retrieval.RequestBackend[struct{}, struct{}, any] = (*RequestBackend[struct{}, struct{}, any])(nil)
 
 // DenseIndex wraps a dense index with tracing.
 type DenseIndex[TMeta any] struct {
@@ -305,30 +318,41 @@ func (w *QueryReranker[TMeta]) Rerank(
 	return w.next.Rerank(ctx, query, rs)
 }
 
-// Pipeline wraps a declarative retrieval orchestrator with tracing.
-type Pipeline[TIntent, TMeta any] struct {
-	next   *retrieval.Pipeline[TIntent, TMeta]
+// RequestPipeline wraps a declarative retrieval orchestrator with tracing.
+type RequestPipeline[TIntent, TRequestMeta, TMeta any] struct {
+	next   *retrieval.RequestPipeline[TIntent, TRequestMeta, TMeta]
 	tracer trace.Tracer
 }
 
-// WrapPipeline constructs a traced retrieval orchestrator.
-func WrapPipeline[TIntent, TMeta any](
-	next *retrieval.Pipeline[TIntent, TMeta],
+// Pipeline is the no-request-metadata traced retrieval orchestrator.
+type Pipeline[TIntent, TMeta any] = RequestPipeline[TIntent, retrieval.NoRequestMeta, TMeta]
+
+// WrapRequestPipeline constructs a traced request-metadata-aware retrieval orchestrator.
+func WrapRequestPipeline[TIntent, TRequestMeta, TMeta any](
+	next *retrieval.RequestPipeline[TIntent, TRequestMeta, TMeta],
 	tracer trace.Tracer,
-) (*Pipeline[TIntent, TMeta], error) {
+) (*RequestPipeline[TIntent, TRequestMeta, TMeta], error) {
 	if next == nil {
 		return nil, fmt.Errorf("%w: retrieval pipeline", ragy.ErrInvalidArgument)
 	}
 	if tracer == nil {
 		return nil, fmt.Errorf("%w: tracer", ragy.ErrInvalidArgument)
 	}
-	return &Pipeline[TIntent, TMeta]{next: next, tracer: tracer}, nil
+	return &RequestPipeline[TIntent, TRequestMeta, TMeta]{next: next, tracer: tracer}, nil
+}
+
+// WrapPipeline constructs a traced no-request-metadata retrieval orchestrator.
+func WrapPipeline[TIntent, TMeta any](
+	next *retrieval.Pipeline[TIntent, TMeta],
+	tracer trace.Tracer,
+) (*Pipeline[TIntent, TMeta], error) {
+	return WrapRequestPipeline[TIntent, retrieval.NoRequestMeta, TMeta](next, tracer)
 }
 
 // Retrieve implements orchestrator retrieval with pipeline span.
-func (w *Pipeline[TIntent, TMeta]) Retrieve(
+func (w *RequestPipeline[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
-	query retrieval.Query[TIntent],
+	query retrieval.Request[TIntent, TRequestMeta],
 ) (retrieval.ResultSet[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.pipeline")
 	defer span.End()
@@ -365,14 +389,14 @@ func (w *Merger[TMeta]) Merge(
 }
 
 var (
-	_ dense.Embedder             = (*DenseEmbedder)(nil)
-	_ retrieval.Backend[any]     = (*Backend[any])(nil)
-	_ dense.Index[any]           = (*DenseIndex[any])(nil)
-	_ tensor.Embedder            = (*TensorEmbedder)(nil)
-	_ tensor.Index[any]          = (*TensorIndex[any])(nil)
-	_ multimodal.Embedder        = (*MultimodalEmbedder)(nil)
-	_ graph.Store[any]           = (*GraphStore[any])(nil)
-	_ documents.Store[any]       = (*DocumentStore[any])(nil)
-	_ ranking.QueryReranker[any] = (*QueryReranker[any])(nil)
-	_ ranking.Merger[any]        = (*Merger[any])(nil)
+	_ dense.Embedder                   = (*DenseEmbedder)(nil)
+	_ retrieval.Backend[struct{}, any] = (*Backend[struct{}, any])(nil)
+	_ dense.Index[any]                 = (*DenseIndex[any])(nil)
+	_ tensor.Embedder                  = (*TensorEmbedder)(nil)
+	_ tensor.Index[any]                = (*TensorIndex[any])(nil)
+	_ multimodal.Embedder              = (*MultimodalEmbedder)(nil)
+	_ graph.Store[any]                 = (*GraphStore[any])(nil)
+	_ documents.Store[any]             = (*DocumentStore[any])(nil)
+	_ ranking.QueryReranker[any]       = (*QueryReranker[any])(nil)
+	_ ranking.Merger[any]              = (*Merger[any])(nil)
 )

@@ -389,10 +389,30 @@ type captureBackend struct{ valid bool }
 
 func (b *captureBackend) Retrieve(
 	ctx context.Context,
-	_ string,
-	_ retrieval.RetrieveOptions,
+	_ retrieval.Query[struct{}],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
 	b.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
+	return retrieval.NewResultSet[contracttest.StructMeta](
+		nil,
+		retrieval.DocumentIDResolver[contracttest.StructMeta]{},
+	), nil
+}
+
+type requestMetaFixture struct {
+	Tenant string
+}
+
+type captureRequestBackend struct {
+	valid bool
+	meta  requestMetaFixture
+}
+
+func (b *captureRequestBackend) Retrieve(
+	ctx context.Context,
+	req retrieval.Request[struct{}, requestMetaFixture],
+) (retrieval.ResultSet[contracttest.StructMeta], error) {
+	b.valid = trace.SpanFromContext(ctx).SpanContext().IsValid() && req.Meta.Tenant == "acme"
+	b.meta = req.Meta
 	return retrieval.NewResultSet[contracttest.StructMeta](
 		nil,
 		retrieval.DocumentIDResolver[contracttest.StructMeta]{},
@@ -404,12 +424,15 @@ func TestWrapBackendPropagatesErrorResultSet(t *testing.T) {
 
 	next := &errorStructBackend{}
 	provider := sdktrace.NewTracerProvider()
-	wrapped, err := WrapBackend(next, provider.Tracer("test"))
+	wrapped, err := WrapBackend[struct{}, contracttest.StructMeta](next, provider.Tracer("test"))
 	if err != nil {
 		t.Fatalf("WrapBackend(): %v", err)
 	}
 
-	out, err := wrapped.Retrieve(context.Background(), "q", retrieval.RetrieveOptions{TopK: 1})
+	out, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{
+		Text:    "q",
+		Options: retrieval.RetrieveOptions{TopK: 1},
+	})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
@@ -421,12 +444,15 @@ func TestWrapBackendPreservesPartialResult(t *testing.T) {
 
 	backend := partialFailureBackend{}
 	provider := sdktrace.NewTracerProvider()
-	wrapped, err := WrapBackend(backend, provider.Tracer("test"))
+	wrapped, err := WrapBackend[struct{}, struct{}](backend, provider.Tracer("test"))
 	if err != nil {
 		t.Fatalf("WrapBackend(): %v", err)
 	}
 
-	out, err := wrapped.Retrieve(context.Background(), "q", retrieval.RetrieveOptions{TopK: 1})
+	out, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{
+		Text:    "q",
+		Options: retrieval.RetrieveOptions{TopK: 1},
+	})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want partial failure")
 	}
@@ -443,8 +469,7 @@ type errorStructBackend struct{}
 
 func (errorStructBackend) Retrieve(
 	_ context.Context,
-	_ string,
-	_ retrieval.RetrieveOptions,
+	_ retrieval.Query[struct{}],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
 	return retrieval.NewResultSet[contracttest.StructMeta](
 		nil,
@@ -455,11 +480,30 @@ func (errorStructBackend) Retrieve(
 func TestWrapBackendPassesDerivedContext(t *testing.T) {
 	runSpanTest(t, "ragy.retrieval.backend", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
 		next := &captureBackend{}
-		wrapped, err := WrapBackend(next, tracer)
+		wrapped, err := WrapBackend[struct{}, contracttest.StructMeta](next, tracer)
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Retrieve(ctx, "hello", retrieval.RetrieveOptions{TopK: 10})
+		_, err = wrapped.Retrieve(ctx, retrieval.Query[struct{}]{
+			Text:    "hello",
+			Options: retrieval.RetrieveOptions{TopK: 10},
+		})
+		return next.valid, err
+	})
+}
+
+func TestWrapRequestBackendPassesRequestMetaAndDerivedContext(t *testing.T) {
+	runSpanTest(t, "ragy.retrieval.backend", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
+		next := &captureRequestBackend{}
+		wrapped, err := WrapRequestBackend[struct{}, requestMetaFixture, contracttest.StructMeta](next, tracer)
+		if err != nil {
+			return false, err
+		}
+		_, err = wrapped.Retrieve(ctx, retrieval.Request[struct{}, requestMetaFixture]{
+			Text:    "hello",
+			Meta:    requestMetaFixture{Tenant: "acme"},
+			Options: retrieval.RetrieveOptions{TopK: 10},
+		})
 		return next.valid, err
 	})
 }
@@ -468,8 +512,7 @@ type errorBackend struct{}
 
 func (errorBackend) Retrieve(
 	_ context.Context,
-	_ string,
-	_ retrieval.RetrieveOptions,
+	_ retrieval.Query[struct{}],
 ) (retrieval.ResultSet[struct{}], error) {
 	return retrieval.NewResultSet[struct{}](nil, retrieval.DocumentIDResolver[struct{}]{}), ragy.ErrUnavailable
 }
@@ -478,8 +521,7 @@ type partialFailureBackend struct{}
 
 func (partialFailureBackend) Retrieve(
 	_ context.Context,
-	_ string,
-	_ retrieval.RetrieveOptions,
+	_ retrieval.Query[struct{}],
 ) (retrieval.ResultSet[struct{}], error) {
 	rs := retrieval.NewResultSet([]retrieval.Document[struct{}]{
 		{ID: "a", Content: "hit", Score: 1},
@@ -628,10 +670,36 @@ func TestWrapPipelinePassesDerivedContext(t *testing.T) {
 	})
 }
 
+func TestWrapRequestPipelinePassesRequestMetaAndDerivedContext(t *testing.T) {
+	runSpanTest(t, "ragy.retrieval.pipeline", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
+		backend := &captureRequestBackend{}
+		next, err := retrieval.NewRequestPipelineBuilder[struct{}, requestMetaFixture, contracttest.StructMeta]().
+			WithRoot(retrieval.RequestRetrieverNode[struct{}, requestMetaFixture, contracttest.StructMeta]{Backend: backend}).
+			Build()
+		if err != nil {
+			return false, err
+		}
+		wrapped, err := WrapRequestPipeline(next, tracer)
+		if err != nil {
+			return false, err
+		}
+		_, err = wrapped.Retrieve(
+			ctx,
+			retrieval.Request[struct{}, requestMetaFixture]{
+				Text:    "hello",
+				Meta:    requestMetaFixture{Tenant: "acme"},
+				Options: retrieval.RetrieveOptions{TopK: 10},
+			},
+		)
+		return backend.valid, err
+	})
+}
+
 var (
-	_ dense.Index[contracttest.StructMeta]           = (*captureDenseIndex)(nil)
-	_ retrieval.Backend[contracttest.StructMeta]     = (*captureBackend)(nil)
-	_ ranking.QueryReranker[contracttest.StructMeta] = (*captureQueryReranker)(nil)
-	_ ranking.Merger[contracttest.StructMeta]        = (*captureMerger)(nil)
-	_ documents.Store[contracttest.StructMeta]       = (*captureDocumentStore)(nil)
+	_ dense.Index[contracttest.StructMeta]                                            = (*captureDenseIndex)(nil)
+	_ retrieval.Backend[struct{}, contracttest.StructMeta]                            = (*captureBackend)(nil)
+	_ retrieval.RequestBackend[struct{}, requestMetaFixture, contracttest.StructMeta] = (*captureRequestBackend)(nil)
+	_ ranking.QueryReranker[contracttest.StructMeta]                                  = (*captureQueryReranker)(nil)
+	_ ranking.Merger[contracttest.StructMeta]                                         = (*captureMerger)(nil)
+	_ documents.Store[contracttest.StructMeta]                                        = (*captureDocumentStore)(nil)
 )

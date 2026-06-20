@@ -19,7 +19,7 @@ func DefaultMergeStrategy[TMeta any]() MergeStrategy[TMeta] {
 		}
 		best := docs[0]
 		for _, doc := range docs[1:] {
-			if doc.Score > best.Score {
+			if rankedDocumentLess(doc, best) {
 				best = doc
 			}
 		}
@@ -114,7 +114,7 @@ func (p groupByProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta],
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].Score > out[j].Score
+		return rankedDocumentLess(out[i], out[j])
 	})
 	return NewResultSet(out, p.resolver), nil
 }
@@ -173,7 +173,7 @@ func (p topPerGroupProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMe
 	for _, key := range groupKeys {
 		group := groups[key]
 		sort.SliceStable(group, func(i, j int) bool {
-			return group[i].Score > group[j].Score
+			return rankedDocumentLess(group[i], group[j])
 		})
 		if len(group) > p.limit {
 			group = group[:p.limit]
@@ -182,7 +182,7 @@ func (p topPerGroupProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMe
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].Score > out[j].Score
+		return rankedDocumentLess(out[i], out[j])
 	})
 	return NewResultSet(out, p.resolver), nil
 }

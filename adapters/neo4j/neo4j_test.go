@@ -13,6 +13,15 @@ import (
 	"github.com/skosovsky/ragy/testutil"
 )
 
+func retrieveStore[TMeta any](
+	ctx context.Context,
+	store *Store[TMeta],
+	text string,
+	opts retrieval.RetrieveOptions,
+) (retrieval.ResultSet[TMeta], error) {
+	return store.Retrieve(ctx, retrieval.Query[struct{}]{Text: text, Options: opts})
+}
+
 type fakeRunner struct{}
 
 func (fakeRunner) Traverse(_ context.Context, _ Query) (graph.Snapshot[contracttest.StructMeta], error) {
@@ -191,7 +200,7 @@ func TestRetrieveProjectsTraversedNodes(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		TopK: 10,
 		Graph: &retrieval.GraphOptions{
 			Seeds:     []string{"n1"},
@@ -205,6 +214,9 @@ func TestRetrieveProjectsTraversedNodes(t *testing.T) {
 	docs := out.Documents()
 	if len(docs) != 1 || docs[0].ID != "n1" || docs[0].Content != "hello" {
 		t.Fatalf("Retrieve() = %#v, want node n1", docs)
+	}
+	if docs[0].ScoreState != retrieval.ScoreAbsent || docs[0].Rank != 1 {
+		t.Fatalf("ScoreState/Rank = %v/%d, want ScoreAbsent/1", docs[0].ScoreState, docs[0].Rank)
 	}
 }
 
@@ -243,7 +255,7 @@ func TestRetrieveUsesFetchLimitForBackendSlice(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		FetchLimit: 1,
 		TopK:       1,
 		Graph: &retrieval.GraphOptions{
@@ -263,18 +275,21 @@ func TestRetrieveUsesFetchLimitForBackendSlice(t *testing.T) {
 func TestRetrieveOptionsInvalidConformance(t *testing.T) {
 	t.Parallel()
 
-	contracttest.RunGraphRetrieveOptionsInvalidSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
-		store, err := New[contracttest.StructMeta](
-			memoryRunner{store: &testutil.GraphStore{}},
-			graph.EmptySchema(),
-			Config[contracttest.StructMeta]{},
-		)
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return store
-	})
+	contracttest.RunGraphRetrieveOptionsInvalidSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
+			store, err := New[contracttest.StructMeta](
+				memoryRunner{store: &testutil.GraphStore{}},
+				graph.EmptySchema(),
+				Config[contracttest.StructMeta]{},
+			)
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+	)
 }
 
 type traverseErrorRunner struct {
@@ -301,7 +316,7 @@ func TestRetrieveTraverseError(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		TopK: 1,
 		Graph: &retrieval.GraphOptions{
 			Seeds:     []string{"n1"},
@@ -328,7 +343,7 @@ func TestRetrieveWrapsTraverseError(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		TopK: 1,
 		Graph: &retrieval.GraphOptions{
 			Seeds:     []string{"n1"},
@@ -361,7 +376,7 @@ func TestRetrievePreservesPartialValidationError(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		TopK: 5,
 		Graph: &retrieval.GraphOptions{
 			Seeds:     []string{"ok"},
@@ -378,42 +393,46 @@ func TestRetrievePreservesPartialValidationError(t *testing.T) {
 }
 
 func TestRetrievePartialProjectionConformance(t *testing.T) {
-	contracttest.RunRetrievePartialProjectionSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+	contracttest.RunRetrievePartialProjectionSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		runner := brokenRunner{
-			snapshot: graph.Snapshot[contracttest.StructMeta]{
-				Nodes: []graph.Node[contracttest.StructMeta]{
-					{ID: "ok", Content: "good"},
-					{ID: "", Content: "bad"},
+			runner := brokenRunner{
+				snapshot: graph.Snapshot[contracttest.StructMeta]{
+					Nodes: []graph.Node[contracttest.StructMeta]{
+						{ID: "ok", Content: "good"},
+						{ID: "", Content: "bad"},
+					},
 				},
-			},
-		}
-		store, err := New[contracttest.StructMeta](runner, graph.EmptySchema(), Config[contracttest.StructMeta]{})
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return &neo4jGraphRetrieveBackend{Store: store}
-	}, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+			}
+			store, err := New[contracttest.StructMeta](runner, graph.EmptySchema(), Config[contracttest.StructMeta]{})
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return &neo4jGraphRetrieveBackend{Store: store}
+		},
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
-		runner := brokenRunner{
-			snapshot: graph.Snapshot[contracttest.StructMeta]{
-				Nodes: []graph.Node[contracttest.StructMeta]{
-					{ID: "ok", Content: "merge-key"},
-					{ID: "", Content: "bad"},
+			resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
+			runner := brokenRunner{
+				snapshot: graph.Snapshot[contracttest.StructMeta]{
+					Nodes: []graph.Node[contracttest.StructMeta]{
+						{ID: "ok", Content: "merge-key"},
+						{ID: "", Content: "bad"},
+					},
 				},
-			},
-		}
-		store, err := New[contracttest.StructMeta](runner, graph.EmptySchema(), Config[contracttest.StructMeta]{
-			Resolver: resolver,
-		})
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return &neo4jGraphRetrieveBackend{Store: store}
-	})
+			}
+			store, err := New[contracttest.StructMeta](runner, graph.EmptySchema(), Config[contracttest.StructMeta]{
+				Resolver: resolver,
+			})
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return &neo4jGraphRetrieveBackend{Store: store}
+		},
+	)
 }
 
 type neo4jGraphRetrieveBackend struct {
@@ -422,9 +441,9 @@ type neo4jGraphRetrieveBackend struct {
 
 func (b *neo4jGraphRetrieveBackend) Retrieve(
 	ctx context.Context,
-	query string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
+	opts := req.Options
 	if opts.Graph == nil {
 		opts.Graph = &retrieval.GraphOptions{
 			Seeds:     []string{"ok"},
@@ -432,7 +451,8 @@ func (b *neo4jGraphRetrieveBackend) Retrieve(
 			Depth:     1,
 		}
 	}
-	return b.Store.Retrieve(ctx, query, opts)
+	req.Options = opts
+	return b.Store.Retrieve(ctx, req)
 }
 
 func TestRetrieveBackendFetchLimitTruncatesTraversalOrder(t *testing.T) {
@@ -452,7 +472,7 @@ func TestRetrieveBackendFetchLimitTruncatesTraversalOrder(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		TopK: 1,
 		Graph: &retrieval.GraphOptions{
 			Seeds:     []string{"first"},

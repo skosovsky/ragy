@@ -583,11 +583,11 @@ func minInt(left, right int) int {
 }
 
 var (
-	_ dense.Embedder                                     = (*DenseEmbedder)(nil)
-	_ dense.Index[contracttest.StructMeta]               = (*DenseIndex)(nil)
-	_ retrieval.Backend[contracttest.StructMeta]         = (*StructRetrievalBackend)(nil)
-	_ tensor.Index[contracttest.StructMeta]              = (*TensorIndex)(nil)
-	_ documents.Store[contracttest.StructMeta]           = (*StructDocumentStore)(nil)
-	_ graph.Store[contracttest.StructMeta]               = (*GraphStore)(nil)
-	_ chunking.ContextGenerator[contracttest.StructMeta] = (*ContextGenerator)(nil)
+	_ dense.Embedder                                       = (*DenseEmbedder)(nil)
+	_ dense.Index[contracttest.StructMeta]                 = (*DenseIndex)(nil)
+	_ retrieval.Backend[struct{}, contracttest.StructMeta] = (*StructRetrievalBackend)(nil)
+	_ tensor.Index[contracttest.StructMeta]                = (*TensorIndex)(nil)
+	_ documents.Store[contracttest.StructMeta]             = (*StructDocumentStore)(nil)
+	_ graph.Store[contracttest.StructMeta]                 = (*GraphStore)(nil)
+	_ chunking.ContextGenerator[contracttest.StructMeta]   = (*ContextGenerator)(nil)
 )

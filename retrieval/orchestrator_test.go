@@ -38,28 +38,26 @@ func (n errorNode[TIntent, TMeta]) Retrieve(context.Context, Query[TIntent]) (Re
 	return NewResultSet[TMeta](nil, DocumentIDResolver[TMeta]{}), n.err
 }
 
-type orchestratorStubBackend[TMeta any] struct {
+type orchestratorStubBackend[TIntent, TMeta any] struct {
 	docs []Document[TMeta]
 }
 
-func (b orchestratorStubBackend[TMeta]) Schema() filter.Schema { return filter.EmptySchema() }
+func (b orchestratorStubBackend[TIntent, TMeta]) Schema() filter.Schema { return filter.EmptySchema() }
 
-func (b orchestratorStubBackend[TMeta]) Retrieve(
+func (b orchestratorStubBackend[TIntent, TMeta]) Retrieve(
 	_ context.Context,
-	_ string,
-	_ RetrieveOptions,
+	_ Query[TIntent],
 ) (ResultSet[TMeta], error) {
 	return NewResultSet(b.docs, DocumentIDResolver[TMeta]{}), nil
 }
 
-type orchestratorFailingBackend[TMeta any] struct{}
+type orchestratorFailingBackend[TIntent, TMeta any] struct{}
 
-func (orchestratorFailingBackend[TMeta]) Schema() filter.Schema { return filter.EmptySchema() }
+func (orchestratorFailingBackend[TIntent, TMeta]) Schema() filter.Schema { return filter.EmptySchema() }
 
-func (orchestratorFailingBackend[TMeta]) Retrieve(
+func (orchestratorFailingBackend[TIntent, TMeta]) Retrieve(
 	context.Context,
-	string,
-	RetrieveOptions,
+	Query[TIntent],
 ) (ResultSet[TMeta], error) {
 	return NewResultSet[TMeta](nil, DocumentIDResolver[TMeta]{}), ragy.ErrUnavailable
 }
@@ -1132,7 +1130,9 @@ func TestPostProcessorChainUsesCustomResolver(t *testing.T) {
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
 		WithRoot(RetrieverNode[stubIntent, struct{}]{
-			Backend: orchestratorStubBackend[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "grp", Score: 1}}},
+			Backend: orchestratorStubBackend[stubIntent, struct{}]{
+				docs: []Document[struct{}]{{ID: "a", Content: "grp", Score: 1}},
+			},
 		}).
 		WithPostProcessors(GroupBy(func(struct{}) string { return "g" }, DefaultMergeStrategy[struct{}]())).
 		WithResolver(resolver).
@@ -1422,7 +1422,7 @@ func TestRetrieverNodePreservesBackendResultOnError(t *testing.T) {
 	t.Parallel()
 
 	node := RetrieverNode[stubIntent, struct{}]{
-		Backend: partialBackend[struct{}]{
+		Backend: partialBackend[stubIntent, struct{}]{
 			docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}},
 			err:  ragy.ErrUnavailable,
 		},
@@ -1733,7 +1733,7 @@ func TestFallbackNodePreservesPrimaryDocsOnPlainError(t *testing.T) {
 
 	node := FallbackNode[stubIntent, struct{}]{
 		Primary: RetrieverNode[stubIntent, struct{}]{
-			Backend: partialBackend[struct{}]{
+			Backend: partialBackend[stubIntent, struct{}]{
 				docs: []Document[struct{}]{{ID: "primary", Content: "hit", Score: 1}},
 				err:  ragy.ErrUnavailable,
 			},
@@ -1756,7 +1756,7 @@ func TestRescueNodePreservesPrimaryDocsOnPlainError(t *testing.T) {
 
 	node := RescueNode[stubIntent, struct{}]{
 		Primary: RetrieverNode[stubIntent, struct{}]{
-			Backend: partialBackend[struct{}]{
+			Backend: partialBackend[stubIntent, struct{}]{
 				docs: []Document[struct{}]{{ID: "primary", Content: "hit", Score: 1}},
 				err:  ragy.ErrUnavailable,
 			},
@@ -1842,7 +1842,7 @@ func TestRetrieverNodeUsesInjectedResolverOnPreserve(t *testing.T) {
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	node := RetrieverNode[stubIntent, struct{}]{
-		Backend: partialFailureBackend[struct{}]{
+		Backend: partialFailureBackend[stubIntent, struct{}]{
 			docs: []Document[struct{}]{{ID: "a", Content: "key-a", Score: 0.9}},
 		},
 		Resolver: resolver,
@@ -1874,7 +1874,7 @@ func TestRetrieverNodeRewrapsResolverOnSuccess(t *testing.T) {
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	node := RetrieverNode[stubIntent, struct{}]{
-		Backend: orchestratorStubBackend[struct{}]{
+		Backend: orchestratorStubBackend[stubIntent, struct{}]{
 			docs: []Document[struct{}]{{ID: "a", Content: "merge-key", Score: 0.9}},
 		},
 		Resolver: resolver,
@@ -1899,7 +1899,7 @@ func TestPipelineBuildOverwritesRetrieverNodeResolver(t *testing.T) {
 
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
-	backend := orchestratorStubBackend[struct{}]{docs: []Document[struct{}]{
+	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
@@ -1928,7 +1928,7 @@ func TestPipelineBuildOverwritesFallbackNodeResolver(t *testing.T) {
 
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
-	backend := orchestratorStubBackend[struct{}]{docs: []Document[struct{}]{
+	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
@@ -1960,7 +1960,7 @@ func TestPipelineBuildOverwritesRescueNodeResolver(t *testing.T) {
 
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
-	backend := orchestratorStubBackend[struct{}]{docs: []Document[struct{}]{
+	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
@@ -1993,7 +1993,7 @@ func TestPipelineBuildOverwritesAggregateNodeResolver(t *testing.T) {
 
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
-	backend := orchestratorStubBackend[struct{}]{docs: []Document[struct{}]{
+	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
@@ -2024,7 +2024,7 @@ func TestPipelineBuildOverwritesConditionalNodeResolver(t *testing.T) {
 
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
-	backend := orchestratorStubBackend[struct{}]{docs: []Document[struct{}]{
+	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
@@ -2429,7 +2429,7 @@ func TestRetrieverNodeRejectsInvalidRetrieveOptions(t *testing.T) {
 	t.Parallel()
 
 	node := RetrieverNode[stubIntent, struct{}]{
-		Backend: orchestratorStubBackend[struct{}]{},
+		Backend: orchestratorStubBackend[stubIntent, struct{}]{},
 	}
 	_, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
@@ -2498,26 +2498,25 @@ func TestConditionalNodeUsesQueryIntent(t *testing.T) {
 	}
 }
 
-type querySpyBackend[TMeta any] struct {
-	orchestratorStubBackend[TMeta]
+type querySpyBackend[TIntent, TMeta any] struct {
+	orchestratorStubBackend[TIntent, TMeta]
 
-	lastQuery string
+	lastRequest Query[TIntent]
 }
 
-func (b *querySpyBackend[TMeta]) Retrieve(
+func (b *querySpyBackend[TIntent, TMeta]) Retrieve(
 	_ context.Context,
-	query string,
-	opts RetrieveOptions,
+	req Query[TIntent],
 ) (ResultSet[TMeta], error) {
-	b.lastQuery = query
-	return b.orchestratorStubBackend.Retrieve(context.Background(), query, opts)
+	b.lastRequest = req
+	return b.orchestratorStubBackend.Retrieve(context.Background(), req)
 }
 
-func TestRetrieverNodeDoesNotPassIntentToBackend(t *testing.T) {
+func TestRetrieverNodePassesRequestEnvelopeToBackend(t *testing.T) {
 	t.Parallel()
 
-	spy := &querySpyBackend[struct{}]{
-		orchestratorStubBackend: orchestratorStubBackend[struct{}]{
+	spy := &querySpyBackend[intentWithMode, struct{}]{
+		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
 			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
 		},
 	}
@@ -2531,8 +2530,155 @@ func TestRetrieverNodeDoesNotPassIntentToBackend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
-	if spy.lastQuery != "hello" {
-		t.Fatalf("backend query = %q, want Text only (Intent must not leak)", spy.lastQuery)
+	if spy.lastRequest.Text != "hello" || spy.lastRequest.Intent.Mode != "secret-mode" {
+		t.Fatalf("backend request = %#v, want full request envelope", spy.lastRequest)
+	}
+}
+
+func TestPipelinePlannerAttachesPlanBeforeBackend(t *testing.T) {
+	t.Parallel()
+
+	spy := &querySpyBackend[intentWithMode, struct{}]{
+		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
+			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+		},
+	}
+	pipeline, err := NewPipelineBuilder[intentWithMode, struct{}]().
+		WithPlanner(QueryPlannerFunc[intentWithMode, NoRequestMeta](
+			func(_ context.Context, req Query[intentWithMode]) (PlannedQuery[intentWithMode], error) {
+				return PlannedQuery[intentWithMode]{
+					Text:         strings.TrimSpace(req.Text),
+					ExpandedText: "expanded query",
+					Intent:       req.Intent,
+					CacheKey:     "mode:" + req.Intent.Mode,
+					Diagnostics:  []PlannerDiagnostic{{Key: "source", Value: "test"}},
+				}, nil
+			},
+		)).
+		WithRoot(RetrieverNode[intentWithMode, struct{}]{Backend: spy}).
+		Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	_, err = pipeline.Retrieve(context.Background(), Query[intentWithMode]{
+		Text:    "  raw query  ",
+		Intent:  intentWithMode{Mode: "run"},
+		Options: RetrieveOptions{TopK: 1},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	if spy.lastRequest.Plan == nil {
+		t.Fatal("backend request Plan = nil, want planned query")
+	}
+	if got := spy.lastRequest.EffectiveText(); got != "expanded query" {
+		t.Fatalf("EffectiveText() = %q, want expanded query", got)
+	}
+	if spy.lastRequest.Plan.CacheKey != "mode:run" {
+		t.Fatalf("Plan.CacheKey = %q, want mode:run", spy.lastRequest.Plan.CacheKey)
+	}
+}
+
+type requestMetaFixture struct {
+	TraceID string
+}
+
+type requestMetaSpyBackend[TIntent, TRequestMeta, TMeta any] struct {
+	docs        []Document[TMeta]
+	lastRequest Request[TIntent, TRequestMeta]
+}
+
+func (b *requestMetaSpyBackend[TIntent, TRequestMeta, TMeta]) Retrieve(
+	_ context.Context,
+	req Request[TIntent, TRequestMeta],
+) (ResultSet[TMeta], error) {
+	b.lastRequest = req
+	return NewResultSet(b.docs, DocumentIDResolver[TMeta]{}), nil
+}
+
+func TestRequestPipelinePassesTypedRequestMetaToPlannerAndBackend(t *testing.T) {
+	t.Parallel()
+
+	spy := &requestMetaSpyBackend[intentWithMode, requestMetaFixture, struct{}]{
+		docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+	}
+	var plannerMeta requestMetaFixture
+	pipeline, err := NewRequestPipelineBuilder[intentWithMode, requestMetaFixture, struct{}]().
+		WithPlanner(QueryPlannerFunc[intentWithMode, requestMetaFixture](
+			func(_ context.Context, req Request[intentWithMode, requestMetaFixture]) (PlannedQuery[intentWithMode], error) {
+				plannerMeta = req.Meta
+				return PlannedQuery[intentWithMode]{
+					Text:     strings.TrimSpace(req.Text),
+					Intent:   req.Intent,
+					CacheKey: req.Meta.TraceID,
+				}, nil
+			},
+		)).
+		WithRoot(RequestRetrieverNode[intentWithMode, requestMetaFixture, struct{}]{Backend: spy}).
+		Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	_, err = pipeline.Retrieve(context.Background(), Request[intentWithMode, requestMetaFixture]{
+		Text:    "  raw  ",
+		Intent:  intentWithMode{Mode: "run"},
+		Meta:    requestMetaFixture{TraceID: "trace-1"},
+		Options: RetrieveOptions{TopK: 1},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	if plannerMeta.TraceID != "trace-1" {
+		t.Fatalf("planner meta = %#v, want trace-1", plannerMeta)
+	}
+	if spy.lastRequest.Meta.TraceID != "trace-1" {
+		t.Fatalf("backend meta = %#v, want trace-1", spy.lastRequest.Meta)
+	}
+	if spy.lastRequest.Plan == nil || spy.lastRequest.Plan.CacheKey != "trace-1" {
+		t.Fatalf("backend plan = %#v, want cache key trace-1", spy.lastRequest.Plan)
+	}
+}
+
+func TestPipelineUsesPreplannedQueryWithoutCallingPlanner(t *testing.T) {
+	t.Parallel()
+
+	spy := &querySpyBackend[intentWithMode, struct{}]{
+		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
+			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+		},
+	}
+	plannerCalls := 0
+	pipeline, err := NewPipelineBuilder[intentWithMode, struct{}]().
+		WithPlanner(QueryPlannerFunc[intentWithMode, NoRequestMeta](
+			func(_ context.Context, _ Query[intentWithMode]) (PlannedQuery[intentWithMode], error) {
+				plannerCalls++
+				return PlannedQuery[intentWithMode]{Text: "unexpected"}, nil
+			},
+		)).
+		WithRoot(RetrieverNode[intentWithMode, struct{}]{Backend: spy}).
+		Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	_, err = pipeline.Retrieve(context.Background(), Query[intentWithMode]{
+		Text: "raw",
+		Plan: &PlannedQuery[intentWithMode]{
+			ExpandedText: "cached expanded",
+			CacheKey:     "cached",
+		},
+		Options: RetrieveOptions{TopK: 1},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+	if plannerCalls != 0 {
+		t.Fatalf("planner calls = %d, want 0 for preplanned request", plannerCalls)
+	}
+	if got := spy.lastRequest.EffectiveText(); got != "cached expanded" {
+		t.Fatalf("EffectiveText() = %q, want cached expanded", got)
 	}
 }
 
@@ -2644,9 +2790,9 @@ type catalogVectorIntent struct {
 func TestPipelineCatalogVectorFallbackGraph(t *testing.T) {
 	t.Parallel()
 
-	catalog := orchestratorStubBackend[struct{}]{}
-	vector := orchestratorStubBackend[struct{}]{}
-	web := orchestratorStubBackend[struct{}]{
+	catalog := orchestratorStubBackend[catalogVectorIntent, struct{}]{}
+	vector := orchestratorStubBackend[catalogVectorIntent, struct{}]{}
+	web := orchestratorStubBackend[catalogVectorIntent, struct{}]{
 		docs: []Document[struct{}]{{ID: "web-1", Content: "web", Score: 0.8}},
 	}
 
@@ -2695,9 +2841,9 @@ func TestRescueNestedFallbackRespectsIntentGate(t *testing.T) {
 		AllowWeb bool
 	}
 
-	catalog := orchestratorStubBackend[struct{}]{}
-	vector := orchestratorFailingBackend[struct{}]{}
-	web := orchestratorStubBackend[struct{}]{
+	catalog := orchestratorStubBackend[rescueSearchIntent, struct{}]{}
+	vector := orchestratorFailingBackend[rescueSearchIntent, struct{}]{}
+	web := orchestratorStubBackend[rescueSearchIntent, struct{}]{
 		docs: []Document[struct{}]{{ID: "web-1", Content: "web", Score: 0.8}},
 	}
 	webIfAllowed := func(query Query[rescueSearchIntent]) bool {

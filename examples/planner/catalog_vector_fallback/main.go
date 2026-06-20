@@ -23,8 +23,7 @@ func (m memoryBackend) Schema() filter.Schema { return m.name }
 
 func (m memoryBackend) Retrieve(
 	_ context.Context,
-	_ string,
-	_ retrieval.RetrieveOptions,
+	_ retrieval.Query[searchIntent],
 ) (retrieval.ResultSet[struct{}], error) {
 	return retrieval.NewResultSet(m.hits, retrieval.DocumentIDResolver[struct{}]{}), nil
 }

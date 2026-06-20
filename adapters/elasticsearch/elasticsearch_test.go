@@ -40,6 +40,18 @@ func structMetaCodec(t *testing.T, schema filter.Schema) retrieval.MetadataCodec
 	return contracttest.JSONCodec[contracttest.StructMeta](t, schema)
 }
 
+func retrieveStore[TMeta any](
+	ctx context.Context,
+	backend retrieval.Backend[struct{}, TMeta],
+	text string,
+	opts retrieval.RetrieveOptions,
+) (retrieval.ResultSet[TMeta], error) {
+	return backend.Retrieve(ctx, retrieval.Query[struct{}]{
+		Text:    text,
+		Options: opts,
+	})
+}
+
 func schemaWithContentAndTenant(t *testing.T) filter.Schema {
 	t.Helper()
 
@@ -91,7 +103,7 @@ func TestRetrieveProjectsCanonicalDocumentShape(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{
 		TopK:    10,
 		Filters: cond,
 	})
@@ -131,7 +143,7 @@ func TestRetrieveUsesFetchLimitForSize(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	_, err = store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+	_, err = retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{
 		FetchLimit: 30,
 		TopK:       10,
 	})
@@ -165,7 +177,7 @@ func TestRetrieveFallsBackToTopKWhenFetchLimitZero(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	_, err = store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+	_, err = retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{
 		TopK: 18,
 	})
 	if err != nil {
@@ -199,7 +211,7 @@ func TestRetrieveSetsSizeWhenTopKPositive(t *testing.T) {
 	}
 
 	const topK = 12
-	_, err = store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+	_, err = retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{
 		TopK: topK,
 	})
 	if err != nil {
@@ -232,7 +244,7 @@ func TestRetrieveReturnsNilMetaWhenOnlyContentIsPresent(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 10})
+	out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{TopK: 10})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -265,7 +277,7 @@ func TestRetrieveRejectsMissingContent(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 10})
+	out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{TopK: 10})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrProtocol) {
 		t.Fatalf("Retrieve() error = %v, want protocol error", err)
@@ -292,7 +304,7 @@ func TestRetrieveRejectsNonStringContent(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 10})
+	out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{TopK: 10})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrProtocol) {
 		t.Fatalf("Retrieve() error = %v, want protocol error", err)
@@ -328,7 +340,7 @@ func TestRetrieveRejectsUndeclaredFilterField(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{
 		TopK:    10,
 		Filters: cond,
 	})
@@ -353,7 +365,7 @@ func TestRetrieveEmptyQueryReturnsNonNilResultSet(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "   ", retrieval.RetrieveOptions{TopK: 1})
+	out, err := retrieveStore(context.Background(), store, "   ", retrieval.RetrieveOptions{TopK: 1})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrEmptyText) {
 		t.Fatalf("Retrieve() error = %v, want empty text", err)
@@ -417,7 +429,7 @@ func TestShadowSearchMetaOnlyParityBM25AndES(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	byContent, err := idx.Retrieve(context.Background(), "secret", retrieval.RetrieveOptions{TopK: 1})
+	byContent, err := retrieveStore(context.Background(), idx, "secret", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("BM25 Retrieve(by content): %v", err)
 	}
@@ -425,7 +437,7 @@ func TestShadowSearchMetaOnlyParityBM25AndES(t *testing.T) {
 		t.Fatalf("BM25 by content = %#v, want no hits without content field", byContent.Documents())
 	}
 
-	bm25rs, err := idx.Retrieve(context.Background(), "acme", retrieval.RetrieveOptions{TopK: 1})
+	bm25rs, err := retrieveStore(context.Background(), idx, "acme", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("BM25 Retrieve(by tenant): %v", err)
 	}
@@ -441,7 +453,7 @@ func TestShadowSearchMetaOnlyParityBM25AndES(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
-	esrs, err := store.Retrieve(context.Background(), "acme", retrieval.RetrieveOptions{TopK: 5})
+	esrs, err := retrieveStore(context.Background(), store, "acme", retrieval.RetrieveOptions{TopK: 5})
 	if err != nil {
 		t.Fatalf("ES Retrieve(): %v", err)
 	}
@@ -473,7 +485,7 @@ func TestElasticsearchRetrieveMetaOnlyHitWithoutContent(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	rs, err := store.Retrieve(context.Background(), "acme", retrieval.RetrieveOptions{TopK: 5})
+	rs, err := retrieveStore(context.Background(), store, "acme", retrieval.RetrieveOptions{TopK: 5})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -532,7 +544,7 @@ func TestShadowSearchMultiDocRankParityBM25AndES(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	bm25rs, err := idx.Retrieve(context.Background(), "alpha beta", retrieval.RetrieveOptions{TopK: 3})
+	bm25rs, err := retrieveStore(context.Background(), idx, "alpha beta", retrieval.RetrieveOptions{TopK: 3})
 	if err != nil {
 		t.Fatalf("BM25 Retrieve(): %v", err)
 	}
@@ -552,7 +564,7 @@ func TestShadowSearchMultiDocRankParityBM25AndES(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
-	esrs, err := store.Retrieve(context.Background(), "alpha beta", retrieval.RetrieveOptions{TopK: 3})
+	esrs, err := retrieveStore(context.Background(), store, "alpha beta", retrieval.RetrieveOptions{TopK: 3})
 	if err != nil {
 		t.Fatalf("ES Retrieve(): %v", err)
 	}
@@ -583,7 +595,7 @@ func TestShadowSearchContentParityBM25AndES(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	bm25rs, err := idx.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 5})
+	bm25rs, err := retrieveStore(context.Background(), idx, "hello", retrieval.RetrieveOptions{TopK: 5})
 	if err != nil {
 		t.Fatalf("BM25 Retrieve(): %v", err)
 	}
@@ -601,7 +613,7 @@ func TestShadowSearchContentParityBM25AndES(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
-	esrs, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 5})
+	esrs, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{TopK: 5})
 	if err != nil {
 		t.Fatalf("ES Retrieve(): %v", err)
 	}
@@ -626,7 +638,7 @@ func TestElasticsearchRetrieveExpandsSynonyms(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	if _, err := store.Retrieve(context.Background(), "car", retrieval.RetrieveOptions{TopK: 5}); err != nil {
+	if _, err := retrieveStore(context.Background(), store, "car", retrieval.RetrieveOptions{TopK: 5}); err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
 
@@ -650,7 +662,7 @@ func TestElasticsearchRetrieveExpandsSynonyms(t *testing.T) {
 func newLexicalStructBackend(
 	t *testing.T,
 	docs []retrieval.Document[contracttest.StructMeta],
-) retrieval.Backend[contracttest.StructMeta] {
+) retrieval.Backend[struct{}, contracttest.StructMeta] {
 	t.Helper()
 
 	schema := contracttest.TenantAgeSchema(t)
@@ -683,18 +695,22 @@ func TestLexicalStructBackendConformance(t *testing.T) {
 }
 
 func TestRetrieveOptionsInvalidConformance(t *testing.T) {
-	contracttest.RunRetrieveOptionsInvalidSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
-		store, err := New[contracttest.StructMeta](&fakeClient{}, Config[contracttest.StructMeta]{
-			Index:        "docs",
-			SearchFields: []string{"content"},
-			Schema:       schemaWithContent(t),
-		}, structMetaCodec(t, schemaWithContent(t)))
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return store
-	}, contracttest.RetrieveOptionsInvalidConfig{Query: "hello", Vector: nil})
+	contracttest.RunRetrieveOptionsInvalidSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
+			store, err := New[contracttest.StructMeta](&fakeClient{}, Config[contracttest.StructMeta]{
+				Index:        "docs",
+				SearchFields: []string{"content"},
+				Schema:       schemaWithContent(t),
+			}, structMetaCodec(t, schemaWithContent(t)))
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+		contracttest.RetrieveOptionsInvalidConfig{Query: "hello", Vector: nil},
+	)
 }
 
 func TestNewRejectsNilCodec(t *testing.T) {
@@ -722,13 +738,43 @@ func TestElasticsearchRetrieveNormalizesQueryWithoutSynonyms(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	if _, err := store.Retrieve(context.Background(), "Hello!", retrieval.RetrieveOptions{TopK: 5}); err != nil {
+	if _, err := retrieveStore(context.Background(), store, "Hello!", retrieval.RetrieveOptions{TopK: 5}); err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
 
 	queryText := multiMatchQuery(t, client.body)
 	if queryText != "hello" {
 		t.Fatalf("multi_match query = %q, want hello", queryText)
+	}
+}
+
+func TestElasticsearchRetrieveUsesPlannedExpandedText(t *testing.T) {
+	t.Parallel()
+
+	client := &fakeClient{}
+	store, err := New[contracttest.StructMeta](client, Config[contracttest.StructMeta]{
+		Index:        "docs",
+		SearchFields: []string{"content"},
+		Schema:       schemaWithContent(t),
+	}, structMetaCodec(t, schemaWithContent(t)))
+	if err != nil {
+		t.Fatalf("New(): %v", err)
+	}
+
+	_, err = store.Retrieve(context.Background(), retrieval.Query[struct{}]{
+		Text: "Raw!",
+		Plan: &retrieval.PlannedQuery[struct{}]{
+			ExpandedText: "Planned!",
+		},
+		Options: retrieval.RetrieveOptions{TopK: 5},
+	})
+	if err != nil {
+		t.Fatalf("Retrieve(): %v", err)
+	}
+
+	queryText := multiMatchQuery(t, client.body)
+	if queryText != "planned" {
+		t.Fatalf("multi_match query = %q, want planned", queryText)
 	}
 }
 
@@ -745,7 +791,7 @@ func TestElasticsearchRetrieveEmptyTokensReturnsEmptyResultSet(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "!!!", retrieval.RetrieveOptions{TopK: 5})
+	out, err := retrieveStore(context.Background(), store, "!!!", retrieval.RetrieveOptions{TopK: 5})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -758,45 +804,49 @@ func TestElasticsearchRetrieveEmptyTokensReturnsEmptyResultSet(t *testing.T) {
 }
 
 func TestRetrievePartialProjectionConformance(t *testing.T) {
-	contracttest.RunRetrievePartialProjectionSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+	contracttest.RunRetrievePartialProjectionSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		client := &fakeClient{
-			hits: []Hit{
-				{ID: "ok", Score: 1, Source: map[string]any{"content": "good"}},
-				{ID: "bad", Score: 1, Source: map[string]any{"tenant": "acme"}},
-			},
-		}
-		store, err := New[contracttest.StructMeta](client, Config[contracttest.StructMeta]{
-			Index:        "docs",
-			SearchFields: []string{"content"},
-			Schema:       schemaWithContentAndTenant(t),
-		}, structMetaCodec(t, schemaWithContentAndTenant(t)))
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return store
-	}, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+			client := &fakeClient{
+				hits: []Hit{
+					{ID: "ok", Score: 1, Source: map[string]any{"content": "good"}},
+					{ID: "bad", Score: 1, Source: map[string]any{"tenant": "acme"}},
+				},
+			}
+			store, err := New[contracttest.StructMeta](client, Config[contracttest.StructMeta]{
+				Index:        "docs",
+				SearchFields: []string{"content"},
+				Schema:       schemaWithContentAndTenant(t),
+			}, structMetaCodec(t, schemaWithContentAndTenant(t)))
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		client := &fakeClient{
-			hits: []Hit{
-				{ID: "ok", Score: 1, Source: map[string]any{"content": "merge-key", "tenant": "acme"}},
-				{ID: "bad", Score: 1, Source: map[string]any{"content": "bad", "tenant": 123}},
-			},
-		}
-		schema := schemaWithContentAndTenant(t)
-		store, err := New[contracttest.StructMeta](client, Config[contracttest.StructMeta]{
-			Index:        "docs",
-			SearchFields: []string{"content"},
-			Schema:       schema,
-			Resolver:     contracttest.ContentMergeResolver[contracttest.StructMeta]{},
-		}, structMetaCodec(t, schema))
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return store
-	})
+			client := &fakeClient{
+				hits: []Hit{
+					{ID: "ok", Score: 1, Source: map[string]any{"content": "merge-key", "tenant": "acme"}},
+					{ID: "bad", Score: 1, Source: map[string]any{"content": "bad", "tenant": 123}},
+				},
+			}
+			schema := schemaWithContentAndTenant(t)
+			store, err := New[contracttest.StructMeta](client, Config[contracttest.StructMeta]{
+				Index:        "docs",
+				SearchFields: []string{"content"},
+				Schema:       schema,
+				Resolver:     contracttest.ContentMergeResolver[contracttest.StructMeta]{},
+			}, structMetaCodec(t, schema))
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+	)
 }
 
 func TestRetrieveSearchErrorReturnsEmptyResultSet(t *testing.T) {
@@ -812,7 +862,7 @@ func TestRetrieveSearchErrorReturnsEmptyResultSet(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 5})
+	out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{TopK: 5})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
@@ -842,7 +892,7 @@ func TestRetrieveWrapsRawSearchError(t *testing.T) {
 				t.Fatalf("New(): %v", err)
 			}
 
-			out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 5})
+			out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{TopK: 5})
 			contracttest.RequireErrorResultSet(t, out, err)
 			if !errors.Is(err, ragy.ErrUnavailable) {
 				t.Fatalf("Retrieve() error = %v, want unavailable", err)
@@ -890,7 +940,7 @@ func TestShadowSearchSynonymParityBM25AndES(t *testing.T) {
 	}); indexErr != nil {
 		t.Fatalf("Index(): %v", indexErr)
 	}
-	bm25rs, err := idx.Retrieve(context.Background(), "car", retrieval.RetrieveOptions{TopK: 1})
+	bm25rs, err := retrieveStore(context.Background(), idx, "car", retrieval.RetrieveOptions{TopK: 1})
 	if err != nil {
 		t.Fatalf("BM25 Retrieve(): %v", err)
 	}
@@ -907,7 +957,7 @@ func TestShadowSearchSynonymParityBM25AndES(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
-	esrs, err := store.Retrieve(context.Background(), "car", retrieval.RetrieveOptions{TopK: 5})
+	esrs, err := retrieveStore(context.Background(), store, "car", retrieval.RetrieveOptions{TopK: 5})
 	if err != nil {
 		t.Fatalf("ES Retrieve(): %v", err)
 	}
@@ -941,7 +991,7 @@ func TestShadowSearchSynonymMultiDocRankParityBM25AndES(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	bm25rs, err := idx.Retrieve(context.Background(), "car", retrieval.RetrieveOptions{TopK: 2})
+	bm25rs, err := retrieveStore(context.Background(), idx, "car", retrieval.RetrieveOptions{TopK: 2})
 	if err != nil {
 		t.Fatalf("BM25 Retrieve(): %v", err)
 	}
@@ -961,7 +1011,7 @@ func TestShadowSearchSynonymMultiDocRankParityBM25AndES(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
-	esrs, err := store.Retrieve(context.Background(), "car", retrieval.RetrieveOptions{TopK: 2})
+	esrs, err := retrieveStore(context.Background(), store, "car", retrieval.RetrieveOptions{TopK: 2})
 	if err != nil {
 		t.Fatalf("ES Retrieve(): %v", err)
 	}
@@ -1010,7 +1060,7 @@ func TestShadowSearchFilterParityBM25AndES(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	unfiltered, err := idx.Retrieve(context.Background(), "secret", retrieval.RetrieveOptions{TopK: 2})
+	unfiltered, err := retrieveStore(context.Background(), idx, "secret", retrieval.RetrieveOptions{TopK: 2})
 	if err != nil {
 		t.Fatalf("BM25 Retrieve(unfiltered): %v", err)
 	}
@@ -1018,7 +1068,7 @@ func TestShadowSearchFilterParityBM25AndES(t *testing.T) {
 		t.Fatalf("unfiltered Len() = %d, want 2", unfiltered.Len())
 	}
 
-	bm25rs, err := idx.Retrieve(context.Background(), "secret", retrieval.RetrieveOptions{
+	bm25rs, err := retrieveStore(context.Background(), idx, "secret", retrieval.RetrieveOptions{
 		TopK: 2, Filters: cond,
 	})
 	if err != nil {
@@ -1043,7 +1093,7 @@ func TestShadowSearchFilterParityBM25AndES(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
-	esrs, err := store.Retrieve(context.Background(), "secret", retrieval.RetrieveOptions{
+	esrs, err := retrieveStore(context.Background(), store, "secret", retrieval.RetrieveOptions{
 		TopK: 2, Filters: cond,
 	})
 	if err != nil {
@@ -1075,7 +1125,7 @@ func TestShadowSearchMultiFieldRankParityBM25AndES(t *testing.T) {
 		t.Fatalf("Index(): %v", indexErr)
 	}
 
-	bm25rs, err := idx.Retrieve(context.Background(), "alpha beta", retrieval.RetrieveOptions{TopK: 2})
+	bm25rs, err := retrieveStore(context.Background(), idx, "alpha beta", retrieval.RetrieveOptions{TopK: 2})
 	if err != nil {
 		t.Fatalf("BM25 Retrieve(): %v", err)
 	}
@@ -1105,7 +1155,7 @@ func TestShadowSearchMultiFieldRankParityBM25AndES(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	esrs, err := store.Retrieve(context.Background(), "alpha beta", retrieval.RetrieveOptions{TopK: 2})
+	esrs, err := retrieveStore(context.Background(), store, "alpha beta", retrieval.RetrieveOptions{TopK: 2})
 	if err != nil {
 		t.Fatalf("ES Retrieve(): %v", err)
 	}

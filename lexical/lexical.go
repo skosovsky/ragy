@@ -8,7 +8,7 @@ import (
 
 // Backend is a typed lexical retrieval backend that ranks documents by query text.
 type Backend[TMeta any] interface {
-	retrieval.Backend[TMeta]
+	retrieval.Backend[struct{}, TMeta]
 	Schema() filter.Schema
 	LexicalBackend()
 }

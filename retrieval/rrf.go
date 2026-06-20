@@ -112,7 +112,7 @@ func (r *ReciprocalRankFusion[TMeta]) sortMergedDocuments(docs []Document[TMeta]
 		return docs
 	}
 	sort.SliceStable(docs, func(i, j int) bool {
-		return docs[i].Score > docs[j].Score
+		return rankedDocumentLess(docs[i], docs[j])
 	})
 	return docs
 }
@@ -198,6 +198,7 @@ func buildMergedDocuments[TMeta any](
 		doc := item.doc
 		if maxScore > 0 {
 			doc.Score = ragy.ClampScore(item.score / maxScore)
+			doc.ScoreState = ScoreNormalized
 		}
 		out = append(out, doc)
 		if err := ctx.Err(); err != nil {

@@ -114,7 +114,7 @@ type stubBackend[TMeta any] struct {
 	docs []Document[TMeta]
 }
 
-func (s stubBackend[TMeta]) Retrieve(_ context.Context, _ string, _ RetrieveOptions) (ResultSet[TMeta], error) {
+func (s stubBackend[TMeta]) Retrieve(_ context.Context, _ Query[struct{}]) (ResultSet[TMeta], error) {
 	out := make([]Document[TMeta], len(s.docs))
 	copy(out, s.docs)
 	return NewResultSet(out, DocumentIDResolver[TMeta]{}), nil

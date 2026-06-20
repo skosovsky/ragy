@@ -23,9 +23,9 @@ func (m vectorBackend) Schema() filter.Schema { return m.schema }
 
 func (m vectorBackend) Retrieve(
 	_ context.Context,
-	_ string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[searchIntent],
 ) (retrieval.ResultSet[struct{}], error) {
+	opts := req.Options
 	if len(opts.Vector) == 0 {
 		return retrieval.NewResultSet[struct{}](nil, retrieval.DocumentIDResolver[struct{}]{}),
 			ragy.ErrEmptyVector
@@ -40,13 +40,23 @@ const (
 
 func buildPipeline(
 	vector vectorBackend,
-	bm25 retrieval.Backend[struct{}],
+	bm25 retrieval.Backend[struct{}, struct{}],
 ) (*retrieval.Pipeline[searchIntent, struct{}], error) {
+	bm25Branch := retrieval.ProjectedBackend[searchIntent, retrieval.NoRequestMeta, struct{}, retrieval.NoRequestMeta, struct{}]{
+		Next: bm25,
+		Project: func(req retrieval.Query[searchIntent]) retrieval.Query[struct{}] {
+			return retrieval.Query[struct{}]{
+				Text:    req.Text,
+				Options: req.Options,
+				Plan:    retrieval.ProjectPlannedQuery(req.Plan, struct{}{}),
+			}
+		},
+	}
 	return retrieval.NewPipelineBuilder[searchIntent, struct{}]().
 		WithRoot(retrieval.AggregateNode[searchIntent, struct{}]{
 			Nodes: []retrieval.Node[searchIntent, struct{}]{
 				retrieval.RetrieverNode[searchIntent, struct{}]{Backend: vector},
-				retrieval.RetrieverNode[searchIntent, struct{}]{Backend: bm25},
+				retrieval.RetrieverNode[searchIntent, struct{}]{Backend: bm25Branch},
 			},
 		}).
 		Build()

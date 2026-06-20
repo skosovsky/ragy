@@ -78,9 +78,9 @@ func New[TMeta any](db DB, cfg Config[TMeta], codec retrieval.MetadataCodec[TMet
 // Retrieve implements retrieval.Backend.
 func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
-	_ string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
@@ -265,10 +265,10 @@ func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval
 		}
 
 		doc := retrieval.Document[TMeta]{
-			ID:      id,
-			Content: content,
-			Score:   0,
-			Meta:    meta,
+			ID:         id,
+			Content:    content,
+			ScoreState: retrieval.ScoreAbsent,
+			Meta:       meta,
 		}
 		if err := retrieval.ValidateDocument(doc); err != nil {
 			return docs, ragy.WrapProjectionError(err, "pgvector find by ids validate")
@@ -575,7 +575,7 @@ func (w *sqlFilterWalker) popFrame(op string) (sqlFrame, error) {
 }
 
 var (
-	_ retrieval.Backend[any] = (*Store[any])(nil)
-	_ dense.Index[any]       = (*Store[any])(nil)
-	_ documents.Store[any]   = (*Store[any])(nil)
+	_ retrieval.Backend[struct{}, any] = (*Store[any])(nil)
+	_ dense.Index[any]                 = (*Store[any])(nil)
+	_ documents.Store[any]             = (*Store[any])(nil)
 )

@@ -16,6 +16,15 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 )
 
+func retrieveStore[TMeta any](
+	ctx context.Context,
+	store *Store[TMeta],
+	text string,
+	opts retrieval.RetrieveOptions,
+) (retrieval.ResultSet[TMeta], error) {
+	return store.Retrieve(ctx, retrieval.Query[struct{}]{Text: text, Options: opts})
+}
+
 type fakeClient struct {
 	cond              Condition
 	searchLimit       int
@@ -147,7 +156,7 @@ func TestRetrievePreservesTypedFilterValue(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	_, err = retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector:  []float32{1},
 		TopK:    10,
 		Filters: cond,
@@ -179,7 +188,7 @@ func TestRetrieveUsesFetchLimitForSearch(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	_, err = retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector:     []float32{1},
 		FetchLimit: 25,
 		TopK:       10,
@@ -205,7 +214,7 @@ func TestRetrieveFallsBackToTopKWhenFetchLimitZero(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	_, err = store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	_, err = retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
 		TopK:   12,
 	})
@@ -251,7 +260,7 @@ func TestRetrieveReturnsNilMetaWhenPayloadEmpty(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
 		TopK:   10,
 	})
@@ -514,7 +523,7 @@ func TestRetrieveEmptyVectorReturnsNonNilResultSet(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "q", retrieval.RetrieveOptions{TopK: 1})
+	out, err := retrieveStore(context.Background(), store, "q", retrieval.RetrieveOptions{TopK: 1})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrEmptyVector) {
 		t.Fatalf("Retrieve() error = %v, want empty vector", err)
@@ -575,7 +584,7 @@ func TestRetrieveRejectsUndeclaredFilterField(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector:  []float32{1},
 		Filters: cond,
 	})
@@ -711,50 +720,54 @@ func TestDocumentsPartialFindByIDsConformance(t *testing.T) {
 }
 
 func TestRetrievePartialProjectionConformance(t *testing.T) {
-	contracttest.RunRetrievePartialProjectionSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+	contracttest.RunRetrievePartialProjectionSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		schema := emptySchema(t)
-		client := &fakeClient{
-			searchPoints: []Point{
-				{ID: "ok", Content: "good", Attributes: filter.RawAttributes{}, Score: 0.9},
-				{ID: "", Content: "bad", Attributes: filter.RawAttributes{}, Score: 0.5},
-			},
-		}
-		store, err := New[contracttest.StructMeta](
-			client,
-			Config[contracttest.StructMeta]{Collection: "docs", Schema: schema},
-			contracttest.JSONCodec[contracttest.StructMeta](t, schema),
-		)
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return store
-	}, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+			schema := emptySchema(t)
+			client := &fakeClient{
+				searchPoints: []Point{
+					{ID: "ok", Content: "good", Attributes: filter.RawAttributes{}, Score: 0.9},
+					{ID: "", Content: "bad", Attributes: filter.RawAttributes{}, Score: 0.5},
+				},
+			}
+			store, err := New[contracttest.StructMeta](
+				client,
+				Config[contracttest.StructMeta]{Collection: "docs", Schema: schema},
+				contracttest.JSONCodec[contracttest.StructMeta](t, schema),
+			)
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		schema := contracttest.TenantSchema(t)
-		resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
-		client := &fakeClient{
-			searchPoints: []Point{
-				{ID: "ok", Content: "merge-key", Attributes: filter.RawAttributes{"tenant": "acme"}, Score: 0.9},
-				{ID: "bad", Content: "bad", Attributes: filter.RawAttributes{"tenant": 123}, Score: 0.5},
-			},
-		}
-		store, err := New[contracttest.StructMeta](
-			client,
-			Config[contracttest.StructMeta]{
-				Collection: "docs",
-				Schema:     schema,
-				Resolver:   resolver,
-			},
-			contracttest.JSONCodec[contracttest.StructMeta](t, schema),
-		)
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return store
-	})
+			schema := contracttest.TenantSchema(t)
+			resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
+			client := &fakeClient{
+				searchPoints: []Point{
+					{ID: "ok", Content: "merge-key", Attributes: filter.RawAttributes{"tenant": "acme"}, Score: 0.9},
+					{ID: "bad", Content: "bad", Attributes: filter.RawAttributes{"tenant": 123}, Score: 0.5},
+				},
+			}
+			store, err := New[contracttest.StructMeta](
+				client,
+				Config[contracttest.StructMeta]{
+					Collection: "docs",
+					Schema:     schema,
+					Resolver:   resolver,
+				},
+				contracttest.JSONCodec[contracttest.StructMeta](t, schema),
+			)
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+	)
 }
 
 func matchesCondition(doc retrieval.Document[contracttest.StructMeta], cond Condition) (bool, error) {
@@ -944,7 +957,7 @@ func TestRetrieveUnmarshalsStructMeta(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
 		TopK:   10,
 	})
@@ -979,7 +992,7 @@ func TestRetrieveRejectsIncompatibleStructMeta(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
 		TopK:   10,
 	})
@@ -1047,7 +1060,7 @@ func TestFindByIDsRejectsIncompatibleStructMeta(t *testing.T) {
 func newDenseStructBackend(
 	t *testing.T,
 	docs []retrieval.Document[contracttest.StructMeta],
-) retrieval.Backend[contracttest.StructMeta] {
+) retrieval.Backend[struct{}, contracttest.StructMeta] {
 	t.Helper()
 
 	schema := contracttest.TenantAgeSchema(t)
@@ -1083,18 +1096,21 @@ func TestDenseStructBackendConformance(t *testing.T) {
 }
 
 func TestRetrieveOptionsInvalidConformance(t *testing.T) {
-	contracttest.RunRetrieveOptionsInvalidSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
-		store, err := New[contracttest.StructMeta](
-			&fakeClient{},
-			Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
-			contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
-		)
-		if err != nil {
-			t.Fatalf("New(): %v", err)
-		}
-		return store
-	})
+	contracttest.RunRetrieveOptionsInvalidSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
+			store, err := New[contracttest.StructMeta](
+				&fakeClient{},
+				Config[contracttest.StructMeta]{Collection: "docs", Schema: emptySchema(t)},
+				contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
+			)
+			if err != nil {
+				t.Fatalf("New(): %v", err)
+			}
+			return store
+		},
+	)
 }
 
 func TestNewRejectsNilCodec(t *testing.T) {
@@ -1152,7 +1168,7 @@ func TestRetrieveSearchErrorReturnsEmptyResultSet(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
 		TopK:   5,
 	})
@@ -1176,7 +1192,7 @@ func TestRetrieveWrapsRawClientError(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
 		Vector: []float32{1},
 		TopK:   5,
 	})

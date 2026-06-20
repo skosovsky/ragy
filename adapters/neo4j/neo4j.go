@@ -57,9 +57,9 @@ func New[TMeta any](runner Runner[TMeta], schema graph.Schema, cfg Config[TMeta]
 // Retrieve implements retrieval.Backend by traversing the graph and projecting nodes to documents.
 func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
-	_ string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
@@ -97,12 +97,13 @@ func (s *Store[TMeta]) Retrieve(
 	}
 
 	docs := make([]retrieval.Document[TMeta], 0, len(snapshot.Nodes))
-	for _, node := range snapshot.Nodes {
+	for i, node := range snapshot.Nodes {
 		doc := retrieval.Document[TMeta]{
-			ID:      node.ID,
-			Content: node.Content,
-			Score:   0,
-			Meta:    node.Meta,
+			ID:         node.ID,
+			Content:    node.Content,
+			ScoreState: retrieval.ScoreAbsent,
+			Rank:       i + 1,
+			Meta:       node.Meta,
 		}
 		if err := retrieval.ValidateDocument(doc); err != nil {
 			rs := retrieval.NewResultSet(docs, s.resolver)
@@ -162,6 +163,6 @@ func (s *Store[TMeta]) Schema() graph.Schema {
 }
 
 var (
-	_ retrieval.Backend[any] = (*Store[any])(nil)
-	_ graph.Store[any]       = (*Store[any])(nil)
+	_ retrieval.Backend[struct{}, any] = (*Store[any])(nil)
+	_ graph.Store[any]                 = (*Store[any])(nil)
 )

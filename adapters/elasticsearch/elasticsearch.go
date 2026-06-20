@@ -96,9 +96,10 @@ func New[TMeta any](client Client, cfg Config[TMeta], codec retrieval.MetadataCo
 // Retrieve implements retrieval.Backend.
 func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
-	query string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	query := req.EffectiveText()
+	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
@@ -418,6 +419,6 @@ func logistic(score float64) float64 {
 func (s *Store[TMeta]) LexicalBackend() {}
 
 var (
-	_ retrieval.Backend[any] = (*Store[any])(nil)
-	_ lexical.Backend[any]   = (*Store[any])(nil)
+	_ retrieval.Backend[struct{}, any] = (*Store[any])(nil)
+	_ lexical.Backend[any]             = (*Store[any])(nil)
 )

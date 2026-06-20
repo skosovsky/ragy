@@ -43,17 +43,22 @@ func buildChunks[TMeta any](doc retrieval.Document[TMeta], parts []string) []Chu
 		return nil
 	}
 
-	chunks := make([]Chunk[TMeta], 0, len(parts))
-	for index, part := range parts {
+	cleanParts := make([]string, 0, len(parts))
+	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
+		if part != "" {
+			cleanParts = append(cleanParts, part)
 		}
+	}
 
+	chunks := make([]Chunk[TMeta], 0, len(cleanParts))
+	total := len(cleanParts)
+	for index, part := range cleanParts {
 		chunks = append(chunks, Chunk[TMeta]{
 			ID:       fmt.Sprintf("%s_%d", doc.ID, index),
 			SourceID: doc.ID,
 			Index:    index,
+			Total:    total,
 			Content:  part,
 			Context:  "",
 			Meta:     doc.Meta,

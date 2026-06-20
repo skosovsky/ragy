@@ -36,9 +36,18 @@ const wantedDocID = "doc-1"
 const tenantAcme = "acme"
 const partialProjectionTopK = 10
 
-type DenseStructBackendFactory func(t *testing.T, docs []retrieval.Document[StructMeta]) retrieval.Backend[StructMeta]
-type LexicalStructBackendFactory func(t *testing.T, docs []retrieval.Document[StructMeta]) retrieval.Backend[StructMeta]
-type DocumentsStructStoreFactory func(t *testing.T, docs []retrieval.Document[StructMeta]) documents.Store[StructMeta]
+type DenseStructBackendFactory func(
+	t *testing.T,
+	docs []retrieval.Document[StructMeta],
+) retrieval.Backend[struct{}, StructMeta]
+type LexicalStructBackendFactory func(
+	t *testing.T,
+	docs []retrieval.Document[StructMeta],
+) retrieval.Backend[struct{}, StructMeta]
+type DocumentsStructStoreFactory func(
+	t *testing.T,
+	docs []retrieval.Document[StructMeta],
+) documents.Store[StructMeta]
 type DocumentsStructStorePartialFactory func(t *testing.T) documents.Store[StructMeta]
 
 func undeclaredStructFilter(t *testing.T) filter.Condition {
@@ -124,7 +133,7 @@ type schemaProvider interface {
 	Schema() filter.Schema
 }
 
-func schemaFromTypedBackend[TMeta any](t *testing.T, backend retrieval.Backend[TMeta]) filter.Schema {
+func schemaFromTypedBackend[TMeta any](t *testing.T, backend retrieval.Backend[struct{}, TMeta]) filter.Schema {
 	t.Helper()
 
 	provider, ok := backend.(schemaProvider)
@@ -166,13 +175,25 @@ func RequireErrorResultSet[TMeta any](t *testing.T, out retrieval.ResultSet[TMet
 	}
 }
 
+func retrieveStruct(
+	ctx context.Context,
+	backend retrieval.Backend[struct{}, StructMeta],
+	text string,
+	opts retrieval.RetrieveOptions,
+) (retrieval.ResultSet[StructMeta], error) {
+	return backend.Retrieve(ctx, retrieval.Query[struct{}]{
+		Text:    text,
+		Options: opts,
+	})
+}
+
 // RunDenseStructBackendSuite checks typed struct metadata for dense backends.
 func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory) {
 	t.Helper()
 
 	t.Run("valid docs pass through", func(t *testing.T) {
 		backend := factory(t, []retrieval.Document[StructMeta]{{ID: wantedDocID, Content: "hello"}})
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 			Vector: []float32{1},
 			TopK:   retrieveOptionsInvalidTopK,
 		})
@@ -189,7 +210,7 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 			Meta:    StructMeta{Tenant: tenantAcme},
 		}})
 		schema := schemaFromTypedBackend(t, backend)
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 			Vector:  []float32{1},
 			TopK:    retrieveOptionsInvalidTopK,
 			Filters: tenantStructCondition(t, schema, tenantAcme),
@@ -205,7 +226,7 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 
 	t.Run("invalid docs reject", func(t *testing.T) {
 		backend := factory(t, []retrieval.Document[StructMeta]{{Content: "broken"}})
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 			Vector: []float32{1},
 			TopK:   retrieveOptionsInvalidTopK,
 		})
@@ -217,7 +238,7 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 
 	t.Run("no results returns empty set", func(t *testing.T) {
 		backend := factory(t, nil)
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 			Vector: []float32{1},
 			TopK:   retrieveOptionsInvalidTopK,
 		})
@@ -230,7 +251,7 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 	t.Run("undeclared filter rejects", func(t *testing.T) {
 		backend := factory(t, []retrieval.Document[StructMeta]{{ID: wantedDocID, Content: "hello"}})
 		requireUndeclaredFilterRetrieveRejects(t, func(cond filter.Condition) (retrieval.ResultSet[StructMeta], error) {
-			return backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+			return retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 				Vector:  []float32{1},
 				TopK:    retrieveOptionsInvalidTopK,
 				Filters: cond,
@@ -245,7 +266,7 @@ func RunLexicalStructBackendSuite(t *testing.T, factory LexicalStructBackendFact
 
 	t.Run("valid docs pass through", func(t *testing.T) {
 		backend := factory(t, []retrieval.Document[StructMeta]{{ID: wantedDocID, Content: "hello"}})
-		out, err := backend.Retrieve(context.Background(), "hello", DefaultRetrieveOptions())
+		out, err := retrieveStruct(context.Background(), backend, "hello", DefaultRetrieveOptions())
 		if err != nil {
 			t.Fatalf("Retrieve(): %v", err)
 		}
@@ -259,7 +280,7 @@ func RunLexicalStructBackendSuite(t *testing.T, factory LexicalStructBackendFact
 			Meta:    StructMeta{Tenant: tenantAcme},
 		}})
 		schema := schemaFromTypedBackend(t, backend)
-		out, err := backend.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "hello", retrieval.RetrieveOptions{
 			TopK:    retrieveOptionsInvalidTopK,
 			Filters: tenantStructCondition(t, schema, tenantAcme),
 		})
@@ -274,7 +295,7 @@ func RunLexicalStructBackendSuite(t *testing.T, factory LexicalStructBackendFact
 
 	t.Run("invalid docs reject", func(t *testing.T) {
 		backend := factory(t, []retrieval.Document[StructMeta]{{Content: "broken"}})
-		out, err := backend.Retrieve(context.Background(), "hello", DefaultRetrieveOptions())
+		out, err := retrieveStruct(context.Background(), backend, "hello", DefaultRetrieveOptions())
 		RequireErrorResultSet(t, out, err)
 		if !errors.Is(err, ragy.ErrProtocol) {
 			t.Fatalf("Retrieve() error = %v, want protocol", err)
@@ -283,7 +304,7 @@ func RunLexicalStructBackendSuite(t *testing.T, factory LexicalStructBackendFact
 
 	t.Run("no results returns empty set", func(t *testing.T) {
 		backend := factory(t, nil)
-		out, err := backend.Retrieve(context.Background(), "hello", DefaultRetrieveOptions())
+		out, err := retrieveStruct(context.Background(), backend, "hello", DefaultRetrieveOptions())
 		if err != nil {
 			t.Fatalf("Retrieve(): %v", err)
 		}
@@ -293,7 +314,7 @@ func RunLexicalStructBackendSuite(t *testing.T, factory LexicalStructBackendFact
 	t.Run("undeclared filter rejects", func(t *testing.T) {
 		backend := factory(t, []retrieval.Document[StructMeta]{{ID: wantedDocID, Content: "hello"}})
 		requireUndeclaredFilterRetrieveRejects(t, func(cond filter.Condition) (retrieval.ResultSet[StructMeta], error) {
-			return backend.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{
+			return retrieveStruct(context.Background(), backend, "hello", retrieval.RetrieveOptions{
 				TopK:    retrieveOptionsInvalidTopK,
 				Filters: cond,
 			})
@@ -314,19 +335,7 @@ func RunDocumentsStructStoreSuite(t *testing.T, factory DocumentsStructStoreFact
 	})
 
 	t.Run("find returns typed meta", func(t *testing.T) {
-		store := factory(t, []retrieval.Document[StructMeta]{{
-			ID:      "doc-1",
-			Content: "hello",
-			Meta:    StructMeta{Tenant: tenantAcme},
-		}})
-
-		docs, err := store.FindByIDs(context.Background(), []string{"doc-1"})
-		if err != nil {
-			t.Fatalf("FindByIDs(): %v", err)
-		}
-		if len(docs) != 1 || docs[0].Meta.Tenant != tenantAcme {
-			t.Fatalf("FindByIDs() = %#v, want tenant acme", docs)
-		}
+		testDocumentsFindReturnsTypedMeta(t, factory)
 	})
 
 	t.Run("delete by filter mutates state", func(t *testing.T) {
@@ -369,6 +378,27 @@ func RunDocumentsStructStoreSuite(t *testing.T, factory DocumentsStructStoreFact
 	})
 }
 
+func testDocumentsFindReturnsTypedMeta(t *testing.T, factory DocumentsStructStoreFactory) {
+	t.Helper()
+
+	store := factory(t, []retrieval.Document[StructMeta]{{
+		ID:      "doc-1",
+		Content: "hello",
+		Meta:    StructMeta{Tenant: tenantAcme},
+	}})
+
+	docs, err := store.FindByIDs(context.Background(), []string{"doc-1"})
+	if err != nil {
+		t.Fatalf("FindByIDs(): %v", err)
+	}
+	if len(docs) != 1 || docs[0].Meta.Tenant != tenantAcme {
+		t.Fatalf("FindByIDs() = %#v, want tenant acme", docs)
+	}
+	if docs[0].ScoreState != retrieval.ScoreAbsent || docs[0].Score != 0 {
+		t.Fatalf("FindByIDs() score = (%v, %v), want score absent", docs[0].ScoreState, docs[0].Score)
+	}
+}
+
 // RunDocumentsPartialFindByIDsSuite checks partial slice semantics on projection failure.
 func RunDocumentsPartialFindByIDsSuite(t *testing.T, factory DocumentsStructStorePartialFactory) {
 	t.Helper()
@@ -389,10 +419,10 @@ func RunDocumentsPartialFindByIDsSuite(t *testing.T, factory DocumentsStructStor
 }
 
 // RetrievePartialProjectionFactory builds a backend that fails projection on the second hit.
-type RetrievePartialProjectionFactory func(t *testing.T) retrieval.Backend[StructMeta]
+type RetrievePartialProjectionFactory func(t *testing.T) retrieval.Backend[struct{}, StructMeta]
 
 // RetrievePartialProjectionResolverFactory builds a backend with ContentMergeResolver for merge-key parity.
-type RetrievePartialProjectionResolverFactory func(t *testing.T) retrieval.Backend[StructMeta]
+type RetrievePartialProjectionResolverFactory func(t *testing.T) retrieval.Backend[struct{}, StructMeta]
 
 // RunRetrievePartialProjectionSuite checks partial ResultSet semantics on projection failure.
 func RunRetrievePartialProjectionSuite(
@@ -404,7 +434,7 @@ func RunRetrievePartialProjectionSuite(
 
 	t.Run("retrieve preserves partial on projection error", func(t *testing.T) {
 		backend := factory(t)
-		out, err := backend.Retrieve(context.Background(), "q", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "q", retrieval.RetrieveOptions{
 			TopK:   partialProjectionTopK,
 			Vector: []float32{1},
 		})
@@ -425,7 +455,7 @@ func RunRetrievePartialProjectionSuite(
 
 	t.Run("retrieve partial preserves custom resolver merge key", func(t *testing.T) {
 		backend := resolverFactories[0](t)
-		out, err := backend.Retrieve(context.Background(), "q", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "q", retrieval.RetrieveOptions{
 			TopK:   partialProjectionTopK,
 			Vector: []float32{1},
 		})
@@ -469,7 +499,7 @@ func testDocumentsDeleteEmptyFilterRejects(t *testing.T, factory DocumentsStruct
 	}
 }
 
-type RetrieveOptionsBackendFactory func(t *testing.T) retrieval.Backend[StructMeta]
+type RetrieveOptionsBackendFactory func(t *testing.T) retrieval.Backend[struct{}, StructMeta]
 
 const retrieveOptionsInvalidTopK = 3
 
@@ -548,13 +578,13 @@ func RunRetrieveOptionsInvalidSuite(
 
 func assertRetrieveOptionsReject(
 	t *testing.T,
-	backend retrieval.Backend[StructMeta],
+	backend retrieval.Backend[struct{}, StructMeta],
 	query string,
 	opts retrieval.RetrieveOptions,
 ) {
 	t.Helper()
 
-	out, err := backend.Retrieve(context.Background(), query, opts)
+	out, err := retrieveStruct(context.Background(), backend, query, opts)
 	RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Retrieve() error = %v, want invalid argument", err)
@@ -562,7 +592,7 @@ func assertRetrieveOptionsReject(
 }
 
 // GraphRetrieveOptionsBackendFactory builds a graph backend requiring Graph options.
-type GraphRetrieveOptionsBackendFactory func(t *testing.T) retrieval.Backend[StructMeta]
+type GraphRetrieveOptionsBackendFactory func(t *testing.T) retrieval.Backend[struct{}, StructMeta]
 
 func graphOptionsInvalidFixture() *retrieval.GraphOptions {
 	return &retrieval.GraphOptions{
@@ -580,7 +610,7 @@ func RunGraphRetrieveOptionsInvalidSuite(t *testing.T, factory GraphRetrieveOpti
 		t.Parallel()
 
 		backend := factory(t)
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 			FetchLimit: 1,
 			TopK:       retrieveOptionsInvalidTopK,
 			Graph:      graphOptionsInvalidFixture(),
@@ -595,7 +625,7 @@ func RunGraphRetrieveOptionsInvalidSuite(t *testing.T, factory GraphRetrieveOpti
 		t.Parallel()
 
 		backend := factory(t)
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 			TopK:  -1,
 			Graph: graphOptionsInvalidFixture(),
 		})
@@ -609,7 +639,7 @@ func RunGraphRetrieveOptionsInvalidSuite(t *testing.T, factory GraphRetrieveOpti
 		t.Parallel()
 
 		backend := factory(t)
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 			FetchLimit: -1,
 			TopK:       retrieveOptionsInvalidTopK,
 			Graph:      graphOptionsInvalidFixture(),
@@ -624,7 +654,7 @@ func RunGraphRetrieveOptionsInvalidSuite(t *testing.T, factory GraphRetrieveOpti
 		t.Parallel()
 
 		backend := factory(t)
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
 			TopK:          retrieveOptionsInvalidTopK,
 			MinSimilarity: retrieveOptionsInvalidMinSimilarity,
 			Graph:         graphOptionsInvalidFixture(),
@@ -639,7 +669,7 @@ func RunGraphRetrieveOptionsInvalidSuite(t *testing.T, factory GraphRetrieveOpti
 		t.Parallel()
 
 		backend := factory(t)
-		out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{TopK: 1})
+		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{TopK: 1})
 		RequireErrorResultSet(t, out, err)
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Retrieve() error = %v, want invalid argument", err)

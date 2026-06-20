@@ -4,7 +4,7 @@
 
 The core is domain-first and capability-specific:
 
-- `retrieval` for `Document[TMeta]`, `Backend[TMeta]`, `Pipeline`, `RetrieveOptions`, and post-processors
+- `retrieval` for `Document[TMeta]`, `Backend[TIntent, TMeta]`, `Query[TIntent]`, `Pipeline`, `RetrieveOptions`, planners, and post-processors
 - `filter` for schema-bound filter builders and adapter-readable IR
 - `dense`, `lexical`, `tensor`, `graph`, `documents` for capability contracts
 - `ranking` for query-aware reranking and ranked-list merging
@@ -56,18 +56,19 @@ type DocMeta struct {
 func search(
 	ctx context.Context,
 	embedder dense.Embedder,
-	backend retrieval.Backend[DocMeta],
+	backend retrieval.Backend[struct{}, DocMeta],
+	schema filter.Schema,
 ) (retrieval.ResultSet[DocMeta], error) {
 	empty := func(err error) (retrieval.ResultSet[DocMeta], error) {
 		return retrieval.NewResultSet[DocMeta](nil, retrieval.DocumentIDResolver[DocMeta]{}), err
 	}
 
-	tenant, err := backend.(interface{ Schema() filter.Schema }).Schema().StringField("tenant")
+	tenant, err := schema.StringField("tenant")
 	if err != nil {
 		return empty(err)
 	}
 
-	builder, err := filter.NewBuilder(backend.(interface{ Schema() filter.Schema }).Schema())
+	builder, err := filter.NewBuilder(schema)
 	if err != nil {
 		return empty(err)
 	}
@@ -121,16 +122,73 @@ Standard processors run inside `Pipeline.Retrieve` via `WithPostProcessors`:
 
 Use `NewPostProcessorChain` / `Process` only when post-processing an existing `ResultSet` outside a pipeline.
 
-### Graph retrieval (Neo4j)
+### Request planning and context artifacts
 
-Graph backends implement `retrieval.Backend[TMeta]` and accept traversal parameters via `RetrieveOptions.Graph`:
+`Pipeline.Retrieve` accepts a typed request envelope. Use `context.Context` for cancellation, deadlines, and tracing; keep retrieval state in `retrieval.Query[TIntent]` or `retrieval.Request[TIntent, TRequestMeta]`:
 
 ```go
-rs, err := store.Retrieve(ctx, "", retrieval.RetrieveOptions{
-	Graph: &retrieval.GraphOptions{
-		Seeds:     []string{"project:42"},
-		Direction: graph.DirectionOutbound,
-		Depth:     2,
+type Intent struct {
+	AllowExternal bool
+}
+
+var intentBackend retrieval.Backend[Intent, DocMeta]
+
+planner := retrieval.QueryPlannerFunc[Intent, retrieval.NoRequestMeta](
+	func(ctx context.Context, req retrieval.Request[Intent, retrieval.NoRequestMeta]) (retrieval.PlannedQuery[Intent], error) {
+		return retrieval.PlannedQuery[Intent]{
+			Text:    req.Text,
+			Intent:  req.Intent,
+			Filters: req.Options.Filters,
+			Diagnostics: []retrieval.PlannerDiagnostic{{
+				Key:   "planner",
+				Value: "default",
+			}},
+		}, nil
+	},
+)
+
+pipeline, err := retrieval.NewPipelineBuilder[Intent, DocMeta]().
+	WithPlanner(planner).
+	WithRoot(retrieval.RetrieverNode[Intent, DocMeta]{Backend: intentBackend}).
+	Build()
+if err != nil {
+	// handle error
+}
+
+rs, err := pipeline.Retrieve(ctx, retrieval.Query[Intent]{
+	Text:   "reset password",
+	Intent: Intent{AllowExternal: false},
+	Options: retrieval.RetrieveOptions{
+		TopK:   10,
+		Vector: vector,
+	},
+})
+if err != nil {
+	// handle error
+}
+
+artifact, err := retrieval.DefaultArtifactRenderer[DocMeta]{}.Render(rs, retrieval.ArtifactRenderOptions[DocMeta]{
+	Budget: 4000,
+})
+_ = artifact
+```
+
+Use `retrieval.NewRequestPipelineBuilder[TIntent, TRequestMeta, TMeta]` when request metadata must reach the planner, route predicates, nodes, and backend. If a request already has `Plan`, the pipeline reuses it and skips the configured planner.
+
+`PlannedQuery` carries normalized/expanded text, universal range constraints, typed filters, diagnostics, and a cache key. `RetrievalContextArtifact` carries ordered snippets, provenance, score/rank state, budget accounting, diagnostics, rendered text, dedup/source-formatting policy, and an untrusted-data boundary for downstream renderers.
+
+### Graph retrieval (Neo4j)
+
+Graph backends implement `retrieval.Backend[struct{}, TMeta]` and accept traversal parameters via `RetrieveOptions.Graph`:
+
+```go
+rs, err := store.Retrieve(ctx, retrieval.Query[struct{}]{
+	Options: retrieval.RetrieveOptions{
+		Graph: &retrieval.GraphOptions{
+			Seeds:     []string{"project:42"},
+			Direction: graph.DirectionOutbound,
+			Depth:     2,
+		},
 	},
 })
 docs := rs.Documents()
@@ -182,7 +240,7 @@ Wrap `dense.Embedder` in a struct that implements `Embed` and forwards to the in
 
 [`adapters/neo4j`](adapters/neo4j) implements typed `Retrieve` (graph projection), `Traverse`, and `Upsert`; Cypher execution is delegated to your `Runner`. Transport and RPC failures from `Retrieve`, `Traverse`, and `Upsert` are wrapped with `ragy.WrapBackendError` — classify and retry in your runner layer if needed.
 
-[`adapters/observability/otel`](adapters/observability/otel) wraps capabilities for tracing; it forwards errors from the inner implementation and does not remap `ragy.Err*`. **Retrieval minimum:** `WrapBackend`, `WrapPipeline`. Other `Wrap*` helpers cover dense/tensor/graph/documents/rerank paths.
+[`adapters/observability/otel`](adapters/observability/otel) wraps capabilities for tracing; it forwards errors from the inner implementation and does not remap `ragy.Err*`. **Retrieval minimum:** `WrapBackend`, `WrapRequestBackend`, `WrapPipeline`, `WrapRequestPipeline`. Other `Wrap*` helpers cover dense/tensor/graph/documents/rerank paths.
 
 ### Examples
 
@@ -193,9 +251,10 @@ See [`examples/planner/partial_failure_aggregate`](examples/planner/partial_fail
 
 ## Retrieval orchestrator
 
-Task 9 adds a declarative retrieval planner built from typed nodes and `retrieval.Query[TIntent]`:
+The retrieval orchestrator builds typed graphs from nodes and `retrieval.Query[TIntent]`:
 
 - `RetrieverNode` wraps any `retrieval.Backend`
+- `RouteNode` gates a child behind a typed route decision without hardcoded domain categories
 - `FallbackNode` — runs secondary only when primary succeeds (`err == nil`) **and** returns an empty `ResultSet`. Use for sparse recall (e.g. catalog miss → web), not for vector outage.
 - `RescueNode` — runs secondary when primary returns an error **and** an empty `ResultSet`. On partial success (error + non-empty docs), primary documents are preserved and secondary is skipped — same preserve rule applies to `FallbackNode`.
 

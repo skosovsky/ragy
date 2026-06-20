@@ -85,15 +85,13 @@ func bindProcessorResolver[TMeta any](
 }
 
 // Process runs configured post-processors on an existing result set.
-// ctx and query are ignored; wire query into processor constructors (e.g. Rerank).
+// ctx is accepted for call-site symmetry with retrieval pipelines.
 func (p *PostProcessorChain[TMeta]) Process(
 	ctx context.Context,
-	query string,
 	opts RetrieveOptions,
 	rs ResultSet[TMeta],
 ) (ResultSet[TMeta], error) {
 	_ = ctx
-	_ = query
 	if p == nil {
 		return rs, nil
 	}
@@ -174,7 +172,7 @@ func applyTopK[TMeta any](rs ResultSet[TMeta], topK int, resolver IdentityResolv
 	}
 	if len(docs) > 1 {
 		sort.SliceStable(docs, func(i, j int) bool {
-			return docs[i].Score > docs[j].Score
+			return rankedDocumentLess(docs[i], docs[j])
 		})
 	}
 	if topK > 0 && len(docs) > topK {

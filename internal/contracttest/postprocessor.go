@@ -37,8 +37,7 @@ func (b groupBackend) Schema() filter.Schema { return filter.EmptySchema() }
 
 func (b groupBackend) Retrieve(
 	_ context.Context,
-	_ string,
-	_ retrieval.RetrieveOptions,
+	_ retrieval.Query[struct{}],
 ) (retrieval.ResultSet[groupMeta], error) {
 	return retrieval.NewResultSet(b.docs, retrieval.DocumentIDResolver[groupMeta]{}), nil
 }
@@ -179,8 +178,7 @@ func (b postProcessorStubBackend[TMeta]) Schema() filter.Schema { return filter.
 
 func (b postProcessorStubBackend[TMeta]) Retrieve(
 	_ context.Context,
-	_ string,
-	_ retrieval.RetrieveOptions,
+	_ retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
 	return retrieval.NewResultSet(b.docs, retrieval.DocumentIDResolver[TMeta]{}), nil
 }

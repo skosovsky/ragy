@@ -152,7 +152,7 @@ func sortedDocumentsFromByKey[TMeta any](byKey map[string]Document[TMeta]) []Doc
 		out = append(out, byKey[key])
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].Score > out[j].Score
+		return rankedDocumentLess(out[i], out[j])
 	})
 	return out
 }
@@ -166,8 +166,29 @@ func validateMergeKey(key, docID string) error {
 
 func keepWinner[TMeta any](byKey map[string]Document[TMeta], key string, doc Document[TMeta]) {
 	current, ok := byKey[key]
-	if !ok || doc.Score > current.Score {
+	if !ok || rankedDocumentLess(doc, current) {
 		byKey[key] = doc
+	}
+}
+
+func rankedDocumentLess[TMeta any](left, right Document[TMeta]) bool {
+	leftScored := left.ScoreState.IsScored()
+	rightScored := right.ScoreState.IsScored()
+	switch {
+	case leftScored && rightScored:
+		return left.Score > right.Score
+	case leftScored:
+		return true
+	case rightScored:
+		return false
+	case left.Rank > 0 && right.Rank > 0:
+		return left.Rank < right.Rank
+	case left.Rank > 0:
+		return true
+	case right.Rank > 0:
+		return false
+	default:
+		return false
 	}
 }
 

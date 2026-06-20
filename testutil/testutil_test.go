@@ -28,7 +28,7 @@ func TestDocumentStoreConformance(t *testing.T) {
 func TestBackendConformance(t *testing.T) {
 	contracttest.RunDenseStructBackendSuite(
 		t,
-		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) retrieval.Backend[contracttest.StructMeta] {
+		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) retrieval.Backend[struct{}, contracttest.StructMeta] {
 			t.Helper()
 			return &RetrievalBackend{Docs: docs, FilterSchema: tenantSchema(t), VectorRequired: true}
 		},
@@ -36,7 +36,7 @@ func TestBackendConformance(t *testing.T) {
 
 	contracttest.RunLexicalStructBackendSuite(
 		t,
-		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) retrieval.Backend[contracttest.StructMeta] {
+		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) retrieval.Backend[struct{}, contracttest.StructMeta] {
 			t.Helper()
 			return &RetrievalBackend{Docs: docs, FilterSchema: tenantSchema(t), VectorRequired: false}
 		},
@@ -46,10 +46,13 @@ func TestBackendConformance(t *testing.T) {
 func TestRetrieveOptionsInvalidConformance(t *testing.T) {
 	t.Parallel()
 
-	contracttest.RunRetrieveOptionsInvalidSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
-		return &RetrievalBackend{FilterSchema: tenantSchema(t), VectorRequired: true}
-	})
+	contracttest.RunRetrieveOptionsInvalidSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
+			return &RetrievalBackend{FilterSchema: tenantSchema(t), VectorRequired: true}
+		},
+	)
 }
 
 func TestIndexConformance(t *testing.T) {
@@ -78,8 +81,8 @@ func TestBackendsRejectUnsetSchema(t *testing.T) {
 	if _, err := (&RetrievalBackend{
 		Docs:           []retrieval.Document[contracttest.StructMeta]{{ID: "doc-1"}},
 		VectorRequired: true,
-	}).Retrieve(context.Background(), "", retrieval.RetrieveOptions{
-		Vector: []float32{1},
+	}).Retrieve(context.Background(), retrieval.Query[struct{}]{
+		Options: retrieval.RetrieveOptions{Vector: []float32{1}},
 	}); err == nil {
 		t.Fatal("RetrievalBackend.Retrieve(dense) error = nil, want schema error")
 	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
@@ -89,7 +92,7 @@ func TestBackendsRejectUnsetSchema(t *testing.T) {
 	if _, err := (&RetrievalBackend{
 		Docs:           []retrieval.Document[contracttest.StructMeta]{{ID: "doc-1"}},
 		VectorRequired: false,
-	}).Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{}); err == nil {
+	}).Retrieve(context.Background(), retrieval.Query[struct{}]{Text: "hello"}); err == nil {
 		t.Fatal("RetrievalBackend.Retrieve(lexical) error = nil, want schema error")
 	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("RetrievalBackend.Retrieve(lexical) error = %v, want invalid argument", err)
@@ -157,29 +160,33 @@ func TestDocumentsPartialFindByIDsConformance(t *testing.T) {
 }
 
 func TestRetrievePartialProjectionConformance(t *testing.T) {
-	contracttest.RunRetrievePartialProjectionSuite(t, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+	contracttest.RunRetrievePartialProjectionSuite(
+		t,
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		return &StructRetrievalBackend{
-			Docs: []retrieval.Document[contracttest.StructMeta]{
-				{ID: "ok", Content: "good", Meta: contracttest.StructMeta{Tenant: "acme"}},
-				{ID: "bad", Content: "bad", Score: 1.5},
-			},
-			FilterSchema: tenantSchema(t),
-		}
-	}, func(t *testing.T) retrieval.Backend[contracttest.StructMeta] {
-		t.Helper()
+			return &StructRetrievalBackend{
+				Docs: []retrieval.Document[contracttest.StructMeta]{
+					{ID: "ok", Content: "good", Meta: contracttest.StructMeta{Tenant: "acme"}},
+					{ID: "bad", Content: "bad", Score: 1.5},
+				},
+				FilterSchema: tenantSchema(t),
+			}
+		},
+		func(t *testing.T) retrieval.Backend[struct{}, contracttest.StructMeta] {
+			t.Helper()
 
-		resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
-		return &StructRetrievalBackend{
-			Docs: []retrieval.Document[contracttest.StructMeta]{
-				{ID: "ok", Content: "merge-key", Meta: contracttest.StructMeta{Tenant: "acme"}},
-				{ID: "bad", Content: "bad", Score: 1.5},
-			},
-			FilterSchema: tenantSchema(t),
-			Resolver:     resolver,
-		}
-	})
+			resolver := contracttest.ContentMergeResolver[contracttest.StructMeta]{}
+			return &StructRetrievalBackend{
+				Docs: []retrieval.Document[contracttest.StructMeta]{
+					{ID: "ok", Content: "merge-key", Meta: contracttest.StructMeta{Tenant: "acme"}},
+					{ID: "bad", Content: "bad", Score: 1.5},
+				},
+				FilterSchema: tenantSchema(t),
+				Resolver:     resolver,
+			}
+		},
+	)
 }
 
 func TestDenseIndexRejectsUnsetSchema(t *testing.T) {
@@ -266,9 +273,11 @@ func TestRetrievalBackendFilterValidationReturnsNonNilResultSet(t *testing.T) {
 	}
 
 	backend := &RetrievalBackend{Docs: nil, FilterSchema: schema, VectorRequired: true}
-	out, err := backend.Retrieve(context.Background(), "", retrieval.RetrieveOptions{
-		Vector:  []float32{1},
-		Filters: cond,
+	out, err := backend.Retrieve(context.Background(), retrieval.Query[struct{}]{
+		Options: retrieval.RetrieveOptions{
+			Vector:  []float32{1},
+			Filters: cond,
+		},
 	})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want error")

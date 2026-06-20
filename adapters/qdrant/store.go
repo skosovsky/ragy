@@ -134,9 +134,9 @@ func New[TMeta any](client Client, cfg Config[TMeta], codec retrieval.MetadataCo
 // Retrieve implements retrieval.Backend.
 func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
-	_ string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
@@ -224,6 +224,11 @@ func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval
 		doc, err := s.projectPoint(point, 0)
 		if err != nil {
 			return docs, err
+		}
+		doc.Score = 0
+		doc.ScoreState = retrieval.ScoreAbsent
+		if err := retrieval.ValidateDocument(doc); err != nil {
+			return docs, ragy.WrapProjectionError(err, "qdrant find by ids validate")
 		}
 		docs = append(docs, doc)
 	}
@@ -424,7 +429,7 @@ func logistic(score float64) float64 {
 }
 
 var (
-	_ retrieval.Backend[any] = (*Store[any])(nil)
-	_ dense.Index[any]       = (*Store[any])(nil)
-	_ documents.Store[any]   = (*Store[any])(nil)
+	_ retrieval.Backend[struct{}, any] = (*Store[any])(nil)
+	_ dense.Index[any]                 = (*Store[any])(nil)
+	_ documents.Store[any]             = (*Store[any])(nil)
 )

@@ -34,7 +34,7 @@ func TestRetrieveUnmarshalsStructMeta(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 10})
+	out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{TopK: 10})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -68,7 +68,7 @@ func TestRetrieveRejectsIncompatibleStructMeta(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := store.Retrieve(context.Background(), "hello", retrieval.RetrieveOptions{TopK: 10})
+	out, err := retrieveStore(context.Background(), store, "hello", retrieval.RetrieveOptions{TopK: 10})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrProtocol) {
 		t.Fatalf("Retrieve() error = %v, want protocol", err)

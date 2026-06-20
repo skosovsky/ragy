@@ -268,9 +268,10 @@ func formatIntFieldValue(raw any, field string) (string, error) {
 // Retrieve scores documents for a query and returns a ranked ResultSet.
 func (idx *BM25Index[TMeta]) Retrieve(
 	ctx context.Context,
-	query string,
-	opts retrieval.RetrieveOptions,
+	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	query := req.EffectiveText()
+	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), err
 	}
@@ -400,7 +401,9 @@ func (idx *BM25Index[TMeta]) rankScoredDocs(
 		doc := snapshot.docs[item.id]
 		if maxScore > 0 {
 			doc.Score = ragy.ClampScore(item.score / maxScore)
+			doc.ScoreState = retrieval.ScorePresent
 		}
+		doc.Rank = len(docs) + 1
 		docs = append(docs, doc)
 	}
 	return docs

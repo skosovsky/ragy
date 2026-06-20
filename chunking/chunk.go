@@ -12,6 +12,7 @@ type Chunk[TMeta any] struct {
 	ID       string
 	SourceID string
 	Index    int
+	Total    int
 	Content  string
 	Context  string
 	Meta     TMeta
@@ -27,6 +28,12 @@ func ValidateChunk[TMeta any](c Chunk[TMeta]) error {
 	}
 	if c.Index < 0 {
 		return fmt.Errorf("%w: chunk index must be >= 0", ragy.ErrInvalidArgument)
+	}
+	if c.Total < 0 {
+		return fmt.Errorf("%w: chunk total must be >= 0", ragy.ErrInvalidArgument)
+	}
+	if c.Total > 0 && c.Index >= c.Total {
+		return fmt.Errorf("%w: chunk index must be less than total", ragy.ErrInvalidArgument)
 	}
 	if strings.TrimSpace(c.Content) == "" {
 		return fmt.Errorf("%w: chunk content", ragy.ErrEmptyText)
