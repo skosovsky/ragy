@@ -19,17 +19,17 @@ func TestRescueSearch_EmptySecondaryPropagatesPrimaryError(t *testing.T) {
 	primary := &stubBackend{schema: schema, fail: true}
 	secondary := &stubBackend{schema: schema}
 
-	pipeline, err := retrieval.NewPipelineBuilder[intent, struct{}]().
-		WithRescue(
-			retrieval.RetrieverNode[intent, struct{}]{Backend: primary},
-			retrieval.RetrieverNode[intent, struct{}]{Backend: secondary},
-		).
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[intent, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.RescueNode[intent, struct{}, retrieval.NoExecutionMeta]{
+			Primary:   retrieval.BackendNode[intent, struct{}, retrieval.NoExecutionMeta]{Backend: primary},
+			Secondary: retrieval.BackendNode[intent, struct{}, retrieval.NoExecutionMeta]{Backend: secondary},
+		}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[intent]{
+	result, err := pipeline.Execute(context.Background(), retrieval.Query[intent]{
 		Text: "hello",
 		Options: retrieval.RetrieveOptions{
 			TopK:   defaultTopK,
@@ -42,7 +42,7 @@ func TestRescueSearch_EmptySecondaryPropagatesPrimaryError(t *testing.T) {
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
 	}
-	if !rs.IsEmpty() {
-		t.Fatalf("Documents() = %#v, want empty", rs.Documents())
+	if !result.IsEmpty() {
+		t.Fatalf("Documents() = %#v, want empty", result.Documents())
 	}
 }

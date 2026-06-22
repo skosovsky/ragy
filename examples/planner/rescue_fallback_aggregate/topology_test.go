@@ -35,7 +35,7 @@ func TestRescueFallbackAggregate_AllowWebTrue_VectorOutage(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: true},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -63,7 +63,7 @@ func TestRescueFallbackAggregate_AllowWebFalse_VectorOutage(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: false},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -99,7 +99,7 @@ func TestRescueFallbackAggregate_AllowWebFalse_SparseEmpty(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: false},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},

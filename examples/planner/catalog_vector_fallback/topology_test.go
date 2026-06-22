@@ -33,7 +33,7 @@ func TestCatalogVectorFallback_AllowWebTrue_SparseEmpty(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: true},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -61,7 +61,7 @@ func TestCatalogVectorFallback_AllowWebFalse_SparseEmpty(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: false},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -97,7 +97,7 @@ func TestCatalogVectorFallback_VectorBranchReturnsVectorHit(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:   "query",
 		Intent: searchIntent{AllowWeb: true},
 		Options: retrieval.RetrieveOptions{

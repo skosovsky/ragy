@@ -10,53 +10,53 @@ import (
 )
 
 // PipelineFactory builds a pipeline for contract tests.
-type PipelineFactory[TIntent, TMeta any] func(t *testing.T) *retrieval.Pipeline[TIntent, TMeta]
+type PipelineFactory[TIntent, TMeta any] func(t *testing.T) *retrieval.ExecutionPipeline[TIntent, TMeta, retrieval.NoExecutionMeta]
 
 // PipelineNodeSemanticsConfig supplies stub nodes for RunPipelineNodeSemanticsSuite.
 type PipelineNodeSemanticsConfig struct {
-	FallbackPrimary, FallbackSecondary retrieval.Node[struct{}, struct{}]
+	FallbackPrimary, FallbackSecondary retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	FallbackWantID                     string
 
-	FallbackPrimaryHasResults    retrieval.Node[struct{}, struct{}]
-	FallbackSkipsSecondary       retrieval.Node[struct{}, struct{}]
+	FallbackPrimaryHasResults    retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
+	FallbackSkipsSecondary       retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	FallbackSkipsSecondaryWantID string
 
-	FallbackPrimaryFail retrieval.Node[struct{}, struct{}]
+	FallbackPrimaryFail retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	FallbackPrimaryErr  error
 
-	FallbackSecondaryFail retrieval.Node[struct{}, struct{}]
+	FallbackSecondaryFail retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	FallbackSecondaryErr  error
 
-	FallbackPartialPrimary retrieval.Node[struct{}, struct{}]
+	FallbackPartialPrimary retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	FallbackPartialWantID  string
 
-	RescuePrimaryFail retrieval.Node[struct{}, struct{}]
-	RescuePrimaryOK   retrieval.Node[struct{}, struct{}]
-	RescueSecondary   retrieval.Node[struct{}, struct{}]
+	RescuePrimaryFail retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
+	RescuePrimaryOK   retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
+	RescueSecondary   retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	RescueWantID      string
 	RescuePrimaryID   string
 
-	RescuePartialPrimary retrieval.Node[struct{}, struct{}]
+	RescuePartialPrimary retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	RescuePartialWantID  string
 
-	RescueEmptyPrimaryFail retrieval.Node[struct{}, struct{}]
-	RescueEmptySecondary   retrieval.Node[struct{}, struct{}]
+	RescueEmptyPrimaryFail retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
+	RescueEmptySecondary   retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 
-	RescueSecondaryFail       retrieval.Node[struct{}, struct{}]
+	RescueSecondaryFail       retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	RescueSecondaryWrappedErr error
 
-	ConditionalChild         retrieval.Node[struct{}, struct{}]
+	ConditionalChild         retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	ConditionalPredicate     func(retrieval.Query[struct{}]) bool
 	ConditionalPredicateTrue func(retrieval.Query[struct{}]) bool
 	ConditionalTrueWantID    string
 
-	ConditionalNilPredicateChild  retrieval.Node[struct{}, struct{}]
+	ConditionalNilPredicateChild  retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	ConditionalNilPredicateWantID string
 
-	AggregatePartialNodes  []retrieval.Node[struct{}, struct{}]
+	AggregatePartialNodes  []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	AggregatePartialWantID string
 
-	AggregateMergeFallbackNodes   []retrieval.Node[struct{}, struct{}]
+	AggregateMergeFallbackNodes   []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	AggregateMergeFallbackMerger  retrieval.ResultMerger[struct{}]
 	AggregateMergeFallbackWantLen int
 }
@@ -77,11 +77,11 @@ func RunPipelineRetrieveOptionsInvalidSuite[TIntent, TMeta any](
 		t.Parallel()
 
 		pipeline := factory(t)
-		out, err := pipeline.Retrieve(context.Background(), retrieval.Query[TIntent]{
+		out, err := pipeline.Execute(context.Background(), retrieval.Query[TIntent]{
 			Text:    "q",
 			Options: retrieval.RetrieveOptions{FetchLimit: 1, TopK: retrieveOptionsInvalidTopK},
 		})
-		RequireErrorResultSet(t, out, err)
+		RequireErrorResultSet(t, out.ResultSet, err)
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 		}
@@ -91,11 +91,11 @@ func RunPipelineRetrieveOptionsInvalidSuite[TIntent, TMeta any](
 		t.Parallel()
 
 		pipeline := factory(t)
-		out, err := pipeline.Retrieve(context.Background(), retrieval.Query[TIntent]{
+		out, err := pipeline.Execute(context.Background(), retrieval.Query[TIntent]{
 			Text:    "q",
 			Options: retrieval.RetrieveOptions{TopK: -1},
 		})
-		RequireErrorResultSet(t, out, err)
+		RequireErrorResultSet(t, out.ResultSet, err)
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 		}
@@ -105,14 +105,14 @@ func RunPipelineRetrieveOptionsInvalidSuite[TIntent, TMeta any](
 		t.Parallel()
 
 		pipeline := factory(t)
-		out, err := pipeline.Retrieve(context.Background(), retrieval.Query[TIntent]{
+		out, err := pipeline.Execute(context.Background(), retrieval.Query[TIntent]{
 			Text: "q",
 			Options: retrieval.RetrieveOptions{
 				FetchLimit: -1,
 				TopK:       retrieveOptionsInvalidTopK,
 			},
 		})
-		RequireErrorResultSet(t, out, err)
+		RequireErrorResultSet(t, out.ResultSet, err)
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 		}
@@ -122,14 +122,14 @@ func RunPipelineRetrieveOptionsInvalidSuite[TIntent, TMeta any](
 		t.Parallel()
 
 		pipeline := factory(t)
-		out, err := pipeline.Retrieve(context.Background(), retrieval.Query[TIntent]{
+		out, err := pipeline.Execute(context.Background(), retrieval.Query[TIntent]{
 			Text: "q",
 			Options: retrieval.RetrieveOptions{
 				TopK:          retrieveOptionsInvalidTopK,
 				MinSimilarity: retrieveOptionsInvalidMinSimilarity,
 			},
 		})
-		RequireErrorResultSet(t, out, err)
+		RequireErrorResultSet(t, out.ResultSet, err)
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 		}
@@ -139,8 +139,8 @@ func RunPipelineRetrieveOptionsInvalidSuite[TIntent, TMeta any](
 		t.Parallel()
 
 		pipeline := factory(t)
-		out, err := pipeline.Retrieve(context.Background(), retrieval.Query[TIntent]{Text: "q"})
-		RequireErrorResultSet(t, out, err)
+		out, err := pipeline.Execute(context.Background(), retrieval.Query[TIntent]{Text: "q"})
+		RequireErrorResultSet(t, out.ResultSet, err)
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
 			t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 		}
@@ -186,8 +186,8 @@ func runPipelineFallbackSemantics(t *testing.T, cfg PipelineNodeSemanticsConfig)
 func testPipelineFallbackUsesSecondary(t *testing.T, cfg PipelineNodeSemanticsConfig) {
 	t.Helper()
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.FallbackNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.FallbackNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.FallbackPrimary,
 			Secondary: cfg.FallbackSecondary,
 		}).
@@ -196,7 +196,7 @@ func testPipelineFallbackUsesSecondary(t *testing.T, cfg PipelineNodeSemanticsCo
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -212,8 +212,8 @@ func testPipelineFallbackSkipsSecondaryWhenPrimaryHasResults(t *testing.T, cfg P
 		t.Skip("no FallbackPrimaryHasResults configured")
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.FallbackNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.FallbackNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.FallbackPrimaryHasResults,
 			Secondary: cfg.FallbackSkipsSecondary,
 		}).
@@ -222,7 +222,7 @@ func testPipelineFallbackSkipsSecondaryWhenPrimaryHasResults(t *testing.T, cfg P
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -239,8 +239,8 @@ func testPipelineFallbackPropagatesPrimaryError(t *testing.T, cfg PipelineNodeSe
 		t.Skip("no FallbackPrimaryFail configured")
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.FallbackNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.FallbackNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.FallbackPrimaryFail,
 			Secondary: cfg.FallbackSecondary,
 		}).
@@ -249,8 +249,8 @@ func testPipelineFallbackPropagatesPrimaryError(t *testing.T, cfg PipelineNodeSe
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
-	RequireErrorResultSet(t, out, err)
+	out, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
+	RequireErrorResultSet(t, out.ResultSet, err)
 	if !errors.Is(err, cfg.FallbackPrimaryErr) {
 		t.Fatalf("Retrieve() error = %v, want %v", err, cfg.FallbackPrimaryErr)
 	}
@@ -263,8 +263,8 @@ func testPipelineFallbackPreservesPartialFailure(t *testing.T, cfg PipelineNodeS
 		t.Skip("no FallbackPartialPrimary configured")
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.FallbackNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.FallbackNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.FallbackPartialPrimary,
 			Secondary: cfg.FallbackSecondary,
 		}).
@@ -273,7 +273,7 @@ func testPipelineFallbackPreservesPartialFailure(t *testing.T, cfg PipelineNodeS
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 	var partial *retrieval.PartialFailureError[struct{}]
 	if !errors.As(err, &partial) {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
@@ -312,8 +312,8 @@ func runPipelineRescueSemantics(t *testing.T, cfg PipelineNodeSemanticsConfig) {
 func testPipelineRescueUsesSecondaryOnPrimaryError(t *testing.T, cfg PipelineNodeSemanticsConfig) {
 	t.Helper()
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.RescueNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.RescueNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.RescuePrimaryFail,
 			Secondary: cfg.RescueSecondary,
 		}).
@@ -322,7 +322,7 @@ func testPipelineRescueUsesSecondaryOnPrimaryError(t *testing.T, cfg PipelineNod
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -334,8 +334,8 @@ func testPipelineRescueUsesSecondaryOnPrimaryError(t *testing.T, cfg PipelineNod
 func testPipelineRescueSkipsSecondaryOnPrimarySuccess(t *testing.T, cfg PipelineNodeSemanticsConfig) {
 	t.Helper()
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.RescueNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.RescueNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.RescuePrimaryOK,
 			Secondary: cfg.RescueSecondary,
 		}).
@@ -344,7 +344,7 @@ func testPipelineRescueSkipsSecondaryOnPrimarySuccess(t *testing.T, cfg Pipeline
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -364,8 +364,8 @@ func testPipelineRescueDoesNotRunSecondaryOnPartialFailure(t *testing.T, cfg Pip
 		t.Skip("no RescuePartialPrimary configured")
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.RescueNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.RescueNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.RescuePartialPrimary,
 			Secondary: cfg.RescueSecondary,
 		}).
@@ -374,7 +374,7 @@ func testPipelineRescueDoesNotRunSecondaryOnPartialFailure(t *testing.T, cfg Pip
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 	var partial *retrieval.PartialFailureError[struct{}]
 	if !errors.As(err, &partial) {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
@@ -395,8 +395,8 @@ func testPipelineRescuePropagatesPrimaryWhenSecondaryEmpty(t *testing.T, cfg Pip
 		t.Skip("no RescueEmptyPrimaryFail configured")
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.RescueNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.RescueNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.RescueEmptyPrimaryFail,
 			Secondary: cfg.RescueEmptySecondary,
 		}).
@@ -405,8 +405,8 @@ func testPipelineRescuePropagatesPrimaryWhenSecondaryEmpty(t *testing.T, cfg Pip
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
-	RequireErrorResultSet(t, rs, err)
+	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
+	RequireErrorResultSet(t, rs.ResultSet, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable on empty secondary rescue", err)
 	}
@@ -418,8 +418,8 @@ func runPipelineConditionalSemantics(t *testing.T, cfg PipelineNodeSemanticsConf
 	t.Run("conditional skips child when predicate false", func(t *testing.T) {
 		t.Parallel()
 
-		pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-			WithRoot(retrieval.ConditionalNode[struct{}, struct{}]{
+		pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+			WithRoot(retrieval.ConditionalNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 				Predicate: cfg.ConditionalPredicate,
 				Child:     cfg.ConditionalChild,
 			}).
@@ -428,7 +428,7 @@ func runPipelineConditionalSemantics(t *testing.T, cfg PipelineNodeSemanticsConf
 			t.Fatalf("Build(): %v", err)
 		}
 
-		rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+		rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 		if err != nil {
 			t.Fatalf("Retrieve(): %v", err)
 		}
@@ -449,8 +449,8 @@ func runPipelineConditionalSemantics(t *testing.T, cfg PipelineNodeSemanticsConf
 			wantID = "skip"
 		}
 
-		pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-			WithRoot(retrieval.ConditionalNode[struct{}, struct{}]{
+		pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+			WithRoot(retrieval.ConditionalNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 				Predicate: pred,
 				Child:     cfg.ConditionalChild,
 			}).
@@ -459,7 +459,7 @@ func runPipelineConditionalSemantics(t *testing.T, cfg PipelineNodeSemanticsConf
 			t.Fatalf("Build(): %v", err)
 		}
 
-		rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+		rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 		if err != nil {
 			t.Fatalf("Retrieve(): %v", err)
 		}
@@ -485,8 +485,8 @@ func testPipelineConditionalRunsChildWhenPredicateNil(t *testing.T, cfg Pipeline
 		wantID = "hit"
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.ConditionalNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.ConditionalNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Predicate: nil,
 			Child:     cfg.ConditionalNilPredicateChild,
 		}).
@@ -495,7 +495,7 @@ func testPipelineConditionalRunsChildWhenPredicateNil(t *testing.T, cfg Pipeline
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -514,8 +514,8 @@ func runPipelineAggregatePartialSemantics(t *testing.T, cfg PipelineNodeSemantic
 	t.Run("aggregate reports partial failure with sibling hit", func(t *testing.T) {
 		t.Parallel()
 
-		pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-			WithRoot(retrieval.AggregateNode[struct{}, struct{}]{
+		pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+			WithRoot(retrieval.AggregateNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 				Nodes: cfg.AggregatePartialNodes,
 			}).
 			Build()
@@ -523,7 +523,7 @@ func runPipelineAggregatePartialSemantics(t *testing.T, cfg PipelineNodeSemantic
 			t.Fatalf("Build(): %v", err)
 		}
 
-		rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+		rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 		var partial *retrieval.PartialFailureError[struct{}]
 		if !errors.As(err, &partial) {
 			t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
@@ -550,8 +550,8 @@ func runPipelineAggregateMergeFallbackSemantics(t *testing.T, cfg PipelineNodeSe
 			t.Fatal("AggregateMergeFallbackMerger must be configured")
 		}
 
-		pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-			WithRoot(retrieval.AggregateNode[struct{}, struct{}]{
+		pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+			WithRoot(retrieval.AggregateNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 				Nodes:  cfg.AggregateMergeFallbackNodes,
 				Merger: merger,
 			}).
@@ -561,7 +561,7 @@ func runPipelineAggregateMergeFallbackSemantics(t *testing.T, cfg PipelineNodeSe
 			t.Fatalf("Build(): %v", err)
 		}
 
-		rs, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
+		rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
 		var partial *retrieval.PartialFailureError[struct{}]
 		if !errors.As(err, &partial) {
 			t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
@@ -589,8 +589,8 @@ func testPipelineFallbackPropagatesSecondaryError(t *testing.T, cfg PipelineNode
 		t.Skip("no FallbackSecondaryFail configured")
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.FallbackNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.FallbackNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.FallbackPrimary,
 			Secondary: cfg.FallbackSecondaryFail,
 		}).
@@ -599,8 +599,8 @@ func testPipelineFallbackPropagatesSecondaryError(t *testing.T, cfg PipelineNode
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
-	RequireErrorResultSet(t, out, err)
+	out, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
+	RequireErrorResultSet(t, out.ResultSet, err)
 	if !errors.Is(err, cfg.FallbackSecondaryErr) {
 		t.Fatalf("Retrieve() error = %v, want %v", err, cfg.FallbackSecondaryErr)
 	}
@@ -613,8 +613,8 @@ func testPipelineRescueWrapsPrimaryAndSecondaryErrors(t *testing.T, cfg Pipeline
 		t.Skip("no RescueSecondaryFail configured")
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.RescueNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.RescueNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Primary:   cfg.RescuePrimaryFail,
 			Secondary: cfg.RescueSecondaryFail,
 		}).
@@ -623,8 +623,8 @@ func testPipelineRescueWrapsPrimaryAndSecondaryErrors(t *testing.T, cfg Pipeline
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := pipeline.Retrieve(context.Background(), pipelineSemanticsQuery[struct{}]())
-	RequireErrorResultSet(t, out, err)
+	out, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
+	RequireErrorResultSet(t, out.ResultSet, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable primary", err)
 	}

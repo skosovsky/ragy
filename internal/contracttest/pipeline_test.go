@@ -23,6 +23,18 @@ func (n stubNode[TIntent]) Retrieve(
 	return retrieval.NewResultSet(n.docs, retrieval.DocumentIDResolver[struct{}]{}), nil
 }
 
+func (n stubNode[TIntent]) Execute(
+	ctx context.Context,
+	req retrieval.Request[TIntent, retrieval.NoRequestMeta],
+	exec retrieval.NoExecutionMeta,
+) (retrieval.RetrievalResult[struct{}, retrieval.NoExecutionMeta], error) {
+	rs, err := n.Retrieve(ctx, req)
+	return retrieval.RetrievalResult[struct{}, retrieval.NoExecutionMeta]{
+		ResultSet: rs,
+		Executed:  exec,
+	}, err
+}
+
 type errorNode[TIntent any] struct {
 	err error
 }
@@ -32,6 +44,18 @@ func (n errorNode[TIntent]) Retrieve(
 	retrieval.Query[TIntent],
 ) (retrieval.ResultSet[struct{}], error) {
 	return retrieval.NewResultSet[struct{}](nil, retrieval.DocumentIDResolver[struct{}]{}), n.err
+}
+
+func (n errorNode[TIntent]) Execute(
+	ctx context.Context,
+	req retrieval.Request[TIntent, retrieval.NoRequestMeta],
+	exec retrieval.NoExecutionMeta,
+) (retrieval.RetrievalResult[struct{}, retrieval.NoExecutionMeta], error) {
+	rs, err := n.Retrieve(ctx, req)
+	return retrieval.RetrievalResult[struct{}, retrieval.NoExecutionMeta]{
+		ResultSet: rs,
+		Executed:  exec,
+	}, err
 }
 
 type partialFailureNode[TIntent any] struct {
@@ -45,6 +69,18 @@ func (n partialFailureNode[TIntent]) Retrieve(
 ) (retrieval.ResultSet[struct{}], error) {
 	rs := retrieval.NewResultSet(n.docs, retrieval.DocumentIDResolver[struct{}]{})
 	return rs, &retrieval.PartialFailureError[struct{}]{Errors: n.errors, Result: rs}
+}
+
+func (n partialFailureNode[TIntent]) Execute(
+	ctx context.Context,
+	req retrieval.Request[TIntent, retrieval.NoRequestMeta],
+	exec retrieval.NoExecutionMeta,
+) (retrieval.RetrievalResult[struct{}, retrieval.NoExecutionMeta], error) {
+	rs, err := n.Retrieve(ctx, req)
+	return retrieval.RetrievalResult[struct{}, retrieval.NoExecutionMeta]{
+		ResultSet: rs,
+		Executed:  exec,
+	}, err
 }
 
 type stubFailingMerger struct{}
@@ -63,9 +99,9 @@ type pipelineIntent struct {
 func TestPipelineContractConformance(t *testing.T) {
 	contracttest.RunPipelineRetrieveOptionsInvalidSuite(
 		t,
-		func(t *testing.T) *retrieval.Pipeline[stubIntent, struct{}] {
+		func(t *testing.T) *retrieval.ExecutionPipeline[stubIntent, struct{}, retrieval.NoExecutionMeta] {
 			t.Helper()
-			p, err := retrieval.NewPipelineBuilder[stubIntent, struct{}]().
+			p, err := retrieval.NewExecutionPipelineBuilder[stubIntent, struct{}, retrieval.NoExecutionMeta]().
 				WithRoot(stubNode[stubIntent]{
 					docs: []retrieval.Document[struct{}]{{ID: "x", Score: 1}},
 				}).
@@ -137,12 +173,12 @@ func TestPipelineContractConformance(t *testing.T) {
 			docs: []retrieval.Document[struct{}]{{ID: "hit", Score: 1}},
 		},
 		ConditionalNilPredicateWantID: "hit",
-		AggregatePartialNodes: []retrieval.Node[struct{}, struct{}]{
+		AggregatePartialNodes: []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			errorNode[struct{}]{err: ragy.ErrUnavailable},
 			stubNode[struct{}]{docs: []retrieval.Document[struct{}]{{ID: "hit", Score: 1}}},
 		},
 		AggregatePartialWantID: "hit",
-		AggregateMergeFallbackNodes: []retrieval.Node[struct{}, struct{}]{
+		AggregateMergeFallbackNodes: []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			stubNode[struct{}]{docs: []retrieval.Document[struct{}]{
 				{ID: "a", Content: "key", Score: 0.9},
 			}},
@@ -158,7 +194,7 @@ func TestPipelineContractConformance(t *testing.T) {
 func TestPipelineRetrieveRejectsInvalidOptions(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := retrieval.NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[stubIntent, struct{}, retrieval.NoExecutionMeta]().
 		WithRoot(stubNode[stubIntent]{
 			docs: []retrieval.Document[struct{}]{{ID: "a", Content: "hit", Score: 1}},
 		}).
@@ -167,11 +203,11 @@ func TestPipelineRetrieveRejectsInvalidOptions(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := pipeline.Retrieve(context.Background(), retrieval.Query[stubIntent]{
+	out, err := pipeline.Execute(context.Background(), retrieval.Query[stubIntent]{
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{FetchLimit: 1, TopK: 3},
 	})
-	contracttest.RequireErrorResultSet(t, out, err)
+	contracttest.RequireErrorResultSet(t, out.ResultSet, err)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 	}
@@ -183,8 +219,8 @@ func TestPipelineConditionalUsesQueryIntent(t *testing.T) {
 	child := stubNode[pipelineIntent]{
 		docs: []retrieval.Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
 	}
-	pipeline, err := retrieval.NewPipelineBuilder[pipelineIntent, struct{}]().
-		WithRoot(retrieval.ConditionalNode[pipelineIntent, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[pipelineIntent, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.ConditionalNode[pipelineIntent, struct{}, retrieval.NoExecutionMeta]{
 			Predicate: func(query retrieval.Query[pipelineIntent]) bool {
 				return query.Intent.Mode == "run"
 			},
@@ -195,7 +231,7 @@ func TestPipelineConditionalUsesQueryIntent(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	runRS, err := pipeline.Retrieve(context.Background(), retrieval.Query[pipelineIntent]{
+	runRS, err := pipeline.Execute(context.Background(), retrieval.Query[pipelineIntent]{
 		Text:    "q",
 		Intent:  pipelineIntent{Mode: "run"},
 		Options: contracttest.DefaultRetrieveOptions(),
@@ -207,7 +243,7 @@ func TestPipelineConditionalUsesQueryIntent(t *testing.T) {
 		t.Fatalf("Retrieve(run) = %#v, want hit", runRS.Documents())
 	}
 
-	skipRS, err := pipeline.Retrieve(context.Background(), retrieval.Query[pipelineIntent]{
+	skipRS, err := pipeline.Execute(context.Background(), retrieval.Query[pipelineIntent]{
 		Text:    "q",
 		Intent:  pipelineIntent{Mode: "skip"},
 		Options: contracttest.DefaultRetrieveOptions(),

@@ -4,7 +4,7 @@
 
 The core is domain-first and capability-specific:
 
-- `retrieval` for `Document[TMeta]`, `Backend[TIntent, TMeta]`, `Query[TIntent]`, `Pipeline`, `RetrieveOptions`, planners, and post-processors
+- `retrieval` for `Document[TMeta]`, `Backend[TIntent, TMeta]`, `Query[TIntent]`, `ExecutionPipeline`, `RetrieveOptions`, planners, and post-processors
 - `filter` for schema-bound filter builders and adapter-readable IR
 - `dense`, `lexical`, `tensor`, `graph`, `documents` for capability contracts
 - `ranking` for query-aware reranking and ranked-list merging
@@ -58,9 +58,11 @@ func search(
 	embedder dense.Embedder,
 	backend retrieval.Backend[struct{}, DocMeta],
 	schema filter.Schema,
-) (retrieval.ResultSet[DocMeta], error) {
-	empty := func(err error) (retrieval.ResultSet[DocMeta], error) {
-		return retrieval.NewResultSet[DocMeta](nil, retrieval.DocumentIDResolver[DocMeta]{}), err
+) (retrieval.RetrievalResult[DocMeta, retrieval.NoExecutionMeta], error) {
+	empty := func(err error) (retrieval.RetrievalResult[DocMeta, retrieval.NoExecutionMeta], error) {
+		return retrieval.RetrievalResult[DocMeta, retrieval.NoExecutionMeta]{
+			ResultSet: retrieval.NewResultSet[DocMeta](nil, retrieval.DocumentIDResolver[DocMeta]{}),
+		}, err
 	}
 
 	tenant, err := schema.StringField("tenant")
@@ -82,8 +84,8 @@ func search(
 		return empty(err)
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, DocMeta]().
-		WithRoot(retrieval.RetrieverNode[struct{}, DocMeta]{Backend: backend}).
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, DocMeta, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.BackendNode[struct{}, DocMeta, retrieval.NoExecutionMeta]{Backend: backend}).
 		WithPostProcessors(
 			retrieval.GroupBy(func(m DocMeta) string { return m.Tenant }, retrieval.DefaultMergeStrategy[DocMeta]()),
 		).
@@ -92,7 +94,7 @@ func search(
 		return empty(err)
 	}
 
-	return pipeline.Retrieve(ctx, retrieval.Query[struct{}]{
+	return pipeline.Execute(ctx, retrieval.Query[struct{}]{
 		Text: "reset password",
 		Options: retrieval.RetrieveOptions{
 			TopK:    10,
@@ -114,7 +116,7 @@ cond, err := filter.Eq(filter.In(builder, category, "docs", "articles"), tenant,
 
 ### Post-processing
 
-Standard processors run inside `Pipeline.Retrieve` via `WithPostProcessors`:
+Standard processors run inside `ExecutionPipeline.Execute` via `WithPostProcessors`:
 
 - `retrieval.GroupBy` with a custom or `DefaultMergeStrategy`
 - `retrieval.TopPerGroup`
@@ -124,7 +126,7 @@ Use `NewPostProcessorChain` / `Process` only when post-processing an existing `R
 
 ### Request planning and context artifacts
 
-`Pipeline.Retrieve` accepts a typed request envelope. Use `context.Context` for cancellation, deadlines, and tracing; keep retrieval state in `retrieval.Query[TIntent]` or `retrieval.Request[TIntent, TRequestMeta]`:
+`ExecutionPipeline.Execute` accepts a typed request envelope and returns `RetrievalResult[TMeta, TExecMeta]`. Use `context.Context` for cancellation, deadlines, and tracing; keep retrieval state in `retrieval.Query[TIntent]` or `retrieval.Request[TIntent, TRequestMeta]`:
 
 ```go
 type Intent struct {
@@ -147,15 +149,15 @@ planner := retrieval.QueryPlannerFunc[Intent, retrieval.NoRequestMeta](
 	},
 )
 
-pipeline, err := retrieval.NewPipelineBuilder[Intent, DocMeta]().
+pipeline, err := retrieval.NewExecutionPipelineBuilder[Intent, DocMeta, retrieval.NoExecutionMeta]().
 	WithPlanner(planner).
-	WithRoot(retrieval.RetrieverNode[Intent, DocMeta]{Backend: intentBackend}).
+	WithRoot(retrieval.BackendNode[Intent, DocMeta, retrieval.NoExecutionMeta]{Backend: intentBackend}).
 	Build()
 if err != nil {
 	// handle error
 }
 
-rs, err := pipeline.Retrieve(ctx, retrieval.Query[Intent]{
+result, err := pipeline.Execute(ctx, retrieval.Query[Intent]{
 	Text:   "reset password",
 	Intent: Intent{AllowExternal: false},
 	Options: retrieval.RetrieveOptions{
@@ -167,15 +169,101 @@ if err != nil {
 	// handle error
 }
 
-artifact, err := retrieval.DefaultArtifactRenderer[DocMeta]{}.Render(rs, retrieval.ArtifactRenderOptions[DocMeta]{
+artifact, err := retrieval.DefaultArtifactRenderer[DocMeta]{}.Render(result.ResultSet, retrieval.ArtifactRenderOptions[DocMeta]{
 	Budget: 4000,
 })
 _ = artifact
 ```
 
-Use `retrieval.NewRequestPipelineBuilder[TIntent, TRequestMeta, TMeta]` when request metadata must reach the planner, route predicates, nodes, and backend. If a request already has `Plan`, the pipeline reuses it and skips the configured planner.
+Use `retrieval.NewRequestExecutionPipelineBuilder[TIntent, TRequestMeta, TMeta, TExecMeta]` when request metadata must reach the planner, route predicates, nodes, backend, and execution metadata. If a request already has `Plan`, the pipeline reuses it and skips the configured planner.
 
 `PlannedQuery` carries normalized/expanded text, universal range constraints, typed filters, diagnostics, and a cache key. `RetrievalContextArtifact` carries ordered snippets, provenance, score/rank state, budget accounting, diagnostics, rendered text, dedup/source-formatting policy, and an untrusted-data boundary for downstream renderers.
+
+`RequestPlanBinder` runs after planner and before retrieval execution, including preplanned requests. It is the place to bind planned ranges/filters into `RetrieveOptions` or typed request metadata without splitting the pipeline into `plan -> bind -> retrieve` outside `ragy`.
+
+When callers need executed route, branch trace, diagnostics, or typed side outputs, use execution-aware nodes inside the same pipeline:
+
+```go
+type ExecMeta struct {
+	Route     string
+	QueryText string
+}
+
+var localBackend retrieval.ExecutionBackend[Intent, DocMeta, ExecMeta]
+var externalBackend retrieval.ExecutionBackend[Intent, DocMeta, ExecMeta]
+
+routeSwitch, err := retrieval.NewRouteSwitchBuilder[Intent, string, struct{}, DocMeta, ExecMeta](
+	retrieval.RoutePlannerFunc[Intent, string, struct{}](
+		func(ctx context.Context, req retrieval.Query[Intent]) (retrieval.RouteDecision[string, struct{}], error) {
+			if req.Intent.AllowExternal {
+				return retrieval.RouteDecision[string, struct{}]{Route: "external"}, nil
+			}
+			return retrieval.RouteDecision[string, struct{}]{Route: "local"}, nil
+		},
+	),
+).
+	RecordDecision(func(exec ExecMeta, decision retrieval.RouteDecision[string, struct{}]) ExecMeta {
+		exec.Route = decision.Route
+		return exec
+	}).
+	Case("local", retrieval.RequestExecutionRetrieverNode[Intent, retrieval.NoRequestMeta, DocMeta, ExecMeta]{
+		Backend: localBackend,
+	}).
+	Case("external", retrieval.RequestExecutionRetrieverNode[Intent, retrieval.NoRequestMeta, DocMeta, ExecMeta]{
+		Backend: externalBackend,
+	}).
+	FallbackOnEmpty("local", "external").
+	Build()
+if err != nil {
+	// handle error
+}
+
+pipeline, err := retrieval.NewExecutionPipelineBuilder[Intent, DocMeta, ExecMeta]().
+	WithExecutionSeed(func(req retrieval.Query[Intent]) ExecMeta {
+		return ExecMeta{QueryText: req.Text}
+	}).
+	WithPlanner(planner).
+	WithPlanBinder(retrieval.RequestPlanBinderFunc[Intent, retrieval.NoRequestMeta, ExecMeta](
+		func(
+			ctx context.Context,
+			req retrieval.Query[Intent],
+			plan *retrieval.PlannedQuery[Intent],
+			exec ExecMeta,
+		) (retrieval.BoundRequest[Intent, retrieval.NoRequestMeta, ExecMeta], error) {
+			if plan != nil {
+				req.Options.Filters = plan.Filters
+			}
+			return retrieval.BoundRequest[Intent, retrieval.NoRequestMeta, ExecMeta]{
+				Request:  req,
+				Executed: exec,
+			}, nil
+		},
+	)).
+	WithRoot(routeSwitch).
+	Build()
+if err != nil {
+	// handle error
+}
+
+result, err := pipeline.Execute(ctx, retrieval.Query[Intent]{
+	Text:   "reset password",
+	Intent: Intent{AllowExternal: false},
+	Options: retrieval.RetrieveOptions{
+		TopK:   10,
+		Vector: vector,
+	},
+})
+if err != nil {
+	// handle error
+}
+
+docs := result.ResultSet.Documents()
+route := result.Executed.Route
+trace := result.BranchTrace
+_, _, _ = docs, route, trace
+```
+
+`WithExecutionSeed` derives the initial `TExecMeta` from the incoming request before planner, binder, route switch, and retrieval nodes run. `RequestExecutionRetrieverNode` passes that metadata into execution-aware backends. Backends that add side outputs should return the updated `Executed`; a zero-value `Executed` is treated as omitted and preserves the incoming metadata.
 
 ### Graph retrieval (Neo4j)
 
@@ -240,21 +328,21 @@ Wrap `dense.Embedder` in a struct that implements `Embed` and forwards to the in
 
 [`adapters/neo4j`](adapters/neo4j) implements typed `Retrieve` (graph projection), `Traverse`, and `Upsert`; Cypher execution is delegated to your `Runner`. Transport and RPC failures from `Retrieve`, `Traverse`, and `Upsert` are wrapped with `ragy.WrapBackendError` — classify and retry in your runner layer if needed.
 
-[`adapters/observability/otel`](adapters/observability/otel) wraps capabilities for tracing; it forwards errors from the inner implementation and does not remap `ragy.Err*`. **Retrieval minimum:** `WrapBackend`, `WrapRequestBackend`, `WrapPipeline`, `WrapRequestPipeline`. Other `Wrap*` helpers cover dense/tensor/graph/documents/rerank paths.
+[`adapters/observability/otel`](adapters/observability/otel) wraps capabilities for tracing; it forwards errors from the inner implementation and does not remap `ragy.Err*`. **Retrieval minimum:** `WrapBackend`, `WrapRequestBackend`, `WrapExecutionPipeline`, `WrapRequestExecutionPipeline`. Other `Wrap*` helpers cover dense/tensor/graph/documents/rerank paths.
 
 ### Examples
 
 See [`examples/resilience/`](examples/resilience/) for runnable `retry_embedder` and `rescue_search` patterns. `make test-examples` builds both modules and runs `go test -race` in `examples/resilience` (including rescue semantics).
 
-See [`examples/planner/partial_failure_aggregate`](examples/planner/partial_failure_aggregate) for aggregate `PartialFailureError` handling with `errors.As`. Pass `Options.TopK` (or `FetchLimit`) on every `pipeline.Retrieve` call.
+See [`examples/planner/partial_failure_aggregate`](examples/planner/partial_failure_aggregate) for aggregate `PartialFailureError` handling with `errors.As`. Pass `Options.TopK` (or `FetchLimit`) on every `pipeline.Execute` call.
 
 
 ## Retrieval orchestrator
 
-The retrieval orchestrator builds typed graphs from nodes and `retrieval.Query[TIntent]`:
+The retrieval orchestrator builds typed execution graphs from nodes and `retrieval.Query[TIntent]`:
 
-- `RetrieverNode` wraps any `retrieval.Backend`
-- `RouteNode` gates a child behind a typed route decision without hardcoded domain categories
+- `BackendNode` wraps any regular `retrieval.Backend`; `RequestExecutionRetrieverNode` wraps execution-aware backends
+- `RouteSwitchNode` dispatches one typed route decision into explicit cases, records branch trace, and supports route-aware fallback/rescue edges
 - `FallbackNode` — runs secondary only when primary succeeds (`err == nil`) **and** returns an empty `ResultSet`. Use for sparse recall (e.g. catalog miss → web), not for vector outage.
 - `RescueNode` — runs secondary when primary returns an error **and** an empty `ResultSet`. On partial success (error + non-empty docs), primary documents are preserved and secondary is skipped — same preserve rule applies to `FallbackNode`.
 
@@ -280,10 +368,10 @@ Rescue(
 - Apply the same intent gate on **both** web paths; an unguarded Rescue secondary bypasses `AllowWeb`.
 
 - `AggregateNode` merges parallel child nodes with RRF by default (`ReciprocalRankFusion`, `k=60`); set `Merger` to `NewScoreMerger` for homogeneous score scales. When `Merger.Merge` fails, degraded fallback uses sequential `ResultSet.Merge` (highest score per MergeKey) — ordering may differ from RRF. Child errors surface as `PartialFailureError` when other branches succeed.
-- Post-processors in `Pipeline` run even when the root returns `PartialFailureError`; on post-processor error the pipeline preserves the last non-empty `ResultSet`.
+- Post-processors in `ExecutionPipeline` run even when the root returns `PartialFailureError`; on post-processor error the pipeline preserves the last non-empty `ResultSet`.
 - `ConditionalNode` gates execution on query intent (for example `len(opts.Vector) > 0` or `intent.AllowWeb`). A **nil `Predicate` runs the child always** (footgun); use an explicit `func(_) bool { return false }` to disable.
 
-Build a pipeline once with `retrieval.NewPipelineBuilder`, optionally chain `WithResolver` for custom `MergeKey`, then execute with `pipeline.Retrieve(ctx, query)` (include `query.Options.TopK` or `FetchLimit`).
+Build a pipeline once with `retrieval.NewExecutionPipelineBuilder`, optionally chain `WithResolver` for custom `MergeKey`, then execute with `pipeline.Execute(ctx, query)` (include `query.Options.TopK` or `FetchLimit`).
 See `examples/planner/catalog_vector_fallback`, `examples/planner/partial_failure_aggregate`, `examples/planner/rescue_fallback_aggregate`, `examples/planner/vector_bm25_aggregate`, and `examples/resilience/rescue_search` for planner topologies.
 
 ### Hybrid fusion (RRF)
@@ -291,8 +379,8 @@ See `examples/planner/catalog_vector_fallback`, `examples/planner/partial_failur
 `AggregateNode` uses Reciprocal Rank Fusion by default when merging heterogeneous sources (vector cosine, BM25, web scores). Default RRF constant is `k=60` (`defaultAggregateRRFK` in `retrieval/orchestrator.go`). Override with an explicit merger:
 
 ```go
-aggregate := retrieval.AggregateNode[Intent, Meta]{
-    Nodes:  []retrieval.Node[Intent, Meta]{vectorNode, lexicalNode},
+aggregate := retrieval.AggregateNode[Intent, Meta, retrieval.NoExecutionMeta]{
+    Nodes:  []retrieval.ExecutionNode[Intent, Meta, retrieval.NoExecutionMeta]{vectorNode, lexicalNode},
     Merger: retrieval.NewScoreMerger[Meta](resolver), // homogeneous scores only
 }
 ```
@@ -301,7 +389,7 @@ aggregate := retrieval.AggregateNode[Intent, Meta]{
 
 ### BM25 lexical search
 
-Use `lexical` backends or adapters with `retrieval.RetrieverNode` inside a pipeline. Whitespace-only queries return `ragy.ErrEmptyText`; queries whose tokens are empty after tokenization (for example all stopwords) return an empty `ResultSet` without error.
+Use `lexical` backends or adapters with `retrieval.BackendNode` inside an execution pipeline. Whitespace-only queries return `ragy.ErrEmptyText`; queries whose tokens are empty after tokenization (for example all stopwords) return an empty `ResultSet` without error.
 
 ### Custom MergeKey
 
@@ -312,7 +400,7 @@ func (tenantResolver) Resolve(doc retrieval.Document[Meta]) retrieval.Identity {
     return retrieval.Identity{MergeKey: doc.Meta.Tenant, DocumentID: doc.ID}
 }
 
-pipeline, _ := retrieval.NewPipelineBuilder[Intent, Meta]().
+pipeline, _ := retrieval.NewExecutionPipelineBuilder[Intent, Meta, retrieval.NoExecutionMeta]().
     WithRoot(node).
     WithResolver(tenantResolver{}).
     Build()

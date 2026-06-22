@@ -52,15 +52,15 @@ func TestPipelineAppliesProcessors(t *testing.T) {
 		},
 	}
 
-	pipeline, err := NewPipelineBuilder[struct{}, meta]().
-		WithRoot(RetrieverNode[struct{}, meta]{Backend: backend}).
+	pipeline, err := NewExecutionPipelineBuilder[struct{}, meta, NoExecutionMeta]().
+		WithRoot(BackendNode[struct{}, meta, NoExecutionMeta]{Backend: backend}).
 		WithPostProcessors(GroupBy(func(m meta) string { return m.Group }, DefaultMergeStrategy[meta]())).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := pipeline.Retrieve(context.Background(), Query[struct{}]{
+	out, err := pipeline.Execute(context.Background(), Query[struct{}]{
 		Text:    "query",
 		Options: RetrieveOptions{TopK: 10},
 	})
@@ -90,15 +90,15 @@ func TestPipelineAppliesTopKAfterGroupBy(t *testing.T) {
 		})
 	}
 
-	pipeline, err := NewPipelineBuilder[struct{}, meta]().
-		WithRoot(RetrieverNode[struct{}, meta]{Backend: stubBackend[meta]{docs: docs}}).
+	pipeline, err := NewExecutionPipelineBuilder[struct{}, meta, NoExecutionMeta]().
+		WithRoot(BackendNode[struct{}, meta, NoExecutionMeta]{Backend: stubBackend[meta]{docs: docs}}).
 		WithPostProcessors(GroupBy(func(m meta) string { return m.Group }, DefaultMergeStrategy[meta]())).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := pipeline.Retrieve(context.Background(), Query[struct{}]{
+	out, err := pipeline.Execute(context.Background(), Query[struct{}]{
 		Text:    "query",
 		Options: RetrieveOptions{TopK: 3},
 	})

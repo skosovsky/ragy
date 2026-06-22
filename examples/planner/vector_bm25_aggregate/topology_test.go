@@ -50,7 +50,7 @@ func TestVectorBM25Aggregate_FusesBothBranches(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "keyword",
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK, Vector: []float32{0.1, 0.2}},
 	})
@@ -79,7 +79,7 @@ func TestVectorBM25Aggregate_EmptyVectorStillReturnsLexical(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "keyword",
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
 	})

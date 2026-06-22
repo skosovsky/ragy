@@ -8,7 +8,7 @@ import (
 )
 
 // Backend executes retrieval against a concrete store without post-processing.
-// Prefer retrieval.Pipeline for orchestration; this path is for direct backend access.
+// Prefer ExecutionPipeline for orchestration; this path is for direct backend access.
 type Backend[TIntent, TMeta any] = RequestBackend[TIntent, NoRequestMeta, TMeta]
 
 // RequestBackend executes retrieval against a concrete store with the complete

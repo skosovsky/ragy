@@ -68,7 +68,7 @@ func TestFallbackNodeUsesSecondaryWhenPrimaryEmpty(t *testing.T) {
 	primary := stubNode[struct{}]{docs: nil}
 	secondary := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}}}
 
-	node := FallbackNode[stubIntent, struct{}]{Primary: primary, Secondary: secondary}
+	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{Primary: primary, Secondary: secondary}
 	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
@@ -81,7 +81,7 @@ func TestFallbackNodeUsesSecondaryWhenPrimaryEmpty(t *testing.T) {
 func TestFallbackNodePropagatesPrimaryError(t *testing.T) {
 	t.Parallel()
 
-	node := FallbackNode[stubIntent, struct{}]{
+	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
 		Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: stubNode[struct{}]{
 			docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}},
@@ -97,7 +97,7 @@ func TestFallbackNodePropagatesPrimaryError(t *testing.T) {
 func TestRescueNodeUsesSecondaryOnPrimaryError(t *testing.T) {
 	t.Parallel()
 
-	node := RescueNode[stubIntent, struct{}]{
+	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: stubNode[struct{}]{
 			docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}},
@@ -115,7 +115,7 @@ func TestRescueNodeUsesSecondaryOnPrimaryError(t *testing.T) {
 func TestRescueNodeDoesNotUseSecondaryOnEmpty(t *testing.T) {
 	t.Parallel()
 
-	node := RescueNode[stubIntent, struct{}]{
+	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: stubNode[struct{}]{docs: nil},
 		Secondary: stubNode[struct{}]{
 			docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}},
@@ -172,8 +172,8 @@ func TestPartialSuccessRS(t *testing.T) {
 func TestAggregateNodeToleratesChildError(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			errorNode[stubIntent, struct{}]{err: ragy.ErrEmptyVector},
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}}},
 		},
@@ -200,8 +200,8 @@ func TestAggregateNodeToleratesChildError(t *testing.T) {
 func TestAggregateNodeFailsWhenAllChildrenError(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			errorNode[stubIntent, struct{}]{err: ragy.ErrEmptyVector},
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		},
@@ -216,7 +216,7 @@ func TestAggregateNodeFailsWhenAllChildrenError(t *testing.T) {
 func TestRescueNodeReturnsPrimaryErrorWhenSecondaryFails(t *testing.T) {
 	t.Parallel()
 
-	node := RescueNode[stubIntent, struct{}]{
+	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary:   errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: errorNode[stubIntent, struct{}]{err: ragy.ErrProtocol},
 	}
@@ -243,8 +243,8 @@ func TestAggregateNodeUsesRRFByDefault(t *testing.T) {
 		{ID: "d", Content: "d", Score: 0.01},
 	}}
 
-	aggregate := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{node1, node2},
+	aggregate := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{node1, node2},
 	}
 	rs, err := aggregate.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
 	if err != nil {
@@ -294,8 +294,8 @@ func TestAggregateNodeUsesRRFByDefault(t *testing.T) {
 func TestAggregateNodeReportsPartialFailure(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}}},
 		},
@@ -317,10 +317,10 @@ func TestInjectNodeResolverRecursive(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	root := FallbackNode[stubIntent, struct{}]{
-		Primary: AggregateNode[stubIntent, struct{}]{
+	root := resultFallbackNodeNoMeta[stubIntent, struct{}]{
+		Primary: resultAggregateNodeNoMeta[stubIntent, struct{}]{
 			Merger: NewScoreMerger[struct{}](nil),
-			Nodes: []Node[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{
 					{ID: "a1", Content: "grp", Score: 0.2},
 					{ID: "a2", Content: "grp", Score: 0.9},
@@ -333,7 +333,7 @@ func TestInjectNodeResolverRecursive(t *testing.T) {
 		Secondary: stubNode[struct{}]{docs: nil},
 	}
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(root).
 		WithResolver(resolver).
 		Build()
@@ -341,7 +341,7 @@ func TestInjectNodeResolverRecursive(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -357,7 +357,7 @@ func TestPipelineRetrieveRewrapsResolver(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{
 			{ID: "left", Content: "key", Score: 0.2},
 		}}).
@@ -367,7 +367,7 @@ func TestPipelineRetrieveRewrapsResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -375,7 +375,7 @@ func TestPipelineRetrieveRewrapsResolver(t *testing.T) {
 	other := NewResultSet([]Document[struct{}]{
 		{ID: "right", Content: "key", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
-	merged, err := rs.Merge(other)
+	merged, err := rs.ResultSet.Merge(other)
 	if err != nil {
 		t.Fatalf("Merge(): %v", err)
 	}
@@ -387,7 +387,7 @@ func TestPipelineRetrieveRewrapsResolver(t *testing.T) {
 func TestFallbackNodeRejectsNilPrimary(t *testing.T) {
 	t.Parallel()
 
-	node := FallbackNode[stubIntent, struct{}]{Primary: nil}
+	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{Primary: nil}
 	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
 	requireNonNilResultSetOnError(t, out, err)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
@@ -398,8 +398,8 @@ func TestFallbackNodeRejectsNilPrimary(t *testing.T) {
 func TestAggregateNodeReturnsErrorOnNilChild(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			nil,
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 1}}},
 		},
@@ -416,8 +416,8 @@ func TestAggregateNodeReturnsErrorOnNilChild(t *testing.T) {
 func TestAggregateNodeReturnsEmptyWhenNoChildren(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{},
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{},
 	}
 	rs, err := node.Retrieve(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
@@ -431,9 +431,9 @@ func TestAggregateNodeReturnsEmptyWhenNoChildren(t *testing.T) {
 func TestAggregateNodeReturnsEmptyWhenAllChildrenNil(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
-			Nodes: []Node[stubIntent, struct{}]{nil, nil},
+	_, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{nil, nil},
 		}).
 		Build()
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
@@ -444,8 +444,8 @@ func TestAggregateNodeReturnsEmptyWhenAllChildrenNil(t *testing.T) {
 func TestPipelineBuildRejectsNilFallbackPrimary(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(FallbackNode[stubIntent, struct{}]{Primary: nil}).
+	_, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultFallbackNodeNoMeta[stubIntent, struct{}]{Primary: nil}).
 		Build()
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Build() error = %v, want invalid argument", err)
@@ -455,8 +455,8 @@ func TestPipelineBuildRejectsNilFallbackPrimary(t *testing.T) {
 func TestPipelineBuildRejectsNilRescuePrimary(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(RescueNode[stubIntent, struct{}]{Primary: nil}).
+	_, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultRescueNodeNoMeta[stubIntent, struct{}]{Primary: nil}).
 		Build()
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Build() error = %v, want invalid argument", err)
@@ -466,8 +466,8 @@ func TestPipelineBuildRejectsNilRescuePrimary(t *testing.T) {
 func TestPipelineBuildRejectsNilConditionalChild(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(ConditionalNode[stubIntent, struct{}]{
+	_, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultConditionalNodeNoMeta[stubIntent, struct{}]{
 			Predicate: func(Query[stubIntent]) bool { return true },
 			Child:     nil,
 		}).
@@ -480,7 +480,7 @@ func TestPipelineBuildRejectsNilConditionalChild(t *testing.T) {
 func TestConditionalNodeReturnsErrorOnNilChild(t *testing.T) {
 	t.Parallel()
 
-	node := ConditionalNode[stubIntent, struct{}]{
+	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: func(Query[stubIntent]) bool { return true },
 		Child:     nil,
 	}
@@ -493,8 +493,8 @@ func TestConditionalNodeReturnsErrorOnNilChild(t *testing.T) {
 func TestPipelineBuildRejectsNilRetrieverBackend(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(RetrieverNode[stubIntent, struct{}]{Backend: nil}).
+	_, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultRetrieverNodeNoMeta[stubIntent, struct{}]{Backend: nil}).
 		Build()
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Build() error = %v, want invalid argument", err)
@@ -504,9 +504,9 @@ func TestPipelineBuildRejectsNilRetrieverBackend(t *testing.T) {
 func TestPipelineBuildRejectsNilAggregateChild(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
-			Nodes: []Node[stubIntent, struct{}]{stubNode[struct{}]{}, nil},
+	_, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{stubNode[struct{}]{}, nil},
 		}).
 		Build()
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
@@ -520,7 +520,7 @@ func TestFallbackNodeSkipsSecondaryWhenPrimaryHasResults(t *testing.T) {
 	secondary := stubNode[struct{}]{
 		docs: []Document[struct{}]{{ID: "secondary", Score: 1}},
 	}
-	node := FallbackNode[stubIntent, struct{}]{
+	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
 		Primary: stubNode[struct{}]{
 			docs: []Document[struct{}]{{ID: "primary", Score: 1}},
 		},
@@ -540,7 +540,7 @@ func TestPipelineBuilderSecondWithResolverOverwritesFirst(t *testing.T) {
 
 	first := DocumentIDResolver[struct{}]{}
 	second := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{
 			{ID: "a", Content: "same", Score: 0.9},
 			{ID: "b", Content: "same", Score: 0.5},
@@ -552,14 +552,14 @@ func TestPipelineBuilderSecondWithResolverOverwritesFirst(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
 	if rs.Len() != 2 {
 		t.Fatalf("Len() = %d, want 2 docs before merge", rs.Len())
 	}
-	merged, mergeErr := rs.Merge(NewResultSet([]Document[struct{}]{
+	merged, mergeErr := rs.ResultSet.Merge(NewResultSet([]Document[struct{}]{
 		{ID: "c", Content: "same", Score: 0.1},
 	}, second))
 	if mergeErr != nil {
@@ -573,7 +573,7 @@ func TestPipelineBuilderSecondWithResolverOverwritesFirst(t *testing.T) {
 func TestConditionalNodePropagatesChildError(t *testing.T) {
 	t.Parallel()
 
-	node := ConditionalNode[stubIntent, struct{}]{
+	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: func(Query[stubIntent]) bool { return true },
 		Child:     errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 	}
@@ -587,7 +587,7 @@ func TestConditionalNodePropagatesChildError(t *testing.T) {
 func TestConditionalNodeReturnsEmptyWhenPredicateFalse(t *testing.T) {
 	t.Parallel()
 
-	node := ConditionalNode[stubIntent, struct{}]{
+	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: func(Query[stubIntent]) bool { return false },
 		Child: stubNode[struct{}]{
 			docs: []Document[struct{}]{{ID: "x", Content: "y", Score: 1}},
@@ -605,14 +605,14 @@ func TestConditionalNodeReturnsEmptyWhenPredicateFalse(t *testing.T) {
 func TestPipelineBuilderRetrieve(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "x", Content: "y", Score: 0.5}}}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("hello"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("hello"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -627,7 +627,7 @@ func TestPipelineBuilderWithRootThenWithFallbackOverwrites(t *testing.T) {
 	custom := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Content: "x", Score: 1}}}
 	fallbackPrimary := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Content: "y", Score: 1}}}
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(custom).
 		WithFallback(fallbackPrimary, stubNode[struct{}]{docs: nil}).
 		Build()
@@ -635,7 +635,7 @@ func TestPipelineBuilderWithRootThenWithFallbackOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -649,7 +649,7 @@ func TestPipelineBuilderWithRootThenWithRescueOverwrites(t *testing.T) {
 
 	custom := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Content: "x", Score: 1}}}
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(custom).
 		WithRescue(
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
@@ -660,7 +660,7 @@ func TestPipelineBuilderWithRootThenWithRescueOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -674,10 +674,10 @@ func TestPipelineBuilderWithRootThenWithAggregateOverwrites(t *testing.T) {
 
 	custom := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Content: "x", Score: 1}}}
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(custom).
 		WithAggregate(
-			[]Node[stubIntent, struct{}]{
+			[]resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 0.9}}},
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.1}}},
 			},
@@ -689,7 +689,7 @@ func TestPipelineBuilderWithRootThenWithAggregateOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -709,7 +709,7 @@ func TestPipelineBuilderWithRootThenWithConditionalOverwrites(t *testing.T) {
 	custom := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Content: "x", Score: 1}}}
 	child := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "x", Content: "y", Score: 1}}}
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(custom).
 		WithConditional(func(Query[stubIntent]) bool { return true }, child).
 		Build()
@@ -717,7 +717,7 @@ func TestPipelineBuilderWithRootThenWithConditionalOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -729,7 +729,7 @@ func TestPipelineBuilderWithRootThenWithConditionalOverwrites(t *testing.T) {
 func TestPipelineBuilderWithFallbackThenWithRootOverwrites(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithFallback(
 			stubNode[struct{}]{},
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Score: 1}}},
@@ -740,7 +740,7 @@ func TestPipelineBuilderWithFallbackThenWithRootOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -752,7 +752,7 @@ func TestPipelineBuilderWithFallbackThenWithRootOverwrites(t *testing.T) {
 func TestPipelineBuilderWithRescueThenWithRootOverwrites(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRescue(
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "rescue", Score: 1}}},
@@ -763,7 +763,7 @@ func TestPipelineBuilderWithRescueThenWithRootOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -775,8 +775,8 @@ func TestPipelineBuilderWithRescueThenWithRootOverwrites(t *testing.T) {
 func TestPipelineBuilderWithAggregateThenWithRootOverwrites(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithAggregate([]Node[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithAggregate([]resultNodeNoMeta[stubIntent, struct{}]{
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Score: 0.9}}},
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Score: 0.1}}},
 		}, 0, nil).
@@ -786,7 +786,7 @@ func TestPipelineBuilderWithAggregateThenWithRootOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -798,7 +798,7 @@ func TestPipelineBuilderWithAggregateThenWithRootOverwrites(t *testing.T) {
 func TestPipelineBuilderWithConditionalThenWithRootOverwrites(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithConditional(
 			func(Query[stubIntent]) bool { return true },
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "x", Score: 1}}},
@@ -809,7 +809,7 @@ func TestPipelineBuilderWithConditionalThenWithRootOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -835,7 +835,7 @@ func (p suffixPostProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMet
 func TestPipelineBuilderWithPostProcessorsOverwrites(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "base", Score: 1}}}).
 		WithPostProcessors(suffixPostProcessor[struct{}]{suffix: "-first"}).
 		WithPostProcessors(suffixPostProcessor[struct{}]{suffix: "-second"}).
@@ -844,7 +844,7 @@ func TestPipelineBuilderWithPostProcessorsOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -860,7 +860,7 @@ func TestPipelineBuilderWithPostProcessorsOverwrites(t *testing.T) {
 func TestPipelineBuilderShorthandPreservesPostProcessors(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithPostProcessors(suffixPostProcessor[struct{}]{suffix: "-pp"}).
 		WithFallback(
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "base", Score: 1}}},
@@ -871,7 +871,7 @@ func TestPipelineBuilderShorthandPreservesPostProcessors(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -883,7 +883,7 @@ func TestPipelineBuilderShorthandPreservesPostProcessors(t *testing.T) {
 func TestPipelineBuilderWithRescue(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRescue(
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}}},
@@ -893,7 +893,7 @@ func TestPipelineBuilderWithRescue(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -910,14 +910,14 @@ func TestPipelineBuilderWithConditional(t *testing.T) {
 	t.Run("predicate false", func(t *testing.T) {
 		t.Parallel()
 
-		pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+		pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 			WithConditional(func(Query[stubIntent]) bool { return false }, child).
 			Build()
 		if err != nil {
 			t.Fatalf("Build(): %v", err)
 		}
 
-		rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+		rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 		if err != nil {
 			t.Fatalf("Retrieve(): %v", err)
 		}
@@ -929,14 +929,14 @@ func TestPipelineBuilderWithConditional(t *testing.T) {
 	t.Run("predicate true", func(t *testing.T) {
 		t.Parallel()
 
-		pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+		pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 			WithConditional(func(Query[stubIntent]) bool { return true }, child).
 			Build()
 		if err != nil {
 			t.Fatalf("Build(): %v", err)
 		}
 
-		rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+		rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 		if err != nil {
 			t.Fatalf("Retrieve(): %v", err)
 		}
@@ -949,7 +949,7 @@ func TestPipelineBuilderWithConditional(t *testing.T) {
 func TestPipelineBuilderRejectsNilRoot(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPipelineBuilder[stubIntent, struct{}]().Build()
+	_, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().Build()
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Build() error = %v, want invalid argument", err)
 	}
@@ -967,7 +967,7 @@ func TestPipelineBuilderWithResolverOrdering(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithFallback(
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "grp", Score: 1}}},
 			stubNode[struct{}]{docs: nil},
@@ -978,12 +978,12 @@ func TestPipelineBuilderWithResolverOrdering(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
-	if rs == nil {
-		t.Fatal("Retrieve() rs = nil")
+	if rs.ResultSet == nil {
+		t.Fatal("Execute() ResultSet = nil")
 	}
 	if rs.Len() != 1 || rs.Documents()[0].ID != "a" {
 		t.Fatalf("Documents() = %#v, want primary doc", rs.Documents())
@@ -994,7 +994,7 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNode(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{
 			{ID: "a", Content: "merge-key", Score: 0.9},
 			{ID: "b", Content: "merge-key", Score: 0.5},
@@ -1005,7 +1005,7 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNode(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1018,9 +1018,9 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInAggregate(t *testin
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
-			Nodes: []Node[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "grp-a", Score: 0.9}}},
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "grp-b", Score: 0.5}}},
 			},
@@ -1031,7 +1031,7 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInAggregate(t *testin
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1048,8 +1048,8 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInConditional(t *test
 		{ID: "a", Content: "merge-key", Score: 0.9},
 		{ID: "b", Content: "merge-key", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(ConditionalNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultConditionalNodeNoMeta[stubIntent, struct{}]{
 			Predicate: func(Query[stubIntent]) bool { return true },
 			Child:     custom,
 		}).
@@ -1059,7 +1059,7 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInConditional(t *test
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1076,8 +1076,8 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInFallback(t *testing
 		{ID: "a", Content: "merge-key", Score: 0.9},
 		{ID: "b", Content: "merge-key", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(FallbackNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultFallbackNodeNoMeta[stubIntent, struct{}]{
 			Primary:   stubNode[struct{}]{},
 			Secondary: custom,
 		}).
@@ -1087,7 +1087,7 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInFallback(t *testing
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1104,8 +1104,8 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInRescue(t *testing.T
 		{ID: "a", Content: "merge-key", Score: 0.9},
 		{ID: "b", Content: "merge-key", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(RescueNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultRescueNodeNoMeta[stubIntent, struct{}]{
 			Primary:   errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 			Secondary: custom,
 		}).
@@ -1115,7 +1115,7 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInRescue(t *testing.T
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1128,8 +1128,8 @@ func TestPostProcessorChainUsesCustomResolver(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(RetrieverNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 			Backend: orchestratorStubBackend[stubIntent, struct{}]{
 				docs: []Document[struct{}]{{ID: "a", Content: "grp", Score: 1}},
 			},
@@ -1140,14 +1140,14 @@ func TestPostProcessorChainUsesCustomResolver(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
-	if rs == nil || rs.IsEmpty() {
+	if rs.ResultSet == nil || rs.IsEmpty() {
 		t.Fatalf("Documents() = %#v, want hit", rs.Documents())
 	}
 }
@@ -1168,9 +1168,9 @@ func (n partialFailureNode[TIntent, TMeta]) Retrieve(
 func TestPipelineRetrievePreservesPartialFailureResult(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
-			Nodes: []Node[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				errorNode[stubIntent, struct{}]{err: ragy.ErrEmptyVector},
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}}},
 			},
@@ -1180,7 +1180,7 @@ func TestPipelineRetrievePreservesPartialFailureResult(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want partial failure")
 	}
@@ -1197,7 +1197,7 @@ func TestFallbackNodePreservesPartialFailureWithoutSecondary(t *testing.T) {
 	t.Parallel()
 
 	secondary := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Content: "fallback", Score: 1}}}
-	node := FallbackNode[stubIntent, struct{}]{
+	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
 		Primary: partialFailureNode[stubIntent, struct{}]{
 			docs:   []Document[struct{}]{{ID: "partial", Content: "hit", Score: 1}},
 			errors: []error{ragy.ErrUnavailable},
@@ -1217,7 +1217,7 @@ func TestFallbackNodePreservesPartialFailureWithoutSecondary(t *testing.T) {
 func TestRescueNodeDoesNotRescueOnPartialFailure(t *testing.T) {
 	t.Parallel()
 
-	node := RescueNode[stubIntent, struct{}]{
+	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: partialFailureNode[stubIntent, struct{}]{
 			docs:   []Document[struct{}]{{ID: "partial", Content: "hit", Score: 1}},
 			errors: []error{ragy.ErrUnavailable},
@@ -1237,7 +1237,7 @@ func TestRescueNodeDoesNotRescueOnPartialFailure(t *testing.T) {
 func TestRescueNodePropagatesPrimaryErrorWhenSecondaryEmpty(t *testing.T) {
 	t.Parallel()
 
-	node := RescueNode[stubIntent, struct{}]{
+	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary:   errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: stubNode[struct{}]{},
 	}
@@ -1254,7 +1254,7 @@ func TestRescueNodePropagatesPrimaryErrorWhenSecondaryEmpty(t *testing.T) {
 func TestConditionalNodePreservesPartialFailureResult(t *testing.T) {
 	t.Parallel()
 
-	node := ConditionalNode[stubIntent, struct{}]{
+	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: func(Query[stubIntent]) bool { return true },
 		Child: partialFailureNode[stubIntent, struct{}]{
 			docs:   []Document[struct{}]{{ID: "partial", Content: "hit", Score: 1}},
@@ -1274,8 +1274,8 @@ func TestConditionalNodePreservesPartialFailureResult(t *testing.T) {
 func TestAggregatePreservesPartialFailureFromNestedChild(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialFailureNode[stubIntent, struct{}]{
 				docs:   []Document[struct{}]{{ID: "nested", Content: "hit", Score: 1}},
 				errors: []error{ragy.ErrUnavailable},
@@ -1295,8 +1295,8 @@ func TestAggregatePreservesPartialFailureFromNestedChild(t *testing.T) {
 func TestAggregateNestedPartialFailureMergesWithSibling(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialFailureNode[stubIntent, struct{}]{
 				docs:   []Document[struct{}]{{ID: "nested", Content: "hit", Score: 1}},
 				errors: []error{ragy.ErrUnavailable},
@@ -1318,9 +1318,9 @@ func TestBuildFailsWhenRRFRebindFails(t *testing.T) {
 	t.Parallel()
 
 	invalidRRF := &ReciprocalRankFusion[struct{}]{k: 0, resolver: DocumentIDResolver[struct{}]{}}
-	_, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
-			Nodes:  []Node[stubIntent, struct{}]{stubNode[struct{}]{docs: nil}},
+	_, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
+			Nodes:  []resultNodeNoMeta[stubIntent, struct{}]{stubNode[struct{}]{docs: nil}},
 			Merger: invalidRRF,
 		}).
 		Build()
@@ -1333,9 +1333,9 @@ func TestPipelineBuilderWithAggregateCustomMerger(t *testing.T) {
 	t.Parallel()
 
 	scoreMerger := NewScoreMerger(DocumentIDResolver[struct{}]{})
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithAggregate(
-			[]Node[stubIntent, struct{}]{
+			[]resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 0.9}}},
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.1}}},
 			},
@@ -1347,7 +1347,7 @@ func TestPipelineBuilderWithAggregateCustomMerger(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1359,9 +1359,9 @@ func TestPipelineBuilderWithAggregateCustomMerger(t *testing.T) {
 func TestPipelineBuilderWithAggregateUsesDefaultRRF(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithAggregate(
-			[]Node[stubIntent, struct{}]{
+			[]resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 0.9}}},
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.1}}},
 			},
@@ -1373,7 +1373,7 @@ func TestPipelineBuilderWithAggregateUsesDefaultRRF(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1421,7 +1421,7 @@ func requireNonNilResultSetOnError[TMeta any](t *testing.T, out ResultSet[TMeta]
 func TestRetrieverNodePreservesBackendResultOnError(t *testing.T) {
 	t.Parallel()
 
-	node := RetrieverNode[stubIntent, struct{}]{
+	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 		Backend: partialBackend[stubIntent, struct{}]{
 			docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}},
 			err:  ragy.ErrUnavailable,
@@ -1439,7 +1439,7 @@ func TestRetrieverNodePreservesBackendResultOnError(t *testing.T) {
 func TestRescueNodePreservesSecondaryPartialFailure(t *testing.T) {
 	t.Parallel()
 
-	node := RescueNode[stubIntent, struct{}]{
+	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: partialFailureNode[stubIntent, struct{}]{
 			docs:   []Document[struct{}]{{ID: "sec", Content: "hit", Score: 1}},
@@ -1467,7 +1467,7 @@ func (p errorProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], e
 func TestPipelinePostChainErrorPreservesRootResult(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "root", Content: "hit", Score: 1}}}).
 		WithPostProcessors(errorProcessor[struct{}]{err: ragy.ErrUnavailable}).
 		Build()
@@ -1475,7 +1475,7 @@ func TestPipelinePostChainErrorPreservesRootResult(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
 	}
@@ -1500,7 +1500,7 @@ func (p topKMarkerProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMet
 func TestPipelinePartialFailureRunsPostProcessors(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
 			docs:   []Document[struct{}]{{ID: "partial", Content: "raw", Score: 1}},
 			errors: []error{ragy.ErrUnavailable},
@@ -1511,7 +1511,7 @@ func TestPipelinePartialFailureRunsPostProcessors(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	var partial *PartialFailureError[struct{}]
 	if !errors.As(err, &partial) {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
@@ -1536,9 +1536,9 @@ func TestAggregateMergeFailurePreservesChildResults(t *testing.T) {
 	t.Parallel()
 
 	resolver := aggregateBadMergeKeyResolver[struct{}]{emptyID: "bad"}
-	node := AggregateNode[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Resolver: resolver,
-		Nodes: []Node[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "good", Content: "ok", Score: 1}}},
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "bad", Content: "x", Score: 0.5}}},
 		},
@@ -1557,7 +1557,7 @@ func TestAggregateMergeFailurePreservesChildResults(t *testing.T) {
 func TestPipelineBuilderWithPostProcessorsPreservesResultOnError(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "root", Content: "hit", Score: 1}}}).
 		WithPostProcessors(errorProcessor[struct{}]{err: ragy.ErrProtocol}).
 		Build()
@@ -1565,8 +1565,8 @@ func TestPipelineBuilderWithPostProcessorsPreservesResultOnError(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
-	requireNonNilResultSetOnError(t, rs, err)
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
+	requireNonNilResultSetOnError(t, rs.ResultSet, err)
 	if !errors.Is(err, ragy.ErrProtocol) {
 		t.Fatalf("Retrieve() error = %v, want protocol", err)
 	}
@@ -1582,8 +1582,8 @@ func TestAggregateNodePreservesResultsOnContextCancel(t *testing.T) {
 	gate := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 1}}},
 			gateNode[struct{}]{
 				docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.5}},
@@ -1616,8 +1616,8 @@ func TestAggregateNodeFailsOnContextCancelWithHighConcurrency(t *testing.T) {
 	gate := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 1}}},
 			gateNode[struct{}]{
 				docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.5}},
@@ -1671,7 +1671,7 @@ func (n gateNode[TMeta]) Retrieve(ctx context.Context, _ Query[stubIntent]) (Res
 func TestPipelinePartialFailureAndPostChainErrorJoinsErrors(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
 			docs:   []Document[struct{}]{{ID: "partial", Content: "hit", Score: 1}},
 			errors: []error{ragy.ErrProtocol},
@@ -1682,7 +1682,7 @@ func TestPipelinePartialFailureAndPostChainErrorJoinsErrors(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	var partial *PartialFailureError[struct{}]
 	if !errors.As(err, &partial) {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError in join", err)
@@ -1699,7 +1699,7 @@ func TestPipelineRetrieveRewrapsResolverOnPartialFailure(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
 			docs:   []Document[struct{}]{{ID: "left", Content: "key", Score: 0.2}},
 			errors: []error{ragy.ErrUnavailable},
@@ -1710,7 +1710,7 @@ func TestPipelineRetrieveRewrapsResolverOnPartialFailure(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	var partial *PartialFailureError[struct{}]
 	if !errors.As(err, &partial) {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
@@ -1719,7 +1719,7 @@ func TestPipelineRetrieveRewrapsResolverOnPartialFailure(t *testing.T) {
 	other := NewResultSet([]Document[struct{}]{
 		{ID: "right", Content: "key", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
-	merged, err := rs.Merge(other)
+	merged, err := rs.ResultSet.Merge(other)
 	if err != nil {
 		t.Fatalf("Merge(): %v", err)
 	}
@@ -1731,8 +1731,8 @@ func TestPipelineRetrieveRewrapsResolverOnPartialFailure(t *testing.T) {
 func TestFallbackNodePreservesPrimaryDocsOnPlainError(t *testing.T) {
 	t.Parallel()
 
-	node := FallbackNode[stubIntent, struct{}]{
-		Primary: RetrieverNode[stubIntent, struct{}]{
+	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
+		Primary: resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 			Backend: partialBackend[stubIntent, struct{}]{
 				docs: []Document[struct{}]{{ID: "primary", Content: "hit", Score: 1}},
 				err:  ragy.ErrUnavailable,
@@ -1754,8 +1754,8 @@ func TestFallbackNodePreservesPrimaryDocsOnPlainError(t *testing.T) {
 func TestRescueNodePreservesPrimaryDocsOnPlainError(t *testing.T) {
 	t.Parallel()
 
-	node := RescueNode[stubIntent, struct{}]{
-		Primary: RetrieverNode[stubIntent, struct{}]{
+	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
+		Primary: resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 			Backend: partialBackend[stubIntent, struct{}]{
 				docs: []Document[struct{}]{{ID: "primary", Content: "hit", Score: 1}},
 				err:  ragy.ErrUnavailable,
@@ -1777,8 +1777,8 @@ func TestRescueNodePreservesPrimaryDocsOnPlainError(t *testing.T) {
 func TestAggregateReportsChildErrorWhenMergeEmpty(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 			stubNode[struct{}]{docs: nil},
 		},
@@ -1814,8 +1814,8 @@ func (m stubEmptyMerger[TMeta]) Merge(_ context.Context, _ ...ResultSet[TMeta]) 
 func TestAggregateReportsPartialWhenMergeEmptyButChildHadDocs(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialErrorNode[stubIntent, struct{}]{
 				docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 0.9}},
 				err:  ragy.ErrUnavailable,
@@ -1841,7 +1841,7 @@ func TestRetrieverNodeUsesInjectedResolverOnPreserve(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	node := RetrieverNode[stubIntent, struct{}]{
+	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 		Backend: partialFailureBackend[stubIntent, struct{}]{
 			docs: []Document[struct{}]{{ID: "a", Content: "key-a", Score: 0.9}},
 		},
@@ -1873,7 +1873,7 @@ func TestRetrieverNodeRewrapsResolverOnSuccess(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	node := RetrieverNode[stubIntent, struct{}]{
+	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 		Backend: orchestratorStubBackend[stubIntent, struct{}]{
 			docs: []Document[struct{}]{{ID: "a", Content: "merge-key", Score: 0.9}},
 		},
@@ -1903,8 +1903,8 @@ func TestPipelineBuildOverwritesRetrieverNodeResolver(t *testing.T) {
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(RetrieverNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 			Backend:  backend,
 			Resolver: nodeResolver,
 		}).
@@ -1914,7 +1914,7 @@ func TestPipelineBuildOverwritesRetrieverNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1932,9 +1932,9 @@ func TestPipelineBuildOverwritesFallbackNodeResolver(t *testing.T) {
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(FallbackNode[stubIntent, struct{}]{
-			Primary: RetrieverNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultFallbackNodeNoMeta[stubIntent, struct{}]{
+			Primary: resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 				Backend: backend,
 			},
 			Secondary: stubNode[struct{}]{},
@@ -1946,7 +1946,7 @@ func TestPipelineBuildOverwritesFallbackNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1964,10 +1964,10 @@ func TestPipelineBuildOverwritesRescueNodeResolver(t *testing.T) {
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(RescueNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultRescueNodeNoMeta[stubIntent, struct{}]{
 			Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
-			Secondary: RetrieverNode[stubIntent, struct{}]{
+			Secondary: resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 				Backend:  backend,
 				Resolver: nodeResolver,
 			},
@@ -1979,7 +1979,7 @@ func TestPipelineBuildOverwritesRescueNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1997,10 +1997,10 @@ func TestPipelineBuildOverwritesAggregateNodeResolver(t *testing.T) {
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
-			Nodes: []Node[stubIntent, struct{}]{
-				RetrieverNode[stubIntent, struct{}]{Backend: backend},
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
+				resultRetrieverNodeNoMeta[stubIntent, struct{}]{Backend: backend},
 			},
 			Resolver: nodeResolver,
 		}).
@@ -2010,7 +2010,7 @@ func TestPipelineBuildOverwritesAggregateNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2028,10 +2028,10 @@ func TestPipelineBuildOverwritesConditionalNodeResolver(t *testing.T) {
 		{ID: "a", Content: "same", Score: 0.9},
 		{ID: "b", Content: "same", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(ConditionalNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultConditionalNodeNoMeta[stubIntent, struct{}]{
 			Predicate: func(Query[stubIntent]) bool { return true },
-			Child: RetrieverNode[stubIntent, struct{}]{
+			Child: resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 				Backend:  backend,
 				Resolver: nodeResolver,
 			},
@@ -2043,7 +2043,7 @@ func TestPipelineBuildOverwritesConditionalNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2071,10 +2071,10 @@ func TestAggregateCustomMergerNotReboundByPipelineResolver(t *testing.T) {
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
 	customMerger := capturedResolverMerger[struct{}]{bound: nodeResolver}
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
 			Merger: customMerger,
-			Nodes: []Node[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "key", Score: 0.9}}},
 				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "key", Score: 0.5}}},
 			},
@@ -2085,7 +2085,7 @@ func TestAggregateCustomMergerNotReboundByPipelineResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2100,10 +2100,10 @@ func TestPipelineBuildRebindsAggregateScoreMergerResolver(t *testing.T) {
 	idResolver := DocumentIDResolver[struct{}]{}
 	contentResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
 			Merger: NewScoreMerger(idResolver),
-			Nodes: []Node[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{
 					{ID: "a", Content: "same", Score: 0.9},
 				}},
@@ -2118,7 +2118,7 @@ func TestPipelineBuildRebindsAggregateScoreMergerResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2137,10 +2137,10 @@ func TestPipelineBuildRebindsAggregateRRFResolver(t *testing.T) {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(AggregateNode[stubIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
 			Merger: rrf,
-			Nodes: []Node[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{
 					{ID: "a", Content: "key", Score: 0.9},
 					{ID: "b", Content: "other", Score: 0.5},
@@ -2157,7 +2157,7 @@ func TestPipelineBuildRebindsAggregateRRFResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2176,8 +2176,8 @@ func TestAggregateFallbackUnmergedUsesPipelineResolver(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "key", Score: 0.9}}},
 			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "key", Score: 0.5}}},
 		},
@@ -2200,12 +2200,12 @@ func TestAggregateEmptyMergeFallbackIncludesFbErr(t *testing.T) {
 	t.Parallel()
 
 	resolver := aggregateBadMergeKeyResolver[struct{}]{emptyID: "bad"}
-	node := AggregateNode[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Resolver: resolver,
 		Merger: stubEmptyMerger[struct{}]{
 			resolver: resolver,
 		},
-		Nodes: []Node[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialFailureNode[stubIntent, struct{}]{
 				docs:   []Document[struct{}]{{ID: "good", Content: "ok", Score: 0.9}},
 				errors: []error{ragy.ErrUnavailable},
@@ -2238,9 +2238,9 @@ func TestAggregateEmptyMergeFallbackIncludesFbErr(t *testing.T) {
 func TestAggregateMergeFailurePreservesChildErrors(t *testing.T) {
 	t.Parallel()
 
-	node := AggregateNode[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Merger: stubFailingMerger[struct{}]{},
-		Nodes: []Node[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialFailureNode[stubIntent, struct{}]{
 				docs:   nil,
 				errors: []error{ragy.ErrUnavailable},
@@ -2264,10 +2264,10 @@ func TestPipelinePartialFailureResultMatchesReturnedSetAfterPostProcess(t *testi
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithResolver(resolver).
-		WithRoot(AggregateNode[stubIntent, struct{}]{
-			Nodes: []Node[stubIntent, struct{}]{
+		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
+			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				partialFailureNode[stubIntent, struct{}]{
 					docs: []Document[struct{}]{
 						{ID: "a", Content: "alpha", Score: 0.9, Meta: struct{}{}},
@@ -2284,7 +2284,7 @@ func TestPipelinePartialFailureResultMatchesReturnedSetAfterPostProcess(t *testi
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), pipelineTestQuery("q"))
+	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
 	partial, ok := AsPartialFailure[struct{}](err)
 	if !ok {
 		t.Fatalf("Retrieve() error = %v, want partial failure", err)
@@ -2309,7 +2309,7 @@ func TestPipelinePartialFailureResultMatchesReturnedSetAfterPostProcess(t *testi
 func TestPipelineRetrieveAppliesTopKWithoutPostChain(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{
 			{ID: "a", Content: "one", Score: 0.9},
 			{ID: "b", Content: "two", Score: 0.5},
@@ -2320,7 +2320,7 @@ func TestPipelineRetrieveAppliesTopKWithoutPostChain(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -2335,7 +2335,7 @@ func TestPipelineRetrieveAppliesTopKWithoutPostChain(t *testing.T) {
 func TestPipelinePartialFailureResultAfterTerminalOptions(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
 			docs: []Document[struct{}]{
 				{ID: "a", Content: "alpha", Score: 0.2},
@@ -2348,7 +2348,7 @@ func TestPipelinePartialFailureResultAfterTerminalOptions(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 5, MinSimilarity: 0.5},
 	})
@@ -2367,7 +2367,7 @@ func TestPipelinePartialFailureResultAfterTerminalOptions(t *testing.T) {
 func TestPipelinePartialFailureResultMatchesReturnedSetWithoutPostChain(t *testing.T) {
 	t.Parallel()
 
-	pipeline, err := NewPipelineBuilder[stubIntent, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
 			docs: []Document[struct{}]{
 				{ID: "a", Content: "alpha", Score: 0.9},
@@ -2380,7 +2380,7 @@ func TestPipelinePartialFailureResultMatchesReturnedSetWithoutPostChain(t *testi
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[stubIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -2399,7 +2399,7 @@ func TestPipelinePartialFailureResultMatchesReturnedSetWithoutPostChain(t *testi
 func TestFallbackNodePropagatesSecondaryError(t *testing.T) {
 	t.Parallel()
 
-	node := FallbackNode[stubIntent, struct{}]{
+	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
 		Primary:   stubNode[struct{}]{},
 		Secondary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 	}
@@ -2415,7 +2415,7 @@ func TestFallbackNodePropagatesSecondaryError(t *testing.T) {
 func TestRetrieverNodeRejectsNilBackend(t *testing.T) {
 	t.Parallel()
 
-	node := RetrieverNode[stubIntent, struct{}]{Backend: nil}
+	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{Backend: nil}
 	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Retrieve() error = %v, want invalid argument", err)
@@ -2428,7 +2428,7 @@ func TestRetrieverNodeRejectsNilBackend(t *testing.T) {
 func TestRetrieverNodeRejectsInvalidRetrieveOptions(t *testing.T) {
 	t.Parallel()
 
-	node := RetrieverNode[stubIntent, struct{}]{
+	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 		Backend: orchestratorStubBackend[stubIntent, struct{}]{},
 	}
 	_, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
@@ -2440,7 +2440,7 @@ func TestRetrieverNodeRejectsInvalidRetrieveOptions(t *testing.T) {
 func TestRescueNodePropagatesPrimaryWhenSecondaryNil(t *testing.T) {
 	t.Parallel()
 
-	node := RescueNode[stubIntent, struct{}]{
+	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 	}
 	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
@@ -2468,7 +2468,7 @@ func TestConditionalNodeUsesQueryIntent(t *testing.T) {
 	t.Parallel()
 
 	child := intentStubNode[struct{}]{docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}}}
-	node := ConditionalNode[intentWithMode, struct{}]{
+	node := resultConditionalNodeNoMeta[intentWithMode, struct{}]{
 		Predicate: func(query Query[intentWithMode]) bool {
 			return query.Intent.Mode == "run"
 		},
@@ -2498,6 +2498,47 @@ func TestConditionalNodeUsesQueryIntent(t *testing.T) {
 	}
 }
 
+func TestResultPipelinePlanBinderCanBindMissingOptions(t *testing.T) {
+	t.Parallel()
+
+	spy := &querySpyBackend[intentWithMode, struct{}]{
+		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
+			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+		},
+	}
+	pipeline, err := newResultPipelineBuilderNoMeta[intentWithMode, struct{}]().
+		WithPlanBinder(RequestPlanBinderFunc[intentWithMode, NoRequestMeta, NoExecutionMeta](
+			func(
+				_ context.Context,
+				req Query[intentWithMode],
+				_ *PlannedQuery[intentWithMode],
+				exec NoExecutionMeta,
+			) (BoundRequest[intentWithMode, NoRequestMeta, NoExecutionMeta], error) {
+				req.Options.TopK = 1
+				return BoundRequest[intentWithMode, NoRequestMeta, NoExecutionMeta]{
+					Request:  req,
+					Executed: exec,
+				}, nil
+			},
+		)).
+		WithRoot(resultRetrieverNodeNoMeta[intentWithMode, struct{}]{Backend: spy}).
+		Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Text: "q"})
+	if err != nil {
+		t.Fatalf("Execute(): %v", err)
+	}
+	if spy.lastRequest.Options.TopK != 1 {
+		t.Fatalf("backend TopK = %d, want binder-bound TopK", spy.lastRequest.Options.TopK)
+	}
+	if result.Len() != 1 {
+		t.Fatalf("Len() = %d, want backend hit", result.Len())
+	}
+}
+
 type querySpyBackend[TIntent, TMeta any] struct {
 	orchestratorStubBackend[TIntent, TMeta]
 
@@ -2520,7 +2561,7 @@ func TestRetrieverNodePassesRequestEnvelopeToBackend(t *testing.T) {
 			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
 		},
 	}
-	node := RetrieverNode[intentWithMode, struct{}]{Backend: spy}
+	node := resultRetrieverNodeNoMeta[intentWithMode, struct{}]{Backend: spy}
 
 	_, err := node.Retrieve(context.Background(), Query[intentWithMode]{
 		Text:    "hello",
@@ -2543,7 +2584,7 @@ func TestPipelinePlannerAttachesPlanBeforeBackend(t *testing.T) {
 			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
 		},
 	}
-	pipeline, err := NewPipelineBuilder[intentWithMode, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[intentWithMode, struct{}]().
 		WithPlanner(QueryPlannerFunc[intentWithMode, NoRequestMeta](
 			func(_ context.Context, req Query[intentWithMode]) (PlannedQuery[intentWithMode], error) {
 				return PlannedQuery[intentWithMode]{
@@ -2555,13 +2596,13 @@ func TestPipelinePlannerAttachesPlanBeforeBackend(t *testing.T) {
 				}, nil
 			},
 		)).
-		WithRoot(RetrieverNode[intentWithMode, struct{}]{Backend: spy}).
+		WithRoot(resultRetrieverNodeNoMeta[intentWithMode, struct{}]{Backend: spy}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	_, err = pipeline.Retrieve(context.Background(), Query[intentWithMode]{
+	_, err = pipeline.Execute(context.Background(), Query[intentWithMode]{
 		Text:    "  raw query  ",
 		Intent:  intentWithMode{Mode: "run"},
 		Options: RetrieveOptions{TopK: 1},
@@ -2604,7 +2645,7 @@ func TestRequestPipelinePassesTypedRequestMetaToPlannerAndBackend(t *testing.T) 
 		docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
 	}
 	var plannerMeta requestMetaFixture
-	pipeline, err := NewRequestPipelineBuilder[intentWithMode, requestMetaFixture, struct{}]().
+	pipeline, err := newResultPipelineBuilder[intentWithMode, requestMetaFixture, struct{}]().
 		WithPlanner(QueryPlannerFunc[intentWithMode, requestMetaFixture](
 			func(_ context.Context, req Request[intentWithMode, requestMetaFixture]) (PlannedQuery[intentWithMode], error) {
 				plannerMeta = req.Meta
@@ -2615,13 +2656,13 @@ func TestRequestPipelinePassesTypedRequestMetaToPlannerAndBackend(t *testing.T) 
 				}, nil
 			},
 		)).
-		WithRoot(RequestRetrieverNode[intentWithMode, requestMetaFixture, struct{}]{Backend: spy}).
+		WithRoot(resultRetrieverNode[intentWithMode, requestMetaFixture, struct{}]{Backend: spy}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	_, err = pipeline.Retrieve(context.Background(), Request[intentWithMode, requestMetaFixture]{
+	_, err = pipeline.Execute(context.Background(), Request[intentWithMode, requestMetaFixture]{
 		Text:    "  raw  ",
 		Intent:  intentWithMode{Mode: "run"},
 		Meta:    requestMetaFixture{TraceID: "trace-1"},
@@ -2650,20 +2691,20 @@ func TestPipelineUsesPreplannedQueryWithoutCallingPlanner(t *testing.T) {
 		},
 	}
 	plannerCalls := 0
-	pipeline, err := NewPipelineBuilder[intentWithMode, struct{}]().
+	pipeline, err := newResultPipelineBuilderNoMeta[intentWithMode, struct{}]().
 		WithPlanner(QueryPlannerFunc[intentWithMode, NoRequestMeta](
 			func(_ context.Context, _ Query[intentWithMode]) (PlannedQuery[intentWithMode], error) {
 				plannerCalls++
 				return PlannedQuery[intentWithMode]{Text: "unexpected"}, nil
 			},
 		)).
-		WithRoot(RetrieverNode[intentWithMode, struct{}]{Backend: spy}).
+		WithRoot(resultRetrieverNodeNoMeta[intentWithMode, struct{}]{Backend: spy}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	_, err = pipeline.Retrieve(context.Background(), Query[intentWithMode]{
+	_, err = pipeline.Execute(context.Background(), Query[intentWithMode]{
 		Text: "raw",
 		Plan: &PlannedQuery[intentWithMode]{
 			ExpandedText: "cached expanded",
@@ -2685,7 +2726,7 @@ func TestPipelineUsesPreplannedQueryWithoutCallingPlanner(t *testing.T) {
 func TestConditionalNodeRunsChildWhenPredicateNil(t *testing.T) {
 	t.Parallel()
 
-	node := ConditionalNode[stubIntent, struct{}]{
+	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: nil,
 		Child:     stubNode[struct{}]{docs: []Document[struct{}]{{ID: "hit", Score: 1}}},
 	}
@@ -2719,8 +2760,8 @@ func TestAggregateFallbackOrderingDiffersFromRRF(t *testing.T) {
 		t.Fatalf("RRF Merge(): %v", err)
 	}
 
-	node := AggregateNode[stubIntent, struct{}]{
-		Nodes: []Node[stubIntent, struct{}]{
+	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
+		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			stubNode[struct{}]{docs: left.Documents()},
 			stubNode[struct{}]{docs: right.Documents()},
 		},
@@ -2796,24 +2837,24 @@ func TestPipelineCatalogVectorFallbackGraph(t *testing.T) {
 		docs: []Document[struct{}]{{ID: "web-1", Content: "web", Score: 0.8}},
 	}
 
-	pipeline, err := NewPipelineBuilder[catalogVectorIntent, struct{}]().
-		WithRoot(FallbackNode[catalogVectorIntent, struct{}]{
-			Primary: AggregateNode[catalogVectorIntent, struct{}]{
-				Nodes: []Node[catalogVectorIntent, struct{}]{
-					RetrieverNode[catalogVectorIntent, struct{}]{Backend: catalog},
-					ConditionalNode[catalogVectorIntent, struct{}]{
+	pipeline, err := newResultPipelineBuilderNoMeta[catalogVectorIntent, struct{}]().
+		WithRoot(resultFallbackNodeNoMeta[catalogVectorIntent, struct{}]{
+			Primary: resultAggregateNodeNoMeta[catalogVectorIntent, struct{}]{
+				Nodes: []resultNodeNoMeta[catalogVectorIntent, struct{}]{
+					resultRetrieverNodeNoMeta[catalogVectorIntent, struct{}]{Backend: catalog},
+					resultConditionalNodeNoMeta[catalogVectorIntent, struct{}]{
 						Predicate: func(query Query[catalogVectorIntent]) bool {
 							return len(query.Options.Vector) > 0
 						},
-						Child: RetrieverNode[catalogVectorIntent, struct{}]{Backend: vector},
+						Child: resultRetrieverNodeNoMeta[catalogVectorIntent, struct{}]{Backend: vector},
 					},
 				},
 			},
-			Secondary: ConditionalNode[catalogVectorIntent, struct{}]{
+			Secondary: resultConditionalNodeNoMeta[catalogVectorIntent, struct{}]{
 				Predicate: func(query Query[catalogVectorIntent]) bool {
 					return query.Intent.AllowWeb
 				},
-				Child: RetrieverNode[catalogVectorIntent, struct{}]{Backend: web},
+				Child: resultRetrieverNodeNoMeta[catalogVectorIntent, struct{}]{Backend: web},
 			},
 		}).
 		Build()
@@ -2821,7 +2862,7 @@ func TestPipelineCatalogVectorFallbackGraph(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[catalogVectorIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[catalogVectorIntent]{
 		Text:    "q",
 		Intent:  catalogVectorIntent{AllowWeb: true},
 		Options: RetrieveOptions{TopK: 5},
@@ -2849,20 +2890,20 @@ func TestRescueNestedFallbackRespectsIntentGate(t *testing.T) {
 	webIfAllowed := func(query Query[rescueSearchIntent]) bool {
 		return query.Intent.AllowWeb
 	}
-	webBranch := func() Node[rescueSearchIntent, struct{}] {
-		return ConditionalNode[rescueSearchIntent, struct{}]{
+	webBranch := func() resultNodeNoMeta[rescueSearchIntent, struct{}] {
+		return resultConditionalNodeNoMeta[rescueSearchIntent, struct{}]{
 			Predicate: webIfAllowed,
-			Child:     RetrieverNode[rescueSearchIntent, struct{}]{Backend: web},
+			Child:     resultRetrieverNodeNoMeta[rescueSearchIntent, struct{}]{Backend: web},
 		}
 	}
 
-	pipeline, err := NewPipelineBuilder[rescueSearchIntent, struct{}]().
-		WithRoot(RescueNode[rescueSearchIntent, struct{}]{
-			Primary: FallbackNode[rescueSearchIntent, struct{}]{
-				Primary: AggregateNode[rescueSearchIntent, struct{}]{
-					Nodes: []Node[rescueSearchIntent, struct{}]{
-						RetrieverNode[rescueSearchIntent, struct{}]{Backend: catalog},
-						RetrieverNode[rescueSearchIntent, struct{}]{Backend: vector},
+	pipeline, err := newResultPipelineBuilderNoMeta[rescueSearchIntent, struct{}]().
+		WithRoot(resultRescueNodeNoMeta[rescueSearchIntent, struct{}]{
+			Primary: resultFallbackNodeNoMeta[rescueSearchIntent, struct{}]{
+				Primary: resultAggregateNodeNoMeta[rescueSearchIntent, struct{}]{
+					Nodes: []resultNodeNoMeta[rescueSearchIntent, struct{}]{
+						resultRetrieverNodeNoMeta[rescueSearchIntent, struct{}]{Backend: catalog},
+						resultRetrieverNodeNoMeta[rescueSearchIntent, struct{}]{Backend: vector},
 					},
 				},
 				Secondary: webBranch(),
@@ -2874,7 +2915,7 @@ func TestRescueNestedFallbackRespectsIntentGate(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[rescueSearchIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[rescueSearchIntent]{
 		Text:    "query",
 		Intent:  rescueSearchIntent{AllowWeb: false},
 		Options: RetrieveOptions{TopK: 5},

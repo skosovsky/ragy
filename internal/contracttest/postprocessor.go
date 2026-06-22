@@ -79,8 +79,8 @@ func (p suffixPostProcessor[TMeta]) Process(rs retrieval.ResultSet[TMeta]) (retr
 func testPostProcessorChainOverwrites(t *testing.T) {
 	t.Helper()
 
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.RetrieverNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.BackendNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Backend: postProcessorStubBackend[struct{}]{
 				docs: []retrieval.Document[struct{}]{{ID: "a", Content: "base", Score: 1}},
 			},
@@ -92,7 +92,7 @@ func testPostProcessorChainOverwrites(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[struct{}]{
 		Text:    "q",
 		Options: DefaultRetrieveOptions(),
 	})
@@ -112,8 +112,8 @@ func testPostProcessorCustomPassthrough(t *testing.T, cfg PostProcessorChainConf
 	t.Helper()
 
 	mergeResolver := ContentMergeResolver[struct{}]{}
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.RetrieverNode[struct{}, struct{}]{
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.BackendNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Backend: postProcessorStubBackend[struct{}]{docs: cfg.BackendDocs},
 		}).
 		WithPostProcessors(cfg.CustomProcessor).
@@ -123,7 +123,7 @@ func testPostProcessorCustomPassthrough(t *testing.T, cfg PostProcessorChainConf
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[struct{}]{
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: postProcessorContractTopK},
 	})
@@ -147,8 +147,8 @@ func testPostProcessorGroupByContract(t *testing.T) {
 		{ID: "2", Content: "b", Score: groupDocScoreMid, Meta: groupMeta{Group: "g1"}},
 		{ID: "3", Content: "c", Score: groupDocScoreLow, Meta: groupMeta{Group: "g2"}},
 	}}
-	pipeline, err := retrieval.NewPipelineBuilder[struct{}, groupMeta]().
-		WithRoot(retrieval.RetrieverNode[struct{}, groupMeta]{Backend: backend}).
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, groupMeta, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.BackendNode[struct{}, groupMeta, retrieval.NoExecutionMeta]{Backend: backend}).
 		WithPostProcessors(retrieval.GroupBy(
 			func(m groupMeta) string { return m.Group },
 			retrieval.DefaultMergeStrategy[groupMeta](),
@@ -158,7 +158,7 @@ func testPostProcessorGroupByContract(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[struct{}]{
 		Text:    "query",
 		Options: retrieval.RetrieveOptions{TopK: groupByContractTopK},
 	})

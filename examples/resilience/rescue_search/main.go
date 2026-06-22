@@ -49,17 +49,17 @@ func main() {
 		docs:   []retrieval.Document[struct{}]{{ID: "fb-1", Content: "rescue hit", Score: rescueScore}},
 	}
 
-	pipeline, err := retrieval.NewPipelineBuilder[intent, struct{}]().
-		WithRescue(
-			retrieval.RetrieverNode[intent, struct{}]{Backend: primary},
-			retrieval.RetrieverNode[intent, struct{}]{Backend: secondary},
-		).
+	pipeline, err := retrieval.NewExecutionPipelineBuilder[intent, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.RescueNode[intent, struct{}, retrieval.NoExecutionMeta]{
+			Primary:   retrieval.BackendNode[intent, struct{}, retrieval.NoExecutionMeta]{Backend: primary},
+			Secondary: retrieval.BackendNode[intent, struct{}, retrieval.NoExecutionMeta]{Backend: secondary},
+		}).
 		Build()
 	if err != nil {
 		panic(err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[intent]{
+	result, err := pipeline.Execute(context.Background(), retrieval.Query[intent]{
 		Text: "hello",
 		Options: retrieval.RetrieveOptions{
 			TopK:   defaultTopK,
@@ -69,7 +69,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	docs := rs.Documents()
+	docs := result.Documents()
 	if len(docs) != 1 || docs[0].ID != "fb-1" {
 		panic("expected rescue document")
 	}

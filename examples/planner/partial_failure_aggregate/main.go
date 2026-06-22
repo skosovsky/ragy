@@ -34,12 +34,12 @@ func (hitNode) Retrieve(
 	}, retrieval.DocumentIDResolver[struct{}]{}), nil
 }
 
-func buildPipeline() (*retrieval.Pipeline[stubIntent, struct{}], error) {
-	return retrieval.NewPipelineBuilder[stubIntent, struct{}]().
-		WithRoot(retrieval.AggregateNode[stubIntent, struct{}]{
-			Nodes: []retrieval.Node[stubIntent, struct{}]{
-				errorNode{},
-				hitNode{},
+func buildPipeline() (*retrieval.ExecutionPipeline[stubIntent, struct{}, retrieval.NoExecutionMeta], error) {
+	return retrieval.NewExecutionPipelineBuilder[stubIntent, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.AggregateNode[stubIntent, struct{}, retrieval.NoExecutionMeta]{
+			Nodes: []retrieval.ExecutionNode[stubIntent, struct{}, retrieval.NoExecutionMeta]{
+				retrieval.BackendNode[stubIntent, struct{}, retrieval.NoExecutionMeta]{Backend: errorNode{}},
+				retrieval.BackendNode[stubIntent, struct{}, retrieval.NoExecutionMeta]{Backend: hitNode{}},
 			},
 		}).
 		Build()
@@ -51,7 +51,7 @@ func main() {
 		panic(err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[stubIntent]{
+	result, err := pipeline.Execute(context.Background(), retrieval.Query[stubIntent]{
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
 	})
@@ -60,13 +60,13 @@ func main() {
 	}
 
 	if partial, ok := retrieval.AsPartialFailure[struct{}](err); ok {
-		fmt.Printf("partial errors: %d, returned result len: %d\n", len(partial.Errors), rs.Len())
+		fmt.Printf("partial errors: %d, returned result len: %d\n", len(partial.Errors), result.Len())
 	}
 
-	if rs.IsEmpty() {
+	if result.IsEmpty() {
 		panic("expected non-empty ResultSet despite partial failure")
 	}
-	fmt.Printf("returned docs: %d (id=%s)\n", rs.Len(), rs.Documents()[0].ID)
+	fmt.Printf("returned docs: %d (id=%s)\n", result.Len(), result.Documents()[0].ID)
 
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		panic(fmt.Sprintf("expected unavailable in partial error chain, got %v", err))

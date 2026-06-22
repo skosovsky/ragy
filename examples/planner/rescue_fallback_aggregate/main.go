@@ -43,23 +43,27 @@ const (
 	exampleTopK      = 5
 )
 
-func webIfAllowed(web memoryBackend) retrieval.Node[searchIntent, struct{}] {
-	return retrieval.ConditionalNode[searchIntent, struct{}]{
+func webIfAllowed(web memoryBackend) retrieval.ExecutionNode[searchIntent, struct{}, retrieval.NoExecutionMeta] {
+	return retrieval.ConditionalNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{
 		Predicate: func(query retrieval.Query[searchIntent]) bool {
 			return query.Intent.AllowWeb
 		},
-		Child: retrieval.RetrieverNode[searchIntent, struct{}]{Backend: web},
+		Child: retrieval.BackendNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{Backend: web},
 	}
 }
 
-func buildPipeline(catalog, vector, web memoryBackend) (*retrieval.Pipeline[searchIntent, struct{}], error) {
-	return retrieval.NewPipelineBuilder[searchIntent, struct{}]().
-		WithRoot(retrieval.RescueNode[searchIntent, struct{}]{
-			Primary: retrieval.FallbackNode[searchIntent, struct{}]{
-				Primary: retrieval.AggregateNode[searchIntent, struct{}]{
-					Nodes: []retrieval.Node[searchIntent, struct{}]{
-						retrieval.RetrieverNode[searchIntent, struct{}]{Backend: catalog},
-						retrieval.RetrieverNode[searchIntent, struct{}]{Backend: vector},
+func buildPipeline(
+	catalog,
+	vector,
+	web memoryBackend,
+) (*retrieval.ExecutionPipeline[searchIntent, struct{}, retrieval.NoExecutionMeta], error) {
+	return retrieval.NewExecutionPipelineBuilder[searchIntent, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.RescueNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{
+			Primary: retrieval.FallbackNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{
+				Primary: retrieval.AggregateNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{
+					Nodes: []retrieval.ExecutionNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{
+						retrieval.BackendNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{Backend: catalog},
+						retrieval.BackendNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{Backend: vector},
 					},
 				},
 				Secondary: webIfAllowed(web),
@@ -89,7 +93,7 @@ func main() {
 		panic(err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	result, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: true},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -97,7 +101,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	docs := rs.Documents()
+	docs := result.Documents()
 	if len(docs) != 1 || docs[0].ID != "web-1" {
 		panic(fmt.Sprintf("expected web rescue hit, got %#v", docs))
 	}

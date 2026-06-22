@@ -18,15 +18,16 @@ func retrieveWithPostProcessors[TMeta any](
 ) (ResultSet[TMeta], error) {
 	t.Helper()
 
-	pipeline, err := NewPipelineBuilder[struct{}, TMeta]().
-		WithRoot(RetrieverNode[struct{}, TMeta]{Backend: backend, Resolver: resolver}).
+	pipeline, err := NewExecutionPipelineBuilder[struct{}, TMeta, NoExecutionMeta]().
+		WithRoot(BackendNode[struct{}, TMeta, NoExecutionMeta]{Backend: backend, Resolver: resolver}).
 		WithPostProcessors(processors...).
 		WithResolver(resolver).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
-	return pipeline.Retrieve(context.Background(), Query[struct{}]{Text: query, Options: opts})
+	result, err := pipeline.Execute(context.Background(), Query[struct{}]{Text: query, Options: opts})
+	return result.ResultSet, err
 }
 
 func TestPostProcessorChainRejectsInvalidBackendDocuments(t *testing.T) {
@@ -182,8 +183,8 @@ func TestPostProcessorChainDoesNotInjectResolverIntoCustomProcessor(t *testing.T
 		{ID: "a", Content: "same-key", Score: 0.9},
 		{ID: "b", Content: "same-key", Score: 0.5},
 	}}
-	pipeline, err := NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(RetrieverNode[struct{}, struct{}]{Backend: backend}).
+	pipeline, err := NewExecutionPipelineBuilder[struct{}, struct{}, NoExecutionMeta]().
+		WithRoot(BackendNode[struct{}, struct{}, NoExecutionMeta]{Backend: backend}).
 		WithPostProcessors(resolverProbeProcessor[struct{}]{}).
 		WithResolver(mergeResolver).
 		Build()
@@ -191,7 +192,7 @@ func TestPostProcessorChainDoesNotInjectResolverIntoCustomProcessor(t *testing.T
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), Query[struct{}]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(context.Background(), Query[struct{}]{Text: "q", Options: RetrieveOptions{TopK: 5}})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}

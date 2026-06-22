@@ -318,45 +318,53 @@ func (w *QueryReranker[TMeta]) Rerank(
 	return w.next.Rerank(ctx, query, rs)
 }
 
-// RequestPipeline wraps a declarative retrieval orchestrator with tracing.
-type RequestPipeline[TIntent, TRequestMeta, TMeta any] struct {
-	next   *retrieval.RequestPipeline[TIntent, TRequestMeta, TMeta]
+// RequestExecutionPipeline wraps an execution-aware retrieval orchestrator with tracing.
+type RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta any] struct {
+	next   *retrieval.RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]
 	tracer trace.Tracer
 }
 
-// Pipeline is the no-request-metadata traced retrieval orchestrator.
-type Pipeline[TIntent, TMeta any] = RequestPipeline[TIntent, retrieval.NoRequestMeta, TMeta]
+// ExecutionPipeline is the no-request-metadata traced execution orchestrator.
+type ExecutionPipeline[TIntent, TMeta, TExecMeta any] = RequestExecutionPipeline[
+	TIntent,
+	retrieval.NoRequestMeta,
+	TMeta,
+	TExecMeta,
+]
 
-// WrapRequestPipeline constructs a traced request-metadata-aware retrieval orchestrator.
-func WrapRequestPipeline[TIntent, TRequestMeta, TMeta any](
-	next *retrieval.RequestPipeline[TIntent, TRequestMeta, TMeta],
+// WrapRequestExecutionPipeline constructs a traced execution-aware retrieval orchestrator.
+func WrapRequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta any](
+	next *retrieval.RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta],
 	tracer trace.Tracer,
-) (*RequestPipeline[TIntent, TRequestMeta, TMeta], error) {
+) (*RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta], error) {
 	if next == nil {
-		return nil, fmt.Errorf("%w: retrieval pipeline", ragy.ErrInvalidArgument)
+		return nil, fmt.Errorf("%w: retrieval execution pipeline", ragy.ErrInvalidArgument)
 	}
 	if tracer == nil {
 		return nil, fmt.Errorf("%w: tracer", ragy.ErrInvalidArgument)
 	}
-	return &RequestPipeline[TIntent, TRequestMeta, TMeta]{next: next, tracer: tracer}, nil
+	return &RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]{
+		next:   next,
+		tracer: tracer,
+	}, nil
 }
 
-// WrapPipeline constructs a traced no-request-metadata retrieval orchestrator.
-func WrapPipeline[TIntent, TMeta any](
-	next *retrieval.Pipeline[TIntent, TMeta],
+// WrapExecutionPipeline constructs a traced no-request-metadata execution orchestrator.
+func WrapExecutionPipeline[TIntent, TMeta, TExecMeta any](
+	next *retrieval.ExecutionPipeline[TIntent, TMeta, TExecMeta],
 	tracer trace.Tracer,
-) (*Pipeline[TIntent, TMeta], error) {
-	return WrapRequestPipeline[TIntent, retrieval.NoRequestMeta, TMeta](next, tracer)
+) (*ExecutionPipeline[TIntent, TMeta, TExecMeta], error) {
+	return WrapRequestExecutionPipeline[TIntent, retrieval.NoRequestMeta, TMeta, TExecMeta](next, tracer)
 }
 
-// Retrieve implements orchestrator retrieval with pipeline span.
-func (w *RequestPipeline[TIntent, TRequestMeta, TMeta]) Retrieve(
+// Execute implements execution-aware retrieval with pipeline span.
+func (w *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	query retrieval.Request[TIntent, TRequestMeta],
-) (retrieval.ResultSet[TMeta], error) {
+) (retrieval.RetrievalResult[TMeta, TExecMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.pipeline")
 	defer span.End()
-	return w.next.Retrieve(ctx, query)
+	return w.next.Execute(ctx, query)
 }
 
 // Merger wraps a ranked-list merger with tracing.

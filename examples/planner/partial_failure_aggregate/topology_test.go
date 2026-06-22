@@ -15,7 +15,7 @@ func TestPartialFailureAggregate_ReturnsPartialWithSiblingHit(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[stubIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[stubIntent]{
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
 	})

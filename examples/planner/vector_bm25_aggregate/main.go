@@ -41,7 +41,7 @@ const (
 func buildPipeline(
 	vector vectorBackend,
 	bm25 retrieval.Backend[struct{}, struct{}],
-) (*retrieval.Pipeline[searchIntent, struct{}], error) {
+) (*retrieval.ExecutionPipeline[searchIntent, struct{}, retrieval.NoExecutionMeta], error) {
 	bm25Branch := retrieval.ProjectedBackend[searchIntent, retrieval.NoRequestMeta, struct{}, retrieval.NoRequestMeta, struct{}]{
 		Next: bm25,
 		Project: func(req retrieval.Query[searchIntent]) retrieval.Query[struct{}] {
@@ -52,11 +52,11 @@ func buildPipeline(
 			}
 		},
 	}
-	return retrieval.NewPipelineBuilder[searchIntent, struct{}]().
-		WithRoot(retrieval.AggregateNode[searchIntent, struct{}]{
-			Nodes: []retrieval.Node[searchIntent, struct{}]{
-				retrieval.RetrieverNode[searchIntent, struct{}]{Backend: vector},
-				retrieval.RetrieverNode[searchIntent, struct{}]{Backend: bm25Branch},
+	return retrieval.NewExecutionPipelineBuilder[searchIntent, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.AggregateNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{
+			Nodes: []retrieval.ExecutionNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{
+				retrieval.BackendNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{Backend: vector},
+				retrieval.BackendNode[searchIntent, struct{}, retrieval.NoExecutionMeta]{Backend: bm25Branch},
 			},
 		}).
 		Build()
@@ -95,18 +95,18 @@ func main() {
 		panic(err)
 	}
 
-	rs, err := pipeline.Retrieve(context.Background(), retrieval.Query[searchIntent]{
+	result, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
 		Text:    "keyword",
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK, Vector: []float32{0.1, 0.2}},
 	})
 	if err != nil {
 		panic(err)
 	}
-	if rs.IsEmpty() {
+	if result.IsEmpty() {
 		panic("expected fused hits from vector and BM25 branches")
 	}
-	fmt.Printf("fused docs: %d\n", rs.Len())
-	for _, doc := range rs.Documents() {
+	fmt.Printf("fused docs: %d\n", result.Len())
+	for _, doc := range result.Documents() {
 		fmt.Printf("- %s score=%.3f\n", doc.ID, doc.Score)
 	}
 }

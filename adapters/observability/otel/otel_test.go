@@ -508,6 +508,66 @@ func TestWrapRequestBackendPassesRequestMetaAndDerivedContext(t *testing.T) {
 	})
 }
 
+type otelExecutionMeta struct {
+	SideOutput string
+}
+
+type captureExecutionBackend struct {
+	valid bool
+}
+
+func (b *captureExecutionBackend) Retrieve(
+	ctx context.Context,
+	_ retrieval.Query[struct{}],
+	exec otelExecutionMeta,
+) (retrieval.RetrievalResult[contracttest.StructMeta, otelExecutionMeta], error) {
+	b.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
+	exec.SideOutput = "captured"
+	return retrieval.RetrievalResult[contracttest.StructMeta, otelExecutionMeta]{
+		ResultSet: retrieval.NewResultSet(
+			[]retrieval.Document[contracttest.StructMeta]{{ID: "hit", Content: "ok", Score: 1}},
+			retrieval.DocumentIDResolver[contracttest.StructMeta]{},
+		),
+		Executed: exec,
+		Diagnostics: []retrieval.ExecutionDiagnostic{{
+			Stage: "backend",
+			Key:   "side",
+			Value: "captured",
+		}},
+		BranchTrace: []retrieval.BranchStep{{
+			Node:  "backend",
+			Kind:  retrieval.BranchKindNode,
+			Route: "",
+			State: retrieval.BranchStateReturned,
+			Error: "",
+		}},
+	}, nil
+}
+
+type captureRequestExecutionBackend struct {
+	valid bool
+	meta  requestMetaFixture
+}
+
+func (b *captureRequestExecutionBackend) Retrieve(
+	ctx context.Context,
+	req retrieval.Request[struct{}, requestMetaFixture],
+	exec otelExecutionMeta,
+) (retrieval.RetrievalResult[contracttest.StructMeta, otelExecutionMeta], error) {
+	b.valid = trace.SpanFromContext(ctx).SpanContext().IsValid() && req.Meta.Tenant == "acme"
+	b.meta = req.Meta
+	exec.SideOutput = req.Meta.Tenant
+	return retrieval.RetrievalResult[contracttest.StructMeta, otelExecutionMeta]{
+		ResultSet: retrieval.NewResultSet(
+			[]retrieval.Document[contracttest.StructMeta]{{ID: "tenant", Content: req.Meta.Tenant, Score: 1}},
+			retrieval.DocumentIDResolver[contracttest.StructMeta]{},
+		),
+		Executed:    exec,
+		Diagnostics: nil,
+		BranchTrace: nil,
+	}, nil
+}
+
 type errorBackend struct{}
 
 func (errorBackend) Retrieve(
@@ -534,14 +594,14 @@ func (partialFailureBackend) Retrieve(
 
 type contentMergeKeyResolver[TMeta any] = contracttest.ContentMergeResolver[TMeta]
 
-func TestWrapPipelinePreservesPartialFailureResult(t *testing.T) {
+func TestWrapExecutionPipelinePreservesPartialFailureResult(t *testing.T) {
 	t.Parallel()
 
-	next, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.AggregateNode[struct{}, struct{}]{
-			Nodes: []retrieval.Node[struct{}, struct{}]{
-				retrieval.RetrieverNode[struct{}, struct{}]{Backend: errorBackend{}},
-				retrieval.RetrieverNode[struct{}, struct{}]{
+	next, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.AggregateNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
+			Nodes: []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
+				retrieval.BackendNode[struct{}, struct{}, retrieval.NoExecutionMeta]{Backend: errorBackend{}},
+				retrieval.BackendNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 					Backend: partialFailureBackend{},
 				},
 			},
@@ -552,12 +612,12 @@ func TestWrapPipelinePreservesPartialFailureResult(t *testing.T) {
 	}
 
 	provider := sdktrace.NewTracerProvider()
-	wrapped, err := WrapPipeline(next, provider.Tracer("test"))
+	wrapped, err := WrapExecutionPipeline(next, provider.Tracer("test"))
 	if err != nil {
-		t.Fatalf("WrapPipeline(): %v", err)
+		t.Fatalf("WrapExecutionPipeline(): %v", err)
 	}
 
-	rs, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	rs, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: 10},
 	})
@@ -573,16 +633,16 @@ func TestWrapPipelinePreservesPartialFailureResult(t *testing.T) {
 	}
 }
 
-func TestWrapPipelinePartialFailureResolverParity(t *testing.T) {
+func TestWrapExecutionPipelinePartialFailureResolverParity(t *testing.T) {
 	t.Parallel()
 
 	resolver := contentMergeKeyResolver[struct{}]{}
-	next, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
+	next, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
 		WithResolver(resolver).
-		WithRoot(retrieval.AggregateNode[struct{}, struct{}]{
-			Nodes: []retrieval.Node[struct{}, struct{}]{
-				retrieval.RetrieverNode[struct{}, struct{}]{Backend: errorBackend{}},
-				retrieval.RetrieverNode[struct{}, struct{}]{
+		WithRoot(retrieval.AggregateNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
+			Nodes: []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
+				retrieval.BackendNode[struct{}, struct{}, retrieval.NoExecutionMeta]{Backend: errorBackend{}},
+				retrieval.BackendNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 					Backend: partialFailureBackend{},
 				},
 			},
@@ -593,12 +653,12 @@ func TestWrapPipelinePartialFailureResolverParity(t *testing.T) {
 	}
 
 	provider := sdktrace.NewTracerProvider()
-	wrapped, err := WrapPipeline(next, provider.Tracer("test"))
+	wrapped, err := WrapExecutionPipeline(next, provider.Tracer("test"))
 	if err != nil {
-		t.Fatalf("WrapPipeline(): %v", err)
+		t.Fatalf("WrapExecutionPipeline(): %v", err)
 	}
 
-	rs, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	rs, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: 10},
 	})
@@ -623,46 +683,46 @@ func TestWrapPipelinePartialFailureResolverParity(t *testing.T) {
 	}
 }
 
-func TestWrapPipelinePropagatesErrorResultSet(t *testing.T) {
+func TestWrapExecutionPipelinePropagatesErrorResultSet(t *testing.T) {
 	t.Parallel()
 
-	next, err := retrieval.NewPipelineBuilder[struct{}, struct{}]().
-		WithRoot(retrieval.RetrieverNode[struct{}, struct{}]{Backend: errorBackend{}}).
+	next, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
+		WithRoot(retrieval.BackendNode[struct{}, struct{}, retrieval.NoExecutionMeta]{Backend: errorBackend{}}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
 	provider := sdktrace.NewTracerProvider()
-	wrapped, err := WrapPipeline(next, provider.Tracer("test"))
+	wrapped, err := WrapExecutionPipeline(next, provider.Tracer("test"))
 	if err != nil {
-		t.Fatalf("WrapPipeline(): %v", err)
+		t.Fatalf("WrapExecutionPipeline(): %v", err)
 	}
 
-	out, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	out, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: 10},
 	})
-	contracttest.RequireErrorResultSet(t, out, err)
+	contracttest.RequireErrorResultSet(t, out.ResultSet, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
 	}
 }
 
-func TestWrapPipelinePassesDerivedContext(t *testing.T) {
+func TestWrapExecutionPipelinePassesDerivedContext(t *testing.T) {
 	runSpanTest(t, "ragy.retrieval.pipeline", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
 		backend := &captureBackend{}
-		next, err := retrieval.NewPipelineBuilder[struct{}, contracttest.StructMeta]().
-			WithRoot(retrieval.RetrieverNode[struct{}, contracttest.StructMeta]{Backend: backend}).
+		next, err := retrieval.NewExecutionPipelineBuilder[struct{}, contracttest.StructMeta, retrieval.NoExecutionMeta]().
+			WithRoot(retrieval.BackendNode[struct{}, contracttest.StructMeta, retrieval.NoExecutionMeta]{Backend: backend}).
 			Build()
 		if err != nil {
 			return false, err
 		}
-		wrapped, err := WrapPipeline(next, tracer)
+		wrapped, err := WrapExecutionPipeline(next, tracer)
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Retrieve(
+		_, err = wrapped.Execute(
 			ctx,
 			retrieval.Query[struct{}]{Text: "hello", Options: retrieval.RetrieveOptions{TopK: 10}},
 		)
@@ -670,20 +730,20 @@ func TestWrapPipelinePassesDerivedContext(t *testing.T) {
 	})
 }
 
-func TestWrapRequestPipelinePassesRequestMetaAndDerivedContext(t *testing.T) {
+func TestWrapRequestExecutionPipelinePassesRequestMetaAndDerivedContextWithoutExecutionMeta(t *testing.T) {
 	runSpanTest(t, "ragy.retrieval.pipeline", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
 		backend := &captureRequestBackend{}
-		next, err := retrieval.NewRequestPipelineBuilder[struct{}, requestMetaFixture, contracttest.StructMeta]().
-			WithRoot(retrieval.RequestRetrieverNode[struct{}, requestMetaFixture, contracttest.StructMeta]{Backend: backend}).
+		next, err := retrieval.NewRequestExecutionPipelineBuilder[struct{}, requestMetaFixture, contracttest.StructMeta, retrieval.NoExecutionMeta]().
+			WithRoot(retrieval.RequestBackendNode[struct{}, requestMetaFixture, contracttest.StructMeta, retrieval.NoExecutionMeta]{Backend: backend}).
 			Build()
 		if err != nil {
 			return false, err
 		}
-		wrapped, err := WrapRequestPipeline(next, tracer)
+		wrapped, err := WrapRequestExecutionPipeline(next, tracer)
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Retrieve(
+		_, err = wrapped.Execute(
 			ctx,
 			retrieval.Request[struct{}, requestMetaFixture]{
 				Text:    "hello",
@@ -695,11 +755,91 @@ func TestWrapRequestPipelinePassesRequestMetaAndDerivedContext(t *testing.T) {
 	})
 }
 
+func TestWrapExecutionPipelinePassesDerivedContextAndEnvelope(t *testing.T) {
+	runSpanTest(t, "ragy.retrieval.pipeline", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
+		backend := &captureExecutionBackend{}
+		next, err := retrieval.NewExecutionPipelineBuilder[struct{}, contracttest.StructMeta, otelExecutionMeta]().
+			WithRoot(retrieval.RequestExecutionRetrieverNode[
+				struct{},
+				retrieval.NoRequestMeta,
+				contracttest.StructMeta,
+				otelExecutionMeta,
+			]{Backend: backend}).
+			Build()
+		if err != nil {
+			return false, err
+		}
+		wrapped, err := WrapExecutionPipeline(next, tracer)
+		if err != nil {
+			return false, err
+		}
+		result, err := wrapped.Execute(
+			ctx,
+			retrieval.Query[struct{}]{Text: "hello", Options: retrieval.RetrieveOptions{TopK: 10}},
+		)
+		if err != nil {
+			return false, err
+		}
+		if result.Executed.SideOutput != "captured" || result.Len() != 1 || len(result.Diagnostics) != 1 {
+			return false, errors.New("execution envelope was not preserved")
+		}
+		return backend.valid, nil
+	})
+}
+
+func TestWrapRequestExecutionPipelinePassesRequestMetaAndDerivedContext(t *testing.T) {
+	runSpanTest(t, "ragy.retrieval.pipeline", func(ctx context.Context, tracer trace.Tracer) (bool, error) {
+		backend := &captureRequestExecutionBackend{}
+		next, err := retrieval.NewRequestExecutionPipelineBuilder[
+			struct{},
+			requestMetaFixture,
+			contracttest.StructMeta,
+			otelExecutionMeta,
+		]().
+			WithRoot(retrieval.RequestExecutionRetrieverNode[
+				struct{},
+				requestMetaFixture,
+				contracttest.StructMeta,
+				otelExecutionMeta,
+			]{Backend: backend}).
+			Build()
+		if err != nil {
+			return false, err
+		}
+		wrapped, err := WrapRequestExecutionPipeline(next, tracer)
+		if err != nil {
+			return false, err
+		}
+		result, err := wrapped.Execute(
+			ctx,
+			retrieval.Request[struct{}, requestMetaFixture]{
+				Text:    "hello",
+				Meta:    requestMetaFixture{Tenant: "acme"},
+				Options: retrieval.RetrieveOptions{TopK: 10},
+			},
+		)
+		if err != nil {
+			return false, err
+		}
+		if result.Executed.SideOutput != "acme" || result.Documents()[0].Content != "acme" {
+			return false, errors.New("request execution envelope was not preserved")
+		}
+		return backend.valid, nil
+	})
+}
+
 var (
-	_ dense.Index[contracttest.StructMeta]                                            = (*captureDenseIndex)(nil)
-	_ retrieval.Backend[struct{}, contracttest.StructMeta]                            = (*captureBackend)(nil)
-	_ retrieval.RequestBackend[struct{}, requestMetaFixture, contracttest.StructMeta] = (*captureRequestBackend)(nil)
-	_ ranking.QueryReranker[contracttest.StructMeta]                                  = (*captureQueryReranker)(nil)
-	_ ranking.Merger[contracttest.StructMeta]                                         = (*captureMerger)(nil)
-	_ documents.Store[contracttest.StructMeta]                                        = (*captureDocumentStore)(nil)
+	_ dense.Index[contracttest.StructMeta]                                             = (*captureDenseIndex)(nil)
+	_ retrieval.Backend[struct{}, contracttest.StructMeta]                             = (*captureBackend)(nil)
+	_ retrieval.RequestBackend[struct{}, requestMetaFixture, contracttest.StructMeta]  = (*captureRequestBackend)(nil)
+	_ retrieval.ExecutionBackend[struct{}, contracttest.StructMeta, otelExecutionMeta] = (*captureExecutionBackend)(nil)
+	_ retrieval.RequestExecutionBackend[
+		struct{},
+		requestMetaFixture,
+		contracttest.StructMeta,
+		otelExecutionMeta,
+	] = (*captureRequestExecutionBackend)(nil)
+	_ ranking.QueryReranker[contracttest.StructMeta] = (*captureQueryReranker)(nil)
+	_ ranking.Merger[contracttest.StructMeta]        = (*captureMerger)(nil)
+	_ documents.Store[contracttest.StructMeta]       = (*captureDocumentStore)(nil)
 )
