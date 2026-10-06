@@ -39,7 +39,12 @@ func TestRRFRejectsEmptyMergeKey(t *testing.T) {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
 
-	left := NewResultSet([]Document[struct{}]{{ID: "a", Content: "A", Score: 0.2}}, emptyMergeKeyResolver{})
+	left := NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.2},
+		},
+		emptyMergeKeyResolver{},
+	)
 	_, err = rrf.Merge(context.Background(), left)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Merge() error = %v, want invalid argument", err)
@@ -56,10 +61,10 @@ func TestRRFPreservesPartialFuseOnLateInvalidDoc(t *testing.T) {
 
 	resolver := mixedMergeKeyResolver{invalid: map[string]struct{}{"b": {}}}
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "A", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.9},
 	}, resolver)
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "B", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.5},
 	}, resolver)
 
 	out, err := rrf.Merge(context.Background(), left, right)
@@ -80,11 +85,11 @@ func TestRRFSortPreservesTieOrder(t *testing.T) {
 	}
 
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "B", Score: 0.5},
-		{ID: "a", Content: "A", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.5},
 	}, DocumentIDResolver[struct{}]{})
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "c", Content: "C", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "c", Content: "C", Score: 0.1},
 	}, DocumentIDResolver[struct{}]{})
 
 	out, err := rrf.Merge(context.Background(), left, right)
@@ -115,10 +120,10 @@ func TestRRFPreservesFusedDocsOnContextCancelBetweenLists(t *testing.T) {
 	}
 
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "A", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "B", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.5},
 	}, DocumentIDResolver[struct{}]{})
 
 	ctx := newCancelOnErrCallContext(2)
@@ -136,17 +141,58 @@ func TestBuildMergedDocumentsPreservesPartialOnContextCancel(t *testing.T) {
 	t.Parallel()
 
 	seen := map[string]fusedState[struct{}]{
-		"a": {doc: Document[struct{}]{ID: "a", Content: "A", Score: 0}, score: 1},
-		"b": {doc: Document[struct{}]{ID: "b", Content: "B", Score: 0}, score: 0.5},
+		"a": {
+			doc: Document[struct{}]{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     ScorePresent,
+				ID:             "a",
+				Content:        "A",
+				Score:          0,
+			},
+			score: 1,
+		},
+		"b": {
+			doc: Document[struct{}]{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     ScorePresent,
+				ID:             "b",
+				Content:        "B",
+				Score:          0,
+			},
+			score: 0.5,
+		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	out, err := buildMergedDocuments(ctx, seen, 1)
+	out, err := buildMergedDocuments(ctx, seen, 1, "rank.rrf.relative-max:k=60")
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("buildMergedDocuments() error = %v, want context canceled", err)
 	}
 	if len(out) != 1 {
 		t.Fatalf("buildMergedDocuments() = %#v, want one partial doc before cancel", out)
+	}
+}
+
+func TestRRFLargePositiveKDoesNotOverflowRankDenominator(t *testing.T) {
+	// Arrange: constructor accepts every positive int, including the largest one.
+	largest := int(^uint(0) >> 1)
+	merger, err := NewReciprocalRankFusion[struct{}](largest, DocumentIDResolver[struct{}]{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := NewResultSet(
+		[]Document[struct{}]{{ID: "a", Content: "A"}, {ID: "b", Content: "B"}},
+		DocumentIDResolver[struct{}]{},
+	)
+	// Act.
+	result, err := merger.Merge(context.Background(), set)
+	// Assert: denominator stays positive; float64 ties use the declared stable ordering.
+	if err != nil {
+		t.Fatal("positive K overflowed fusion", err)
+	}
+	docs := result.Documents()
+	if len(docs) != 2 || docs[0].ID != "a" || docs[0].Score != 1 || docs[1].Score <= 0 || docs[1].Score > 1 {
+		t.Fatal("large K corrupted normalized scores", docs)
 	}
 }

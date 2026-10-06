@@ -46,8 +46,7 @@ func syncPartialFailureResult[TMeta any](err error, rs ResultSet[TMeta]) error {
 
 // AsPartialFailure reports whether err is a PartialFailureError and returns it when true.
 func AsPartialFailure[TMeta any](err error) (*PartialFailureError[TMeta], bool) {
-	var partial *PartialFailureError[TMeta]
-	if errors.As(err, &partial) {
+	if partial, ok := errors.AsType[*PartialFailureError[TMeta]](err); ok {
 		return partial, true
 	}
 	return nil, false

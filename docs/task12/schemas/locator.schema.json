@@ -1,0 +1,456 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "location"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ragy.source-locator"
+    },
+    "location": {
+      "$ref": "#/$defs/location"
+    }
+  },
+  "$defs": {
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physical_index",
+        "printed_label",
+        "width_pt",
+        "height_pt",
+        "rotation_deg"
+      ],
+      "properties": {
+        "physical_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "printed_label": {
+          "type": "string"
+        },
+        "width_pt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "height_pt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rotation_deg": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        }
+      }
+    },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "left",
+        "top",
+        "right",
+        "bottom"
+      ],
+      "properties": {
+        "left": {
+          "type": "number",
+          "minimum": 0
+        },
+        "top": {
+          "type": "number",
+          "minimum": 0
+        },
+        "right": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "table",
+        "element",
+        "row",
+        "column",
+        "row_span",
+        "column_span"
+      ],
+      "properties": {
+        "table": {
+          "type": "string"
+        },
+        "element": {
+          "type": "string"
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "row_span": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "column_span": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "kind",
+        "span",
+        "page",
+        "region",
+        "cell"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "document",
+            "text",
+            "page",
+            "region",
+            "table_cell",
+            "image_region"
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        },
+        "page": {
+          "$ref": "#/$defs/page"
+        },
+        "region": {
+          "$ref": "#/$defs/region"
+        },
+        "cell": {
+          "$ref": "#/$defs/cell"
+        },
+        "reference": {
+          "$ref": "#/$defs/reference"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "document"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "page": {
+              "const": {
+                "physical_index": 0,
+                "printed_label": "",
+                "width_pt": 0,
+                "height_pt": 0,
+                "rotation_deg": 0
+              }
+            },
+            "region": {
+              "const": {
+                "left": 0,
+                "top": 0,
+                "right": 0,
+                "bottom": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "page": {
+              "const": {
+                "physical_index": 0,
+                "printed_label": "",
+                "width_pt": 0,
+                "height_pt": 0,
+                "rotation_deg": 0
+              }
+            },
+            "region": {
+              "const": {
+                "left": 0,
+                "top": 0,
+                "right": 0,
+                "bottom": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            },
+            "span": {
+              "properties": {
+                "end": {
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "page"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "region": {
+              "const": {
+                "left": 0,
+                "top": 0,
+                "right": 0,
+                "bottom": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            },
+            "page": {
+              "properties": {
+                "width_pt": {
+                  "exclusiveMinimum": 0
+                },
+                "height_pt": {
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "region"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            },
+            "page": {
+              "properties": {
+                "width_pt": {
+                  "exclusiveMinimum": 0
+                },
+                "height_pt": {
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "table_cell"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "region": {
+              "const": {
+                "left": 0,
+                "top": 0,
+                "right": 0,
+                "bottom": 0
+              }
+            },
+            "page": {
+              "properties": {
+                "width_pt": {
+                  "exclusiveMinimum": 0
+                },
+                "height_pt": {
+                  "exclusiveMinimum": 0
+                }
+              }
+            },
+            "cell": {
+              "properties": {
+                "table": {
+                  "minLength": 1
+                },
+                "element": {
+                  "minLength": 1
+                },
+                "row_span": {
+                  "minimum": 1
+                },
+                "column_span": {
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "image_region"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            },
+            "page": {
+              "properties": {
+                "width_pt": {
+                  "exclusiveMinimum": 0
+                },
+                "height_pt": {
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "source",
+        "revision",
+        "transformation",
+        "access_fingerprint",
+        "artifact",
+        "representation"
+      ],
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transformation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "access_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "representation": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

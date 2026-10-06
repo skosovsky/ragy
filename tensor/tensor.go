@@ -18,6 +18,7 @@ type Record[TMeta any] struct {
 	Content string
 	Meta    TMeta
 	Tensor  Tensor
+	Space   Space
 }
 
 // Validate checks record invariants.
@@ -25,10 +26,7 @@ func (r Record[TMeta]) Validate() error {
 	if r.ID == "" {
 		return fmt.Errorf("%w: tensor record id", ragy.ErrMissingID)
 	}
-	if len(r.Tensor) == 0 {
-		return fmt.Errorf("%w: tensor record", ragy.ErrEmptyVector)
-	}
-	return nil
+	return (Embedding{Space: r.Space, Tokens: r.Tensor}).Validate()
 }
 
 // Index writes tensor records.

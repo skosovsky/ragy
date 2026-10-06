@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -14,6 +15,20 @@ import (
 // RawAttributes stores scalar metadata at storage adapter boundaries.
 // It is the wire/storage codec boundary for filter IR — not a domain metadata type.
 type RawAttributes map[string]any
+
+// UnmarshalJSON preserves exact numbers until schema validation chooses their type.
+// Decoding integer identifiers through float64 can collapse distinct filter values.
+func (a *RawAttributes) UnmarshalJSON(data []byte) error {
+	type wireAttributes map[string]any
+	var decoded wireAttributes
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&decoded); err != nil {
+		return err
+	}
+	*a = RawAttributes(decoded)
+	return nil
+}
 
 // CloneRawAttributes returns a shallow copy of raw attributes.
 func CloneRawAttributes(in RawAttributes) RawAttributes {

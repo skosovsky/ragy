@@ -11,7 +11,9 @@ func TestPreserveResultOnError(t *testing.T) {
 	t.Parallel()
 
 	resolver := DocumentIDResolver[struct{}]{}
-	docs := []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}}
+	docs := []Document[struct{}]{
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "hit", Score: 1},
+	}
 
 	t.Run("nil error returns rs", func(t *testing.T) {
 		t.Parallel()
@@ -42,8 +44,7 @@ func TestPreserveResultOnError(t *testing.T) {
 		rs := NewResultSet(docs, resolver)
 		partial := &PartialFailureError[struct{}]{Errors: []error{ragy.ErrProtocol}, Result: rs}
 		out, err := PreserveResultOnError(NewResultSet[struct{}](nil, resolver), partial, resolver)
-		var got *PartialFailureError[struct{}]
-		if !errors.As(err, &got) {
+		if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 			t.Fatalf("err = %v, want PartialFailureError", err)
 		}
 		if out.Len() != 1 {
@@ -67,7 +68,9 @@ func TestSyncPartialFailureResult(t *testing.T) {
 	t.Parallel()
 
 	resolver := DocumentIDResolver[struct{}]{}
-	docs := []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}}
+	docs := []Document[struct{}]{
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "hit", Score: 1},
+	}
 	rs := NewResultSet(docs, resolver)
 
 	t.Run("plain error unchanged", func(t *testing.T) {
@@ -83,7 +86,13 @@ func TestSyncPartialFailureResult(t *testing.T) {
 		partial := &PartialFailureError[struct{}]{
 			Errors: []error{ragy.ErrProtocol},
 			Result: NewResultSet([]Document[struct{}]{
-				{ID: "old", Content: "stale", Score: 0.1},
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "old",
+					Content:        "stale",
+					Score:          0.1,
+				},
 			}, resolver),
 		}
 		updated := syncPartialFailureResult(partial, rs)

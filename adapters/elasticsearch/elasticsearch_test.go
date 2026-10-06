@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/lexical"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -46,7 +46,7 @@ func retrieveStore[TMeta any](
 	text string,
 	opts retrieval.RetrieveOptions,
 ) (retrieval.ResultSet[TMeta], error) {
-	return backend.Retrieve(ctx, retrieval.Query[struct{}]{
+	return backend.Retrieve(ctx, retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text:    text,
 		Options: opts,
 	})
@@ -508,7 +508,7 @@ func docIDs(rs retrieval.ResultSet[contracttest.StructMeta]) []string {
 
 func assertShadowRankParity(t *testing.T, bm25rs, esrs retrieval.ResultSet[contracttest.StructMeta]) {
 	t.Helper()
-	// Rank-only parity by design: ES logistic score vs BM25 ClampScore differ; document IDs and order must match.
+	// Score configurations differ; document IDs and rank order must match.
 	bm25IDs := docIDs(bm25rs)
 	esIDs := docIDs(esrs)
 	if len(bm25IDs) != len(esIDs) {
@@ -761,7 +761,7 @@ func TestElasticsearchRetrieveUsesPlannedExpandedText(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	_, err = store.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	_, err = store.Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text: "Raw!",
 		Plan: &retrieval.PlannedQuery[struct{}]{
 			ExpandedText: "Planned!",

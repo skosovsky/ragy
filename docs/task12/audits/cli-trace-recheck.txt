@@ -1,0 +1,7 @@
+--- FAIL: TestAuditFailedTraceRetainsReturnedUsageAndEvents (0.00s)
+    audit_overlay_test.go:11: returned executor evidence lost: usage=<nil> events=1
+--- FAIL: TestAuditConsumerPortDecodeRejectsDuplicateFields (0.00s)
+    audit_overlay_test.go:19: ambiguous model port accepted: {OK:false}
+FAIL
+FAIL	example.com/ragyconsumer/internal/codexcall	0.403s
+FAIL

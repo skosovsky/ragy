@@ -36,7 +36,7 @@ func TestRoutePlannerFuncReturnsTypedDecision(t *testing.T) {
 		},
 	)
 
-	decision, err := planner.PlanRoute(context.Background(), Query[routeIntent]{
+	decision, err := planner.PlanRoute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Intent: routeIntent{Mode: "run"},
 	})
 	if err != nil {
@@ -63,8 +63,28 @@ func TestPipelineBuilderInjectsResolverThroughRouteSwitch(t *testing.T) {
 	).
 		Case("run", routeCaseNode(resultAggregateNodeNoMeta[routeIntent, struct{}]{
 			Nodes: []resultNodeNoMeta[routeIntent, struct{}]{
-				routeStubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "same", Score: 0.9}}},
-				routeStubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "same", Score: 0.1}}},
+				routeStubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "a",
+							Content:        "same",
+							Score:          0.9,
+						},
+					},
+				},
+				routeStubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "b",
+							Content:        "same",
+							Score:          0.1,
+						},
+					},
+				},
 			},
 		})).
 		Build()
@@ -79,7 +99,7 @@ func TestPipelineBuilderInjectsResolverThroughRouteSwitch(t *testing.T) {
 		t.Fatalf("Build pipeline: %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{
+	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 10},
 	})

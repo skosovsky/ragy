@@ -1,0 +1,19 @@
+=== RUN   TestExternalPersistentDenseIntegerMetadataRoundTrip
+=== RUN   TestExternalPersistentDenseIntegerMetadataRoundTrip/not-equal
+    integer_storage_unix_test.go:327: integer metadata changed [-9223372036854775808 9007199254740992 9007199254740993 9223372036854775807] [-9223372036854775808 9007199254740993 9223372036854775807]
+=== RUN   TestExternalPersistentDenseIntegerMetadataRoundTrip/mandatory-adjacent-b
+    integer_storage_unix_test.go:327: integer metadata changed [] [9007199254740993]
+--- FAIL: TestExternalPersistentDenseIntegerMetadataRoundTrip (0.10s)
+    --- FAIL: TestExternalPersistentDenseIntegerMetadataRoundTrip/not-equal (0.00s)
+    --- FAIL: TestExternalPersistentDenseIntegerMetadataRoundTrip/mandatory-adjacent-b (0.00s)
+=== RUN   TestExternalPersistentTensorIntegerMetadataRoundTrip
+=== RUN   TestExternalPersistentTensorIntegerMetadataRoundTrip/not-equal
+    integer_storage_unix_test.go:327: integer metadata changed [-9223372036854775808 9007199254740992 9007199254740993 9223372036854775807] [-9223372036854775808 9007199254740993 9223372036854775807]
+=== RUN   TestExternalPersistentTensorIntegerMetadataRoundTrip/mandatory-adjacent-b
+    integer_storage_unix_test.go:327: integer metadata changed [] [9007199254740993]
+--- FAIL: TestExternalPersistentTensorIntegerMetadataRoundTrip (0.09s)
+    --- FAIL: TestExternalPersistentTensorIntegerMetadataRoundTrip/not-equal (0.00s)
+    --- FAIL: TestExternalPersistentTensorIntegerMetadataRoundTrip/mandatory-adjacent-b (0.00s)
+FAIL
+FAIL	example.com/ragyconsumer	0.599s
+FAIL

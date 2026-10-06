@@ -1,0 +1,1 @@
+ok  	example.com/ragyconsumer/recipe_comparison	0.687s

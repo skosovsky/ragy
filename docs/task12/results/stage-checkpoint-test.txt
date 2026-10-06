@@ -1,0 +1,1 @@
+ok  	github.com/skosovsky/ragy/lifecycle/integration	16.562s

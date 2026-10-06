@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -20,7 +20,7 @@ func retrieveBM25[TMeta any](
 	text string,
 	opts retrieval.RetrieveOptions,
 ) (retrieval.ResultSet[TMeta], error) {
-	return idx.Retrieve(ctx, retrieval.Query[struct{}]{Text: text, Options: opts})
+	return idx.Retrieve(ctx, retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(), Text: text, Options: opts})
 }
 
 func TestBM25RetrieveRace(t *testing.T) {
@@ -94,7 +94,7 @@ func TestBM25RetrieveUsesPlannedExpandedText(t *testing.T) {
 		t.Fatalf("Upsert(): %v", upsertErr)
 	}
 
-	rs, err := idx.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	rs, err := idx.Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text: "missing",
 		Plan: &retrieval.PlannedQuery[struct{}]{
 			ExpandedText: "expanded",
@@ -134,7 +134,7 @@ func TestBM25RetrieveMarksRankedDocsScorePresent(t *testing.T) {
 		t.Fatalf("Upsert(): %v", upsertErr)
 	}
 
-	rs, err := idx.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	rs, err := idx.Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text:    "alpha",
 		Options: retrieval.RetrieveOptions{TopK: 1},
 	})
@@ -609,7 +609,7 @@ func TestBM25UpsertRejectsEncodeFailure(t *testing.T) {
 		t.Fatalf("NewBM25Index(): %v", err)
 	}
 
-	doc := retrieval.Document[wrongTenantMeta]{
+	doc := retrieval.Document[wrongTenantMeta]{ScoreSemantics: "fixture-similarity", ScoreState: retrieval.ScorePresent,
 		ID:      "doc-1",
 		Content: "hello",
 		Score:   1,

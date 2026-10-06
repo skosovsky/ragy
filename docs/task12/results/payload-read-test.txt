@@ -1,0 +1,74 @@
+=== RUN   TestQueryPayloadRejectsInvalidInputBeforeHostIO
+=== RUN   TestQueryPayloadRejectsInvalidInputBeforeHostIO/reference
+=== RUN   TestQueryPayloadRejectsInvalidInputBeforeHostIO/path
+=== RUN   TestQueryPayloadRejectsInvalidInputBeforeHostIO/zero
+=== RUN   TestQueryPayloadRejectsInvalidInputBeforeHostIO/negative
+=== RUN   TestQueryPayloadRejectsInvalidInputBeforeHostIO/overflow
+=== RUN   TestQueryPayloadRejectsInvalidInputBeforeHostIO/typed-nil
+=== RUN   TestQueryPayloadRejectsInvalidInputBeforeHostIO/canceled
+--- PASS: TestQueryPayloadRejectsInvalidInputBeforeHostIO (0.00s)
+    --- PASS: TestQueryPayloadRejectsInvalidInputBeforeHostIO/reference (0.00s)
+    --- PASS: TestQueryPayloadRejectsInvalidInputBeforeHostIO/path (0.00s)
+    --- PASS: TestQueryPayloadRejectsInvalidInputBeforeHostIO/zero (0.00s)
+    --- PASS: TestQueryPayloadRejectsInvalidInputBeforeHostIO/negative (0.00s)
+    --- PASS: TestQueryPayloadRejectsInvalidInputBeforeHostIO/overflow (0.00s)
+    --- PASS: TestQueryPayloadRejectsInvalidInputBeforeHostIO/typed-nil (0.00s)
+    --- PASS: TestQueryPayloadRejectsInvalidInputBeforeHostIO/canceled (0.00s)
+=== RUN   TestQueryPayloadHostBoundary
+=== RUN   TestQueryPayloadHostBoundary/bounded
+=== RUN   TestQueryPayloadHostBoundary/oversized
+=== RUN   TestQueryPayloadHostBoundary/error
+=== RUN   TestQueryPayloadHostBoundary/canceled-during
+--- PASS: TestQueryPayloadHostBoundary (0.00s)
+    --- PASS: TestQueryPayloadHostBoundary/bounded (0.00s)
+    --- PASS: TestQueryPayloadHostBoundary/oversized (0.00s)
+    --- PASS: TestQueryPayloadHostBoundary/error (0.00s)
+    --- PASS: TestQueryPayloadHostBoundary/canceled-during (0.00s)
+=== RUN   TestQueryPayloadDefaultReadsActualBoundedFile
+--- PASS: TestQueryPayloadDefaultReadsActualBoundedFile (0.00s)
+=== RUN   TestQueryPayloadErrorsPreserveContractsAndRedactStorage
+--- PASS: TestQueryPayloadErrorsPreserveContractsAndRedactStorage (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/internal/durablefs	1.195s
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/valid
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/digest
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/oversized
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/canceled
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/deadline
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/storage-error
+--- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry (1.54s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/valid (0.25s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/digest (0.26s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/oversized (0.30s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/canceled (0.28s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/deadline (0.22s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/storage-error (0.23s)
+=== RUN   TestPersistentConfigRejectsTypedNilPayloadPort
+--- PASS: TestPersistentConfigRejectsTypedNilPayloadPort (0.01s)
+=== RUN   TestPersistentDensePrivatePayloadNeverLoaded
+--- PASS: TestPersistentDensePrivatePayloadNeverLoaded (0.23s)
+=== RUN   TestPersistentDenseScanLimitBeforePayloadCallbacks
+--- PASS: TestPersistentDenseScanLimitBeforePayloadCallbacks (0.16s)
+PASS
+ok  	github.com/skosovsky/ragy/dense/persistent	3.127s
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/valid
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/digest
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/oversized
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/canceled
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/deadline
+=== RUN   TestPersistentQueryHostPayloadPortChecksAndNoRetry/storage-error
+--- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry (1.52s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/valid (0.24s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/digest (0.25s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/oversized (0.35s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/canceled (0.26s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/deadline (0.22s)
+    --- PASS: TestPersistentQueryHostPayloadPortChecksAndNoRetry/storage-error (0.20s)
+=== RUN   TestPersistentConfigRejectsTypedNilPayloadPort
+--- PASS: TestPersistentConfigRejectsTypedNilPayloadPort (0.00s)
+=== RUN   TestPersistentQueryFiltersBeforePrivatePayloadRead
+--- PASS: TestPersistentQueryFiltersBeforePrivatePayloadRead (0.24s)
+PASS
+ok  	github.com/skosovsky/ragy/tensor/persistent	2.971s

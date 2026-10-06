@@ -1,0 +1,5 @@
+{
+  "schema": "ragy.read-coverage/admission",
+  "state": "partial",
+  "skipped_branches": ["optional-graph"]
+}

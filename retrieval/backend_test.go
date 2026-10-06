@@ -24,7 +24,7 @@ func TestProjectedBackendPreservesPlannedQueryWhenProjectorOmitsPlan(t *testing.
 	backend := ProjectedBackend[intentWithMode, NoRequestMeta, struct{}, NoRequestMeta, struct{}]{
 		Next: next,
 		Project: func(req Query[intentWithMode]) Query[struct{}] {
-			return Query[struct{}]{
+			return Query[struct{}]{Read: UnrestrictedRead(),
 				Text:    req.Text,
 				Intent:  struct{}{},
 				Options: req.Options,
@@ -32,7 +32,7 @@ func TestProjectedBackendPreservesPlannedQueryWhenProjectorOmitsPlan(t *testing.
 		},
 	}
 
-	_, err := backend.Retrieve(context.Background(), Query[intentWithMode]{
+	_, err := backend.Retrieve(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text: "raw",
 		Plan: &PlannedQuery[intentWithMode]{
 			Text:         "normalized",

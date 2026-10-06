@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -87,12 +87,36 @@ func TestRRFMergeNormalizesScore(t *testing.T) {
 
 	out, err := mergeDocLists(context.Background(), merger,
 		[]retrieval.Document[contracttest.StructMeta]{
-			{ID: "a", Content: "A", Score: 0.1},
-			{ID: "b", Content: "B", Score: 0.1},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "a",
+				Content:        "A",
+				Score:          0.1,
+			},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "b",
+				Content:        "B",
+				Score:          0.1,
+			},
 		},
 		[]retrieval.Document[contracttest.StructMeta]{
-			{ID: "b", Content: "B", Score: 0.1},
-			{ID: "a", Content: "A", Score: 0.1},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "b",
+				Content:        "B",
+				Score:          0.1,
+			},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "a",
+				Content:        "A",
+				Score:          0.1,
+			},
 		},
 	)
 	if err != nil {
@@ -255,10 +279,24 @@ func TestRRFMergeUsesMergeKey(t *testing.T) {
 
 	out, err := mergeDocLists(context.Background(), merger,
 		[]retrieval.Document[contracttest.StructMeta]{
-			{ID: "a", Content: "A", Score: 0.1, Meta: contracttest.StructMeta{Tenant: "acme"}},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "a",
+				Content:        "A",
+				Score:          0.1,
+				Meta:           contracttest.StructMeta{Tenant: "acme"},
+			},
 		},
 		[]retrieval.Document[contracttest.StructMeta]{
-			{ID: "b", Content: "A", Score: 0.1, Meta: contracttest.StructMeta{Tenant: "acme"}},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "b",
+				Content:        "A",
+				Score:          0.1,
+				Meta:           contracttest.StructMeta{Tenant: "acme"},
+			},
 		},
 	)
 	if err != nil {

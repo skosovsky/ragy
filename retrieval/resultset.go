@@ -7,7 +7,9 @@ import (
 	ragy "github.com/skosovsky/ragy"
 )
 
-// ResultSet is an immutable ranked document batch with merge semantics.
+// ResultSet owns ranked documents and ragy-defined slices with merge semantics.
+// Arbitrary BYOT metadata is host-owned; consumers must clone mutable metadata
+// before sharing or concurrently mutating it.
 type ResultSet[TMeta any] interface {
 	Documents() []Document[TMeta]
 	Merge(other ResultSet[TMeta]) (ResultSet[TMeta], error)
@@ -57,7 +59,8 @@ func RewrapResultSet[TMeta any](rs ResultSet[TMeta], resolver IdentityResolver[T
 	return NewResultSet(rs.Documents(), resolver)
 }
 
-// Documents returns a defensive copy of ranked documents.
+// Documents copies ranked documents and ragy-owned slices. BYOT metadata keeps
+// its host-defined ownership; this method does not deep-clone domain values.
 func (r sliceResultSet[TMeta]) Documents() []Document[TMeta] {
 	return copyDocuments(r.docs)
 }
@@ -76,13 +79,6 @@ func (r sliceResultSet[TMeta]) IsEmpty() bool {
 // When scores tie, the first seen document wins (not newest-by-timestamp).
 // Returns ErrInvalidArgument when a custom resolver returns an empty MergeKey.
 func (r sliceResultSet[TMeta]) Merge(other ResultSet[TMeta]) (ResultSet[TMeta], error) {
-	if other == nil || other.IsEmpty() {
-		return NewResultSet(r.docs, r.resolver), nil
-	}
-	if r.IsEmpty() {
-		return NewResultSet(other.Documents(), r.resolver), nil
-	}
-
 	byKey := make(map[string]Document[TMeta], len(r.docs)+other.Len())
 	for _, doc := range r.docs {
 		if err := ValidateDocument(doc); err != nil {
@@ -91,6 +87,12 @@ func (r sliceResultSet[TMeta]) Merge(other ResultSet[TMeta]) (ResultSet[TMeta], 
 		key := r.resolver.Resolve(doc).MergeKey
 		if err := validateMergeKey(key, doc.ID); err != nil {
 			return resultSetFromByKey(byKey, r.resolver), err
+		}
+		for _, reference := range byKey {
+			if err := validateComparable([]Document[TMeta]{reference, doc}); err != nil {
+				return resultSetFromByKey(byKey, r.resolver), err
+			}
+			break
 		}
 		keepWinner(byKey, key, doc)
 	}
@@ -101,6 +103,12 @@ func (r sliceResultSet[TMeta]) Merge(other ResultSet[TMeta]) (ResultSet[TMeta], 
 		key := r.resolver.Resolve(doc).MergeKey
 		if err := validateMergeKey(key, doc.ID); err != nil {
 			return resultSetFromByKey(byKey, r.resolver), err
+		}
+		for _, reference := range byKey {
+			if err := validateComparable([]Document[TMeta]{reference, doc}); err != nil {
+				return resultSetFromByKey(byKey, r.resolver), err
+			}
+			break
 		}
 		keepWinner(byKey, key, doc)
 	}
@@ -123,6 +131,12 @@ func (r sliceResultSet[TMeta]) Dedup() (ResultSet[TMeta], error) {
 		key := r.resolver.Resolve(doc).MergeKey
 		if err := validateMergeKey(key, doc.ID); err != nil {
 			return resultSetFromByKey(byKey, r.resolver), err
+		}
+		for _, reference := range byKey {
+			if err := validateComparable([]Document[TMeta]{reference, doc}); err != nil {
+				return resultSetFromByKey(byKey, r.resolver), err
+			}
+			break
 		}
 		keepWinner(byKey, key, doc)
 	}
@@ -166,8 +180,18 @@ func validateMergeKey(key, docID string) error {
 
 func keepWinner[TMeta any](byKey map[string]Document[TMeta], key string, doc Document[TMeta]) {
 	current, ok := byKey[key]
-	if !ok || rankedDocumentLess(doc, current) {
+	if !ok {
 		byKey[key] = doc
+		return
+	}
+	if rankedDocumentLess(doc, current) {
+		doc.SourceSupports = combineLocatorSupports(doc.SourceLocations(), current.SourceLocations())
+		doc.ScoreHistory = append(append([]ScoreObservation(nil), doc.ScoreHistory...), current.ObservedScores()...)
+		byKey[key] = doc
+	} else {
+		current.SourceSupports = combineLocatorSupports(current.SourceLocations(), doc.SourceLocations())
+		current.ScoreHistory = append(append([]ScoreObservation(nil), current.ScoreHistory...), doc.ObservedScores()...)
+		byKey[key] = current
 	}
 }
 
@@ -196,5 +220,10 @@ func copyDocuments[TMeta any](docs []Document[TMeta]) []Document[TMeta] {
 	if len(docs) == 0 {
 		return nil
 	}
-	return append([]Document[TMeta](nil), docs...)
+	out := append([]Document[TMeta](nil), docs...)
+	for i := range out {
+		out[i].SourceSupports = append(out[i].SourceSupports[:0:0], out[i].SourceSupports...)
+		out[i].ScoreHistory = append([]ScoreObservation(nil), out[i].ScoreHistory...)
+	}
+	return out
 }

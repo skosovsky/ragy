@@ -1,0 +1,44 @@
+# Independent correctness audit: task12 CLI consumer profile
+
+Дата: 2026-10-06. Аудитор: отдельный correctness subagent. Изменения реализации, production tests, prompts, release и issue closure не выполнялись. Проверены task12 §7.1, фактический ответ автора issuecomment-6011559475, previous independent correctness reports, CLI binding и text/graph consumers. Paid/model calls аудитор не выполнял.
+
+## Подтверждённые находки
+
+**CLI-01, P2 — потеря возвращённой usage/evidence на failed trace.** Исходный snapshot `internal/codexcall/call.go` SHA256 `4667d041371c99a3bfe0149c0565841b70ca961a1bb31718966ea822e02a6edd`: строки155–168 возвращают ошибку до разбора хвоста; строка163 заменяет предыдущую Usage. Independent reproduction: error, затем actual agent_message и turn.completed(input5327/output22). Результат ошибочный и должен оставаться ошибочным, однако Usage=nil и Events=1 скрывают уже полученную usage. Поздняя tool activity также пропускается. При двух settlements сохранение только последнего недостоверно. Требуемое исправление: сохранить весь доступный trace, все возвращённые settlements и наблюдаемые tools, оставить failed execution; неизвестные внутренние retries/dispatches по-прежнему неизвестны. Не считать failed-call usage нулём. Лог первоначальных ожидаемых FAIL: `cli-trace-recheck.txt`.
+
+**CLI-02, P2 — неоднозначный model-port JSON принимается.** Тот же snapshot, `call.go:187–196`: DisallowUnknownFields не запрещает duplicate object keys. Decode({"ok":true,"ok":false}) возвращает nil и последнее значение. Повтор может менять sufficient/selected/queries и обязательные extraction/summary поля; nested/escaped duplicate требуют того же отказа. Два consumer main.go decodeStrict используют такой же подход, хотя CLI model outputs проходят shared Decode. Требуемое исправление: рекурсивно reject duplicate JSON keys до typed decode, сохранив unknown/trailing-field rejection. Независимый исходник8adversarial cases +actual-trace replay: `repro_cli_trace_test.go.txt`; overlay хранится `/tmp/ragy-audit-codex-overlay.json`.
+
+**Окончательный статус: обе находки устранены в проверенном current snapshot.** Independent8adversarial-cases race recheck PASS, лог `cli-trace-fixed-recheck.txt`, сохранённый источник `repro_cli_trace_test.go.txt`. CLI-01 дополнительно проверена на total overflow и malformed settlement перед valid tail: unavailable теперь sticky, valid settlements/raw trace сохраняются. CLI-02 дополнительно проверена на Unicode SimpleFold alias sufficient/\u017Fufficient: canonical fold cycle отвергает алиас, а рекурсивный duplicate/escaped duplicate rejection сохраняется. До финального исправления обе дополнительные ветки действительно воспроизводились; предыдущие FAIL не означают current regression.
+
+Current examined SHA256: `call.go=f5071e7b236a25b1ebf65ea9f64a4bb1ac88269f19f52e66514d5da6088e124b`, `json.go=4171941f8f92d6ec396f0dfc1c33f4805013b7223610bcf927dd90a8d14b5c3d`.
+
+ Это consumer correctness findings; ими не оправдывается изменение core budget или добавление executor infrastructure в ragy.
+
+## Реальные artifacts и сохранённые inputs
+
+Независимое сопоставление captures с returned turn.completed events и aggregate counters выполнено сохранённым `check_cli_capture_consistency.py` без model calls; лог `cli-capture-consistency.txt`:
+
+- `text-cli-live-capture.json`: 20rows, 30actual CLI receipts (original retained run), SHA256 `f051515f578f3bc09ae4880ec78b628f839c6e917c2392cec7c44dcbd85584c5`.
+- `graph-cli-live-capture.json`: 6query rows, 4query CLI receipts +4preparation extraction receipts, SHA256 `92806edfa9ae54c5b1cd22aa917577e17abb5658adf56cf911f0645b7245962d`.
+
+Query aggregate input/output равны сумме соответствующих returned usage, model_calls совпадает с receipt count. Все actual receipts содержат одну settlement, exit0, no timeout и no observed tools; на этих реальных успешных traces CLI-01 не проявился. Preparation extraction отделена от query-time consumption. Captures сохраняют исходные port inputs, schemas, instructions, JSON events/output. Qrels/ожидаемые ответы в examined model-port inputs не передаются. Полный reported input сохраняется, cached input/system context не вычитаются. Provider price явно unavailable и usage_known=false для model stages; нулевые ledger cost units не заявлены реальной бесплатностью.
+
+Повторные captures v2 сохранены отдельно и не слиты с первыми: graph6rows/8receipts SHA256 `4bc209ecc67c9e0c944af33fbdabf912c2c5b6291c797554ab5ce2e99256543a`, text20rows/30receipts SHA256 `d1597fe64bcae2515794119e52c7fe597933c433f7f4940a284156e5ec59e276`. Каждый v2 receipt содержит raw Trace/Diagnostics/returned_settlements. Все4captures прошли independent aggregate consistency. Current parser/UniqueJSON независимо повторно принял все76actual model traces/output JSON с неизменной returned usage/output; для v2 использован сохранённый exact Trace, для первого run events compacted обратно в JSONL.
+
+Исполнительница явно указала, что v2 был compiled до окончательных sticky/Unicode failure-path fixes. Отчёт не подменяет исходные executable/source identities current hashes и не выдаёт v2 за выполнение нового binary. Bridging evidence — независимый replay actual valid traces на current parser плюс adversarial regression checks changed failed paths. Новые paid runs только ради этих отказных веток аудитор не требовал. Global graphv2 map/reduce positive claims и community failed abstention совпадают по смыслу с первым run.
+
+Fixed calibrated profile/hash и generation parameters/instruction prefix сохранены. CLI-run воспроизводит процедуру и retained inputs, не обещает побитовой модели. Ограничения advisory token bounds, unknown provider dispatch/retries и unverified additional context/tools явно отражены в profile/report/README и соответствуют §7.1. Изоляция и hard total token bound не подтверждены. Direct subprocess deadline не доказывает отмену уже отправленного provider request; README прямо ограничивает эту гарантию. Нет оснований расширять библиотеку executor-specific infrastructure для этих непроверенных свойств.
+
+## Независимая сверка graph rubric
+
+Сверены fixture sources, saved community/map/reduce inputs/outputs и `graph-cli-summary-review.md`. Global positives корректны: Billing/Pay → LedgerDB, Team A поддерживается s1; Search → IndexDB, Team B поддерживается s4. s2 повторно подтверждает dependency и не выбран; source recall2/3 не равен фактической неполноте двух запрошенных dependency facts. Staging Billing/Team B из s3 не смешан с prod Billing/Team A. Локальные absence statements остаются ограничены supplied snippets; reduce не превращает их в глобальный факт отсутствия.
+
+Community question C1 не получает C1→content association в model inputs. Модель выдаёт nonempty abstention с selected=[], core validation отвергает ответ, capture outcome=failed/supports=null. Это documented quality failure/omission, не successful supported summary. Негативный фиксированный результат допустим §7.1 и не является доказательством общего abstention API. Ручная таблица grounded в actual sources, не model self-evaluation. Unsupported/contradicted positive claims в этих конкретных outputs не подтверждены; это не general quality certification.
+
+## Core и targeted regression checks
+
+После CLI delta независимо повторены race targets для BUG-001 exact integer codec/tenant scope, BUG-002 failed/atomic/concurrent BM25 rebuild, readonly snapshot ownership/freshness и CLI/text/graph configuration/usage/summary tests. Обе команды terminal exit0, логи `cli-core-recheck.txt` и `cli-consumer-targeted.txt`. Ранее проверенные finite BM25, exact dense/tensor cleanup inventory, actual joint publication/recorder association, PDF durable lifecycle остаются в состоянии previous independent rechecks; CLI delta их не заменяет. Это targeted affected-state checks, не повтор всего проекта.
+
+## Ограничения и вывод
+
+Текущий CLI profile допустим как отдельно оговорённое advisory experiment. Независимый аудит обнаружил2consumer defects; оба исправления подтверждены воспроизведениями, остаточных подтверждённых неисправленных defects в проверенной области нет; отсутствие остальных находок не означает отсутствие ошибок. Current full make lint/test после Unicode canonical-fold исправления завершены terminal exit0 (parent сообщил closed sessions63973/25997). Аудитор прочитал соответствующие `results/cli-final-lint.txt` и `cli-final-test.txt`; sources после запуска не менялись, дальнейшие правки только documentation/matrix. Это дополняет independent targeted/reproduction evidence, не заменяет его. Не проверены реальные production remote storage, hardware crash/power-loss, произвольные host callbacks и полностью скрытый provider execution/context. Actual usage/quality проверяется по retained observations; независимого provider billing/tokenizer proof нет. Процент полноты и закрытие полного task12 данным отчётом не утверждаются.

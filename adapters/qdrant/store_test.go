@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -22,7 +22,7 @@ func retrieveStore[TMeta any](
 	text string,
 	opts retrieval.RetrieveOptions,
 ) (retrieval.ResultSet[TMeta], error) {
-	return store.Retrieve(ctx, retrieval.Query[struct{}]{Text: text, Options: opts})
+	return store.Retrieve(ctx, retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(), Text: text, Options: opts})
 }
 
 type fakeClient struct {
@@ -605,10 +605,12 @@ func newDocumentsClient(docs []retrieval.Document[contracttest.StructMeta]) *doc
 	out := make(map[string]retrieval.Document[contracttest.StructMeta], len(docs))
 	for _, doc := range docs {
 		out[doc.ID] = retrieval.Document[contracttest.StructMeta]{
-			ID:      doc.ID,
-			Content: doc.Content,
-			Meta:    doc.Meta,
-			Score:   doc.Score,
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     retrieval.ScorePresent,
+			ID:             doc.ID,
+			Content:        doc.Content,
+			Meta:           doc.Meta,
+			Score:          doc.Score,
 		}
 	}
 	return &documentsClient{docs: out}
@@ -674,7 +676,7 @@ func (c *documentsClient) DeleteByFilter(_ context.Context, _ string, cond Condi
 func TestDocumentsStoreConformance(t *testing.T) {
 	contracttest.RunDocumentsStructStoreSuite(
 		t,
-		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) documents.Store[contracttest.StructMeta] {
+		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) documents.RawStore[contracttest.StructMeta] {
 			t.Helper()
 			builder := filter.NewSchema()
 			if _, err := builder.String("tenant"); err != nil {
@@ -698,7 +700,7 @@ func TestDocumentsStoreConformance(t *testing.T) {
 }
 
 func TestDocumentsPartialFindByIDsConformance(t *testing.T) {
-	contracttest.RunDocumentsPartialFindByIDsSuite(t, func(t *testing.T) documents.Store[contracttest.StructMeta] {
+	contracttest.RunDocumentsPartialFindByIDsSuite(t, func(t *testing.T) documents.RawStore[contracttest.StructMeta] {
 		t.Helper()
 
 		client := &fakeClient{

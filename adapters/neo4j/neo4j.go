@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/skosovsky/ragy/access"
+
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
@@ -59,6 +61,12 @@ func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
 	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	if err := req.Read.Check(ctx); err != nil {
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
+	}
+	if req.Read.IsScoped() || !req.Read.Publication().IsCurrent() {
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), access.Protect(ragy.ErrUnsupported)
+	}
 	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err

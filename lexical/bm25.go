@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/skosovsky/ragy/access"
+
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
@@ -20,6 +22,7 @@ const defaultBM25B = 0.75
 const bm25IDFSmoothing = 0.5
 
 // Config configures in-memory BM25 indexing and retrieval.
+// Zero K1/B select defaults; explicit values require finite K1 > 0 and B in (0,1].
 type Config[TMeta any] struct {
 	SearchFields []string
 	K1           float64
@@ -31,18 +34,19 @@ type Config[TMeta any] struct {
 
 // BM25Index is a thread-safe in-memory BM25 lexical index.
 type BM25Index[TMeta any] struct {
-	mu         sync.RWMutex
-	schema     filter.Schema
-	config     Config[TMeta]
-	tokenizer  Tokenizer
-	synonyms   SynonymMap
-	resolver   retrieval.IdentityResolver[TMeta]
-	codec      retrieval.MetadataCodec[TMeta]
-	docs       map[string]retrieval.Document[TMeta]
-	docLengths map[string]int
-	avgLength  float64
-	postings   map[string]map[string]int
-	docCount   int
+	mu                      sync.RWMutex
+	snapshotReadFingerprint string
+	schema                  filter.Schema
+	config                  Config[TMeta]
+	tokenizer               Tokenizer
+	synonyms                SynonymMap
+	resolver                retrieval.IdentityResolver[TMeta]
+	codec                   retrieval.MetadataCodec[TMeta]
+	docs                    map[string]retrieval.Document[TMeta]
+	docLengths              map[string]int
+	avgLength               float64
+	postings                map[string]map[string]int
+	docCount                int
 }
 
 // NewBM25Index constructs an empty BM25 index.
@@ -64,12 +68,16 @@ func NewBM25Index[TMeta any](
 	if tokenizer == nil {
 		tokenizer = DefaultTokenizer{}
 	}
+	if math.IsNaN(config.K1) || math.IsInf(config.K1, 0) || config.K1 < 0 ||
+		math.IsNaN(config.B) || math.IsInf(config.B, 0) || config.B < 0 || config.B > 1 {
+		return nil, fmt.Errorf("%w: BM25 requires finite K1 >= 0 and B in [0,1]", ragy.ErrInvalidArgument)
+	}
 	k1 := config.K1
-	if k1 <= 0 {
+	if k1 == 0 {
 		k1 = defaultBM25K1
 	}
 	b := config.B
-	if b <= 0 {
+	if b == 0 {
 		b = defaultBM25B
 	}
 	config.K1 = k1
@@ -80,37 +88,51 @@ func NewBM25Index[TMeta any](
 	}
 
 	return &BM25Index[TMeta]{
-		schema:     schema,
-		config:     config,
-		tokenizer:  tokenizer,
-		synonyms:   synonyms,
-		resolver:   retrieval.DefaultResolver(config.Resolver),
-		codec:      codec,
-		docs:       make(map[string]retrieval.Document[TMeta]),
-		docLengths: make(map[string]int),
-		postings:   make(map[string]map[string]int),
+		snapshotReadFingerprint: "",
+		schema:                  schema,
+		config:                  config,
+		tokenizer:               tokenizer,
+		synonyms:                synonyms,
+		resolver:                retrieval.DefaultResolver(config.Resolver),
+		codec:                   codec,
+		docs:                    make(map[string]retrieval.Document[TMeta]),
+		docLengths:              make(map[string]int),
+		postings:                make(map[string]map[string]int),
 	}, nil
 }
 
-// Index replaces all documents in the index.
+// Index replaces all documents atomically. A failed rebuild preserves the old index.
+// Rebuilds and Upsert are serialized; readers see a complete published snapshot.
 func (idx *BM25Index[TMeta]) Index(docs []retrieval.Document[TMeta]) error {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
-	idx.docs = make(map[string]retrieval.Document[TMeta], len(docs))
-	idx.docLengths = make(map[string]int, len(docs))
-	idx.postings = make(map[string]map[string]int)
-	idx.docCount = 0
-	idx.avgLength = 0
+	staged := &BM25Index[TMeta]{
+		snapshotReadFingerprint: idx.snapshotReadFingerprint,
+		schema:                  idx.schema,
+		config:                  idx.config,
+		tokenizer:               idx.tokenizer,
+		synonyms:                idx.synonyms,
+		resolver:                idx.resolver,
+		codec:                   idx.codec,
+		docs:                    make(map[string]retrieval.Document[TMeta], len(docs)),
+		docLengths:              make(map[string]int, len(docs)),
+		postings:                make(map[string]map[string]int),
+	}
 
 	for _, doc := range docs {
 		if err := retrieval.ValidateDocument(doc); err != nil {
 			return ragy.WrapProjectionError(err, "bm25 index validate")
 		}
-		if err := idx.upsertLocked(doc); err != nil {
+		if err := staged.upsertLocked(doc); err != nil {
 			return err
 		}
 	}
+	idx.docs = staged.docs
+	idx.docLengths = staged.docLengths
+	idx.postings = staged.postings
+	idx.docCount = staged.docCount
+	idx.avgLength = staged.avgLength
 	return nil
 }
 
@@ -137,6 +159,8 @@ func (idx *BM25Index[TMeta]) upsertLocked(doc retrieval.Document[TMeta]) error {
 			return err
 		}
 	}
+	doc.SourceSupports = append(doc.SourceSupports[:0:0], doc.SourceSupports...)
+	doc.ScoreHistory = append(doc.ScoreHistory[:0:0], doc.ScoreHistory...)
 	idx.docs[doc.ID] = doc
 	idx.docLengths[doc.ID] = length
 	idx.docCount++
@@ -190,7 +214,7 @@ func (idx *BM25Index[TMeta]) documentTokens(doc retrieval.Document[TMeta]) ([]st
 			value string
 			err   error
 		)
-		if field == "content" {
+		if field == contentSearchField {
 			value = doc.Content
 		} else {
 			value, err = idx.fieldValue(doc, field)
@@ -270,7 +294,32 @@ func (idx *BM25Index[TMeta]) Retrieve(
 	ctx context.Context,
 	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	rs, err := idx.retrieve(ctx, req)
+	return retrieval.DeliverRead(ctx, req.Read, rs, err, idx.resolver)
+}
+
+func (idx *BM25Index[TMeta]) retrieve(
+	ctx context.Context,
+	req retrieval.Query[struct{}],
+) (retrieval.ResultSet[TMeta], error) {
+	if idx.snapshotReadFingerprint != "" {
+		if err := req.Read.Check(ctx); err != nil {
+			return retrieval.NewResultSet[TMeta](nil, idx.resolver), err
+		}
+		fingerprint, err := req.Read.Fingerprint()
+		if err != nil {
+			return retrieval.NewResultSet[TMeta](nil, idx.resolver), err
+		}
+		if fingerprint != idx.snapshotReadFingerprint {
+			return retrieval.NewResultSet[TMeta](nil, idx.resolver), access.Protect(ragy.ErrUnavailable)
+		}
+	}
 	query := req.EffectiveText()
+	prepared, readErr := retrieval.PrepareRead(ctx, req, idx)
+	if readErr != nil {
+		return retrieval.NewResultSet[TMeta](nil, idx.resolver), readErr
+	}
+	req = prepared
 	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), err
@@ -297,6 +346,12 @@ func (idx *BM25Index[TMeta]) Retrieve(
 	}
 
 	scores := idx.scoreQuery(snapshot, queryTokens)
+	for _, score := range scores {
+		if math.IsNaN(score) || math.IsInf(score, 0) {
+			return retrieval.NewResultSet[TMeta](nil, idx.resolver),
+				fmt.Errorf("%w: non-finite BM25 score", ragy.ErrProtocol)
+		}
+	}
 	if len(scores) == 0 {
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), nil
 	}
@@ -377,12 +432,8 @@ func (idx *BM25Index[TMeta]) rankScoredDocs(
 	sort.Strings(docIDs)
 
 	ranked := make([]scored, 0, len(docIDs))
-	maxScore := 0.0
 	for _, id := range docIDs {
 		score := scores[id]
-		if score > maxScore {
-			maxScore = score
-		}
 		ranked = append(ranked, scored{id: id, score: score})
 	}
 	sort.SliceStable(ranked, func(i, j int) bool {
@@ -399,10 +450,11 @@ func (idx *BM25Index[TMeta]) rankScoredDocs(
 	docs := make([]retrieval.Document[TMeta], 0, limit)
 	for _, item := range ranked[:limit] {
 		doc := snapshot.docs[item.id]
-		if maxScore > 0 {
-			doc.Score = ragy.ClampScore(item.score / maxScore)
-			doc.ScoreState = retrieval.ScorePresent
-		}
+		doc.Score = item.score
+		doc.ScoreState = retrieval.ScorePresent
+		doc.ScoreSemantics = retrieval.ScoreSemantics(
+			fmt.Sprintf("lexical.bm25:k1=%g,b=%g", idx.config.K1, idx.config.B),
+		)
 		doc.Rank = len(docs) + 1
 		docs = append(docs, doc)
 	}
@@ -446,3 +498,22 @@ func (idx *BM25Index[TMeta]) Schema() filter.Schema {
 func (idx *BM25Index[TMeta]) LexicalBackend() {}
 
 var _ Backend[any] = (*BM25Index[any])(nil)
+
+// ReadCapabilities declares pre-delivery scalar mandatory-filter enforcement.
+// Managed pinned publication requires the lifecycle-aware adapter path.
+func (idx *BM25Index[TMeta]) ReadCapabilities() access.Capabilities {
+	return access.Capabilities{
+		RequirePinnedPublication: idx.snapshotReadFingerprint != "",
+		ScopeProfile:             true,
+		PinnedPublication:        idx.snapshotReadFingerprint != "",
+	}
+}
+
+// AdmitPublication permits partial pins only for an already captured readonly corpus.
+// Retrieve independently requires the complete original binding fingerprint.
+func (idx *BM25Index[TMeta]) AdmitPublication(_ access.Publication) error {
+	if idx == nil || idx.snapshotReadFingerprint == "" {
+		return access.UnsupportedCapability(ragy.ErrUnsupported)
+	}
+	return nil
+}

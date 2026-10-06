@@ -20,10 +20,10 @@ func TestScoreMergerMergeKeepsMaxScorePerMergeKey(t *testing.T) {
 	resolver := sharedKeyResolver{}
 	merger := NewScoreMerger[struct{}](resolver)
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "key", Score: 0.4},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "key", Score: 0.4},
 	}, resolver)
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "key", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "key", Score: 0.9},
 	}, resolver)
 
 	out, err := merger.Merge(context.Background(), left, right)
@@ -43,10 +43,10 @@ func TestScoreMergerPreservesPartialMergeOnInvalidKey(t *testing.T) {
 
 	merger := NewScoreMerger[struct{}](mixedMergeKeyResolver{invalid: map[string]struct{}{"b": {}}})
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "A", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.9},
 	}, mixedMergeKeyResolver{invalid: map[string]struct{}{"b": {}}})
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "B", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.5},
 	}, mixedMergeKeyResolver{invalid: map[string]struct{}{"b": {}}})
 
 	out, err := merger.Merge(context.Background(), left, right)
@@ -63,10 +63,10 @@ func TestScoreMergerRejectsInvalidDocument(t *testing.T) {
 
 	merger := NewScoreMerger[struct{}](DocumentIDResolver[struct{}]{})
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "A", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "B", Score: 1.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScoreNormalized, ID: "b", Content: "B", Score: 1.5},
 	}, DocumentIDResolver[struct{}]{})
 
 	out, err := merger.Merge(context.Background(), left, right)

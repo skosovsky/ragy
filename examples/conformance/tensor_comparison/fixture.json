@@ -1,0 +1,10 @@
+{
+ "description":"Synthetic saved normalized embeddings; no live model or production quality claim",
+ "candidate_budget":100,"top_k":10,"repetitions":5,
+ "documents":[
+  {"id":"t1","dense":[0,1],"tokens":[[1,0],[0,1]],"grade":3},
+  {"id":"t2","dense":[1,0],"tokens":[[1,0]],"grade":1},
+  {"id":"t3","dense":[-1,0],"tokens":[[-1,0]],"grade":0}
+ ],
+ "query":{"id":"q1","dense":[1,0],"tokens":[[1,0],[0,1]]}
+}

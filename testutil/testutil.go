@@ -7,11 +7,11 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/chunking"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/tensor"
 )
@@ -128,6 +128,7 @@ func (i *TensorIndex) Upsert(_ context.Context, records []tensor.Record[contract
 			Content: record.Content,
 			Meta:    meta,
 			Tensor:  cloneTensor(record.Tensor),
+			Space:   record.Space,
 		}
 	}
 	i.Records = append(i.Records, copied)
@@ -587,7 +588,7 @@ var (
 	_ dense.Index[contracttest.StructMeta]                 = (*DenseIndex)(nil)
 	_ retrieval.Backend[struct{}, contracttest.StructMeta] = (*StructRetrievalBackend)(nil)
 	_ tensor.Index[contracttest.StructMeta]                = (*TensorIndex)(nil)
-	_ documents.Store[contracttest.StructMeta]             = (*StructDocumentStore)(nil)
+	_ documents.RawStore[contracttest.StructMeta]          = (*StructDocumentStore)(nil)
 	_ graph.Store[contracttest.StructMeta]                 = (*GraphStore)(nil)
 	_ chunking.ContextGenerator[contracttest.StructMeta]   = (*ContextGenerator)(nil)
 )

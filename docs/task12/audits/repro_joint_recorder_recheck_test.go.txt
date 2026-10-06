@@ -1,0 +1,43 @@
+//go:build darwin || linux
+package joint_test
+import("context";"encoding/json";"testing";"slices";"github.com/skosovsky/ragy/access";"github.com/skosovsky/ragy/evidence";"github.com/skosovsky/ragy/retrieval";"github.com/skosovsky/ragy/source")
+func auditJointEnvelope(t *testing.T) (tensorRunEnvelope,recorderProfiles){t.Helper()
+ p,stages,controls:=recordedTensorStages(t);admitted,allowed:=tensorEvidencePolicyInputs(p.tensorRead,stages,p.originals);allowed[p.configuration]=true
+ record,err:=evidence.Capture(t.Context(),p.tensorRead,evidence.Input[meta]{Schema:p.tensor.Schema(),Codec:retrieval.NewJSONCodec[meta](p.tensor.Schema()),RetrievalID:"tensor-record",RecipeRevision:p.configuration,Outcome:evidence.Complete,Reason:evidence.NoReason,Coverage:retrieval.CompleteReadCoverage(),Required:[]evidence.Field{evidence.SourceField,evidence.ScoreField,evidence.PublicationField},Stages:stages,SourceAdmission:func(ctx context.Context,r access.Binding,ref source.Reference)error{if !admitted[ref]{return access.Protect(context.Canceled)};return r.Check(ctx)}},evidence.Policy{AllowIdentifier:func(_ evidence.IdentifierKind,s string)bool{return allowed[s]},AllowNumbers:true,AllowLocation:func(l source.Locator)bool{return admitted[l.Reference]}});if err!=nil{t.Fatal(err)}
+ var docs []string;for _,hit:=range stages[0].Hits{docs=append(docs,hit.Document.ID)}
+ return tensorRunEnvelope{Schema:tensorRunSchema,Configuration:p.configuration,Scope:p.tensorRead.Snapshot().Identity,Publication:p.tensorRead.Publication().Reference(),CandidateBudget:controls.CandidateBudget,CandidateIDs:slices.Clone(controls.CandidateIDs),CandidateDocuments:docs,Record:record},p
+}
+func TestAuditJointRecorderPublicationAndOriginalAdmission(t *testing.T){
+ // Arrange/Act: actual shared publication and both executed stages.
+ env,p:=auditJointEnvelope(t);if env.Publication!=p.denseRead.Publication().Reference(){t.Fatal("different dense snapshot")};targets:=map[string]bool{};for _,r:=range p.tensorRead.Publication().Targets(){targets[r.Target]=true};if !targets["dense"]||!targets["tensor"]{t.Fatal("target missing")}
+ wire,err:=json.Marshal(env);if err!=nil{t.Fatal(err)};if _,err=decodeTensorRunEnvelope(wire);err!=nil{t.Fatal(err)};snap,err:=env.Record.Snapshot();if err!=nil{t.Fatal(err)}
+ // Assert: original references are input-authorized UTF8 and candidate enumeration is not fabricated rank.
+ for _,stage:=range snap.Stages{for _,hit:=range stage.Hits{for _,src:=range hit.Sources{if observedText(src.Representation)!="utf8"{t.Fatal("derived index citation",src)}}}}
+ if len(env.CandidateIDs)!=3{t.Fatal("candidate universe lost")}
+}
+func TestAuditJointRecorderRejectsFinalResultOutsideCandidates(t *testing.T){
+ // Arrange.
+ env,_:=auditJointEnvelope(t);wire,err:=json.Marshal(env);if err!=nil{t.Fatal(err)};var raw map[string]any;if err=json.Unmarshal(wire,&raw);err!=nil{t.Fatal(err)}
+ // Act: change only a delivered MaxSim document identity while retaining valid scalar/source shape.
+ record:=raw["record"].(map[string]any);stages:=record["stages"].([]any);hits:=stages[2].(map[string]any)["hits"].([]any);hits[0].(map[string]any)["id"].(map[string]any)["value"]="outside-actual-candidate-universe"
+ altered,err:=json.Marshal(raw);if err!=nil{t.Fatal(err)}
+ // Assert.
+ if _,err=decodeTensorRunEnvelope(altered);err==nil{t.Fatal("delivered MaxSim ID outside recorded actual candidates accepted")}
+}
+func TestAuditJointRecorderRejectsCrossStageInconsistency(t *testing.T){
+ for _,kind:=range []string{"score","rank","duplicate-final","stage-name","config-shape","duplicate-dense"}{t.Run(kind,func(t *testing.T){
+  // Arrange.
+  env,_:=auditJointEnvelope(t);wire,err:=json.Marshal(env);if err!=nil{t.Fatal(err)};var raw map[string]any;if err=json.Unmarshal(wire,&raw);err!=nil{t.Fatal(err)};rec:=raw["record"].(map[string]any);stages:=rec["stages"].([]any);final:=stages[2].(map[string]any);hits:=final["hits"].([]any)
+  // Act: preserve each field's ordinary JSON validity, violate their actual cross-stage contract.
+  switch kind{case "score":hits[0].(map[string]any)["score"].(map[string]any)["value"]=777.0
+   case "rank":hits[0].(map[string]any)["rank"].(map[string]any)["value"]=99.0
+   case "duplicate-final":hits[1]=hits[0]
+   case "stage-name":final["name"].(map[string]any)["value"]="unrelated-stage"
+   case "config-shape":raw["configuration"]="unqualified";rec["recipe"].(map[string]any)["value"]="unqualified"
+   case "duplicate-dense":dense:=stages[0].(map[string]any)["hits"].([]any);dense[1].(map[string]any)["id"]=dense[0].(map[string]any)["id"];docs:=raw["candidate_document_ids"].([]any);docs[1]=docs[0]
+  }
+  altered,err:=json.Marshal(raw);if err!=nil{t.Fatal(err)}
+  // Assert.
+  if _,err=decodeTensorRunEnvelope(altered);err==nil{t.Fatalf("cross-stage inconsistency accepted: %s",kind)}
+ })}
+}

@@ -1,16 +1,18 @@
 package otel
 
 import (
+	"github.com/skosovsky/ragy/access"
+
 	"context"
 	"errors"
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/multimodal"
 	"github.com/skosovsky/ragy/ranking"
 	"github.com/skosovsky/ragy/retrieval"
@@ -103,7 +105,7 @@ type captureQueryReranker struct{ valid bool }
 
 func (r *captureQueryReranker) Rerank(
 	ctx context.Context,
-	_ string,
+	_ access.Binding, _ string,
 	_ retrieval.ResultSet[contracttest.StructMeta],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
 	r.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
@@ -238,7 +240,7 @@ func TestWrapQueryRerankerPropagatesErrorResultSet(t *testing.T) {
 		[]retrieval.Document[contracttest.StructMeta]{{ID: "doc-1"}},
 		retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 	)
-	out, err := wrapped.Rerank(context.Background(), "q", rs)
+	out, err := wrapped.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", rs)
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Rerank() error = %v, want unavailable", err)
@@ -270,7 +272,7 @@ type errorQueryReranker struct{}
 
 func (errorQueryReranker) Rerank(
 	_ context.Context,
-	_ string,
+	_ access.Binding, _ string,
 	_ retrieval.ResultSet[contracttest.StructMeta],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
 	return retrieval.NewResultSet[contracttest.StructMeta](
@@ -300,7 +302,7 @@ func TestWrapQueryRerankerPassesDerivedContext(t *testing.T) {
 		}
 		_, err = wrapped.Rerank(
 			ctx,
-			"hello",
+			retrieval.UnrestrictedRead(), "hello",
 			retrieval.NewResultSet(
 				[]retrieval.Document[contracttest.StructMeta]{{ID: "doc-1"}},
 				retrieval.DocumentIDResolver[contracttest.StructMeta]{},
@@ -429,7 +431,7 @@ func TestWrapBackendPropagatesErrorResultSet(t *testing.T) {
 		t.Fatalf("WrapBackend(): %v", err)
 	}
 
-	out, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	out, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: 1},
 	})
@@ -449,15 +451,14 @@ func TestWrapBackendPreservesPartialResult(t *testing.T) {
 		t.Fatalf("WrapBackend(): %v", err)
 	}
 
-	out, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	out, err := wrapped.Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: 1},
 	})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want partial failure")
 	}
-	var partial *retrieval.PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*retrieval.PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if out.Len() != 1 || out.Documents()[0].ID != "a" {
@@ -484,7 +485,7 @@ func TestWrapBackendPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Retrieve(ctx, retrieval.Query[struct{}]{
+		_, err = wrapped.Retrieve(ctx, retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 			Text:    "hello",
 			Options: retrieval.RetrieveOptions{TopK: 10},
 		})
@@ -499,11 +500,14 @@ func TestWrapRequestBackendPassesRequestMetaAndDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Retrieve(ctx, retrieval.Request[struct{}, requestMetaFixture]{
-			Text:    "hello",
-			Meta:    requestMetaFixture{Tenant: "acme"},
-			Options: retrieval.RetrieveOptions{TopK: 10},
-		})
+		_, err = wrapped.Retrieve(
+			ctx,
+			retrieval.Request[struct{}, requestMetaFixture]{Read: retrieval.UnrestrictedRead(),
+				Text:    "hello",
+				Meta:    requestMetaFixture{Tenant: "acme"},
+				Options: retrieval.RetrieveOptions{TopK: 10},
+			},
+		)
 		return next.valid, err
 	})
 }
@@ -524,8 +528,17 @@ func (b *captureExecutionBackend) Retrieve(
 	b.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
 	exec.SideOutput = "captured"
 	return retrieval.RetrievalResult[contracttest.StructMeta, otelExecutionMeta]{
+		Coverage: retrieval.UnobservedReadCoverage(),
 		ResultSet: retrieval.NewResultSet(
-			[]retrieval.Document[contracttest.StructMeta]{{ID: "hit", Content: "ok", Score: 1}},
+			[]retrieval.Document[contracttest.StructMeta]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     retrieval.ScorePresent,
+					ID:             "hit",
+					Content:        "ok",
+					Score:          1,
+				},
+			},
 			retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 		),
 		Executed: exec,
@@ -558,8 +571,17 @@ func (b *captureRequestExecutionBackend) Retrieve(
 	b.meta = req.Meta
 	exec.SideOutput = req.Meta.Tenant
 	return retrieval.RetrievalResult[contracttest.StructMeta, otelExecutionMeta]{
+		Coverage: retrieval.UnobservedReadCoverage(),
 		ResultSet: retrieval.NewResultSet(
-			[]retrieval.Document[contracttest.StructMeta]{{ID: "tenant", Content: req.Meta.Tenant, Score: 1}},
+			[]retrieval.Document[contracttest.StructMeta]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     retrieval.ScorePresent,
+					ID:             "tenant",
+					Content:        req.Meta.Tenant,
+					Score:          1,
+				},
+			},
 			retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 		),
 		Executed:    exec,
@@ -584,7 +606,7 @@ func (partialFailureBackend) Retrieve(
 	_ retrieval.Query[struct{}],
 ) (retrieval.ResultSet[struct{}], error) {
 	rs := retrieval.NewResultSet([]retrieval.Document[struct{}]{
-		{ID: "a", Content: "hit", Score: 1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: retrieval.ScorePresent, ID: "a", Content: "hit", Score: 1},
 	}, retrieval.DocumentIDResolver[struct{}]{})
 	return rs, &retrieval.PartialFailureError[struct{}]{
 		Errors: []error{ragy.ErrUnavailable},
@@ -617,15 +639,14 @@ func TestWrapExecutionPipelinePreservesPartialFailureResult(t *testing.T) {
 		t.Fatalf("WrapExecutionPipeline(): %v", err)
 	}
 
-	rs, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{
+	rs, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: 10},
 	})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want partial failure")
 	}
-	var partial *retrieval.PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*retrieval.PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 || rs.Documents()[0].ID != "a" {
@@ -658,7 +679,7 @@ func TestWrapExecutionPipelinePartialFailureResolverParity(t *testing.T) {
 		t.Fatalf("WrapExecutionPipeline(): %v", err)
 	}
 
-	rs, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{
+	rs, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: 10},
 	})
@@ -669,8 +690,15 @@ func TestWrapExecutionPipelinePartialFailureResolverParity(t *testing.T) {
 	if !ok {
 		t.Fatalf("Retrieve() error = %v, want partial failure", err)
 	}
+	reference := rs.Documents()[0]
 	other, mergeErr := partial.Result.Merge(retrieval.NewResultSet([]retrieval.Document[struct{}]{
-		{ID: "b", Content: "hit", Score: 0.5},
+		{
+			ScoreSemantics: reference.ScoreSemantics,
+			ScoreState:     reference.ScoreState,
+			ID:             "b",
+			Content:        "hit",
+			Score:          0.5,
+		},
 	}, resolver))
 	if mergeErr != nil {
 		t.Fatalf("partial.Result.Merge() error = %v", mergeErr)
@@ -699,7 +727,7 @@ func TestWrapExecutionPipelinePropagatesErrorResultSet(t *testing.T) {
 		t.Fatalf("WrapExecutionPipeline(): %v", err)
 	}
 
-	out, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{
+	out, err := wrapped.Execute(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Text:    "q",
 		Options: retrieval.RetrieveOptions{TopK: 10},
 	})
@@ -724,7 +752,11 @@ func TestWrapExecutionPipelinePassesDerivedContext(t *testing.T) {
 		}
 		_, err = wrapped.Execute(
 			ctx,
-			retrieval.Query[struct{}]{Text: "hello", Options: retrieval.RetrieveOptions{TopK: 10}},
+			retrieval.Query[struct{}]{
+				Read:    retrieval.UnrestrictedRead(),
+				Text:    "hello",
+				Options: retrieval.RetrieveOptions{TopK: 10},
+			},
 		)
 		return backend.valid, err
 	})
@@ -745,7 +777,7 @@ func TestWrapRequestExecutionPipelinePassesRequestMetaAndDerivedContextWithoutEx
 		}
 		_, err = wrapped.Execute(
 			ctx,
-			retrieval.Request[struct{}, requestMetaFixture]{
+			retrieval.Request[struct{}, requestMetaFixture]{Read: retrieval.UnrestrictedRead(),
 				Text:    "hello",
 				Meta:    requestMetaFixture{Tenant: "acme"},
 				Options: retrieval.RetrieveOptions{TopK: 10},
@@ -775,7 +807,11 @@ func TestWrapExecutionPipelinePassesDerivedContextAndEnvelope(t *testing.T) {
 		}
 		result, err := wrapped.Execute(
 			ctx,
-			retrieval.Query[struct{}]{Text: "hello", Options: retrieval.RetrieveOptions{TopK: 10}},
+			retrieval.Query[struct{}]{
+				Read:    retrieval.UnrestrictedRead(),
+				Text:    "hello",
+				Options: retrieval.RetrieveOptions{TopK: 10},
+			},
 		)
 		if err != nil {
 			return false, err
@@ -812,7 +848,7 @@ func TestWrapRequestExecutionPipelinePassesRequestMetaAndDerivedContext(t *testi
 		}
 		result, err := wrapped.Execute(
 			ctx,
-			retrieval.Request[struct{}, requestMetaFixture]{
+			retrieval.Request[struct{}, requestMetaFixture]{Read: retrieval.UnrestrictedRead(),
 				Text:    "hello",
 				Meta:    requestMetaFixture{Tenant: "acme"},
 				Options: retrieval.RetrieveOptions{TopK: 10},
@@ -841,5 +877,5 @@ var (
 	] = (*captureRequestExecutionBackend)(nil)
 	_ ranking.QueryReranker[contracttest.StructMeta] = (*captureQueryReranker)(nil)
 	_ ranking.Merger[contracttest.StructMeta]        = (*captureMerger)(nil)
-	_ documents.Store[contracttest.StructMeta]       = (*captureDocumentStore)(nil)
+	_ documents.RawStore[contracttest.StructMeta]    = (*captureDocumentStore)(nil)
 )

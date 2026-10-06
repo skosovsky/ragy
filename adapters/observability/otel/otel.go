@@ -1,6 +1,8 @@
 package otel
 
 import (
+	"github.com/skosovsky/ragy/access"
+
 	"context"
 	"fmt"
 
@@ -239,12 +241,12 @@ func (w *GraphStore[TMeta]) Schema() graph.Schema {
 
 // DocumentStore wraps a document store with tracing.
 type DocumentStore[TMeta any] struct {
-	next   documents.Store[TMeta]
+	next   documents.RawStore[TMeta]
 	tracer trace.Tracer
 }
 
 // WrapDocumentStore constructs a traced document store.
-func WrapDocumentStore[TMeta any](next documents.Store[TMeta], tracer trace.Tracer) (*DocumentStore[TMeta], error) {
+func WrapDocumentStore[TMeta any](next documents.RawStore[TMeta], tracer trace.Tracer) (*DocumentStore[TMeta], error) {
 	if next == nil {
 		return nil, fmt.Errorf("%w: document store", ragy.ErrInvalidArgument)
 	}
@@ -256,21 +258,21 @@ func WrapDocumentStore[TMeta any](next documents.Store[TMeta], tracer trace.Trac
 	return &DocumentStore[TMeta]{next: next, tracer: tracer}, nil
 }
 
-// FindByIDs implements documents.Store.
+// FindByIDs implements documents.RawStore.
 func (w *DocumentStore[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval.Document[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.documents.find")
 	defer span.End()
 	return w.next.FindByIDs(ctx, ids)
 }
 
-// DeleteByIDs implements documents.Store.
+// DeleteByIDs implements documents.RawStore.
 func (w *DocumentStore[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.documents.delete_ids")
 	defer span.End()
 	return w.next.DeleteByIDs(ctx, ids)
 }
 
-// DeleteByFilter implements documents.Store.
+// DeleteByFilter implements documents.RawStore.
 func (w *DocumentStore[TMeta]) DeleteByFilter(
 	ctx context.Context,
 	cond filter.Condition,
@@ -310,12 +312,16 @@ func WrapQueryReranker[TMeta any](
 // Rerank implements ranking.QueryReranker.
 func (w *QueryReranker[TMeta]) Rerank(
 	ctx context.Context,
-	query string,
+	read access.Binding, query string,
 	rs retrieval.ResultSet[TMeta],
 ) (retrieval.ResultSet[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.ranking.rerank")
 	defer span.End()
-	return w.next.Rerank(ctx, query, rs)
+	if err := read.Check(ctx); err != nil {
+		return retrieval.NewResultSet[TMeta](nil, retrieval.ResolverFor(rs)), err
+	}
+	result, err := w.next.Rerank(ctx, read, query, rs)
+	return retrieval.DeliverRead(ctx, read, result, err, retrieval.ResolverFor(rs))
 }
 
 // RequestExecutionPipeline wraps an execution-aware retrieval orchestrator with tracing.
@@ -404,7 +410,7 @@ var (
 	_ tensor.Index[any]                = (*TensorIndex[any])(nil)
 	_ multimodal.Embedder              = (*MultimodalEmbedder)(nil)
 	_ graph.Store[any]                 = (*GraphStore[any])(nil)
-	_ documents.Store[any]             = (*DocumentStore[any])(nil)
+	_ documents.RawStore[any]          = (*DocumentStore[any])(nil)
 	_ ranking.QueryReranker[any]       = (*QueryReranker[any])(nil)
 	_ ranking.Merger[any]              = (*Merger[any])(nil)
 )

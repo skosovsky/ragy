@@ -4,22 +4,10 @@ import (
 	"fmt"
 )
 
-// ClampScore bounds a public relevance score to [0, 1].
-func ClampScore(v float64) float64 {
-	switch {
-	case v < 0:
-		return 0
-	case v > 1:
-		return 1
-	default:
-		return v
-	}
-}
-
 // Page is an explicit pagination contract.
 type Page struct {
-	Limit  int
-	Offset int
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
 }
 
 // NewPage validates and constructs a page.

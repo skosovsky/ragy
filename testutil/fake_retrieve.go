@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 )
 

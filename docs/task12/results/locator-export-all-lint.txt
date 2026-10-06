@@ -1,0 +1,28 @@
+golangci-lint - .
+0 issues.
+golangci-lint - ./adapters/neo4j
+0 issues.
+golangci-lint - ./adapters/cohere
+0 issues.
+golangci-lint - ./adapters/gemini
+0 issues.
+golangci-lint - ./adapters/pgvector
+0 issues.
+golangci-lint - ./adapters/pdf
+0 issues.
+golangci-lint - ./adapters/observability/otel
+0 issues.
+golangci-lint - ./adapters/qdrant
+0 issues.
+golangci-lint - ./adapters/jina
+0 issues.
+golangci-lint - ./adapters/elasticsearch
+0 issues.
+golangci-lint - ./adapters/openai
+0 issues.
+golangci-lint - ./examples/planner
+0 issues.
+golangci-lint - ./examples/resilience
+0 issues.
+golangci-lint - ./examples/conformance
+0 issues.

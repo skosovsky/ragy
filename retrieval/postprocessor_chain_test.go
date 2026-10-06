@@ -1,6 +1,8 @@
 package retrieval
 
 import (
+	"github.com/skosovsky/ragy/access"
+
 	"context"
 	"errors"
 	"testing"
@@ -26,7 +28,10 @@ func retrieveWithPostProcessors[TMeta any](
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
-	result, err := pipeline.Execute(context.Background(), Query[struct{}]{Text: query, Options: opts})
+	result, err := pipeline.Execute(
+		context.Background(),
+		Query[struct{}]{Read: UnrestrictedRead(), Text: query, Options: opts},
+	)
 	return result.ResultSet, err
 }
 
@@ -68,7 +73,9 @@ func TestPostProcessorChainRejectsInvalidProcessorOutput(t *testing.T) {
 	t.Parallel()
 
 	backend := stubBackend[struct{}]{
-		docs: []Document[struct{}]{{ID: "doc-1", Content: "ok", Score: 0.5}},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "doc-1", Content: "ok", Score: 0.5},
+		},
 	}
 	out, err := retrieveWithPostProcessors(
 		t,
@@ -90,7 +97,9 @@ func TestPostProcessorChainRejectsInvalidProcessorScore(t *testing.T) {
 	t.Parallel()
 
 	backend := stubBackend[struct{}]{
-		docs: []Document[struct{}]{{ID: "doc-1", Content: "ok", Score: 0.5}},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "doc-1", Content: "ok", Score: 0.5},
+		},
 	}
 	out, err := retrieveWithPostProcessors(
 		t,
@@ -111,29 +120,63 @@ func TestPostProcessorChainRejectsInvalidProcessorScore(t *testing.T) {
 type invalidBackend struct{}
 
 func (invalidBackend) Retrieve(_ context.Context, _ Query[struct{}]) (ResultSet[struct{}], error) {
-	return NewResultSet([]Document[struct{}]{{Content: "broken", Score: 0.5}}, DocumentIDResolver[struct{}]{}), nil
+	return NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, Content: "broken", Score: 0.5},
+		},
+		DocumentIDResolver[struct{}]{},
+	), nil
 }
 
 type invalidScoreBackend struct{}
 
 func (invalidScoreBackend) Retrieve(_ context.Context, _ Query[struct{}]) (ResultSet[struct{}], error) {
 	return NewResultSet(
-		[]Document[struct{}]{{ID: "doc-1", Content: "broken", Score: 1.5}},
+		[]Document[struct{}]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     ScoreNormalized,
+				ID:             "doc-1",
+				Content:        "broken",
+				Score:          1.5,
+			},
+		},
 		DocumentIDResolver[struct{}]{},
 	), nil
 }
 
 type brokenProcessor[TMeta any] struct{}
 
-func (brokenProcessor[TMeta]) Process(_ ResultSet[TMeta]) (ResultSet[TMeta], error) {
-	return NewResultSet([]Document[TMeta]{{Content: "broken", Score: 0.5}}, DocumentIDResolver[TMeta]{}), nil
+func (brokenProcessor[TMeta]) Process(
+	_ context.Context,
+	_ access.Binding,
+	_ ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
+	return NewResultSet(
+		[]Document[TMeta]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, Content: "broken", Score: 0.5},
+		},
+		DocumentIDResolver[TMeta]{},
+	), nil
 }
 
 type brokenScoreProcessor[TMeta any] struct{}
 
-func (brokenScoreProcessor[TMeta]) Process(_ ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (brokenScoreProcessor[TMeta]) Process(
+	_ context.Context,
+	_ access.Binding,
+	_ ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	return NewResultSet(
-		[]Document[TMeta]{{ID: "doc-1", Content: "broken", Score: 1.5}},
+		[]Document[TMeta]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     ScoreNormalized,
+				ID:             "doc-1",
+				Content:        "broken",
+				Score:          1.5,
+			},
+		},
 		DocumentIDResolver[TMeta]{},
 	), nil
 }
@@ -142,7 +185,11 @@ type passthroughProcessor[TMeta any] struct {
 	resolver IdentityResolver[TMeta]
 }
 
-func (p passthroughProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p passthroughProcessor[TMeta]) Process(
+	_ context.Context,
+	_ access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	return NewResultSet(rs.Documents(), p.resolver), nil
 }
 
@@ -151,7 +198,7 @@ func TestCustomPostProcessorMustUseConstructorResolver(t *testing.T) {
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	backend := orchestratorStubBackend[struct{}, struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "grp", Score: 1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "grp", Score: 1},
 	}}
 	rs, err := retrieveWithPostProcessors(
 		t,
@@ -171,7 +218,11 @@ func TestCustomPostProcessorMustUseConstructorResolver(t *testing.T) {
 
 type resolverProbeProcessor[TMeta any] struct{}
 
-func (resolverProbeProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (resolverProbeProcessor[TMeta]) Process(
+	_ context.Context,
+	_ access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	return rs, nil
 }
 
@@ -180,8 +231,8 @@ func TestPostProcessorChainDoesNotInjectResolverIntoCustomProcessor(t *testing.T
 
 	mergeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	backend := orchestratorStubBackend[struct{}, struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "same-key", Score: 0.9},
-		{ID: "b", Content: "same-key", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "same-key", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "same-key", Score: 0.5},
 	}}
 	pipeline, err := NewExecutionPipelineBuilder[struct{}, struct{}, NoExecutionMeta]().
 		WithRoot(BackendNode[struct{}, struct{}, NoExecutionMeta]{Backend: backend}).
@@ -192,7 +243,10 @@ func TestPostProcessorChainDoesNotInjectResolverIntoCustomProcessor(t *testing.T
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[struct{}]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(
+		context.Background(),
+		Query[struct{}]{Read: UnrestrictedRead(), Text: "q", Options: RetrieveOptions{TopK: 5}},
+	)
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -205,7 +259,11 @@ type failingProcessor[TMeta any] struct {
 	err error
 }
 
-func (p failingProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p failingProcessor[TMeta]) Process(
+	_ context.Context,
+	_ access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	return rs, p.err
 }
 
@@ -215,8 +273,10 @@ func TestPostProcessorChainPreservesBackendResultOnError(t *testing.T) {
 	out, err := retrieveWithPostProcessors(
 		t,
 		partialBackend[struct{}, struct{}]{
-			docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}},
-			err:  ragy.ErrUnavailable,
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "hit", Score: 1},
+			},
+			err: ragy.ErrUnavailable,
 		},
 		DocumentIDResolver[struct{}]{},
 		"q",
@@ -233,10 +293,15 @@ func TestPostProcessorChainPreservesBackendResultOnError(t *testing.T) {
 func TestPostProcessorChainProcessPreservesResultOnInvalidOptions(t *testing.T) {
 	t.Parallel()
 
-	rs := NewResultSet([]Document[struct{}]{{ID: "a", Content: "hit", Score: 1}}, DocumentIDResolver[struct{}]{})
+	rs := NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "hit", Score: 1},
+		},
+		DocumentIDResolver[struct{}]{},
+	)
 	chain := NewPostProcessorChain[struct{}]()
 
-	out, err := chain.Process(context.Background(), RetrieveOptions{FetchLimit: 1, TopK: 3}, rs)
+	out, err := chain.Process(context.Background(), UnrestrictedRead(), RetrieveOptions{FetchLimit: 1, TopK: 3}, rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}
@@ -248,10 +313,15 @@ func TestPostProcessorChainProcessPreservesResultOnInvalidOptions(t *testing.T) 
 func TestPostProcessorChainInitialValidationPreservesResult(t *testing.T) {
 	t.Parallel()
 
-	rs := NewResultSet([]Document[struct{}]{{Content: "broken", Score: 0.5}}, DocumentIDResolver[struct{}]{})
+	rs := NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, Content: "broken", Score: 0.5},
+		},
+		DocumentIDResolver[struct{}]{},
+	)
 	chain := NewPostProcessorChain[struct{}]()
 
-	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 1}, rs)
+	out, err := chain.Process(context.Background(), UnrestrictedRead(), RetrieveOptions{TopK: 1}, rs)
 	if !errors.Is(err, ragy.ErrMissingID) {
 		t.Fatalf("Process() error = %v, want missing id", err)
 	}
@@ -282,7 +352,9 @@ func TestPostProcessorChainPreservesResultOnProcessorError(t *testing.T) {
 	t.Parallel()
 
 	backend := stubBackend[struct{}]{
-		docs: []Document[struct{}]{{ID: "doc-1", Content: "ok", Score: 0.5}},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "doc-1", Content: "ok", Score: 0.5},
+		},
 	}
 	out, err := retrieveWithPostProcessors(
 		t,
@@ -300,19 +372,24 @@ func TestPostProcessorChainPreservesResultOnProcessorError(t *testing.T) {
 	}
 }
 
-func TestPostProcessorChainRewrapsOnNoOpMinSimilarity(t *testing.T) {
+func TestPostProcessorChainRewrapsOnNoOpScoreThreshold(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
-	rs := NewResultSet([]Document[struct{}]{{ID: "a", Content: "grp", Score: 0.5}}, DocumentIDResolver[struct{}]{})
+	rs := NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "grp", Score: 0.5},
+		},
+		DocumentIDResolver[struct{}]{},
+	)
 	chain := NewPostProcessorChainWithResolver[struct{}](resolver)
 
-	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 1, MinSimilarity: 0}, rs)
+	out, err := chain.Process(context.Background(), UnrestrictedRead(), RetrieveOptions{TopK: 1, Threshold: nil}, rs)
 	if err != nil {
 		t.Fatalf("Process(): %v", err)
 	}
 	other, mergeErr := out.Merge(NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "grp", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "grp", Score: 0.1},
 	}, resolver))
 	if mergeErr != nil {
 		t.Fatalf("Merge() error = %v", mergeErr)
@@ -327,12 +404,12 @@ func TestPostProcessorChainRewrapsOnNoOpTopK(t *testing.T) {
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "grp", Score: 0.9},
-		{ID: "b", Content: "other", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "grp", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "other", Score: 0.5},
 	}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChainWithResolver[struct{}](resolver)
 
-	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 0, FetchLimit: 10}, rs)
+	out, err := chain.Process(context.Background(), UnrestrictedRead(), RetrieveOptions{TopK: 0, FetchLimit: 10}, rs)
 	if err != nil {
 		t.Fatalf("Process(): %v", err)
 	}
@@ -340,7 +417,7 @@ func TestPostProcessorChainRewrapsOnNoOpTopK(t *testing.T) {
 		t.Fatalf("Len() = %d, want all docs when top_k is zero", out.Len())
 	}
 	other, mergeErr := out.Merge(NewResultSet([]Document[struct{}]{
-		{ID: "c", Content: "grp", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "c", Content: "grp", Score: 0.1},
 	}, resolver))
 	if mergeErr != nil {
 		t.Fatalf("Merge() error = %v", mergeErr)
@@ -354,8 +431,8 @@ func TestApplyTopKSelectsHighestScore(t *testing.T) {
 	t.Parallel()
 
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "low", Score: 0.1},
-		{ID: "high", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "low", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "high", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
 	out := applyTopK(rs, 1, DocumentIDResolver[struct{}]{})
 	if out.Len() != 1 || out.Documents()[0].ID != "high" {
@@ -367,8 +444,8 @@ func TestApplyTopKSortsWhenLenEqualsTopK(t *testing.T) {
 	t.Parallel()
 
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "low", Score: 0.1},
-		{ID: "high", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "low", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "high", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
 	out := applyTopK(rs, 2, DocumentIDResolver[struct{}]{})
 	if out.Len() != 2 || out.Documents()[0].ID != "high" {
@@ -380,8 +457,8 @@ func TestApplyTopKPreservesTieOrder(t *testing.T) {
 	t.Parallel()
 
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "b", Score: 0.5},
-		{ID: "a", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Score: 0.5},
 	}, DocumentIDResolver[struct{}]{})
 	out := applyTopK(rs, 2, DocumentIDResolver[struct{}]{})
 	docs := out.Documents()
@@ -390,17 +467,24 @@ func TestApplyTopKPreservesTieOrder(t *testing.T) {
 	}
 }
 
-func TestPostProcessorChainRewrapsOnActiveMinSimilarity(t *testing.T) {
+func TestPostProcessorChainRewrapsOnActiveScoreThreshold(t *testing.T) {
 	t.Parallel()
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "grp", Score: 0.9},
-		{ID: "b", Content: "other", Score: 0.2},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "grp", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "other", Score: 0.2},
 	}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChainWithResolver[struct{}](resolver)
 
-	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 5, MinSimilarity: 0.5}, rs)
+	out, err := chain.Process(
+		context.Background(),
+		UnrestrictedRead(), RetrieveOptions{
+			TopK:      5,
+			Threshold: &ScoreThreshold{Value: 0.5, State: ScorePresent, Semantics: "fixture-similarity"},
+		},
+		rs,
+	)
 	if err != nil {
 		t.Fatalf("Process(): %v", err)
 	}
@@ -408,7 +492,7 @@ func TestPostProcessorChainRewrapsOnActiveMinSimilarity(t *testing.T) {
 		t.Fatalf("Documents() = %#v, want doc above min similarity", out.Documents())
 	}
 	other, mergeErr := out.Merge(NewResultSet([]Document[struct{}]{
-		{ID: "c", Content: "grp", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "c", Content: "grp", Score: 0.1},
 	}, resolver))
 	if mergeErr != nil {
 		t.Fatalf("Merge() error = %v", mergeErr)
@@ -423,12 +507,12 @@ func TestPostProcessorChainRewrapsOnActiveTopK(t *testing.T) {
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "grp", Score: 0.9},
-		{ID: "b", Content: "other", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "grp", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "other", Score: 0.5},
 	}, DocumentIDResolver[struct{}]{})
 	chain := NewPostProcessorChainWithResolver[struct{}](resolver)
 
-	out, err := chain.Process(context.Background(), RetrieveOptions{TopK: 1}, rs)
+	out, err := chain.Process(context.Background(), UnrestrictedRead(), RetrieveOptions{TopK: 1}, rs)
 	if err != nil {
 		t.Fatalf("Process(): %v", err)
 	}
@@ -436,7 +520,7 @@ func TestPostProcessorChainRewrapsOnActiveTopK(t *testing.T) {
 		t.Fatalf("Documents() = %#v, want top scored doc", out.Documents())
 	}
 	other, mergeErr := out.Merge(NewResultSet([]Document[struct{}]{
-		{ID: "c", Content: "grp", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "c", Content: "grp", Score: 0.1},
 	}, resolver))
 	if mergeErr != nil {
 		t.Fatalf("Merge() error = %v", mergeErr)

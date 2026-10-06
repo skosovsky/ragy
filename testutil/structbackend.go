@@ -4,9 +4,9 @@ import (
 	"context"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -51,7 +51,7 @@ type StructDocumentStore struct {
 	FilterSchema filter.Schema
 }
 
-// FindByIDs implements documents.Store.
+// FindByIDs implements documents.RawStore.
 func (s *StructDocumentStore) FindByIDs(
 	_ context.Context,
 	ids []string,
@@ -83,7 +83,7 @@ func (s *StructDocumentStore) FindByIDs(
 	return validateStructDocuments(out)
 }
 
-// DeleteByIDs implements documents.Store.
+// DeleteByIDs implements documents.RawStore.
 func (s *StructDocumentStore) DeleteByIDs(_ context.Context, ids []string) (documents.DeleteResult, error) {
 	if s.Err != nil {
 		return documents.DeleteResult{}, s.Err
@@ -111,7 +111,7 @@ func (s *StructDocumentStore) DeleteByIDs(_ context.Context, ids []string) (docu
 	return documents.DeleteResult{Deleted: deleted}, nil
 }
 
-// DeleteByFilter implements documents.Store.
+// DeleteByFilter implements documents.RawStore.
 func (s *StructDocumentStore) DeleteByFilter(_ context.Context, cond filter.Condition) (documents.DeleteResult, error) {
 	schema := s.Schema()
 	codec := retrieval.NewJSONCodec[contracttest.StructMeta](schema)
@@ -149,6 +149,8 @@ func validateStructDocuments(
 		}
 		lookupDoc := cloneStructDocument(doc)
 		lookupDoc.Score = 0
+		lookupDoc.ScoreSemantics = ""
+		lookupDoc.ScoreHistory = nil
 		lookupDoc.ScoreState = retrieval.ScoreAbsent
 		lookupDoc.Rank = 0
 		if err := retrieval.ValidateDocument(lookupDoc); err != nil {
@@ -162,16 +164,18 @@ func validateStructDocuments(
 
 func cloneStructDocument(in retrieval.Document[contracttest.StructMeta]) retrieval.Document[contracttest.StructMeta] {
 	return retrieval.Document[contracttest.StructMeta]{
-		ID:         in.ID,
-		Content:    in.Content,
-		Score:      in.Score,
-		ScoreState: in.ScoreState,
-		Rank:       in.Rank,
-		Meta:       in.Meta,
+		ID:             in.ID,
+		Content:        in.Content,
+		Score:          in.Score,
+		ScoreState:     in.ScoreState,
+		ScoreSemantics: in.ScoreSemantics,
+		ScoreHistory:   append([]retrieval.ScoreObservation(nil), in.ScoreHistory...),
+		Rank:           in.Rank,
+		Meta:           in.Meta,
 	}
 }
 
 var (
 	_ retrieval.Backend[struct{}, contracttest.StructMeta] = (*StructRetrievalBackend)(nil)
-	_ documents.Store[contracttest.StructMeta]             = (*StructDocumentStore)(nil)
+	_ documents.RawStore[contracttest.StructMeta]          = (*StructDocumentStore)(nil)
 )

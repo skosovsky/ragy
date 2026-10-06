@@ -3,6 +3,8 @@
 package ranking
 
 import (
+	"github.com/skosovsky/ragy/access"
+
 	"context"
 
 	"github.com/skosovsky/ragy/retrieval"
@@ -10,7 +12,12 @@ import (
 
 // QueryReranker reranks documents using query-aware scoring.
 type QueryReranker[TMeta any] interface {
-	Rerank(ctx context.Context, query string, rs retrieval.ResultSet[TMeta]) (retrieval.ResultSet[TMeta], error)
+	Rerank(
+		ctx context.Context,
+		read access.Binding,
+		query string,
+		rs retrieval.ResultSet[TMeta],
+	) (retrieval.ResultSet[TMeta], error)
 }
 
 // Merger merges already-ranked result sets.

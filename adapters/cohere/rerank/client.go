@@ -1,6 +1,8 @@
 package rerank
 
 import (
+	"github.com/skosovsky/ragy/access"
+
 	"bytes"
 	"context"
 	"encoding/json"
@@ -164,7 +166,10 @@ func applyRerankResults[TMeta any](
 		}
 
 		doc := normalizedDocs[result.Index]
-		doc.Score = ragy.ClampScore(result.Score)
+		doc.ScoreHistory = doc.ObservedScores()
+		doc.Score = result.Score
+		doc.ScoreState = retrieval.ScorePresent
+		doc.ScoreSemantics = "rerank.model-native"
 		out[result.Index] = doc
 		seen[result.Index] = true
 	}
@@ -188,9 +193,22 @@ func applyRerankResults[TMeta any](
 // Runtime and payload errors preserve the input ResultSet via retrieval.PreserveResultOnError.
 func (c *Client[TMeta]) Rerank(
 	ctx context.Context,
+	read access.Binding,
 	query string,
 	rs retrieval.ResultSet[TMeta],
 ) (retrieval.ResultSet[TMeta], error) {
+	result, err := c.rerank(ctx, read, query, rs)
+	return retrieval.DeliverRead(ctx, read, result, err, retrieval.ResolverFor(rs))
+}
+
+func (c *Client[TMeta]) rerank(
+	ctx context.Context,
+	read access.Binding, query string,
+	rs retrieval.ResultSet[TMeta],
+) (retrieval.ResultSet[TMeta], error) {
+	if err := read.Check(ctx); err != nil {
+		return emptyResultSet[TMeta](retrieval.ResolverFor(rs)), err
+	}
 	if strings.TrimSpace(query) == "" {
 		return emptyResultSet[TMeta](retrieval.ResolverFor(rs)), fmt.Errorf("%w: rerank query", ragy.ErrEmptyText)
 	}
@@ -205,6 +223,9 @@ func (c *Client[TMeta]) Rerank(
 		return retrieval.PreserveResultOnError(partial, err, resolver)
 	}
 
+	if gateErr := read.Check(ctx); gateErr != nil {
+		return emptyResultSet[TMeta](resolver), gateErr
+	}
 	decoded, err := c.postRerank(ctx, query, payloadDocs)
 	if err != nil {
 		return retrieval.PreserveResultOnError(rs, err, resolver)

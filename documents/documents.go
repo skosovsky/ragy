@@ -13,8 +13,9 @@ type DeleteResult struct {
 	Deleted int
 }
 
-// Store provides document lookup and destructive operations.
-type Store[TMeta any] interface {
+// RawStore provides explicit raw storage access. It has no scope/publication or
+// retained-revision guarantee and must not be used as a scoped hydration path.
+type RawStore[TMeta any] interface {
 	FindByIDs(ctx context.Context, ids []string) ([]retrieval.Document[TMeta], error)
 	DeleteByIDs(ctx context.Context, ids []string) (DeleteResult, error)
 	DeleteByFilter(ctx context.Context, cond filter.Condition) (DeleteResult, error)

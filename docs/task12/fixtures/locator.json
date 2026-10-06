@@ -1,0 +1,40 @@
+{
+  "schema": "ragy.source-locator",
+  "location": {
+    "reference": {
+      "namespace": "docs",
+      "source": "manual",
+      "revision": "r1",
+      "transformation": "parser-normalized",
+      "access_fingerprint": "acl1",
+      "artifact": "s1",
+      "representation": "page-text/0"
+    },
+    "kind": "text",
+    "span": {
+      "start": 6,
+      "end": 10
+    },
+    "page": {
+      "physical_index": 0,
+      "printed_label": "",
+      "width_pt": 0,
+      "height_pt": 0,
+      "rotation_deg": 0
+    },
+    "region": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0
+    },
+    "cell": {
+      "table": "",
+      "element": "",
+      "row": 0,
+      "column": 0,
+      "row_span": 0,
+      "column_span": 0
+    }
+  }
+}

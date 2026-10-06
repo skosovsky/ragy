@@ -23,8 +23,22 @@ func TestDefaultMergeStrategyUsesBestScoreMeta(t *testing.T) {
 
 	merge := DefaultMergeStrategy[meta]()
 	out, err := merge([]Document[meta]{
-		{ID: "a", Content: "first", Score: 0.2, Meta: meta{Source: "s1"}},
-		{ID: "b", Content: "second", Score: 0.9, Meta: meta{Source: "s2"}},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "a",
+			Content:        "first",
+			Score:          0.2,
+			Meta:           meta{Source: "s1"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "b",
+			Content:        "second",
+			Score:          0.9,
+			Meta:           meta{Source: "s2"},
+		},
 	})
 	if err != nil {
 		t.Fatalf("merge: %v", err)
@@ -46,9 +60,30 @@ func TestPipelineAppliesProcessors(t *testing.T) {
 
 	backend := stubBackend[meta]{
 		docs: []Document[meta]{
-			{ID: "1", Content: "a", Score: 0.9, Meta: meta{Group: "g1"}},
-			{ID: "2", Content: "b", Score: 0.8, Meta: meta{Group: "g1"}},
-			{ID: "3", Content: "c", Score: 0.7, Meta: meta{Group: "g2"}},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     ScorePresent,
+				ID:             "1",
+				Content:        "a",
+				Score:          0.9,
+				Meta:           meta{Group: "g1"},
+			},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     ScorePresent,
+				ID:             "2",
+				Content:        "b",
+				Score:          0.8,
+				Meta:           meta{Group: "g1"},
+			},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     ScorePresent,
+				ID:             "3",
+				Content:        "c",
+				Score:          0.7,
+				Meta:           meta{Group: "g2"},
+			},
 		},
 	}
 
@@ -60,7 +95,7 @@ func TestPipelineAppliesProcessors(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := pipeline.Execute(context.Background(), Query[struct{}]{
+	out, err := pipeline.Execute(context.Background(), Query[struct{}]{Read: UnrestrictedRead(),
 		Text:    "query",
 		Options: RetrieveOptions{TopK: 10},
 	})
@@ -82,7 +117,7 @@ func TestPipelineAppliesTopKAfterGroupBy(t *testing.T) {
 	docs := make([]Document[meta], 0, 10)
 	for i := range 10 {
 		group := string(rune('a' + i/2))
-		docs = append(docs, Document[meta]{
+		docs = append(docs, Document[meta]{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent,
 			ID:      strconv.Itoa(i + 1),
 			Content: fmt.Sprintf("chunk-%d", i+1),
 			Score:   1.0 - float64(i)*0.05,
@@ -98,7 +133,7 @@ func TestPipelineAppliesTopKAfterGroupBy(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	out, err := pipeline.Execute(context.Background(), Query[struct{}]{
+	out, err := pipeline.Execute(context.Background(), Query[struct{}]{Read: UnrestrictedRead(),
 		Text:    "query",
 		Options: RetrieveOptions{TopK: 3},
 	})
@@ -138,12 +173,33 @@ func TestGroupByPreservesPartialResultOnMergeStrategyError(t *testing.T) {
 
 	processor := GroupBy(func(m meta) string { return m.Group }, merge)
 	rs := NewResultSet([]Document[meta]{
-		{ID: "1", Content: "a", Score: 0.9, Meta: meta{Group: "g1"}},
-		{ID: "2", Content: "b", Score: 0.8, Meta: meta{Group: "g2"}},
-		{ID: "3", Content: "c", Score: 0.7, Meta: meta{Group: "g3"}},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "1",
+			Content:        "a",
+			Score:          0.9,
+			Meta:           meta{Group: "g1"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "2",
+			Content:        "b",
+			Score:          0.8,
+			Meta:           meta{Group: "g2"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "3",
+			Content:        "c",
+			Score:          0.7,
+			Meta:           meta{Group: "g3"},
+		},
 	}, DocumentIDResolver[meta]{})
 
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}
@@ -157,7 +213,7 @@ func TestGroupByRejectsNilKeySelector(t *testing.T) {
 
 	processor := GroupBy[ppMeta](nil, DefaultMergeStrategy[ppMeta]())
 	rs := NewResultSet([]Document[ppMeta]{{ID: "1", Meta: ppMeta{Group: "g1"}}}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}
@@ -171,7 +227,7 @@ func TestTopPerGroupRejectsNilKeySelector(t *testing.T) {
 
 	processor := TopPerGroup[ppMeta](nil, 1)
 	rs := NewResultSet([]Document[ppMeta]{{ID: "1", Meta: ppMeta{Group: "g1"}}}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}
@@ -185,7 +241,7 @@ func TestTopPerGroupRejectsNonPositiveLimit(t *testing.T) {
 
 	processor := TopPerGroup(func(m ppMeta) string { return m.Group }, 0)
 	rs := NewResultSet([]Document[ppMeta]{{ID: "1", Meta: ppMeta{Group: "g1"}}}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}
@@ -199,7 +255,7 @@ func TestRerankRejectsNilLess(t *testing.T) {
 
 	processor := Rerank[ppMeta](nil)
 	rs := NewResultSet([]Document[ppMeta]{{ID: "1", Meta: ppMeta{Group: "g1"}}}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}
@@ -213,10 +269,23 @@ func TestGroupByRejectsInvalidDocument(t *testing.T) {
 
 	processor := GroupBy(func(m ppMeta) string { return m.Group }, DefaultMergeStrategy[ppMeta]())
 	rs := NewResultSet([]Document[ppMeta]{
-		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
-		{Content: "broken", Score: 0.5, Meta: ppMeta{Group: "g2"}},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "ok",
+			Content:        "good",
+			Score:          0.5,
+			Meta:           ppMeta{Group: "g1"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			Content:        "broken",
+			Score:          0.5,
+			Meta:           ppMeta{Group: "g2"},
+		},
 	}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrMissingID) {
 		t.Fatalf("Process() error = %v, want missing id", err)
 	}
@@ -233,10 +302,23 @@ func TestTopPerGroupRejectsInvalidDocument(t *testing.T) {
 
 	processor := TopPerGroup(func(m ppMeta) string { return m.Group }, 1)
 	rs := NewResultSet([]Document[ppMeta]{
-		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
-		{Content: "broken", Score: 0.5, Meta: ppMeta{Group: "g2"}},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "ok",
+			Content:        "good",
+			Score:          0.5,
+			Meta:           ppMeta{Group: "g1"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			Content:        "broken",
+			Score:          0.5,
+			Meta:           ppMeta{Group: "g2"},
+		},
 	}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrMissingID) {
 		t.Fatalf("Process() error = %v, want missing id", err)
 	}
@@ -253,10 +335,23 @@ func TestRerankRejectsInvalidDocument(t *testing.T) {
 
 	processor := Rerank(func(a, b Document[ppMeta]) bool { return a.Score > b.Score })
 	rs := NewResultSet([]Document[ppMeta]{
-		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
-		{Content: "broken", Score: 0.5, Meta: ppMeta{Group: "g2"}},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "ok",
+			Content:        "good",
+			Score:          0.5,
+			Meta:           ppMeta{Group: "g1"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			Content:        "broken",
+			Score:          0.5,
+			Meta:           ppMeta{Group: "g2"},
+		},
 	}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrMissingID) {
 		t.Fatalf("Process() error = %v, want missing id", err)
 	}
@@ -273,10 +368,24 @@ func TestGroupByRejectsEmptyGroupKey(t *testing.T) {
 
 	processor := GroupBy(func(m ppMeta) string { return m.Group }, DefaultMergeStrategy[ppMeta]())
 	rs := NewResultSet([]Document[ppMeta]{
-		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
-		{ID: "bad", Content: "other", Score: 0.4, Meta: ppMeta{Group: ""}},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "ok",
+			Content:        "good",
+			Score:          0.5,
+			Meta:           ppMeta{Group: "g1"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "bad",
+			Content:        "other",
+			Score:          0.4,
+			Meta:           ppMeta{Group: ""},
+		},
 	}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}
@@ -290,10 +399,24 @@ func TestTopPerGroupRejectsEmptyGroupKey(t *testing.T) {
 
 	processor := TopPerGroup(func(m ppMeta) string { return m.Group }, 1)
 	rs := NewResultSet([]Document[ppMeta]{
-		{ID: "ok", Content: "good", Score: 0.5, Meta: ppMeta{Group: "g1"}},
-		{ID: "bad", Content: "other", Score: 0.4, Meta: ppMeta{Group: ""}},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "ok",
+			Content:        "good",
+			Score:          0.5,
+			Meta:           ppMeta{Group: "g1"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "bad",
+			Content:        "other",
+			Score:          0.4,
+			Meta:           ppMeta{Group: ""},
+		},
 	}, DocumentIDResolver[ppMeta]{})
-	out, err := processor.Process(rs)
+	out, err := processor.Process(context.Background(), UnrestrictedRead(), rs)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Process() error = %v, want invalid argument", err)
 	}

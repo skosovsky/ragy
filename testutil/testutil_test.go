@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/tensor"
 )
@@ -18,7 +18,7 @@ import (
 func TestDocumentStoreConformance(t *testing.T) {
 	contracttest.RunDocumentsStructStoreSuite(
 		t,
-		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) documents.Store[contracttest.StructMeta] {
+		func(t *testing.T, docs []retrieval.Document[contracttest.StructMeta]) documents.RawStore[contracttest.StructMeta] {
 			t.Helper()
 			return &DocumentStore{Docs: docs, FilterSchema: tenantSchema(t)}
 		},
@@ -81,7 +81,7 @@ func TestBackendsRejectUnsetSchema(t *testing.T) {
 	if _, err := (&RetrievalBackend{
 		Docs:           []retrieval.Document[contracttest.StructMeta]{{ID: "doc-1"}},
 		VectorRequired: true,
-	}).Retrieve(context.Background(), retrieval.Query[struct{}]{
+	}).Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Options: retrieval.RetrieveOptions{Vector: []float32{1}},
 	}); err == nil {
 		t.Fatal("RetrievalBackend.Retrieve(dense) error = nil, want schema error")
@@ -92,7 +92,7 @@ func TestBackendsRejectUnsetSchema(t *testing.T) {
 	if _, err := (&RetrievalBackend{
 		Docs:           []retrieval.Document[contracttest.StructMeta]{{ID: "doc-1"}},
 		VectorRequired: false,
-	}).Retrieve(context.Background(), retrieval.Query[struct{}]{Text: "hello"}); err == nil {
+	}).Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(), Text: "hello"}); err == nil {
 		t.Fatal("RetrievalBackend.Retrieve(lexical) error = nil, want schema error")
 	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("RetrievalBackend.Retrieve(lexical) error = %v, want invalid argument", err)
@@ -132,11 +132,13 @@ func TestGraphStoreRejectsUnsetSchema(t *testing.T) {
 
 func TestDocumentStoreFindByIDsRejectsInvalidOutgoingDocuments(t *testing.T) {
 	store := &StructDocumentStore{
-		Docs: []retrieval.Document[contracttest.StructMeta]{{
-			ID:      "doc-1",
-			Content: "hello",
-			Score:   1.5,
-		}},
+		Docs: []retrieval.Document[contracttest.StructMeta]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: retrieval.ScoreNormalized,
+				ID:      "doc-1",
+				Content: "hello",
+				Score:   1.5,
+			},
+		},
 		FilterSchema: tenantSchema(t),
 	}
 
@@ -148,11 +150,17 @@ func TestDocumentStoreFindByIDsRejectsInvalidOutgoingDocuments(t *testing.T) {
 }
 
 func TestDocumentsPartialFindByIDsConformance(t *testing.T) {
-	contracttest.RunDocumentsPartialFindByIDsSuite(t, func(t *testing.T) documents.Store[contracttest.StructMeta] {
+	contracttest.RunDocumentsPartialFindByIDsSuite(t, func(t *testing.T) documents.RawStore[contracttest.StructMeta] {
 		return &DocumentStore{
 			Docs: []retrieval.Document[contracttest.StructMeta]{
 				{ID: "ok", Content: "good", Meta: contracttest.StructMeta{Tenant: "acme"}},
-				{ID: "bad", Content: "bad", Score: 1.5},
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     retrieval.ScoreNormalized,
+					ID:             "bad",
+					Content:        "bad",
+					Score:          1.5,
+				},
 			},
 			FilterSchema: tenantSchema(t),
 		}
@@ -168,7 +176,13 @@ func TestRetrievePartialProjectionConformance(t *testing.T) {
 			return &StructRetrievalBackend{
 				Docs: []retrieval.Document[contracttest.StructMeta]{
 					{ID: "ok", Content: "good", Meta: contracttest.StructMeta{Tenant: "acme"}},
-					{ID: "bad", Content: "bad", Score: 1.5},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     retrieval.ScoreNormalized,
+						ID:             "bad",
+						Content:        "bad",
+						Score:          1.5,
+					},
 				},
 				FilterSchema: tenantSchema(t),
 			}
@@ -180,7 +194,13 @@ func TestRetrievePartialProjectionConformance(t *testing.T) {
 			return &StructRetrievalBackend{
 				Docs: []retrieval.Document[contracttest.StructMeta]{
 					{ID: "ok", Content: "merge-key", Meta: contracttest.StructMeta{Tenant: "acme"}},
-					{ID: "bad", Content: "bad", Score: 1.5},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     retrieval.ScoreNormalized,
+						ID:             "bad",
+						Content:        "bad",
+						Score:          1.5,
+					},
 				},
 				FilterSchema: tenantSchema(t),
 				Resolver:     resolver,
@@ -273,7 +293,7 @@ func TestRetrievalBackendFilterValidationReturnsNonNilResultSet(t *testing.T) {
 	}
 
 	backend := &RetrievalBackend{Docs: nil, FilterSchema: schema, VectorRequired: true}
-	out, err := backend.Retrieve(context.Background(), retrieval.Query[struct{}]{
+	out, err := backend.Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Options: retrieval.RetrieveOptions{
 			Vector:  []float32{1},
 			Filters: cond,

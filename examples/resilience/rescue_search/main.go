@@ -46,7 +46,15 @@ func main() {
 	primary := &stubBackend{schema: schema, fail: true}
 	secondary := &stubBackend{
 		schema: schema,
-		docs:   []retrieval.Document[struct{}]{{ID: "fb-1", Content: "rescue hit", Score: rescueScore}},
+		docs: []retrieval.Document[struct{}]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "fb-1",
+				Content:        "rescue hit",
+				Score:          rescueScore,
+			},
+		},
 	}
 
 	pipeline, err := retrieval.NewExecutionPipelineBuilder[intent, struct{}, retrieval.NoExecutionMeta]().
@@ -59,7 +67,7 @@ func main() {
 		panic(err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), retrieval.Query[intent]{
+	result, err := pipeline.Execute(context.Background(), retrieval.Query[intent]{Read: retrieval.UnrestrictedRead(),
 		Text: "hello",
 		Options: retrieval.RetrieveOptions{
 			TopK:   defaultTopK,

@@ -30,7 +30,7 @@ func (hitNode) Retrieve(
 	_ retrieval.Query[stubIntent],
 ) (retrieval.ResultSet[struct{}], error) {
 	return retrieval.NewResultSet([]retrieval.Document[struct{}]{
-		{ID: "ok", Content: "hit", Score: 1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: retrieval.ScorePresent, ID: "ok", Content: "hit", Score: 1},
 	}, retrieval.DocumentIDResolver[struct{}]{}), nil
 }
 
@@ -51,10 +51,13 @@ func main() {
 		panic(err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), retrieval.Query[stubIntent]{
-		Text:    "q",
-		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
-	})
+	result, err := pipeline.Execute(
+		context.Background(),
+		retrieval.Query[stubIntent]{Read: retrieval.UnrestrictedRead(),
+			Text:    "q",
+			Options: retrieval.RetrieveOptions{TopK: exampleTopK},
+		},
+	)
 	if err == nil {
 		panic("expected partial failure")
 	}

@@ -1,0 +1,2 @@
+ok  	github.com/skosovsky/ragy/dense/persistent	3.529s
+ok  	github.com/skosovsky/ragy/tensor/persistent	3.445s

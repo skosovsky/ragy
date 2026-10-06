@@ -9,6 +9,7 @@ import (
 // RankToScoreNormalizer explicitly converts rank-only evidence into a score.
 type RankToScoreNormalizer interface {
 	NormalizeRank(rank int, total int) (float64, error)
+	Semantics() ScoreSemantics
 }
 
 // LinearRankNormalizer maps rank 1..total to 1..0 using a linear scale.
@@ -28,7 +29,7 @@ func (LinearRankNormalizer) NormalizeRank(rank int, total int) (float64, error) 
 	if total == 1 {
 		return 1, nil
 	}
-	return ragy.ClampScore(1 - float64(rank-1)/float64(total-1)), nil
+	return 1 - float64(rank-1)/float64(total-1), nil
 }
 
 // ApplyRankScorePolicy returns a copy of docs with explicit normalized scores
@@ -43,6 +44,9 @@ func ApplyRankScorePolicy[TMeta any](
 	out := copyDocuments(docs)
 	total := len(out)
 	for i, doc := range out {
+		if err := ValidateDocument(doc); err != nil {
+			return out[:i], err
+		}
 		if doc.ScoreState.IsScored() {
 			continue
 		}
@@ -54,9 +58,13 @@ func ApplyRankScorePolicy[TMeta any](
 		if err != nil {
 			return out[:i], err
 		}
-		doc.Score = ragy.ClampScore(score)
+		doc.Score = score
+		doc.ScoreSemantics = normalizer.Semantics()
 		doc.ScoreState = ScoreNormalized
 		doc.Rank = rank
+		if err := ValidateDocument(doc); err != nil {
+			return nil, err
+		}
 		out[i] = doc
 	}
 	return out, nil
@@ -77,3 +85,6 @@ func NormalizeRankOnlyResultSet[TMeta any](
 	}
 	return NewResultSet(docs, resolver), nil
 }
+
+// Semantics declares the explicitly selected rank normalization policy.
+func (LinearRankNormalizer) Semantics() ScoreSemantics { return "rank.linear.relative-batch" }

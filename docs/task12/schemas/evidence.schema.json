@@ -1,0 +1,1781 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "retrieval_id",
+    "scope",
+    "publication",
+    "recipe",
+    "query",
+    "outcome",
+    "reason",
+    "coverage",
+    "stages",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ragy.retrieval-evidence"
+    },
+    "retrieval_id": {
+      "$ref": "#/$defs/text"
+    },
+    "scope": {
+      "$ref": "#/$defs/text"
+    },
+    "publication": {
+      "$ref": "#/$defs/text"
+    },
+    "recipe": {
+      "$ref": "#/$defs/text"
+    },
+    "query": {
+      "$ref": "#/$defs/text"
+    },
+    "outcome": {
+      "enum": [
+        "complete",
+        "complete_empty",
+        "partial",
+        "insufficient",
+        "failed"
+      ]
+    },
+    "reason": {
+      "enum": [
+        "none",
+        "budget",
+        "deadline",
+        "missing_evidence",
+        "partial_targets",
+        "target_failure"
+      ]
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "stages": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/stage"
+      }
+    },
+    "diagnostics": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "enum": [
+              "complete",
+              "complete_empty"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "const": "none"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "partial"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "not": {
+              "const": "none"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "complete_empty"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "stages": {
+            "items": {
+              "properties": {
+                "hits": {
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ragy.invalid/schemas/retrieval-evidence",
+  "$defs": {
+    "text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "value"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "observed",
+            "omitted",
+            "unavailable",
+            "unsupported"
+          ]
+        },
+        "value": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "state": {
+              "const": "observed"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "enum": [
+                "omitted",
+                "unavailable",
+                "unsupported"
+              ]
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
+    "number": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "value"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "observed",
+            "omitted",
+            "unavailable",
+            "unsupported"
+          ]
+        },
+        "value": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "state": {
+              "const": "observed"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "enum": [
+                "omitted",
+                "unavailable",
+                "unsupported"
+              ]
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "id",
+        "revision",
+        "transformation",
+        "artifact",
+        "representation"
+      ],
+      "properties": {
+        "namespace": {
+          "$ref": "#/$defs/text"
+        },
+        "id": {
+          "$ref": "#/$defs/text"
+        },
+        "revision": {
+          "$ref": "#/$defs/text"
+        },
+        "transformation": {
+          "$ref": "#/$defs/text"
+        },
+        "artifact": {
+          "$ref": "#/$defs/text"
+        },
+        "representation": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "captured_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "id",
+        "revision",
+        "transformation",
+        "artifact",
+        "representation"
+      ],
+      "properties": {
+        "namespace": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "observed",
+                    "omitted"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "id": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "observed",
+                    "omitted"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "revision": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "observed",
+                    "omitted"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "transformation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "observed",
+                    "omitted"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "artifact": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "observed",
+                    "omitted"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "representation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "observed",
+                    "omitted"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "missing_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "id",
+        "revision",
+        "transformation",
+        "artifact",
+        "representation"
+      ],
+      "properties": {
+        "namespace": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        },
+        "id": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        },
+        "revision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        },
+        "transformation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        },
+        "artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        },
+        "representation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "value",
+        "semantics"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "native",
+            "normalized",
+            "absent",
+            "omitted",
+            "unavailable",
+            "unsupported"
+          ]
+        },
+        "value": {},
+        "semantics": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "state": {
+              "const": "native"
+            },
+            "value": {
+              "type": "number"
+            },
+            "semantics": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/text"
+                },
+                {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "observed",
+                        "omitted"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "normalized"
+            },
+            "value": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "semantics": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/text"
+                },
+                {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "observed",
+                        "omitted"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "absent"
+            },
+            "value": {
+              "type": "null"
+            },
+            "semantics": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "value"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unavailable"
+                },
+                "value": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "enum": [
+                "omitted",
+                "unavailable",
+                "unsupported"
+              ]
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "query",
+        "source",
+        "grade",
+        "rubric"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "observed",
+            "ungradable"
+          ]
+        },
+        "query": {
+          "$ref": "#/$defs/text"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "grade": {
+          "$ref": "#/$defs/number"
+        },
+        "rubric": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "state": {
+              "const": "observed"
+            },
+            "query": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/text"
+                },
+                {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "observed",
+                        "omitted"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "source": {
+              "$ref": "#/$defs/captured_source"
+            },
+            "grade": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/number"
+                },
+                {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "observed",
+                        "omitted"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "rubric": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/text"
+                },
+                {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "observed",
+                        "omitted"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "ungradable"
+            },
+            "query": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "value"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unavailable"
+                },
+                "value": {
+                  "type": "null"
+                }
+              }
+            },
+            "source": {
+              "$ref": "#/$defs/missing_source"
+            },
+            "grade": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "value"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unavailable"
+                },
+                "value": {
+                  "type": "null"
+                }
+              }
+            },
+            "rubric": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "value"
+              ],
+              "properties": {
+                "state": {
+                  "const": "unavailable"
+                },
+                "value": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "hit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "rank",
+        "score",
+        "snippet",
+        "sources_state",
+        "sources",
+        "judgment",
+        "locations_state",
+        "locations",
+        "contributions_state",
+        "contributions"
+      ],
+      "properties": {
+        "id": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "observed"
+                }
+              }
+            }
+          ]
+        },
+        "rank": {
+          "$ref": "#/$defs/number"
+        },
+        "score": {
+          "$ref": "#/$defs/score"
+        },
+        "snippet": {
+          "$ref": "#/$defs/text"
+        },
+        "sources_state": {
+          "enum": [
+            "observed",
+            "unavailable",
+            "unsupported"
+          ]
+        },
+        "sources": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/captured_source"
+          }
+        },
+        "judgment": {
+          "$ref": "#/$defs/label"
+        },
+        "locations_state": {
+          "enum": [
+            "observed",
+            "omitted",
+            "unavailable",
+            "unsupported"
+          ]
+        },
+        "locations": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/location"
+          }
+        },
+        "contributions_state": {
+          "enum": [
+            "observed",
+            "omitted",
+            "unavailable",
+            "unsupported"
+          ]
+        },
+        "contributions": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/contribution"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "contributions_state": {
+                "const": "observed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "contributions": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "contributions": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "locations_state": {
+                "const": "observed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "locations": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "locations": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "rank": {
+                "properties": {
+                  "state": {
+                    "const": "observed"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rank": {
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "sources_state": {
+                "const": "observed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sources": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "sources": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "name",
+        "status",
+        "hits_state",
+        "hits"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "name": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "observed",
+                    "omitted",
+                    "unsupported"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "observed",
+            "not_run",
+            "unsupported",
+            "missing_observation",
+            "unavailable"
+          ]
+        },
+        "hits_state": {
+          "enum": [
+            "observed",
+            "omitted",
+            "unavailable"
+          ]
+        },
+        "hits": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/hit"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "observed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "hits_state": {
+                "enum": [
+                  "observed",
+                  "omitted"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "hits_state": {
+                "const": "unavailable"
+              },
+              "hits": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "hits_state": {
+                "enum": [
+                  "omitted",
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "hits": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "number"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "model_calls",
+            "retrieval_calls",
+            "input_tokens",
+            "output_tokens",
+            "cost_units",
+            "latency_ms"
+          ]
+        },
+        "number": {
+          "$ref": "#/$defs/number"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "number": {
+                "properties": {
+                  "state": {
+                    "const": "observed"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "number": {
+                "properties": {
+                  "value": {
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "not": {
+                  "const": "latency_ms"
+                }
+              },
+              "number": {
+                "properties": {
+                  "state": {
+                    "const": "observed"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "number": {
+                "properties": {
+                  "value": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "coverage": {
+      "title": "Read admission coverage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "state",
+        "skipped_branches"
+      ],
+      "properties": {
+        "schema": {
+          "const": "ragy.read-coverage/admission"
+        },
+        "state": {
+          "enum": [
+            "unobserved",
+            "complete",
+            "partial",
+            "unrestricted"
+          ]
+        },
+        "skipped_branches": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "state": {
+              "const": "partial"
+            },
+            "skipped_branches": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "enum": [
+                "unobserved",
+                "complete",
+                "unrestricted"
+              ]
+            },
+            "skipped_branches": {
+              "maxItems": 0
+            }
+          }
+        }
+      ]
+    },
+    "observed_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "id",
+        "revision",
+        "transformation",
+        "artifact",
+        "representation"
+      ],
+      "properties": {
+        "namespace": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "observed"
+                }
+              }
+            }
+          ]
+        },
+        "id": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "observed"
+                }
+              }
+            }
+          ]
+        },
+        "revision": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "observed"
+                }
+              }
+            }
+          ]
+        },
+        "transformation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "observed"
+                }
+              }
+            }
+          ]
+        },
+        "artifact": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "observed"
+                }
+              }
+            }
+          ]
+        },
+        "representation": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "observed"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physical_index",
+        "printed_label",
+        "width_pt",
+        "height_pt",
+        "rotation_deg"
+      ],
+      "properties": {
+        "physical_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "printed_label": {
+          "type": "string"
+        },
+        "width_pt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "height_pt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rotation_deg": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        }
+      }
+    },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "left",
+        "top",
+        "right",
+        "bottom"
+      ],
+      "properties": {
+        "left": {
+          "type": "number",
+          "minimum": 0
+        },
+        "top": {
+          "type": "number",
+          "minimum": 0
+        },
+        "right": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "table",
+        "element",
+        "row",
+        "column",
+        "row_span",
+        "column_span"
+      ],
+      "properties": {
+        "table": {
+          "type": "string"
+        },
+        "element": {
+          "type": "string"
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "row_span": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "column_span": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "kind",
+        "span",
+        "page",
+        "region",
+        "cell"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/observed_source"
+        },
+        "kind": {
+          "enum": [
+            "document",
+            "text",
+            "page",
+            "region",
+            "table_cell",
+            "image_region"
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        },
+        "page": {
+          "$ref": "#/$defs/page"
+        },
+        "region": {
+          "$ref": "#/$defs/region"
+        },
+        "cell": {
+          "$ref": "#/$defs/cell"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "document"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "page": {
+              "const": {
+                "physical_index": 0,
+                "printed_label": "",
+                "width_pt": 0,
+                "height_pt": 0,
+                "rotation_deg": 0
+              }
+            },
+            "region": {
+              "const": {
+                "left": 0,
+                "top": 0,
+                "right": 0,
+                "bottom": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "page": {
+              "const": {
+                "physical_index": 0,
+                "printed_label": "",
+                "width_pt": 0,
+                "height_pt": 0,
+                "rotation_deg": 0
+              }
+            },
+            "region": {
+              "const": {
+                "left": 0,
+                "top": 0,
+                "right": 0,
+                "bottom": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            },
+            "span": {
+              "properties": {
+                "end": {
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "page"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "region": {
+              "const": {
+                "left": 0,
+                "top": 0,
+                "right": 0,
+                "bottom": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            },
+            "page": {
+              "properties": {
+                "width_pt": {
+                  "exclusiveMinimum": 0
+                },
+                "height_pt": {
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "region"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            },
+            "page": {
+              "properties": {
+                "width_pt": {
+                  "exclusiveMinimum": 0
+                },
+                "height_pt": {
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "table_cell"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "region": {
+              "const": {
+                "left": 0,
+                "top": 0,
+                "right": 0,
+                "bottom": 0
+              }
+            },
+            "page": {
+              "properties": {
+                "width_pt": {
+                  "exclusiveMinimum": 0
+                },
+                "height_pt": {
+                  "exclusiveMinimum": 0
+                }
+              }
+            },
+            "cell": {
+              "properties": {
+                "table": {
+                  "minLength": 1
+                },
+                "element": {
+                  "minLength": 1
+                },
+                "row_span": {
+                  "minimum": 1
+                },
+                "column_span": {
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "image_region"
+            },
+            "span": {
+              "const": {
+                "start": 0,
+                "end": 0
+              }
+            },
+            "cell": {
+              "const": {
+                "table": "",
+                "element": "",
+                "row": 0,
+                "column": 0,
+                "row_span": 0,
+                "column_span": 0
+              }
+            },
+            "page": {
+              "properties": {
+                "width_pt": {
+                  "exclusiveMinimum": 0
+                },
+                "height_pt": {
+                  "exclusiveMinimum": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "contribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query_index",
+        "document_id",
+        "rank",
+        "locations_state",
+        "locations"
+      ],
+      "properties": {
+        "query_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "document_id": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "properties": {
+                "state": {
+                  "const": "observed"
+                }
+              }
+            }
+          ]
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "locations_state": {
+          "enum": [
+            "observed",
+            "omitted",
+            "unavailable",
+            "unsupported"
+          ]
+        },
+        "locations": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/location"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "locations_state": {
+                "const": "observed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "locations": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "locations": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

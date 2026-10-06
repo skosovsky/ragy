@@ -1,0 +1,1 @@
+ok  	github.com/skosovsky/ragy/lexical	1.447s

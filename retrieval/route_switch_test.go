@@ -50,7 +50,9 @@ func TestRouteSwitchDispatchesOnceAndFallsBackOnEmpty(t *testing.T) {
 		}).
 		Case("catalog", routeCaseNode(routeStubNode[struct{}]{docs: nil})).
 		Case("knowledge", routeCaseNode(routeStubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "kb", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "kb", Content: "hit", Score: 1},
+			},
 		})).
 		FallbackOnEmpty("catalog", "knowledge").
 		Build()
@@ -71,7 +73,7 @@ func TestRouteSwitchDispatchesOnceAndFallsBackOnEmpty(t *testing.T) {
 		t.Fatalf("Build pipeline: %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{
+	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Text:    "raw",
 		Options: RetrieveOptions{TopK: 5},
 	})
@@ -107,7 +109,9 @@ func TestRouteSwitchConditionalFallbackCanSkip(t *testing.T) {
 	).
 		Case("primary", routeCaseNode(routeStubNode[struct{}]{docs: nil})).
 		Case("fallback", routeCaseNode(routeStubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "fb", Content: "hit", Score: 1},
+			},
 		})).
 		ConditionalFallback("primary", "fallback",
 			func(ctx RequestRouteExecutionContext[routeIntent, NoRequestMeta, routeName, routeSignal, struct{}, routeExecMeta]) bool {
@@ -125,7 +129,7 @@ func TestRouteSwitchConditionalFallbackCanSkip(t *testing.T) {
 		t.Fatalf("Build pipeline: %v", err)
 	}
 
-	skipped, err := pipeline.Execute(context.Background(), Query[routeIntent]{
+	skipped, err := pipeline.Execute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Intent:  routeIntent{Mode: "deny"},
 		Options: RetrieveOptions{TopK: 5},
@@ -140,7 +144,7 @@ func TestRouteSwitchConditionalFallbackCanSkip(t *testing.T) {
 		t.Fatalf("BranchTrace(skip) = %#v, want skipped fallback edge", skipped.BranchTrace)
 	}
 
-	allowed, err := pipeline.Execute(context.Background(), Query[routeIntent]{
+	allowed, err := pipeline.Execute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Intent:  routeIntent{Mode: "allow"},
 		Options: RetrieveOptions{TopK: 5},
@@ -164,7 +168,9 @@ func TestRouteSwitchRecordsNoDefaultSkip(t *testing.T) {
 		),
 	).
 		Case("known", routeCaseNode(routeStubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		})).
 		Build()
 	if err != nil {
@@ -177,7 +183,7 @@ func TestRouteSwitchRecordsNoDefaultSkip(t *testing.T) {
 		t.Fatalf("Build pipeline: %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{
+	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 5},
 	})
@@ -204,7 +210,15 @@ func TestRouteSwitchRescuesBranchError(t *testing.T) {
 	).
 		Case("primary", routeCaseNode(errorNode[routeIntent, struct{}]{err: ragy.ErrUnavailable})).
 		Case("rescue", routeCaseNode(routeStubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "rescued", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "rescued",
+					Content:        "ok",
+					Score:          1,
+				},
+			},
 		})).
 		RescueOnError("primary", "rescue",
 			func(ctx RequestRouteExecutionContext[routeIntent, NoRequestMeta, routeName, routeSignal, struct{}, routeExecMeta]) bool {
@@ -222,7 +236,7 @@ func TestRouteSwitchRescuesBranchError(t *testing.T) {
 		t.Fatalf("Build pipeline: %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{
+	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 5},
 	})
@@ -249,7 +263,15 @@ func TestRouteSwitchRecordsSkippedRescuePredicateAndCaseError(t *testing.T) {
 	).
 		Case("primary", routeCaseNode(errorNode[routeIntent, struct{}]{err: ragy.ErrUnavailable})).
 		Case("rescue", routeCaseNode(routeStubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "rescued", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "rescued",
+					Content:        "ok",
+					Score:          1,
+				},
+			},
 		})).
 		RescueOnError("primary", "rescue",
 			func(RequestRouteExecutionContext[routeIntent, NoRequestMeta, routeName, routeSignal, struct{}, routeExecMeta]) bool {
@@ -267,7 +289,7 @@ func TestRouteSwitchRecordsSkippedRescuePredicateAndCaseError(t *testing.T) {
 		t.Fatalf("Build pipeline: %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{
+	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 5},
 	})
@@ -370,7 +392,7 @@ func TestRouteSwitchPreservesDiagnosticsWhenPlannerErrors(t *testing.T) {
 		t.Fatalf("Build pipeline: %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{
+	result, err := pipeline.Execute(context.Background(), Query[routeIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 5},
 	})

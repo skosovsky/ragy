@@ -94,7 +94,12 @@ func (r *ReciprocalRankFusion[TMeta]) materializeRRFFromSeen(
 	}
 
 	maxScore, scoreErr := maxMergedScore(ctx, seen)
-	out, buildErr := buildMergedDocuments(ctx, seen, maxScore)
+	out, buildErr := buildMergedDocuments(
+		ctx,
+		seen,
+		maxScore,
+		ScoreSemantics(fmt.Sprintf("rank.rrf.relative-max:k=%d", r.k)),
+	)
 	if buildErr != nil {
 		return preserveResultOnError(NewResultSet(r.sortMergedDocuments(out), r.resolver), buildErr, r.resolver)
 	}
@@ -153,11 +158,17 @@ func (r *ReciprocalRankFusion[TMeta]) mergeList(
 		current := seen[mergeKey]
 		if current.doc.ID == "" {
 			current.doc = doc
+			current.doc.ScoreHistory = doc.ObservedScores()
 		} else if !samePayload(current.doc, doc) {
 			return fmt.Errorf("%w: conflicting payload for merge key %q", ragy.ErrInvalidArgument, mergeKey)
 		}
 
-		current.score += 1.0 / float64(r.k+rank+1)
+		if current.doc.ID != doc.ID || current.score > 0 {
+			current.doc.SourceSupports = combineLocatorSupports(current.doc.SourceLocations(), doc.SourceLocations())
+			current.doc.ScoreHistory = append(current.doc.ScoreHistory, doc.ObservedScores()...)
+		}
+		// Convert operands before addition: a valid positive k may be MaxInt.
+		current.score += 1.0 / (float64(r.k) + float64(rank) + 1)
 		seen[mergeKey] = current
 		if err := ctx.Err(); err != nil {
 			return err
@@ -185,6 +196,7 @@ func buildMergedDocuments[TMeta any](
 	ctx context.Context,
 	seen map[string]fusedState[TMeta],
 	maxScore float64,
+	semantics ScoreSemantics,
 ) ([]Document[TMeta], error) {
 	keys := make([]string, 0, len(seen))
 	for key := range seen {
@@ -197,7 +209,8 @@ func buildMergedDocuments[TMeta any](
 		item := seen[key]
 		doc := item.doc
 		if maxScore > 0 {
-			doc.Score = ragy.ClampScore(item.score / maxScore)
+			doc.Score = item.score / maxScore
+			doc.ScoreSemantics = semantics
 			doc.ScoreState = ScoreNormalized
 		}
 		out = append(out, doc)

@@ -9,8 +9,10 @@ use (
 	./adapters/neo4j
 	./adapters/observability/otel
 	./adapters/openai
+	./adapters/pdf
 	./adapters/pgvector
 	./adapters/qdrant
+	./examples/conformance
 	./examples/planner
 	./examples/resilience
 )

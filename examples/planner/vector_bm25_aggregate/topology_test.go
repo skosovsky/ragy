@@ -28,16 +28,24 @@ func testFixtures(t *testing.T) (vectorBackend, retrieval.Backend[struct{}, stru
 	if err != nil {
 		t.Fatalf("NewBM25Index(): %v", err)
 	}
-	if upsertErr := bm25.Upsert(retrieval.Document[struct{}]{
-		ID: "lex-1", Content: "bm25 keyword match", Score: 0,
-	}); upsertErr != nil {
+	if upsertErr := bm25.Upsert(
+		retrieval.Document[struct{}]{ScoreSemantics: "fixture-similarity", ScoreState: retrieval.ScorePresent,
+			ID: "lex-1", Content: "bm25 keyword match", Score: 0,
+		},
+	); upsertErr != nil {
 		t.Fatalf("Upsert(): %v", upsertErr)
 	}
 
 	vector := vectorBackend{
 		schema: schema,
 		hits: []retrieval.Document[struct{}]{
-			{ID: "vec-1", Content: "dense neighbor", Score: vectorHitScore},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "vec-1",
+				Content:        "dense neighbor",
+				Score:          vectorHitScore,
+			},
 		},
 	}
 	return vector, bm25
@@ -50,7 +58,7 @@ func TestVectorBM25Aggregate_FusesBothBranches(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
 		Text:    "keyword",
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK, Vector: []float32{0.1, 0.2}},
 	})
@@ -79,7 +87,7 @@ func TestVectorBM25Aggregate_EmptyVectorStillReturnsLexical(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
 		Text:    "keyword",
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
 	})

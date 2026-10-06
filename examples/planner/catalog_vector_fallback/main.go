@@ -29,6 +29,9 @@ func (m memoryBackend) Retrieve(
 }
 
 const (
+	exampleWebID     = "web-1"
+	exampleWebText   = "web"
+	exampleQueryText = "query"
 	webFallbackScore = 0.8
 	exampleTopK      = 5
 )
@@ -74,7 +77,13 @@ func main() {
 	web := memoryBackend{
 		name: schema,
 		hits: []retrieval.Document[struct{}]{
-			{ID: "web-1", Content: "web", Score: webFallbackScore},
+			{
+				ScoreSemantics: exampleScoreSemantics,
+				ScoreState:     retrieval.ScorePresent,
+				ID:             exampleWebID,
+				Content:        exampleWebText,
+				Score:          webFallbackScore,
+			},
 		},
 	}
 
@@ -83,19 +92,24 @@ func main() {
 		panic(err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
-		Text:    "query",
-		Intent:  searchIntent{AllowWeb: true},
-		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
-	})
+	result, err := pipeline.Execute(
+		context.Background(),
+		retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
+			Text:    exampleQueryText,
+			Intent:  searchIntent{AllowWeb: true},
+			Options: retrieval.RetrieveOptions{TopK: exampleTopK},
+		},
+	)
 	if _, ok := retrieval.AsPartialFailure[struct{}](err); ok {
 		fmt.Printf("partial failure with %d docs\n", result.Len())
 	} else if err != nil {
 		panic(err)
 	}
 	docs := result.Documents()
-	if len(docs) != 1 || docs[0].ID != "web-1" {
+	if len(docs) != 1 || docs[0].ID != exampleWebID {
 		panic(fmt.Sprintf("expected web fallback, got %#v", docs))
 	}
 	fmt.Printf("hit: %s\n", docs[0].ID)
 }
+
+const exampleScoreSemantics = "fixture-similarity"

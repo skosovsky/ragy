@@ -1,0 +1,5 @@
+ok  	github.com/skosovsky/ragy/dense/persistent	4.337s
+ok  	github.com/skosovsky/ragy/tensor/persistent	4.932s
+ok  	github.com/skosovsky/ragy/lifecycle	(cached)
+ok  	github.com/skosovsky/ragy/lifecycle/filestore	(cached)
+ok  	github.com/skosovsky/ragy/lifecycle/integration	6.363s

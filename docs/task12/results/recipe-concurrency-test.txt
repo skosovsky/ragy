@@ -1,0 +1,2 @@
+ok  	github.com/skosovsky/ragy/recipe	1.763s
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	1.762s

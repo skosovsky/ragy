@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ragy.invalid/schemas/consumer-tensor-record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "configuration",
+    "scope",
+    "publication",
+    "candidate_budget",
+    "candidate_ids",
+    "candidate_document_ids",
+    "record"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ragy.consumer.tensor-record"
+    },
+    "configuration": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "publication": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_budget": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "candidate_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "candidate_document_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "record": {
+      "$ref": "https://ragy.invalid/schemas/retrieval-evidence"
+    }
+  }
+}

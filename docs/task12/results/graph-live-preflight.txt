@@ -1,0 +1,2 @@
+live graph capture requires OPENAI_API_KEY, model and qualified host tokenizer configuration
+exit status 1

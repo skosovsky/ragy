@@ -1,6 +1,7 @@
 package retrieval
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -19,9 +20,11 @@ func TestDefaultArtifactRendererBuildsBudgetedArtifact(t *testing.T) {
 	}, DocumentIDResolver[struct{ Source string }]{})
 
 	artifact, err := DefaultArtifactRenderer[struct{ Source string }]{}.Render(
+		context.Background(), UnrestrictedRead(),
 		rs,
 		ArtifactRenderOptions[struct{ Source string }]{
-			Budget: 5,
+			Budget:    5,
+			CloneMeta: cloneArtifactValue[struct{ Source string }],
 			Provenance: func(doc Document[struct{ Source string }]) Provenance {
 				return Provenance{SourceID: doc.ID, URI: "file://doc-1", Label: doc.Meta.Source}
 			},
@@ -61,7 +64,12 @@ func TestDefaultArtifactRendererBuildsBudgetedArtifact(t *testing.T) {
 func TestDefaultArtifactRendererRejectsNegativeBudget(t *testing.T) {
 	t.Parallel()
 
-	_, err := DefaultArtifactRenderer[struct{}]{}.Render(nil, ArtifactRenderOptions[struct{}]{Budget: -1})
+	_, err := DefaultArtifactRenderer[struct{}]{}.Render(
+		context.Background(),
+		UnrestrictedRead(),
+		nil,
+		ArtifactRenderOptions[struct{}]{Budget: -1},
+	)
 	if err == nil {
 		t.Fatal("Render() error = nil, want error")
 	}
@@ -71,19 +79,31 @@ func TestDefaultArtifactRendererDedupsAndFormatsRenderedText(t *testing.T) {
 	t.Parallel()
 
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "doc-1", Content: "alpha", Score: 1},
-		{ID: "doc-2", Content: "alpha duplicate", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "doc-1", Content: "alpha", Score: 1},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "doc-2",
+			Content:        "alpha duplicate",
+			Score:          0.9,
+		},
 	}, DocumentIDResolver[struct{}]{})
 
-	artifact, err := DefaultArtifactRenderer[struct{}]{}.Render(rs, ArtifactRenderOptions[struct{}]{
-		UntrustedDataBoundary: "UNTRUSTED",
-		DedupKey: func(_ Document[struct{}]) string {
-			return "same-source"
+	artifact, err := DefaultArtifactRenderer[struct{}]{}.Render(
+		context.Background(),
+		UnrestrictedRead(),
+		rs,
+		ArtifactRenderOptions[struct{}]{
+			UntrustedDataBoundary: "UNTRUSTED",
+			CloneMeta:             cloneArtifactValue[struct{}],
+			DedupKey: func(_ Document[struct{}]) string {
+				return "same-source"
+			},
+			FormatSnippet: func(snippet ContextSnippet[struct{}]) string {
+				return snippet.DocumentID + ": " + snippet.Content
+			},
 		},
-		FormatSnippet: func(snippet ContextSnippet[struct{}]) string {
-			return snippet.DocumentID + ": " + snippet.Content
-		},
-	})
+	)
 	if err != nil {
 		t.Fatalf("Render(): %v", err)
 	}
@@ -94,3 +114,5 @@ func TestDefaultArtifactRendererDedupsAndFormatsRenderedText(t *testing.T) {
 		t.Fatalf("RenderedText = %q, want custom formatted text", artifact.RenderedText)
 	}
 }
+
+func cloneArtifactValue[T any](value T) (T, error) { return value, nil }

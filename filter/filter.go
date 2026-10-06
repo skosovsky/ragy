@@ -20,8 +20,9 @@ var (
 )
 
 const (
-	jsonFloatParseBase      = 10
-	jsonFloatParsePrecision = 256
+	jsonFloatParseBase     = 10
+	jsonDigitPrecisionBits = 4
+	jsonIntegerGuardBits   = 64
 )
 
 // ValidateIdentifier enforces the shared portable field/property-name policy.
@@ -273,6 +274,11 @@ func (s Schema) NormalizeAttributes(attrs RawAttributes) (RawAttributes, error) 
 
 	out := make(RawAttributes, len(canonical))
 	for name, raw := range canonical {
+		// Schema kind, rather than a float64 intermediary, determines how JSON
+		// numbers are interpreted. Preserve their original decimal representation.
+		if number, ok := attrs[name].(json.Number); ok {
+			raw = number
+		}
 		kind, ok := s.Lookup(name)
 		if !ok {
 			return nil, fmt.Errorf("%w: undeclared schema field %q", ragy.ErrInvalidArgument, name)
@@ -945,7 +951,7 @@ func normalizeIntegralJSONNumberToInt64(value json.Number) (int64, error) {
 	parsed, _, err := big.ParseFloat(
 		value.String(),
 		jsonFloatParseBase,
-		jsonFloatParsePrecision,
+		uint(len(value.String())*jsonDigitPrecisionBits)+jsonIntegerGuardBits,
 		big.ToZero,
 	)
 	if err != nil {

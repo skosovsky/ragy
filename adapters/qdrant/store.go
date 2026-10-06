@@ -3,7 +3,8 @@ package qdrant
 import (
 	"context"
 	"fmt"
-	"math"
+
+	"github.com/skosovsky/ragy/access"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
@@ -11,8 +12,6 @@ import (
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
-
-const logisticClamp = 20.0
 
 // Condition is a typed qdrant filter condition.
 type Condition interface {
@@ -136,6 +135,19 @@ func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
 	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	rs, err := s.retrieve(ctx, req)
+	return retrieval.DeliverRead(ctx, req.Read, rs, err, s.resolver)
+}
+
+func (s *Store[TMeta]) retrieve(
+	ctx context.Context,
+	req retrieval.Query[struct{}],
+) (retrieval.ResultSet[TMeta], error) {
+	prepared, readErr := retrieval.PrepareRead(ctx, req, s)
+	if readErr != nil {
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), readErr
+	}
+	req = prepared
 	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
@@ -165,7 +177,7 @@ func (s *Store[TMeta]) Retrieve(
 
 	docs := make([]retrieval.Document[TMeta], 0, len(points))
 	for _, point := range points {
-		doc, err := s.projectPoint(point, logistic(point.Score))
+		doc, err := s.projectPoint(point, point.Score)
 		if err != nil {
 			rs := retrieval.NewResultSet(docs, s.resolver)
 			return retrieval.PreserveResultOnError(rs, err, s.resolver)
@@ -191,6 +203,10 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]
 		if err != nil {
 			return err
 		}
+		attrs, err = s.schema.NormalizeAttributes(attrs)
+		if err != nil {
+			return err
+		}
 
 		points = append(points, Point{
 			ID:         record.ID,
@@ -204,7 +220,7 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]
 	return ragy.WrapBackendError(s.client.Upsert(ctx, s.collection, points), "qdrant upsert")
 }
 
-// FindByIDs implements documents.Store.
+// FindByIDs implements documents.RawStore.
 func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval.Document[TMeta], error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -226,6 +242,8 @@ func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval
 			return docs, err
 		}
 		doc.Score = 0
+		doc.ScoreSemantics = ""
+		doc.ScoreHistory = nil
 		doc.ScoreState = retrieval.ScoreAbsent
 		if err := retrieval.ValidateDocument(doc); err != nil {
 			return docs, ragy.WrapProjectionError(err, "qdrant find by ids validate")
@@ -236,7 +254,7 @@ func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval
 	return docs, nil
 }
 
-// DeleteByIDs implements documents.Store.
+// DeleteByIDs implements documents.RawStore.
 func (s *Store[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
 	if len(ids) == 0 {
 		return documents.DeleteResult{}, nil
@@ -250,7 +268,7 @@ func (s *Store[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents
 	return documents.DeleteResult{Deleted: deleted}, nil
 }
 
-// DeleteByFilter implements documents.Store.
+// DeleteByFilter implements documents.RawStore.
 func (s *Store[TMeta]) DeleteByFilter(ctx context.Context, cond filter.Condition) (documents.DeleteResult, error) {
 	ir := cond.IR()
 	if filter.IsEmpty(ir) {
@@ -290,10 +308,12 @@ func (s *Store[TMeta]) projectPoint(point Point, relevance float64) (retrieval.D
 	}
 
 	doc := retrieval.Document[TMeta]{
-		ID:      point.ID,
-		Content: point.Content,
-		Score:   ragy.ClampScore(relevance),
-		Meta:    meta,
+		ID:             point.ID,
+		Content:        point.Content,
+		Score:          relevance,
+		ScoreState:     retrieval.ScorePresent,
+		ScoreSemantics: "dense.store-native",
+		Meta:           meta,
 	}
 	if err := retrieval.ValidateDocument(doc); err != nil {
 		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "qdrant validate")
@@ -423,13 +443,14 @@ func (w *conditionWalker) pop(op string) (conditionFrame, error) {
 	return frame, nil
 }
 
-func logistic(score float64) float64 {
-	score = math.Max(-logisticClamp, math.Min(logisticClamp, score))
-	return 1.0 / (1.0 + math.Exp(-score))
-}
-
 var (
 	_ retrieval.Backend[struct{}, any] = (*Store[any])(nil)
 	_ dense.Index[any]                 = (*Store[any])(nil)
-	_ documents.Store[any]             = (*Store[any])(nil)
+	_ documents.RawStore[any]          = (*Store[any])(nil)
 )
+
+// ReadCapabilities declares pre-delivery scalar mandatory-filter enforcement.
+// Managed pinned publication requires the lifecycle-aware adapter path.
+func (s *Store[TMeta]) ReadCapabilities() access.Capabilities {
+	return access.Capabilities{RequirePinnedPublication: false, ScopeProfile: true, PinnedPublication: false}
+}

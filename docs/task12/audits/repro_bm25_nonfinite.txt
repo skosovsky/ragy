@@ -1,0 +1,6 @@
+construct <nil>
+retrieve <nil> score NaN validation invalid argument: scored document requires finite value and semantics
+construct <nil>
+retrieve <nil> score NaN validation invalid argument: scored document requires finite value and semantics
+construct <nil>
+retrieve <nil> score NaN validation invalid argument: scored document requires finite value and semantics

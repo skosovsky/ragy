@@ -11,9 +11,9 @@ func TestResultSetDedupSortsByScore(t *testing.T) {
 	t.Parallel()
 
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "low", Content: "A", Score: 0.1},
-		{ID: "high", Content: "B", Score: 0.9},
-		{ID: "mid", Content: "C", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "low", Content: "A", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "high", Content: "B", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "mid", Content: "C", Score: 0.5},
 	}, DocumentIDResolver[struct{}]{})
 	deduped, err := rs.Dedup()
 	if err != nil {
@@ -45,8 +45,18 @@ func (m mixedMergeKeyResolver) Resolve(doc Document[struct{}]) Identity {
 func TestResultSetMergeRejectsEmptyMergeKey(t *testing.T) {
 	t.Parallel()
 
-	left := NewResultSet([]Document[struct{}]{{ID: "a", Content: "A", Score: 0.2}}, emptyMergeKeyResolver{})
-	right := NewResultSet([]Document[struct{}]{{ID: "b", Content: "B", Score: 0.9}}, emptyMergeKeyResolver{})
+	left := NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.2},
+		},
+		emptyMergeKeyResolver{},
+	)
+	right := NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.9},
+		},
+		emptyMergeKeyResolver{},
+	)
 
 	_, err := left.Merge(right)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
@@ -59,10 +69,10 @@ func TestResultSetMergePreservesPartialOnInvalidKey(t *testing.T) {
 
 	resolver := mixedMergeKeyResolver{invalid: map[string]struct{}{"b": {}}}
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "A", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.9},
 	}, resolver)
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "B", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.5},
 	}, resolver)
 
 	out, err := left.Merge(right)
@@ -78,10 +88,10 @@ func TestResultSetMergeRejectsInvalidDocument(t *testing.T) {
 	t.Parallel()
 
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "A", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "B", Score: 1.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScoreNormalized, ID: "b", Content: "B", Score: 1.5},
 	}, DocumentIDResolver[struct{}]{})
 
 	out, err := left.Merge(right)
@@ -98,10 +108,10 @@ func TestResultSetMergePreservesFirstSeenOnScoreTie(t *testing.T) {
 
 	resolver := sharedKeyResolver{}
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "first", Content: "key", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "first", Content: "key", Score: 0.5},
 	}, resolver)
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "second", Content: "key", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "second", Content: "key", Score: 0.5},
 	}, resolver)
 
 	merged, err := left.Merge(right)
@@ -118,8 +128,8 @@ func TestResultSetDedupPreservesFirstSeenOnScoreTie(t *testing.T) {
 
 	resolver := sharedKeyResolver{}
 	rs := NewResultSet([]Document[struct{}]{
-		{ID: "first", Content: "key", Score: 0.5},
-		{ID: "second", Content: "key", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "first", Content: "key", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "second", Content: "key", Score: 0.5},
 	}, resolver)
 
 	deduped, err := rs.Dedup()
@@ -134,7 +144,12 @@ func TestResultSetDedupPreservesFirstSeenOnScoreTie(t *testing.T) {
 func TestResultSetDedupRejectsEmptyMergeKey(t *testing.T) {
 	t.Parallel()
 
-	rs := NewResultSet([]Document[struct{}]{{ID: "a", Content: "A", Score: 0.2}}, emptyMergeKeyResolver{})
+	rs := NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.2},
+		},
+		emptyMergeKeyResolver{},
+	)
 	_, err := rs.Dedup()
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Dedup() error = %v, want invalid argument", err)
@@ -145,10 +160,10 @@ func TestResultSetMergeKeepsHighestScore(t *testing.T) {
 	t.Parallel()
 
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "A", Score: 0.2},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 0.2},
 	}, DocumentIDResolver[struct{}]{})
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "a", Content: "B", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "B", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
 
 	merged, err := left.Merge(right)
@@ -180,8 +195,22 @@ func TestResultSetDedupUsesMergeKey(t *testing.T) {
 	t.Parallel()
 
 	rs := NewResultSet([]Document[struct{ Tenant string }]{
-		{ID: "a", Content: "A", Score: 0.2, Meta: struct{ Tenant string }{Tenant: "acme"}},
-		{ID: "b", Content: "B", Score: 0.9, Meta: struct{ Tenant string }{Tenant: "acme"}},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "a",
+			Content:        "A",
+			Score:          0.2,
+			Meta:           struct{ Tenant string }{Tenant: "acme"},
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "b",
+			Content:        "B",
+			Score:          0.9,
+			Meta:           struct{ Tenant string }{Tenant: "acme"},
+		},
 	}, tenantMergeResolver{})
 	deduped, err := rs.Dedup()
 	if err != nil {
@@ -195,7 +224,12 @@ func TestResultSetDedupUsesMergeKey(t *testing.T) {
 func TestResultSetDocumentsDefensiveCopy(t *testing.T) {
 	t.Parallel()
 
-	rs := NewResultSet([]Document[struct{}]{{ID: "a", Content: "A", Score: 1}}, DocumentIDResolver[struct{}]{})
+	rs := NewResultSet(
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 1},
+		},
+		DocumentIDResolver[struct{}]{},
+	)
 	docs := rs.Documents()
 	docs[0].Content = "mutated"
 	if rs.Documents()[0].Content != "A" {
@@ -206,8 +240,14 @@ func TestResultSetDocumentsDefensiveCopy(t *testing.T) {
 func TestResultSetMergeImmutability(t *testing.T) {
 	t.Parallel()
 
-	left := NewResultSet([]Document[struct{}]{{ID: "a", Score: 0.2}}, DocumentIDResolver[struct{}]{})
-	right := NewResultSet([]Document[struct{}]{{ID: "b", Score: 0.9}}, DocumentIDResolver[struct{}]{})
+	left := NewResultSet(
+		[]Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Score: 0.2}},
+		DocumentIDResolver[struct{}]{},
+	)
+	right := NewResultSet(
+		[]Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Score: 0.9}},
+		DocumentIDResolver[struct{}]{},
+	)
 	leftDocs := left.Documents()
 	rightDocs := right.Documents()
 	_, err := left.Merge(right)

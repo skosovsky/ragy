@@ -1,6 +1,8 @@
 package retrieval
 
 import (
+	"github.com/skosovsky/ragy/access"
+
 	"context"
 	"errors"
 	"strings"
@@ -16,7 +18,7 @@ type stubIntent struct{}
 const pipelineTestTopK = 10
 
 func pipelineTestQuery(text string) Query[stubIntent] {
-	return Query[stubIntent]{
+	return Query[stubIntent]{Read: UnrestrictedRead(),
 		Text:    text,
 		Options: RetrieveOptions{TopK: pipelineTestTopK},
 	}
@@ -66,10 +68,14 @@ func TestFallbackNodeUsesSecondaryWhenPrimaryEmpty(t *testing.T) {
 	t.Parallel()
 
 	primary := stubNode[struct{}]{docs: nil}
-	secondary := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}}}
+	secondary := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "fb", Content: "hit", Score: 1},
+		},
+	}
 
 	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{Primary: primary, Secondary: secondary}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -84,10 +90,12 @@ func TestFallbackNodePropagatesPrimaryError(t *testing.T) {
 	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
 		Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: stubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "fb", Content: "hit", Score: 1},
+			},
 		},
 	}
-	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	requireNonNilResultSetOnError(t, out, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
@@ -100,10 +108,12 @@ func TestRescueNodeUsesSecondaryOnPrimaryError(t *testing.T) {
 	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: stubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "fb", Content: "hit", Score: 1},
+			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -118,10 +128,12 @@ func TestRescueNodeDoesNotUseSecondaryOnEmpty(t *testing.T) {
 	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: stubNode[struct{}]{docs: nil},
 		Secondary: stubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "fb", Content: "hit", Score: 1},
+			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -133,7 +145,13 @@ func TestRescueNodeDoesNotUseSecondaryOnEmpty(t *testing.T) {
 func TestPartialSuccessRS(t *testing.T) {
 	t.Parallel()
 
-	doc := Document[struct{}]{ID: "a", Content: "hit", Score: 1}
+	doc := Document[struct{}]{
+		ScoreSemantics: "fixture-similarity",
+		ScoreState:     ScorePresent,
+		ID:             "a",
+		Content:        "hit",
+		Score:          1,
+	}
 	rsWithDoc := NewResultSet([]Document[struct{}]{doc}, DocumentIDResolver[struct{}]{})
 	emptyRS := NewResultSet[struct{}](nil, DocumentIDResolver[struct{}]{})
 
@@ -175,10 +193,14 @@ func TestAggregateNodeToleratesChildError(t *testing.T) {
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			errorNode[stubIntent, struct{}]{err: ragy.ErrEmptyVector},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "hit", Score: 1},
+				},
+			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want partial failure")
 	}
@@ -206,7 +228,7 @@ func TestAggregateNodeFailsWhenAllChildrenError(t *testing.T) {
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		},
 	}
-	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	requireNonNilResultSetOnError(t, out, err)
 	if !errors.Is(err, ragy.ErrEmptyVector) || !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want joined child errors", err)
@@ -220,7 +242,7 @@ func TestRescueNodeReturnsPrimaryErrorWhenSecondaryFails(t *testing.T) {
 		Primary:   errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: errorNode[stubIntent, struct{}]{err: ragy.ErrProtocol},
 	}
-	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	requireNonNilResultSetOnError(t, out, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
@@ -234,19 +256,19 @@ func TestAggregateNodeUsesRRFByDefault(t *testing.T) {
 	t.Parallel()
 
 	node1 := stubNode[struct{}]{docs: []Document[struct{}]{
-		{ID: "solo", Content: "solo", Score: 0.99},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "solo", Content: "solo", Score: 0.99},
 	}}
 	node2 := stubNode[struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "a", Score: 0.9},
-		{ID: "b", Content: "b", Score: 0.8},
-		{ID: "c", Content: "c", Score: 0.7},
-		{ID: "d", Content: "d", Score: 0.01},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "a", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "b", Score: 0.8},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "c", Content: "c", Score: 0.7},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "d", Content: "d", Score: 0.01},
 	}}
 
 	aggregate := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{node1, node2},
 	}
-	rs, err := aggregate.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := aggregate.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -297,15 +319,24 @@ func TestAggregateNodeReportsPartialFailure(t *testing.T) {
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "hit",
+						Content:        "ok",
+						Score:          1,
+					},
+				},
+			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want partial failure")
 	}
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 || rs.Documents()[0].ID != "hit" {
@@ -322,11 +353,29 @@ func TestInjectNodeResolverRecursive(t *testing.T) {
 			Merger: NewScoreMerger[struct{}](nil),
 			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{
-					{ID: "a1", Content: "grp", Score: 0.2},
-					{ID: "a2", Content: "grp", Score: 0.9},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a1",
+						Content:        "grp",
+						Score:          0.2,
+					},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a2",
+						Content:        "grp",
+						Score:          0.9,
+					},
 				}},
 				stubNode[struct{}]{docs: []Document[struct{}]{
-					{ID: "b1", Content: "grp", Score: 0.5},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "b1",
+						Content:        "grp",
+						Score:          0.5,
+					},
 				}},
 			},
 		},
@@ -359,7 +408,7 @@ func TestPipelineRetrieveRewrapsResolver(t *testing.T) {
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{
-			{ID: "left", Content: "key", Score: 0.2},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "left", Content: "key", Score: 0.2},
 		}}).
 		WithResolver(resolver).
 		Build()
@@ -373,7 +422,7 @@ func TestPipelineRetrieveRewrapsResolver(t *testing.T) {
 	}
 
 	other := NewResultSet([]Document[struct{}]{
-		{ID: "right", Content: "key", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "right", Content: "key", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
 	merged, err := rs.ResultSet.Merge(other)
 	if err != nil {
@@ -388,7 +437,7 @@ func TestFallbackNodeRejectsNilPrimary(t *testing.T) {
 	t.Parallel()
 
 	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{Primary: nil}
-	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	requireNonNilResultSetOnError(t, out, err)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Retrieve() error = %v, want invalid argument", err)
@@ -401,10 +450,14 @@ func TestAggregateNodeReturnsErrorOnNilChild(t *testing.T) {
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			nil,
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 1},
+				},
+			},
 		},
 	}
-	_, err := node.Retrieve(context.Background(), Query[stubIntent]{
+	_, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -518,15 +571,19 @@ func TestFallbackNodeSkipsSecondaryWhenPrimaryHasResults(t *testing.T) {
 	t.Parallel()
 
 	secondary := stubNode[struct{}]{
-		docs: []Document[struct{}]{{ID: "secondary", Score: 1}},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "secondary", Score: 1},
+		},
 	}
 	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
 		Primary: stubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "primary", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "primary", Score: 1},
+			},
 		},
 		Secondary: secondary,
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -542,8 +599,8 @@ func TestPipelineBuilderSecondWithResolverOverwritesFirst(t *testing.T) {
 	second := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{
-			{ID: "a", Content: "same", Score: 0.9},
-			{ID: "b", Content: "same", Score: 0.5},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "same", Score: 0.9},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "same", Score: 0.5},
 		}}).
 		WithResolver(first).
 		WithResolver(second).
@@ -560,7 +617,7 @@ func TestPipelineBuilderSecondWithResolverOverwritesFirst(t *testing.T) {
 		t.Fatalf("Len() = %d, want 2 docs before merge", rs.Len())
 	}
 	merged, mergeErr := rs.ResultSet.Merge(NewResultSet([]Document[struct{}]{
-		{ID: "c", Content: "same", Score: 0.1},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "c", Content: "same", Score: 0.1},
 	}, second))
 	if mergeErr != nil {
 		t.Fatalf("Merge(): %v", mergeErr)
@@ -577,7 +634,7 @@ func TestConditionalNodePropagatesChildError(t *testing.T) {
 		Predicate: func(Query[stubIntent]) bool { return true },
 		Child:     errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 	}
-	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	requireNonNilResultSetOnError(t, out, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
@@ -590,10 +647,12 @@ func TestConditionalNodeReturnsEmptyWhenPredicateFalse(t *testing.T) {
 	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: func(Query[stubIntent]) bool { return false },
 		Child: stubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "x", Content: "y", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "x", Content: "y", Score: 1},
+			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -606,7 +665,7 @@ func TestPipelineBuilderRetrieve(t *testing.T) {
 	t.Parallel()
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
-		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "x", Content: "y", Score: 0.5}}}).
+		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "x", Content: "y", Score: 0.5}}}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
@@ -624,8 +683,16 @@ func TestPipelineBuilderRetrieve(t *testing.T) {
 func TestPipelineBuilderWithRootThenWithFallbackOverwrites(t *testing.T) {
 	t.Parallel()
 
-	custom := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Content: "x", Score: 1}}}
-	fallbackPrimary := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Content: "y", Score: 1}}}
+	custom := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "custom", Content: "x", Score: 1},
+		},
+	}
+	fallbackPrimary := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "fb", Content: "y", Score: 1},
+		},
+	}
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(custom).
@@ -647,13 +714,27 @@ func TestPipelineBuilderWithRootThenWithFallbackOverwrites(t *testing.T) {
 func TestPipelineBuilderWithRootThenWithRescueOverwrites(t *testing.T) {
 	t.Parallel()
 
-	custom := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Content: "x", Score: 1}}}
+	custom := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "custom", Content: "x", Score: 1},
+		},
+	}
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(custom).
 		WithRescue(
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "rescue", Content: "y", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "rescue",
+						Content:        "y",
+						Score:          1,
+					},
+				},
+			},
 		).
 		Build()
 	if err != nil {
@@ -672,14 +753,38 @@ func TestPipelineBuilderWithRootThenWithRescueOverwrites(t *testing.T) {
 func TestPipelineBuilderWithRootThenWithAggregateOverwrites(t *testing.T) {
 	t.Parallel()
 
-	custom := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Content: "x", Score: 1}}}
+	custom := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "custom", Content: "x", Score: 1},
+		},
+	}
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(custom).
 		WithAggregate(
 			[]resultNodeNoMeta[stubIntent, struct{}]{
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 0.9}}},
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.1}}},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "a",
+							Content:        "A",
+							Score:          0.9,
+						},
+					},
+				},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "b",
+							Content:        "B",
+							Score:          0.1,
+						},
+					},
+				},
 			},
 			0,
 			nil,
@@ -706,8 +811,16 @@ func TestPipelineBuilderWithRootThenWithAggregateOverwrites(t *testing.T) {
 func TestPipelineBuilderWithRootThenWithConditionalOverwrites(t *testing.T) {
 	t.Parallel()
 
-	custom := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Content: "x", Score: 1}}}
-	child := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "x", Content: "y", Score: 1}}}
+	custom := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "custom", Content: "x", Score: 1},
+		},
+	}
+	child := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "x", Content: "y", Score: 1},
+		},
+	}
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(custom).
@@ -732,9 +845,13 @@ func TestPipelineBuilderWithFallbackThenWithRootOverwrites(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithFallback(
 			stubNode[struct{}]{},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "fb", Score: 1},
+				},
+			},
 		).
-		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Score: 1}}}).
+		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "custom", Score: 1}}}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
@@ -755,9 +872,13 @@ func TestPipelineBuilderWithRescueThenWithRootOverwrites(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRescue(
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "rescue", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "rescue", Score: 1},
+				},
+			},
 		).
-		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Score: 1}}}).
+		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "custom", Score: 1}}}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
@@ -777,10 +898,18 @@ func TestPipelineBuilderWithAggregateThenWithRootOverwrites(t *testing.T) {
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithAggregate([]resultNodeNoMeta[stubIntent, struct{}]{
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Score: 0.9}}},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Score: 0.1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Score: 0.9},
+				},
+			},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Score: 0.1},
+				},
+			},
 		}, 0, nil).
-		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Score: 1}}}).
+		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "custom", Score: 1}}}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
@@ -801,9 +930,13 @@ func TestPipelineBuilderWithConditionalThenWithRootOverwrites(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithConditional(
 			func(Query[stubIntent]) bool { return true },
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "x", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "x", Score: 1},
+				},
+			},
 		).
-		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "custom", Score: 1}}}).
+		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "custom", Score: 1}}}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
@@ -822,7 +955,11 @@ type suffixPostProcessor[TMeta any] struct {
 	suffix string
 }
 
-func (p suffixPostProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p suffixPostProcessor[TMeta]) Process(
+	_ context.Context,
+	_ access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	docs := rs.Documents()
 	if len(docs) == 0 {
 		return rs, nil
@@ -836,7 +973,7 @@ func TestPipelineBuilderWithPostProcessorsOverwrites(t *testing.T) {
 	t.Parallel()
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
-		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "base", Score: 1}}}).
+		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "base", Score: 1}}}).
 		WithPostProcessors(suffixPostProcessor[struct{}]{suffix: "-first"}).
 		WithPostProcessors(suffixPostProcessor[struct{}]{suffix: "-second"}).
 		Build()
@@ -863,7 +1000,17 @@ func TestPipelineBuilderShorthandPreservesPostProcessors(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithPostProcessors(suffixPostProcessor[struct{}]{suffix: "-pp"}).
 		WithFallback(
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "base", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a",
+						Content:        "base",
+						Score:          1,
+					},
+				},
+			},
 			stubNode[struct{}]{},
 		).
 		Build()
@@ -886,7 +1033,17 @@ func TestPipelineBuilderWithRescue(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRescue(
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Content: "hit", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "fb",
+						Content:        "hit",
+						Score:          1,
+					},
+				},
+			},
 		).
 		Build()
 	if err != nil {
@@ -905,7 +1062,11 @@ func TestPipelineBuilderWithRescue(t *testing.T) {
 func TestPipelineBuilderWithConditional(t *testing.T) {
 	t.Parallel()
 
-	child := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "x", Content: "y", Score: 1}}}
+	child := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "x", Content: "y", Score: 1},
+		},
+	}
 
 	t.Run("predicate false", func(t *testing.T) {
 		t.Parallel()
@@ -969,7 +1130,11 @@ func TestPipelineBuilderWithResolverOrdering(t *testing.T) {
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithFallback(
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "grp", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "grp", Score: 1},
+				},
+			},
 			stubNode[struct{}]{docs: nil},
 		).
 		WithResolver(resolver).
@@ -996,8 +1161,8 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNode(t *testing.T) {
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{
-			{ID: "a", Content: "merge-key", Score: 0.9},
-			{ID: "b", Content: "merge-key", Score: 0.5},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "merge-key", Score: 0.9},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "merge-key", Score: 0.5},
 		}}).
 		WithResolver(resolver).
 		Build()
@@ -1021,8 +1186,28 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInAggregate(t *testin
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
 			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "grp-a", Score: 0.9}}},
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "grp-b", Score: 0.5}}},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "a",
+							Content:        "grp-a",
+							Score:          0.9,
+						},
+					},
+				},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "b",
+							Content:        "grp-b",
+							Score:          0.5,
+						},
+					},
+				},
 			},
 		}).
 		WithResolver(resolver).
@@ -1045,8 +1230,8 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInConditional(t *test
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	custom := stubNode[struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "merge-key", Score: 0.9},
-		{ID: "b", Content: "merge-key", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "merge-key", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "merge-key", Score: 0.5},
 	}}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultConditionalNodeNoMeta[stubIntent, struct{}]{
@@ -1073,8 +1258,8 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInFallback(t *testing
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	custom := stubNode[struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "merge-key", Score: 0.9},
-		{ID: "b", Content: "merge-key", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "merge-key", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "merge-key", Score: 0.5},
 	}}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultFallbackNodeNoMeta[stubIntent, struct{}]{
@@ -1101,8 +1286,8 @@ func TestPipelineBuilderDoesNotInjectResolverIntoCustomNodeInRescue(t *testing.T
 
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	custom := stubNode[struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "merge-key", Score: 0.9},
-		{ID: "b", Content: "merge-key", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "merge-key", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "merge-key", Score: 0.5},
 	}}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultRescueNodeNoMeta[stubIntent, struct{}]{
@@ -1131,7 +1316,9 @@ func TestPostProcessorChainUsesCustomResolver(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 			Backend: orchestratorStubBackend[stubIntent, struct{}]{
-				docs: []Document[struct{}]{{ID: "a", Content: "grp", Score: 1}},
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "grp", Score: 1},
+				},
 			},
 		}).
 		WithPostProcessors(GroupBy(func(struct{}) string { return "g" }, DefaultMergeStrategy[struct{}]())).
@@ -1140,7 +1327,7 @@ func TestPostProcessorChainUsesCustomResolver(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -1172,7 +1359,17 @@ func TestPipelineRetrievePreservesPartialFailureResult(t *testing.T) {
 		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
 			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				errorNode[stubIntent, struct{}]{err: ragy.ErrEmptyVector},
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}}},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "a",
+							Content:        "hit",
+							Score:          1,
+						},
+					},
+				},
 			},
 		}).
 		Build()
@@ -1187,8 +1384,7 @@ func TestPipelineRetrievePreservesPartialFailureResult(t *testing.T) {
 	if rs.Len() != 1 || rs.Documents()[0].ID != "a" {
 		t.Fatalf("Documents() = %#v, want preserved partial result", rs.Documents())
 	}
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 }
@@ -1196,17 +1392,28 @@ func TestPipelineRetrievePreservesPartialFailureResult(t *testing.T) {
 func TestFallbackNodePreservesPartialFailureWithoutSecondary(t *testing.T) {
 	t.Parallel()
 
-	secondary := stubNode[struct{}]{docs: []Document[struct{}]{{ID: "fb", Content: "fallback", Score: 1}}}
+	secondary := stubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "fb", Content: "fallback", Score: 1},
+		},
+	}
 	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
 		Primary: partialFailureNode[stubIntent, struct{}]{
-			docs:   []Document[struct{}]{{ID: "partial", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "partial",
+					Content:        "hit",
+					Score:          1,
+				},
+			},
 			errors: []error{ragy.ErrUnavailable},
 		},
 		Secondary: secondary,
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 || rs.Documents()[0].ID != "partial" {
@@ -1219,14 +1426,25 @@ func TestRescueNodeDoesNotRescueOnPartialFailure(t *testing.T) {
 
 	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: partialFailureNode[stubIntent, struct{}]{
-			docs:   []Document[struct{}]{{ID: "partial", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "partial",
+					Content:        "hit",
+					Score:          1,
+				},
+			},
 			errors: []error{ragy.ErrUnavailable},
 		},
-		Secondary: stubNode[struct{}]{docs: []Document[struct{}]{{ID: "rescue", Content: "fb", Score: 1}}},
+		Secondary: stubNode[struct{}]{
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "rescue", Content: "fb", Score: 1},
+			},
+		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 || rs.Documents()[0].ID != "partial" {
@@ -1241,7 +1459,7 @@ func TestRescueNodePropagatesPrimaryErrorWhenSecondaryEmpty(t *testing.T) {
 		Primary:   errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: stubNode[struct{}]{},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	requireNonNilResultSetOnError(t, rs, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable when secondary empty", err)
@@ -1257,13 +1475,20 @@ func TestConditionalNodePreservesPartialFailureResult(t *testing.T) {
 	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: func(Query[stubIntent]) bool { return true },
 		Child: partialFailureNode[stubIntent, struct{}]{
-			docs:   []Document[struct{}]{{ID: "partial", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "partial",
+					Content:        "hit",
+					Score:          1,
+				},
+			},
 			errors: []error{ragy.ErrUnavailable},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 || rs.Documents()[0].ID != "partial" {
@@ -1277,14 +1502,21 @@ func TestAggregatePreservesPartialFailureFromNestedChild(t *testing.T) {
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialFailureNode[stubIntent, struct{}]{
-				docs:   []Document[struct{}]{{ID: "nested", Content: "hit", Score: 1}},
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "nested",
+						Content:        "hit",
+						Score:          1,
+					},
+				},
 				errors: []error{ragy.ErrUnavailable},
 			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 || rs.Documents()[0].ID != "nested" {
@@ -1298,15 +1530,32 @@ func TestAggregateNestedPartialFailureMergesWithSibling(t *testing.T) {
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialFailureNode[stubIntent, struct{}]{
-				docs:   []Document[struct{}]{{ID: "nested", Content: "hit", Score: 1}},
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "nested",
+						Content:        "hit",
+						Score:          1,
+					},
+				},
 				errors: []error{ragy.ErrUnavailable},
 			},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "sibling", Content: "ok", Score: 0.5}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "sibling",
+						Content:        "ok",
+						Score:          0.5,
+					},
+				},
+			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 2 {
@@ -1336,8 +1585,28 @@ func TestPipelineBuilderWithAggregateCustomMerger(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithAggregate(
 			[]resultNodeNoMeta[stubIntent, struct{}]{
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 0.9}}},
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.1}}},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "a",
+							Content:        "A",
+							Score:          0.9,
+						},
+					},
+				},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "b",
+							Content:        "B",
+							Score:          0.1,
+						},
+					},
+				},
 			},
 			2,
 			scoreMerger,
@@ -1362,8 +1631,28 @@ func TestPipelineBuilderWithAggregateUsesDefaultRRF(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithAggregate(
 			[]resultNodeNoMeta[stubIntent, struct{}]{
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 0.9}}},
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.1}}},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "a",
+							Content:        "A",
+							Score:          0.9,
+						},
+					},
+				},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "b",
+							Content:        "B",
+							Score:          0.1,
+						},
+					},
+				},
 			},
 			2,
 			nil,
@@ -1423,8 +1712,10 @@ func TestRetrieverNodePreservesBackendResultOnError(t *testing.T) {
 
 	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 		Backend: partialBackend[stubIntent, struct{}]{
-			docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 1}},
-			err:  ragy.ErrUnavailable,
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "hit", Score: 1},
+			},
+			err: ragy.ErrUnavailable,
 		},
 	}
 	rs, err := node.Retrieve(context.Background(), pipelineTestQuery("q"))
@@ -1442,13 +1733,14 @@ func TestRescueNodePreservesSecondaryPartialFailure(t *testing.T) {
 	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		Secondary: partialFailureNode[stubIntent, struct{}]{
-			docs:   []Document[struct{}]{{ID: "sec", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "sec", Content: "hit", Score: 1},
+			},
 			errors: []error{ragy.ErrProtocol},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 || rs.Documents()[0].ID != "sec" {
@@ -1460,7 +1752,11 @@ type errorProcessor[TMeta any] struct {
 	err error
 }
 
-func (p errorProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p errorProcessor[TMeta]) Process(
+	_ context.Context,
+	_ access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	return rs, p.err
 }
 
@@ -1468,7 +1764,7 @@ func TestPipelinePostChainErrorPreservesRootResult(t *testing.T) {
 	t.Parallel()
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
-		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "root", Content: "hit", Score: 1}}}).
+		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "root", Content: "hit", Score: 1}}}).
 		WithPostProcessors(errorProcessor[struct{}]{err: ragy.ErrUnavailable}).
 		Build()
 	if err != nil {
@@ -1488,7 +1784,11 @@ type topKMarkerProcessor[TMeta any] struct {
 	resolver IdentityResolver[TMeta]
 }
 
-func (p topKMarkerProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p topKMarkerProcessor[TMeta]) Process(
+	_ context.Context,
+	_ access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	docs := rs.Documents()
 	if len(docs) == 0 {
 		return rs, nil
@@ -1502,7 +1802,15 @@ func TestPipelinePartialFailureRunsPostProcessors(t *testing.T) {
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
-			docs:   []Document[struct{}]{{ID: "partial", Content: "raw", Score: 1}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "partial",
+					Content:        "raw",
+					Score:          1,
+				},
+			},
 			errors: []error{ragy.ErrUnavailable},
 		}).
 		WithPostProcessors(topKMarkerProcessor[struct{}]{resolver: DocumentIDResolver[struct{}]{}}).
@@ -1512,8 +1820,7 @@ func TestPipelinePartialFailureRunsPostProcessors(t *testing.T) {
 	}
 
 	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 || rs.Documents()[0].Content != "processed" {
@@ -1539,14 +1846,33 @@ func TestAggregateMergeFailurePreservesChildResults(t *testing.T) {
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Resolver: resolver,
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "good", Content: "ok", Score: 1}}},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "bad", Content: "x", Score: 0.5}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "good",
+						Content:        "ok",
+						Score:          1,
+					},
+				},
+			},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "bad",
+						Content:        "x",
+						Score:          0.5,
+					},
+				},
+			},
 		},
 		Merger: NewScoreMerger(resolver),
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.IsEmpty() {
@@ -1558,7 +1884,7 @@ func TestPipelineBuilderWithPostProcessorsPreservesResultOnError(t *testing.T) {
 	t.Parallel()
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
-		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ID: "root", Content: "hit", Score: 1}}}).
+		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "root", Content: "hit", Score: 1}}}).
 		WithPostProcessors(errorProcessor[struct{}]{err: ragy.ErrProtocol}).
 		Build()
 	if err != nil {
@@ -1584,9 +1910,15 @@ func TestAggregateNodePreservesResultsOnContextCancel(t *testing.T) {
 
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 1},
+				},
+			},
 			gateNode[struct{}]{
-				docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.5}},
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.5},
+				},
 				gate: gate,
 			},
 		},
@@ -1598,7 +1930,7 @@ func TestAggregateNodePreservesResultsOnContextCancel(t *testing.T) {
 		cancel()
 	}()
 
-	rs, err := node.Retrieve(ctx, Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(ctx, Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want context error")
 	}
@@ -1618,9 +1950,15 @@ func TestAggregateNodeFailsOnContextCancelWithHighConcurrency(t *testing.T) {
 
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "A", Score: 1}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 1},
+				},
+			},
 			gateNode[struct{}]{
-				docs: []Document[struct{}]{{ID: "b", Content: "B", Score: 0.5}},
+				docs: []Document[struct{}]{
+					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.5},
+				},
 				gate: gate,
 			},
 		},
@@ -1632,13 +1970,12 @@ func TestAggregateNodeFailsOnContextCancelWithHighConcurrency(t *testing.T) {
 		cancel()
 	}()
 
-	rs, err := node.Retrieve(ctx, Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(ctx, Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want context or partial failure error")
 	}
 	if !errors.Is(err, context.Canceled) {
-		var partial *PartialFailureError[struct{}]
-		if !errors.As(err, &partial) {
+		if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 			t.Fatalf("Retrieve() error = %v, want canceled or partial failure", err)
 		}
 	}
@@ -1673,7 +2010,15 @@ func TestPipelinePartialFailureAndPostChainErrorJoinsErrors(t *testing.T) {
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
-			docs:   []Document[struct{}]{{ID: "partial", Content: "hit", Score: 1}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "partial",
+					Content:        "hit",
+					Score:          1,
+				},
+			},
 			errors: []error{ragy.ErrProtocol},
 		}).
 		WithPostProcessors(errorProcessor[struct{}]{err: ragy.ErrUnavailable}).
@@ -1683,8 +2028,7 @@ func TestPipelinePartialFailureAndPostChainErrorJoinsErrors(t *testing.T) {
 	}
 
 	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError in join", err)
 	}
 	if !errors.Is(err, ragy.ErrUnavailable) {
@@ -1701,7 +2045,15 @@ func TestPipelineRetrieveRewrapsResolverOnPartialFailure(t *testing.T) {
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
-			docs:   []Document[struct{}]{{ID: "left", Content: "key", Score: 0.2}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "left",
+					Content:        "key",
+					Score:          0.2,
+				},
+			},
 			errors: []error{ragy.ErrUnavailable},
 		}).
 		WithResolver(resolver).
@@ -1711,13 +2063,12 @@ func TestPipelineRetrieveRewrapsResolverOnPartialFailure(t *testing.T) {
 	}
 
 	rs, err := pipeline.Execute(context.Background(), pipelineTestQuery("q"))
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 
 	other := NewResultSet([]Document[struct{}]{
-		{ID: "right", Content: "key", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "right", Content: "key", Score: 0.9},
 	}, DocumentIDResolver[struct{}]{})
 	merged, err := rs.ResultSet.Merge(other)
 	if err != nil {
@@ -1734,12 +2085,28 @@ func TestFallbackNodePreservesPrimaryDocsOnPlainError(t *testing.T) {
 	node := resultFallbackNodeNoMeta[stubIntent, struct{}]{
 		Primary: resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 			Backend: partialBackend[stubIntent, struct{}]{
-				docs: []Document[struct{}]{{ID: "primary", Content: "hit", Score: 1}},
-				err:  ragy.ErrUnavailable,
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "primary",
+						Content:        "hit",
+						Score:          1,
+					},
+				},
+				err: ragy.ErrUnavailable,
 			},
 		},
 		Secondary: stubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "secondary", Content: "fb", Score: 1}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "secondary",
+					Content:        "fb",
+					Score:          1,
+				},
+			},
 		},
 	}
 	rs, err := node.Retrieve(context.Background(), pipelineTestQuery("q"))
@@ -1757,12 +2124,22 @@ func TestRescueNodePreservesPrimaryDocsOnPlainError(t *testing.T) {
 	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 			Backend: partialBackend[stubIntent, struct{}]{
-				docs: []Document[struct{}]{{ID: "primary", Content: "hit", Score: 1}},
-				err:  ragy.ErrUnavailable,
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "primary",
+						Content:        "hit",
+						Score:          1,
+					},
+				},
+				err: ragy.ErrUnavailable,
 			},
 		},
 		Secondary: stubNode[struct{}]{
-			docs: []Document[struct{}]{{ID: "rescue", Content: "fb", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "rescue", Content: "fb", Score: 1},
+			},
 		},
 	}
 	rs, err := node.Retrieve(context.Background(), pipelineTestQuery("q"))
@@ -1783,7 +2160,7 @@ func TestAggregateReportsChildErrorWhenMergeEmpty(t *testing.T) {
 			stubNode[struct{}]{docs: nil},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	requireNonNilResultSetOnError(t, rs, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
@@ -1817,14 +2194,22 @@ func TestAggregateReportsPartialWhenMergeEmptyButChildHadDocs(t *testing.T) {
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialErrorNode[stubIntent, struct{}]{
-				docs: []Document[struct{}]{{ID: "a", Content: "hit", Score: 0.9}},
-				err:  ragy.ErrUnavailable,
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a",
+						Content:        "hit",
+						Score:          0.9,
+					},
+				},
+				err: ragy.ErrUnavailable,
 			},
 			errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 		},
 		Merger: stubEmptyMerger[struct{}]{},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	partial, ok := AsPartialFailure[struct{}](err)
 	if !ok {
 		t.Fatalf("Retrieve() error = %v, want partial failure", err)
@@ -1843,7 +2228,9 @@ func TestRetrieverNodeUsesInjectedResolverOnPreserve(t *testing.T) {
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 		Backend: partialFailureBackend[stubIntent, struct{}]{
-			docs: []Document[struct{}]{{ID: "a", Content: "key-a", Score: 0.9}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "key-a", Score: 0.9},
+			},
 		},
 		Resolver: resolver,
 	}
@@ -1851,15 +2238,14 @@ func TestRetrieverNodeUsesInjectedResolverOnPreserve(t *testing.T) {
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want partial failure")
 	}
-	var partial *PartialFailureError[struct{}]
-	if !errors.As(err, &partial) {
+	if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
 	if rs.Len() != 1 {
 		t.Fatalf("Documents() = %#v, want preserved partial doc", rs.Documents())
 	}
 	merged, mergeErr := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "key-a", Score: 0.2},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "key-a", Score: 0.2},
 	}, resolver).Merge(rs)
 	if mergeErr != nil {
 		t.Fatalf("Merge(): %v", mergeErr)
@@ -1875,7 +2261,15 @@ func TestRetrieverNodeRewrapsResolverOnSuccess(t *testing.T) {
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 		Backend: orchestratorStubBackend[stubIntent, struct{}]{
-			docs: []Document[struct{}]{{ID: "a", Content: "merge-key", Score: 0.9}},
+			docs: []Document[struct{}]{
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "a",
+					Content:        "merge-key",
+					Score:          0.9,
+				},
+			},
 		},
 		Resolver: resolver,
 	}
@@ -1884,7 +2278,7 @@ func TestRetrieverNodeRewrapsResolverOnSuccess(t *testing.T) {
 		t.Fatalf("Retrieve(): %v", err)
 	}
 	merged, mergeErr := NewResultSet([]Document[struct{}]{
-		{ID: "b", Content: "merge-key", Score: 0.2},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "merge-key", Score: 0.2},
 	}, resolver).Merge(rs)
 	if mergeErr != nil {
 		t.Fatalf("Merge(): %v", mergeErr)
@@ -1900,8 +2294,8 @@ func TestPipelineBuildOverwritesRetrieverNodeResolver(t *testing.T) {
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
 	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "same", Score: 0.9},
-		{ID: "b", Content: "same", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "same", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "same", Score: 0.5},
 	}}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultRetrieverNodeNoMeta[stubIntent, struct{}]{
@@ -1914,7 +2308,10 @@ func TestPipelineBuildOverwritesRetrieverNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q", Options: RetrieveOptions{TopK: 5}},
+	)
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1929,8 +2326,8 @@ func TestPipelineBuildOverwritesFallbackNodeResolver(t *testing.T) {
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
 	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "same", Score: 0.9},
-		{ID: "b", Content: "same", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "same", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "same", Score: 0.5},
 	}}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultFallbackNodeNoMeta[stubIntent, struct{}]{
@@ -1946,7 +2343,10 @@ func TestPipelineBuildOverwritesFallbackNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q", Options: RetrieveOptions{TopK: 5}},
+	)
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1961,8 +2361,8 @@ func TestPipelineBuildOverwritesRescueNodeResolver(t *testing.T) {
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
 	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "same", Score: 0.9},
-		{ID: "b", Content: "same", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "same", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "same", Score: 0.5},
 	}}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultRescueNodeNoMeta[stubIntent, struct{}]{
@@ -1979,7 +2379,10 @@ func TestPipelineBuildOverwritesRescueNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q", Options: RetrieveOptions{TopK: 5}},
+	)
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -1994,8 +2397,8 @@ func TestPipelineBuildOverwritesAggregateNodeResolver(t *testing.T) {
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
 	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "same", Score: 0.9},
-		{ID: "b", Content: "same", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "same", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "same", Score: 0.5},
 	}}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
@@ -2010,7 +2413,10 @@ func TestPipelineBuildOverwritesAggregateNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q", Options: RetrieveOptions{TopK: 5}},
+	)
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2025,8 +2431,8 @@ func TestPipelineBuildOverwritesConditionalNodeResolver(t *testing.T) {
 	nodeResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	pipelineResolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.ID }}
 	backend := orchestratorStubBackend[stubIntent, struct{}]{docs: []Document[struct{}]{
-		{ID: "a", Content: "same", Score: 0.9},
-		{ID: "b", Content: "same", Score: 0.5},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "same", Score: 0.9},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "same", Score: 0.5},
 	}}
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(resultConditionalNodeNoMeta[stubIntent, struct{}]{
@@ -2043,7 +2449,10 @@ func TestPipelineBuildOverwritesConditionalNodeResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q", Options: RetrieveOptions{TopK: 5}},
+	)
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2075,8 +2484,28 @@ func TestAggregateCustomMergerNotReboundByPipelineResolver(t *testing.T) {
 		WithRoot(resultAggregateNodeNoMeta[stubIntent, struct{}]{
 			Merger: customMerger,
 			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "key", Score: 0.9}}},
-				stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "key", Score: 0.5}}},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "a",
+							Content:        "key",
+							Score:          0.9,
+						},
+					},
+				},
+				stubNode[struct{}]{
+					docs: []Document[struct{}]{
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "b",
+							Content:        "key",
+							Score:          0.5,
+						},
+					},
+				},
 			},
 		}).
 		WithResolver(pipelineResolver).
@@ -2105,10 +2534,22 @@ func TestPipelineBuildRebindsAggregateScoreMergerResolver(t *testing.T) {
 			Merger: NewScoreMerger(idResolver),
 			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{
-					{ID: "a", Content: "same", Score: 0.9},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a",
+						Content:        "same",
+						Score:          0.9,
+					},
 				}},
 				stubNode[struct{}]{docs: []Document[struct{}]{
-					{ID: "b", Content: "same", Score: 0.5},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "b",
+						Content:        "same",
+						Score:          0.5,
+					},
 				}},
 			},
 		}).
@@ -2118,7 +2559,10 @@ func TestPipelineBuildRebindsAggregateScoreMergerResolver(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Text: "q", Options: RetrieveOptions{TopK: 5}})
+	rs, err := pipeline.Execute(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q", Options: RetrieveOptions{TopK: 5}},
+	)
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2142,12 +2586,36 @@ func TestPipelineBuildRebindsAggregateRRFResolver(t *testing.T) {
 			Merger: rrf,
 			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				stubNode[struct{}]{docs: []Document[struct{}]{
-					{ID: "a", Content: "key", Score: 0.9},
-					{ID: "b", Content: "other", Score: 0.5},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a",
+						Content:        "key",
+						Score:          0.9,
+					},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "b",
+						Content:        "other",
+						Score:          0.5,
+					},
 				}},
 				stubNode[struct{}]{docs: []Document[struct{}]{
-					{ID: "b", Content: "other", Score: 0.99},
-					{ID: "a", Content: "key", Score: 0.1},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "b",
+						Content:        "other",
+						Score:          0.99,
+					},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a",
+						Content:        "key",
+						Score:          0.1,
+					},
 				}},
 			},
 		}).
@@ -2178,13 +2646,33 @@ func TestAggregateFallbackUnmergedUsesPipelineResolver(t *testing.T) {
 	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "a", Content: "key", Score: 0.9}}},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "b", Content: "key", Score: 0.5}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a",
+						Content:        "key",
+						Score:          0.9,
+					},
+				},
+			},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "b",
+						Content:        "key",
+						Score:          0.5,
+					},
+				},
+			},
 		},
 		Merger:   stubFailingMerger[struct{}]{},
 		Resolver: resolver,
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want merge failure")
 	}
@@ -2207,13 +2695,31 @@ func TestAggregateEmptyMergeFallbackIncludesFbErr(t *testing.T) {
 		},
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			partialFailureNode[stubIntent, struct{}]{
-				docs:   []Document[struct{}]{{ID: "good", Content: "ok", Score: 0.9}},
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "good",
+						Content:        "ok",
+						Score:          0.9,
+					},
+				},
 				errors: []error{ragy.ErrUnavailable},
 			},
-			stubNode[struct{}]{docs: []Document[struct{}]{{ID: "bad", Content: "x", Score: 0.5}}},
+			stubNode[struct{}]{
+				docs: []Document[struct{}]{
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "bad",
+						Content:        "x",
+						Score:          0.5,
+					},
+				},
+			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	var partial *PartialFailureError[struct{}]
 	if !errors.As(err, &partial) {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
@@ -2248,7 +2754,7 @@ func TestAggregateMergeFailurePreservesChildErrors(t *testing.T) {
 			errorNode[stubIntent, struct{}]{err: ragy.ErrProtocol},
 		},
 	}
-	_, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	_, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("error = %v, want unavailable", err)
 	}
@@ -2270,8 +2776,22 @@ func TestPipelinePartialFailureResultMatchesReturnedSetAfterPostProcess(t *testi
 			Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 				partialFailureNode[stubIntent, struct{}]{
 					docs: []Document[struct{}]{
-						{ID: "a", Content: "alpha", Score: 0.9, Meta: struct{}{}},
-						{ID: "b", Content: "beta", Score: 0.5, Meta: struct{}{}},
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "a",
+							Content:        "alpha",
+							Score:          0.9,
+							Meta:           struct{}{},
+						},
+						{
+							ScoreSemantics: "fixture-similarity",
+							ScoreState:     ScorePresent,
+							ID:             "b",
+							Content:        "beta",
+							Score:          0.5,
+							Meta:           struct{}{},
+						},
 					},
 					errors: []error{ragy.ErrUnavailable},
 				},
@@ -2295,8 +2815,15 @@ func TestPipelinePartialFailureResultMatchesReturnedSetAfterPostProcess(t *testi
 	if partial.Result.Documents()[0].ID != rs.Documents()[0].ID {
 		t.Fatalf("partial.Result doc ID = %q, returned = %q", partial.Result.Documents()[0].ID, rs.Documents()[0].ID)
 	}
+	reference := rs.Documents()[0]
 	other, mergeErr := partial.Result.Merge(NewResultSet([]Document[struct{}]{
-		{ID: "c", Content: "alpha", Score: 0.1},
+		{
+			ScoreSemantics: reference.ScoreSemantics,
+			ScoreState:     reference.ScoreState,
+			ID:             "c",
+			Content:        "alpha",
+			Score:          0.1,
+		},
 	}, resolver))
 	if mergeErr != nil {
 		t.Fatalf("partial.Result.Merge() error = %v", mergeErr)
@@ -2311,16 +2838,16 @@ func TestPipelineRetrieveAppliesTopKWithoutPostChain(t *testing.T) {
 
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(stubNode[struct{}]{docs: []Document[struct{}]{
-			{ID: "a", Content: "one", Score: 0.9},
-			{ID: "b", Content: "two", Score: 0.5},
-			{ID: "c", Content: "three", Score: 0.1},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "one", Score: 0.9},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "two", Score: 0.5},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "c", Content: "three", Score: 0.1},
 		}}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -2338,8 +2865,8 @@ func TestPipelinePartialFailureResultAfterTerminalOptions(t *testing.T) {
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
 			docs: []Document[struct{}]{
-				{ID: "a", Content: "alpha", Score: 0.2},
-				{ID: "b", Content: "beta", Score: 0.1},
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "alpha", Score: 0.2},
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "beta", Score: 0.1},
 			},
 			errors: []error{ragy.ErrUnavailable},
 		}).
@@ -2348,9 +2875,12 @@ func TestPipelinePartialFailureResultAfterTerminalOptions(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{
-		Text:    "q",
-		Options: RetrieveOptions{TopK: 5, MinSimilarity: 0.5},
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(),
+		Text: "q",
+		Options: RetrieveOptions{
+			TopK:      5,
+			Threshold: &ScoreThreshold{Value: 0.5, State: ScorePresent, Semantics: "fixture-similarity"},
+		},
 	})
 	partial, ok := AsPartialFailure[struct{}](err)
 	if !ok {
@@ -2370,8 +2900,8 @@ func TestPipelinePartialFailureResultMatchesReturnedSetWithoutPostChain(t *testi
 	pipeline, err := newResultPipelineBuilderNoMeta[stubIntent, struct{}]().
 		WithRoot(partialFailureNode[stubIntent, struct{}]{
 			docs: []Document[struct{}]{
-				{ID: "a", Content: "alpha", Score: 0.9},
-				{ID: "b", Content: "beta", Score: 0.5},
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "alpha", Score: 0.9},
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "beta", Score: 0.5},
 			},
 			errors: []error{ragy.ErrUnavailable},
 		}).
@@ -2380,7 +2910,7 @@ func TestPipelinePartialFailureResultMatchesReturnedSetWithoutPostChain(t *testi
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -2403,7 +2933,7 @@ func TestFallbackNodePropagatesSecondaryError(t *testing.T) {
 		Primary:   stubNode[struct{}]{},
 		Secondary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
 	}
@@ -2416,7 +2946,7 @@ func TestRetrieverNodeRejectsNilBackend(t *testing.T) {
 	t.Parallel()
 
 	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{Backend: nil}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 	}
@@ -2431,7 +2961,7 @@ func TestRetrieverNodeRejectsInvalidRetrieveOptions(t *testing.T) {
 	node := resultRetrieverNodeNoMeta[stubIntent, struct{}]{
 		Backend: orchestratorStubBackend[stubIntent, struct{}]{},
 	}
-	_, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	_, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 	}
@@ -2443,7 +2973,7 @@ func TestRescueNodePropagatesPrimaryWhenSecondaryNil(t *testing.T) {
 	node := resultRescueNodeNoMeta[stubIntent, struct{}]{
 		Primary: errorNode[stubIntent, struct{}]{err: ragy.ErrUnavailable},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
 	}
@@ -2467,7 +2997,11 @@ func (n intentStubNode[TMeta]) Retrieve(_ context.Context, _ Query[intentWithMod
 func TestConditionalNodeUsesQueryIntent(t *testing.T) {
 	t.Parallel()
 
-	child := intentStubNode[struct{}]{docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}}}
+	child := intentStubNode[struct{}]{
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+		},
+	}
 	node := resultConditionalNodeNoMeta[intentWithMode, struct{}]{
 		Predicate: func(query Query[intentWithMode]) bool {
 			return query.Intent.Mode == "run"
@@ -2475,7 +3009,7 @@ func TestConditionalNodeUsesQueryIntent(t *testing.T) {
 		Child: child,
 	}
 
-	runRS, err := node.Retrieve(context.Background(), Query[intentWithMode]{
+	runRS, err := node.Retrieve(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:   "q",
 		Intent: intentWithMode{Mode: "run"},
 	})
@@ -2486,7 +3020,7 @@ func TestConditionalNodeUsesQueryIntent(t *testing.T) {
 		t.Fatalf("Retrieve(run) Len() = %d, want 1", runRS.Len())
 	}
 
-	skipRS, err := node.Retrieve(context.Background(), Query[intentWithMode]{
+	skipRS, err := node.Retrieve(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:   "q",
 		Intent: intentWithMode{Mode: "skip"},
 	})
@@ -2503,7 +3037,9 @@ func TestResultPipelinePlanBinderCanBindMissingOptions(t *testing.T) {
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
 		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 	pipeline, err := newResultPipelineBuilderNoMeta[intentWithMode, struct{}]().
@@ -2527,7 +3063,7 @@ func TestResultPipelinePlanBinderCanBindMissingOptions(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Text: "q"})
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Execute(): %v", err)
 	}
@@ -2558,12 +3094,14 @@ func TestRetrieverNodePassesRequestEnvelopeToBackend(t *testing.T) {
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
 		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 	node := resultRetrieverNodeNoMeta[intentWithMode, struct{}]{Backend: spy}
 
-	_, err := node.Retrieve(context.Background(), Query[intentWithMode]{
+	_, err := node.Retrieve(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "hello",
 		Intent:  intentWithMode{Mode: "secret-mode"},
 		Options: RetrieveOptions{TopK: 1},
@@ -2581,7 +3119,9 @@ func TestPipelinePlannerAttachesPlanBeforeBackend(t *testing.T) {
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
 		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 	pipeline, err := newResultPipelineBuilderNoMeta[intentWithMode, struct{}]().
@@ -2602,7 +3142,7 @@ func TestPipelinePlannerAttachesPlanBeforeBackend(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	_, err = pipeline.Execute(context.Background(), Query[intentWithMode]{
+	_, err = pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "  raw query  ",
 		Intent:  intentWithMode{Mode: "run"},
 		Options: RetrieveOptions{TopK: 1},
@@ -2642,7 +3182,9 @@ func TestRequestPipelinePassesTypedRequestMetaToPlannerAndBackend(t *testing.T) 
 	t.Parallel()
 
 	spy := &requestMetaSpyBackend[intentWithMode, requestMetaFixture, struct{}]{
-		docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+		},
 	}
 	var plannerMeta requestMetaFixture
 	pipeline, err := newResultPipelineBuilder[intentWithMode, requestMetaFixture, struct{}]().
@@ -2662,12 +3204,15 @@ func TestRequestPipelinePassesTypedRequestMetaToPlannerAndBackend(t *testing.T) 
 		t.Fatalf("Build(): %v", err)
 	}
 
-	_, err = pipeline.Execute(context.Background(), Request[intentWithMode, requestMetaFixture]{
-		Text:    "  raw  ",
-		Intent:  intentWithMode{Mode: "run"},
-		Meta:    requestMetaFixture{TraceID: "trace-1"},
-		Options: RetrieveOptions{TopK: 1},
-	})
+	_, err = pipeline.Execute(
+		context.Background(),
+		Request[intentWithMode, requestMetaFixture]{Read: UnrestrictedRead(),
+			Text:    "  raw  ",
+			Intent:  intentWithMode{Mode: "run"},
+			Meta:    requestMetaFixture{TraceID: "trace-1"},
+			Options: RetrieveOptions{TopK: 1},
+		},
+	)
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2687,7 +3232,9 @@ func TestPipelineUsesPreplannedQueryWithoutCallingPlanner(t *testing.T) {
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
 		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 	plannerCalls := 0
@@ -2704,7 +3251,7 @@ func TestPipelineUsesPreplannedQueryWithoutCallingPlanner(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	_, err = pipeline.Execute(context.Background(), Query[intentWithMode]{
+	_, err = pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text: "raw",
 		Plan: &PlannedQuery[intentWithMode]{
 			ExpandedText: "cached expanded",
@@ -2728,10 +3275,14 @@ func TestConditionalNodeRunsChildWhenPredicateNil(t *testing.T) {
 
 	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: nil,
-		Child:     stubNode[struct{}]{docs: []Document[struct{}]{{ID: "hit", Score: 1}}},
+		Child: stubNode[struct{}]{
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Score: 1},
+			},
+		},
 	}
 
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
@@ -2744,11 +3295,11 @@ func TestAggregateFallbackOrderingDiffersFromRRF(t *testing.T) {
 	t.Parallel()
 
 	left := NewResultSet([]Document[struct{}]{
-		{ID: "rank-first", Content: "a", Score: 0.2},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "rank-first", Content: "a", Score: 0.2},
 	}, DocumentIDResolver[struct{}]{})
 	right := NewResultSet([]Document[struct{}]{
-		{ID: "score-first", Content: "b", Score: 0.99},
-		{ID: "tail", Content: "c", Score: 0.98},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "score-first", Content: "b", Score: 0.99},
+		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "tail", Content: "c", Score: 0.98},
 	}, DocumentIDResolver[struct{}]{})
 
 	rrf, err := NewReciprocalRankFusion[struct{}](60, DocumentIDResolver[struct{}]{})
@@ -2767,7 +3318,7 @@ func TestAggregateFallbackOrderingDiffersFromRRF(t *testing.T) {
 		},
 		Merger: stubFailingMerger[struct{}]{},
 	}
-	fallbackOut, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	fallbackOut, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want merge failure")
 	}
@@ -2806,14 +3357,18 @@ func TestCustomNodeWithoutResolverKeepsDocumentIDMergeKey(t *testing.T) {
 	t.Parallel()
 
 	node := bareCustomNode[struct{}]{
-		docs: []Document[struct{}]{{ID: "a", Content: "merge-key", Score: 0.9}},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "merge-key", Score: 0.9},
+		},
 	}
-	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Text: "q"})
+	out, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
 	}
 	merged, mergeErr := out.Merge(NewResultSet(
-		[]Document[struct{}]{{ID: "b", Content: "merge-key", Score: 0.1}},
+		[]Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "merge-key", Score: 0.1},
+		},
 		DocumentIDResolver[struct{}]{},
 	))
 	if mergeErr != nil {
@@ -2834,7 +3389,9 @@ func TestPipelineCatalogVectorFallbackGraph(t *testing.T) {
 	catalog := orchestratorStubBackend[catalogVectorIntent, struct{}]{}
 	vector := orchestratorStubBackend[catalogVectorIntent, struct{}]{}
 	web := orchestratorStubBackend[catalogVectorIntent, struct{}]{
-		docs: []Document[struct{}]{{ID: "web-1", Content: "web", Score: 0.8}},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "web-1", Content: "web", Score: 0.8},
+		},
 	}
 
 	pipeline, err := newResultPipelineBuilderNoMeta[catalogVectorIntent, struct{}]().
@@ -2862,7 +3419,7 @@ func TestPipelineCatalogVectorFallbackGraph(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[catalogVectorIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[catalogVectorIntent]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Intent:  catalogVectorIntent{AllowWeb: true},
 		Options: RetrieveOptions{TopK: 5},
@@ -2885,7 +3442,9 @@ func TestRescueNestedFallbackRespectsIntentGate(t *testing.T) {
 	catalog := orchestratorStubBackend[rescueSearchIntent, struct{}]{}
 	vector := orchestratorFailingBackend[rescueSearchIntent, struct{}]{}
 	web := orchestratorStubBackend[rescueSearchIntent, struct{}]{
-		docs: []Document[struct{}]{{ID: "web-1", Content: "web", Score: 0.8}},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "web-1", Content: "web", Score: 0.8},
+		},
 	}
 	webIfAllowed := func(query Query[rescueSearchIntent]) bool {
 		return query.Intent.AllowWeb
@@ -2915,7 +3474,7 @@ func TestRescueNestedFallbackRespectsIntentGate(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), Query[rescueSearchIntent]{
+	rs, err := pipeline.Execute(context.Background(), Query[rescueSearchIntent]{Read: UnrestrictedRead(),
 		Text:    "query",
 		Intent:  rescueSearchIntent{AllowWeb: false},
 		Options: RetrieveOptions{TopK: 5},
@@ -2929,8 +3488,7 @@ func TestRescueNestedFallbackRespectsIntentGate(t *testing.T) {
 		}
 	}
 	if err != nil && !errors.Is(err, ragy.ErrUnavailable) {
-		var partial *PartialFailureError[struct{}]
-		if !errors.As(err, &partial) {
+		if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 			t.Fatalf("Retrieve() error = %v, want unavailable or partial failure", err)
 		}
 	}

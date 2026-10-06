@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/filter"
 )
 
 // Backend executes retrieval against a concrete store without post-processing.
@@ -42,14 +44,48 @@ func (b ProjectedBackend[TIntent, TRequestMeta, TBackendIntent, TBackendMeta, TM
 		return NewResultSet[TMeta](nil, DocumentIDResolver[TMeta]{}),
 			fmt.Errorf("%w: projected backend request projector", ragy.ErrInvalidArgument)
 	}
+	if err := admitBackendRead(ctx, req, b.Next); err != nil {
+		return NewResultSet[TMeta](nil, nil), err
+	}
 	projected := b.Project(req)
+	projected.Read = req.Read
 	if projected.Plan == nil {
 		projected.Plan = ProjectPlannedQuery(req.Plan, projected.Intent)
 	}
-	return b.Next.Retrieve(ctx, projected)
+	rs, err := b.Next.Retrieve(ctx, projected)
+	if gateErr := req.Read.Check(ctx); gateErr != nil {
+		return NewResultSet[TMeta](nil, nil), gateErr
+	}
+	return rs, err
 }
 
 // PostProcessor transforms a ranked result set.
 type PostProcessor[TMeta any] interface {
-	Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error)
+	Process(ctx context.Context, read access.Binding, rs ResultSet[TMeta]) (ResultSet[TMeta], error)
+}
+
+// Schema forwards target schema admission through request projection.
+func (b ProjectedBackend[TIntent, TRequestMeta, TBackendIntent, TBackendMeta, TMeta]) Schema() filter.Schema {
+	if provider, ok := b.Next.(ReadCapabilityProvider); ok {
+		return provider.Schema()
+	}
+	return filter.Schema{}
+}
+
+// ReadCapabilities forwards only guarantees actually declared by the target.
+func (b ProjectedBackend[TIntent, TRequestMeta, TBackendIntent, TBackendMeta, TMeta]) ReadCapabilities() access.Capabilities {
+	if provider, ok := b.Next.(ReadCapabilityProvider); ok {
+		return provider.ReadCapabilities()
+	}
+	return access.Capabilities{RequirePinnedPublication: false, ScopeProfile: false, PinnedPublication: false}
+}
+
+// AdmitPublication forwards partial pin admission through projection.
+func (b ProjectedBackend[TIntent, TRequestMeta, TBackendIntent, TBackendMeta, TMeta]) AdmitPublication(
+	publication access.Publication,
+) error {
+	if admission, ok := b.Next.(PublicationAdmission); ok {
+		return admission.AdmitPublication(publication)
+	}
+	return access.UnsupportedCapability(ragy.ErrUnsupported)
 }

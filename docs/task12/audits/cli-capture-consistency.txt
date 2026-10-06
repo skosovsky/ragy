@@ -1,0 +1,4 @@
+text-cli-live-capture.json PASS 20 rows 30 receipts sha256 f051515f578f3bc09ae4880ec78b628f839c6e917c2392cec7c44dcbd85584c5
+graph-cli-live-capture.json PASS 6 rows 8 receipts sha256 92806edfa9ae54c5b1cd22aa917577e17abb5658adf56cf911f0645b7245962d
+graph-cli-v2-capture.json PASS 6 rows 8 receipts sha256 4bc209ecc67c9e0c944af33fbdabf912c2c5b6291c797554ab5ce2e99256543a
+text-cli-v2-capture.json PASS 20 rows 30 receipts sha256 d1597fe64bcae2515794119e52c7fe597933c433f7f4940a284156e5ec59e276

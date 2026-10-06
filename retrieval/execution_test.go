@@ -16,8 +16,8 @@ func TestExecutionPipelinePlanBinderUpdatesRequestBeforeBackend(t *testing.T) {
 
 	spy := &requestMetaSpyBackend[intentWithMode, requestMetaFixture, struct{}]{
 		docs: []Document[struct{}]{
-			{ID: "first", Content: "ok", Score: 1},
-			{ID: "second", Content: "tail", Score: 0.5},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "first", Content: "ok", Score: 1},
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "second", Content: "tail", Score: 0.5},
 		},
 	}
 	pipeline, err := NewRequestExecutionPipelineBuilder[intentWithMode, requestMetaFixture, struct{}, executionMetaFixture]().
@@ -54,11 +54,14 @@ func TestExecutionPipelinePlanBinderUpdatesRequestBeforeBackend(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Request[intentWithMode, requestMetaFixture]{
-		Text:   "raw",
-		Intent: intentWithMode{Mode: "run"},
-		Meta:   requestMetaFixture{TraceID: "incoming"},
-	})
+	result, err := pipeline.Execute(
+		context.Background(),
+		Request[intentWithMode, requestMetaFixture]{Read: UnrestrictedRead(),
+			Text:   "raw",
+			Intent: intentWithMode{Mode: "run"},
+			Meta:   requestMetaFixture{TraceID: "incoming"},
+		},
+	)
 	if err != nil {
 		t.Fatalf("Execute(): %v", err)
 	}
@@ -84,7 +87,9 @@ func TestPipelineExecuteReturnsEnvelopeAndRunsPlanBinder(t *testing.T) {
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
 		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 	pipeline, err := NewExecutionPipelineBuilder[intentWithMode, struct{}, NoExecutionMeta]().
@@ -115,7 +120,7 @@ func TestPipelineExecuteReturnsEnvelopeAndRunsPlanBinder(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text: "raw",
 	})
 	if err != nil {
@@ -138,7 +143,9 @@ func TestExecutionPipelineBinderRunsForPreplannedRequest(t *testing.T) {
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
 		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 	plannerCalls := 0
@@ -172,7 +179,7 @@ func TestExecutionPipelineBinderRunsForPreplannedRequest(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text: "raw",
 		Plan: &PlannedQuery[intentWithMode]{ExpandedText: "cached expanded", CacheKey: "cached"},
 	})
@@ -198,7 +205,9 @@ func TestExecutionPipelineSeedAndBinderCanBindMissingOptions(t *testing.T) {
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
 		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 	pipeline, err := NewExecutionPipelineBuilder[intentWithMode, struct{}, executionMetaFixture]().
@@ -226,7 +235,7 @@ func TestExecutionPipelineSeedAndBinderCanBindMissingOptions(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Text: "raw"})
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(), Text: "raw"})
 	if err != nil {
 		t.Fatalf("Execute(): %v", err)
 	}
@@ -261,7 +270,7 @@ func TestPipelineExecutePreservesPlannerDiagnosticsOnError(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "raw",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -299,7 +308,7 @@ func TestExecutionPipelinePreservesPlannerDiagnosticsOnError(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "raw",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -342,7 +351,7 @@ func TestExecutionPipelinePreservesBinderTraceOnError(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "raw",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -369,7 +378,7 @@ func TestExecutionPipelinePreservesOptionsTraceOnError(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "raw",
 		Options: RetrieveOptions{TopK: -1},
 	})
@@ -389,7 +398,9 @@ func TestExecutionFallbackRecordsSelectedAndSkippedTrace(t *testing.T) {
 	}
 	hit := BackendNode[intentWithMode, struct{}, NoExecutionMeta]{
 		Backend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 
@@ -403,7 +414,7 @@ func TestExecutionFallbackRecordsSelectedAndSkippedTrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(selected): %v", err)
 	}
-	selectedResult, err := selected.Execute(context.Background(), Query[intentWithMode]{
+	selectedResult, err := selected.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -424,7 +435,7 @@ func TestExecutionFallbackRecordsSelectedAndSkippedTrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(skipped): %v", err)
 	}
-	skippedResult, err := skipped.Execute(context.Background(), Query[intentWithMode]{
+	skippedResult, err := skipped.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -444,7 +455,9 @@ func TestExecutionRescueRecordsSelectedAndSkippedTrace(t *testing.T) {
 	}
 	hit := BackendNode[intentWithMode, struct{}, NoExecutionMeta]{
 		Backend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 
@@ -458,7 +471,7 @@ func TestExecutionRescueRecordsSelectedAndSkippedTrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(selected): %v", err)
 	}
-	selectedResult, err := selected.Execute(context.Background(), Query[intentWithMode]{
+	selectedResult, err := selected.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -479,7 +492,7 @@ func TestExecutionRescueRecordsSelectedAndSkippedTrace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(skipped): %v", err)
 	}
-	skippedResult, err := skipped.Execute(context.Background(), Query[intentWithMode]{
+	skippedResult, err := skipped.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -496,7 +509,9 @@ func TestExecutionConditionalRecordsSelectedAndSkippedTrace(t *testing.T) {
 
 	child := BackendNode[intentWithMode, struct{}, NoExecutionMeta]{
 		Backend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			docs: []Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 		},
 	}
 	pipeline, err := NewExecutionPipelineBuilder[intentWithMode, struct{}, NoExecutionMeta]().
@@ -512,7 +527,7 @@ func TestExecutionConditionalRecordsSelectedAndSkippedTrace(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	selected, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	selected, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Intent:  intentWithMode{Mode: "run"},
 		Options: RetrieveOptions{TopK: 1},
@@ -524,7 +539,7 @@ func TestExecutionConditionalRecordsSelectedAndSkippedTrace(t *testing.T) {
 		t.Fatalf("BranchTrace(selected) = %#v, want selected conditional node", selected.BranchTrace)
 	}
 
-	skipped, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	skipped, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Intent:  intentWithMode{Mode: "skip"},
 		Options: RetrieveOptions{TopK: 1},
@@ -546,8 +561,11 @@ func (sideOutputBackend) Retrieve(
 ) (RetrievalResult[struct{}, executionMetaFixture], error) {
 	exec.SideOutputs = append(exec.SideOutputs, "web-hit")
 	return RetrievalResult[struct{}, executionMetaFixture]{
+		Coverage: UnobservedReadCoverage(),
 		ResultSet: NewResultSet(
-			[]Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			[]Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 			DocumentIDResolver[struct{}]{},
 		),
 		Executed: exec,
@@ -570,8 +588,11 @@ func (b namedSideOutputBackend) Retrieve(
 ) (RetrievalResult[struct{}, executionMetaFixture], error) {
 	exec.SideOutputs = append(exec.SideOutputs, b.id)
 	return RetrievalResult[struct{}, executionMetaFixture]{
+		Coverage: UnobservedReadCoverage(),
 		ResultSet: NewResultSet(
-			[]Document[struct{}]{{ID: b.id, Content: b.id, Score: 1}},
+			[]Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: b.id, Content: b.id, Score: 1},
+			},
 			DocumentIDResolver[struct{}]{},
 		),
 		Executed: exec,
@@ -592,8 +613,11 @@ func (omittedExecutionBackend) Retrieve(
 	_ executionMetaFixture,
 ) (RetrievalResult[struct{}, executionMetaFixture], error) {
 	return RetrievalResult[struct{}, executionMetaFixture]{
+		Coverage: UnobservedReadCoverage(),
 		ResultSet: NewResultSet(
-			[]Document[struct{}]{{ID: "hit", Content: "ok", Score: 1}},
+			[]Document[struct{}]{
+				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
+			},
 			DocumentIDResolver[struct{}]{},
 		),
 	}, nil
@@ -611,7 +635,7 @@ func TestExecutionBackendReturnsTypedSideOutputs(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -641,7 +665,7 @@ func TestExecutionRetrieverPreservesIncomingExecutionWhenBackendOmitsIt(t *testi
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
@@ -682,7 +706,7 @@ func TestExecutionAggregatePreservesTraceDiagnosticsAndSideOutputs(t *testing.T)
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{
+	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 10},
 	})

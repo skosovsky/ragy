@@ -10,7 +10,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/chunking"
-	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/testutil"
 )

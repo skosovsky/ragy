@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/skosovsky/ragy/access"
+
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/internal/parallel"
@@ -60,7 +62,23 @@ func (n resultRetrieverNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	if err := req.Options.Validate(); err != nil {
 		return NewResultSet[TMeta](nil, resolver), err
 	}
+	if err := admitBackendRead(ctx, req, n.Backend); err != nil {
+		return NewResultSet[TMeta](nil, resolver), err
+	}
+	if provider, ok := n.Backend.(ReadCapabilityProvider); ok {
+		prepared, prepErr := PrepareRead(ctx, req, provider)
+		if prepErr != nil {
+			return NewResultSet[TMeta](nil, resolver), prepErr
+		}
+		req = prepared
+	}
 	rs, err := n.Backend.Retrieve(ctx, req)
+	if gateErr := req.Read.Check(ctx); gateErr != nil {
+		return NewResultSet[TMeta](nil, resolver), gateErr
+	}
+	if access.IsProtectionFailure(err) {
+		return NewResultSet[TMeta](nil, resolver), err
+	}
 	if err != nil {
 		return preserveResultOnError(rs, err, resolver)
 	}
@@ -87,6 +105,9 @@ func (n resultFallbackNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
+	if err := PreflightRead(ctx, req, n); err != nil {
+		return NewResultSet[TMeta](nil, n.Resolver), err
+	}
 	resolver := n.Resolver
 	if resolver == nil {
 		resolver = DocumentIDResolver[TMeta]{}
@@ -97,6 +118,9 @@ func (n resultFallbackNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	}
 
 	primary, err := n.Primary.Retrieve(ctx, req)
+	if access.IsProtectionFailure(err) {
+		return NewResultSet[TMeta](nil, resolver), err
+	}
 	if err != nil {
 		if partialSuccessRS(primary, err) {
 			return preserveResultOnError(primary, err, resolver)
@@ -134,6 +158,9 @@ func (n resultRescueNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
+	if err := PreflightRead(ctx, req, n); err != nil {
+		return NewResultSet[TMeta](nil, n.Resolver), err
+	}
 	resolver := n.Resolver
 	if resolver == nil {
 		resolver = DocumentIDResolver[TMeta]{}
@@ -144,6 +171,9 @@ func (n resultRescueNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	}
 
 	primary, err := n.Primary.Retrieve(ctx, req)
+	if access.IsProtectionFailure(err) {
+		return NewResultSet[TMeta](nil, resolver), err
+	}
 	if err != nil {
 		if partialSuccessRS(primary, err) {
 			return preserveResultOnError(primary, err, resolver)
@@ -193,6 +223,9 @@ func (n resultAggregateNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
+	if err := PreflightRead(ctx, req, n); err != nil {
+		return NewResultSet[TMeta](nil, n.Resolver), err
+	}
 	resolver := n.Resolver
 	if resolver == nil {
 		resolver = DocumentIDResolver[TMeta]{}
@@ -406,6 +439,9 @@ func (n resultConditionalNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
+	if err := PreflightRead(ctx, req, n); err != nil {
+		return NewResultSet[TMeta](nil, n.Resolver), err
+	}
 	resolver := n.Resolver
 	if resolver == nil {
 		resolver = DocumentIDResolver[TMeta]{}
@@ -764,20 +800,46 @@ func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 ) (RetrievalResult[TMeta, NoExecutionMeta], error) {
+	var coverage ReadCoverage
+	if p != nil && p.root != nil {
+		var admissionErr error
+		coverage, admissionErr = InspectRead(ctx, req, p.root)
+		if admissionErr != nil {
+			return emptyRetrievalResult(executionResolver(p.resolver), NoExecutionMeta{}), admissionErr
+		}
+	}
+	result, err := p.execute(ctx, req)
+	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	var resolver IdentityResolver[TMeta]
+	if p != nil {
+		resolver = p.resolver
+	}
+	return finishReadResult(ctx, req.Read, result, err, executionResolver(resolver))
+}
+
+func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) execute(
+	ctx context.Context,
+	req Request[TIntent, TRequestMeta],
+) (RetrievalResult[TMeta, NoExecutionMeta], error) {
 	exec := NoExecutionMeta{}
 	if p == nil || p.root == nil {
 		return emptyRetrievalResult(DocumentIDResolver[TMeta]{}, exec),
 			fmt.Errorf("%w: pipeline root", ragy.ErrInvalidArgument)
 	}
+	if err := PreflightRead(ctx, req, p.root); err != nil {
+		return emptyRetrievalResult(p.resolver, exec), err
+	}
+	trustedRead := req.Read
 	var diagnostics []ExecutionDiagnostic
 	var planErr error
 	req, diagnostics, planErr = p.planQuery(ctx, req)
 	if planErr != nil {
 		return RetrievalResult[TMeta, NoExecutionMeta]{
+			Coverage:    UnobservedReadCoverage(),
 			ResultSet:   NewResultSet[TMeta](nil, p.resolver),
 			Executed:    exec,
 			Diagnostics: diagnostics,
-			BranchTrace: pipelineErrorTrace("planner", planErr),
+			BranchTrace: pipelineErrorTrace(plannerStage, planErr),
 		}, planErr
 	}
 	if p.binder != nil {
@@ -785,17 +847,20 @@ func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) Execute(
 		diagnostics = append(diagnostics, bound.Diagnostics...)
 		if bindErr != nil {
 			return RetrievalResult[TMeta, NoExecutionMeta]{
+				Coverage:    UnobservedReadCoverage(),
 				ResultSet:   NewResultSet[TMeta](nil, p.resolver),
 				Executed:    bound.Executed,
 				Diagnostics: diagnostics,
 				BranchTrace: pipelineErrorTrace("binder", bindErr),
 			}, bindErr
 		}
+		bound.Request.Read = trustedRead
 		req = bound.Request
 		exec = bound.Executed
 	}
-	if err := req.Options.Validate(); err != nil {
+	if err := validateReadRequest(ctx, req, p.root); err != nil {
 		return RetrievalResult[TMeta, NoExecutionMeta]{
+			Coverage:    UnobservedReadCoverage(),
 			ResultSet:   NewResultSet[TMeta](nil, p.resolver),
 			Executed:    exec,
 			Diagnostics: diagnostics,
@@ -810,15 +875,22 @@ func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) Execute(
 	} else if rs == nil {
 		rs = NewResultSet[TMeta](nil, p.resolver)
 	}
+	if readErr := readDeliveryError(ctx, trustedRead, partialErr); readErr != nil {
+		var zero NoExecutionMeta
+		return emptyRetrievalResult(p.resolver, zero), readErr
+	}
+
 	result := RetrievalResult[TMeta, NoExecutionMeta]{
+		Coverage:    UnobservedReadCoverage(),
 		ResultSet:   ensureResultSet(rs, p.resolver),
 		Executed:    exec,
 		Diagnostics: diagnostics,
 		BranchTrace: []BranchStep{nodeBranchStep("root", resultState(rs, partialErr), partialErr)},
 	}
+	var terminalErr error
 	if p.postChain != nil {
 		var postErr error
-		result.ResultSet, postErr = p.postChain.Process(ctx, req.Options, result.ResultSet)
+		result.ResultSet, postErr = p.postChain.Process(ctx, req.Read, req.Options, result.ResultSet)
 		if postErr != nil {
 			result.ResultSet, _ = preserveResultOnError(result.ResultSet, postErr, p.resolver)
 			final := NewResultSet(result.ResultSet.Documents(), p.resolver)
@@ -829,7 +901,10 @@ func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) Execute(
 			return result, postErr
 		}
 	} else {
-		result.ResultSet = applyTerminalOptions(result.ResultSet, req.Options, p.resolver)
+		result.ResultSet, terminalErr = applyTerminalOptions(result.ResultSet, req.Options, p.resolver)
+	}
+	if terminalErr != nil {
+		return result, errors.Join(partialErr, terminalErr)
 	}
 	final := NewResultSet(result.ResultSet.Documents(), p.resolver)
 	result.ResultSet = final

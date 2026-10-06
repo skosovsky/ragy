@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
-	"github.com/skosovsky/ragy/internal/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/testutil"
 )
@@ -19,7 +19,7 @@ func retrieveStore[TMeta any](
 	text string,
 	opts retrieval.RetrieveOptions,
 ) (retrieval.ResultSet[TMeta], error) {
-	return store.Retrieve(ctx, retrieval.Query[struct{}]{Text: text, Options: opts})
+	return store.Retrieve(ctx, retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(), Text: text, Options: opts})
 }
 
 type fakeRunner struct{}

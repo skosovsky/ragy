@@ -1,0 +1,210 @@
+{
+  "identity": "task12-graph-reference",
+  "sources": [
+    {
+      "id": "s1",
+      "namespace": "prod",
+      "text": "Сервис Billing (alias Pay) зависит от LedgerDB. Владелец — Team A.",
+      "dense": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "s2",
+      "namespace": "prod",
+      "text": "Billing использует LedgerDB.",
+      "dense": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "s3",
+      "namespace": "staging",
+      "text": "Сервис Billing в namespace staging принадлежит Team B.",
+      "dense": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "id": "s4",
+      "namespace": "prod",
+      "text": "Сервис Search команды Team B зависит от IndexDB.",
+      "dense": [
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "communities": [
+    {
+      "id": "C1",
+      "members": [
+        "prod/Service/Billing",
+        "prod/Database/LedgerDB",
+        "prod/Team/Team A"
+      ],
+      "sources": [
+        "s1",
+        "s2"
+      ]
+    },
+    {
+      "id": "C2",
+      "members": [
+        "prod/Service/Search",
+        "prod/Database/IndexDB",
+        "prod/Team/Team B"
+      ],
+      "sources": [
+        "s4"
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "local",
+      "recipe": "local-expansion",
+      "text": "Какой DB пользуется сервис команды A?",
+      "relevant": [
+        "s1",
+        "s2"
+      ],
+      "dense": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "community",
+      "recipe": "community-summary",
+      "text": "Что делает C1 и от чего зависит?",
+      "relevant": [
+        "s1",
+        "s2"
+      ],
+      "dense": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "global",
+      "recipe": "global-summary",
+      "text": "Какие зависимости у сервисов команд A и B?",
+      "relevant": [
+        "s1",
+        "s2",
+        "s4"
+      ],
+      "dense": [
+        0.70710677,
+        0,
+        0.70710677
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "key": "prod/Service/Billing",
+      "supports": [
+        "s1",
+        "s2"
+      ]
+    },
+    {
+      "key": "prod/Database/LedgerDB",
+      "supports": [
+        "s1",
+        "s2"
+      ]
+    },
+    {
+      "key": "prod/Team/Team A",
+      "supports": [
+        "s1"
+      ]
+    },
+    {
+      "key": "staging/Service/Billing",
+      "supports": [
+        "s3"
+      ]
+    },
+    {
+      "key": "staging/Team/Team B",
+      "supports": [
+        "s3"
+      ]
+    },
+    {
+      "key": "prod/Service/Search",
+      "supports": [
+        "s4"
+      ]
+    },
+    {
+      "key": "prod/Database/IndexDB",
+      "supports": [
+        "s4"
+      ]
+    },
+    {
+      "key": "prod/Team/Team B",
+      "supports": [
+        "s4"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "prod/Service/Billing",
+      "to": "prod/Database/LedgerDB",
+      "kind": "depends_on",
+      "supports": [
+        "s1",
+        "s2"
+      ]
+    },
+    {
+      "from": "prod/Service/Billing",
+      "to": "prod/Team/Team A",
+      "kind": "owned_by",
+      "supports": [
+        "s1"
+      ]
+    },
+    {
+      "from": "staging/Service/Billing",
+      "to": "staging/Team/Team B",
+      "kind": "owned_by",
+      "supports": [
+        "s3"
+      ]
+    },
+    {
+      "from": "prod/Service/Search",
+      "to": "prod/Database/IndexDB",
+      "kind": "depends_on",
+      "supports": [
+        "s4"
+      ]
+    },
+    {
+      "from": "prod/Service/Search",
+      "to": "prod/Team/Team B",
+      "kind": "owned_by",
+      "supports": [
+        "s4"
+      ]
+    }
+  ]
+}

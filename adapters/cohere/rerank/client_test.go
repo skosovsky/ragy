@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/internal/contracttest"
+	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -47,7 +47,7 @@ func TestRerankUsesProviderIndexes(t *testing.T) {
 		},
 		retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 	)
-	out, err := client.Rerank(context.Background(), "q", rs)
+	out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", rs)
 	if err != nil {
 		t.Fatalf("Rerank(): %v", err)
 	}
@@ -77,7 +77,7 @@ func TestRerankPreservesMeta(t *testing.T) {
 		}},
 		retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 	)
-	out, err := client.Rerank(context.Background(), "q", rs)
+	out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", rs)
 	if err != nil {
 		t.Fatalf("Rerank(): %v", err)
 	}
@@ -100,14 +100,22 @@ func TestRerankPreservesResolverOnEmptyQuery(t *testing.T) {
 		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "merge-key"}},
 		resolver,
 	)
-	out, err := client.Rerank(context.Background(), "", rs)
+	out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "", rs)
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrEmptyText) {
 		t.Fatalf("Rerank() error = %v, want empty text", err)
 	}
 
 	merged, mergeErr := retrieval.NewResultSet(
-		[]retrieval.Document[contracttest.StructMeta]{{ID: "b", Content: "merge-key", Score: 0.1}},
+		[]retrieval.Document[contracttest.StructMeta]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "b",
+				Content:        "merge-key",
+				Score:          0.1,
+			},
+		},
 		resolver,
 	).Merge(out)
 	if mergeErr != nil {
@@ -130,7 +138,7 @@ func TestRerankNilResultSetReturnsEmpty(t *testing.T) {
 		t.Fatalf("New(): %v", err)
 	}
 
-	out, err := client.Rerank(context.Background(), "q", nil)
+	out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", nil)
 	if err != nil {
 		t.Fatalf("Rerank(nil): %v", err)
 	}
@@ -155,7 +163,7 @@ func TestRerankReturnsErrorOnHTTP4xx(t *testing.T) {
 		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "alpha"}},
 		retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 	)
-	out, err := client.Rerank(context.Background(), "q", rs)
+	out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", rs)
 	if err == nil {
 		t.Fatal("Rerank() error = nil, want HTTP error")
 	}
@@ -185,7 +193,7 @@ func TestRerankRejectsCardinalityMismatch(t *testing.T) {
 		},
 		retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 	)
-	out, err := client.Rerank(context.Background(), "q", rs)
+	out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", rs)
 	if !errors.Is(err, ragy.ErrProtocol) {
 		t.Fatalf("Rerank() error = %v, want protocol error", err)
 	}
@@ -225,7 +233,7 @@ func TestRerankPreservesInputOnTransportError(t *testing.T) {
 				[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "alpha"}},
 				retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 			)
-			out, err := client.Rerank(context.Background(), "q", rs)
+			out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", rs)
 			if err == nil {
 				t.Fatal("Rerank() error = nil, want transport error")
 			}
@@ -258,7 +266,7 @@ func TestRerankReturnsErrorOnTransportFailure(t *testing.T) {
 		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "alpha"}},
 		retrieval.DocumentIDResolver[contracttest.StructMeta]{},
 	)
-	out, err := client.Rerank(context.Background(), "q", rs)
+	out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", rs)
 	if err == nil {
 		t.Fatal("Rerank() error = nil, want transport error")
 	}
@@ -285,10 +293,18 @@ func TestRerankPreservesInputResolver(t *testing.T) {
 
 	resolver := contentMergeResolver[contracttest.StructMeta]{}
 	rs := retrieval.NewResultSet(
-		[]retrieval.Document[contracttest.StructMeta]{{ID: "a", Content: "merge-key", Score: 0.9}},
+		[]retrieval.Document[contracttest.StructMeta]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "a",
+				Content:        "merge-key",
+				Score:          0.9,
+			},
+		},
 		resolver,
 	)
-	out, err := client.Rerank(context.Background(), "q", rs)
+	out, err := client.Rerank(context.Background(), retrieval.UnrestrictedRead(), "q", rs)
 	if err == nil {
 		t.Fatal("Rerank() error = nil, want transport error")
 	}
@@ -300,7 +316,15 @@ func TestRerankPreservesInputResolver(t *testing.T) {
 	}
 
 	merged, mergeErr := retrieval.NewResultSet(
-		[]retrieval.Document[contracttest.StructMeta]{{ID: "b", Content: "merge-key", Score: 0.2}},
+		[]retrieval.Document[contracttest.StructMeta]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "b",
+				Content:        "merge-key",
+				Score:          0.2,
+			},
+		},
 		resolver,
 	).Merge(out)
 	if mergeErr != nil {

@@ -1,0 +1,7 @@
+ok  	github.com/skosovsky/ragy/retrieval	1.634s
+ok  	github.com/skosovsky/ragy/lexical	(cached)
+ok  	github.com/skosovsky/ragy/lexical/managed	(cached)
+ok  	github.com/skosovsky/ragy/graph/managed	5.635s
+ok  	github.com/skosovsky/ragy/tensor/query	(cached)
+ok  	github.com/skosovsky/ragy/dense/persistent	(cached)
+ok  	github.com/skosovsky/ragy/tensor/persistent	(cached)

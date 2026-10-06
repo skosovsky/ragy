@@ -1,0 +1,24 @@
+=== RUN   TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs
+=== RUN   TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs/9007199254740992
+=== RUN   TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs/9007199254740993
+=== RUN   TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs/-9223372036854775808
+=== RUN   TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs/9223372036854775807
+--- PASS: TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs (0.00s)
+    --- PASS: TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs/9007199254740992 (0.00s)
+    --- PASS: TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs/9007199254740993 (0.00s)
+    --- PASS: TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs/-9223372036854775808 (0.00s)
+    --- PASS: TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs/9223372036854775807 (0.00s)
+=== RUN   TestIntegerWireProjectionRejectsInvalidIntegers
+=== RUN   TestIntegerWireProjectionRejectsInvalidIntegers/1.5
+=== RUN   TestIntegerWireProjectionRejectsInvalidIntegers/9223372036854775808
+=== RUN   TestIntegerWireProjectionRejectsInvalidIntegers/-9223372036854775809
+=== RUN   TestIntegerWireProjectionRejectsInvalidIntegers/1e999
+--- PASS: TestIntegerWireProjectionRejectsInvalidIntegers (0.00s)
+    --- PASS: TestIntegerWireProjectionRejectsInvalidIntegers/1.5 (0.00s)
+    --- PASS: TestIntegerWireProjectionRejectsInvalidIntegers/9223372036854775808 (0.00s)
+    --- PASS: TestIntegerWireProjectionRejectsInvalidIntegers/-9223372036854775809 (0.00s)
+    --- PASS: TestIntegerWireProjectionRejectsInvalidIntegers/1e999 (0.00s)
+=== RUN   TestIntegerWireMembershipRetainsExactValues
+--- PASS: TestIntegerWireMembershipRetainsExactValues (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/elasticsearch	(cached)

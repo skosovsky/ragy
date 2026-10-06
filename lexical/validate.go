@@ -7,6 +7,8 @@ import (
 	"github.com/skosovsky/ragy/filter"
 )
 
+const contentSearchField = "content"
+
 // ValidateSearchFields checks search field names against a finalized schema.
 func ValidateSearchFields(schema filter.Schema, fields []string) error {
 	seen := make(map[string]struct{}, len(fields))
@@ -18,7 +20,7 @@ func ValidateSearchFields(schema filter.Schema, fields []string) error {
 			return fmt.Errorf("%w: duplicate lexical search field %q", ragy.ErrInvalidArgument, field)
 		}
 		seen[field] = struct{}{}
-		if field == "content" {
+		if field == contentSearchField {
 			continue
 		}
 		if err := filter.ValidateIdentifier(field); err != nil {

@@ -29,7 +29,7 @@ func TestRescueSearch_EmptySecondaryPropagatesPrimaryError(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), retrieval.Query[intent]{
+	result, err := pipeline.Execute(context.Background(), retrieval.Query[intent]{Read: retrieval.UnrestrictedRead(),
 		Text: "hello",
 		Options: retrieval.RetrieveOptions{
 			TopK:   defaultTopK,

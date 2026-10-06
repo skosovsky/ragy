@@ -24,7 +24,15 @@ func TestRescueFallbackAggregate_AllowWebTrue_VectorOutage(t *testing.T) {
 	schema := testSchema(t)
 	web := memoryBackend{
 		name: schema,
-		hits: []retrieval.Document[struct{}]{{ID: "web-1", Content: "web", Score: webFallbackScore}},
+		hits: []retrieval.Document[struct{}]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "web-1",
+				Content:        "web",
+				Score:          webFallbackScore,
+			},
+		},
 	}
 	pipeline, err := buildPipeline(
 		memoryBackend{name: schema},
@@ -35,7 +43,7 @@ func TestRescueFallbackAggregate_AllowWebTrue_VectorOutage(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: true},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -52,7 +60,15 @@ func TestRescueFallbackAggregate_AllowWebFalse_VectorOutage(t *testing.T) {
 	schema := testSchema(t)
 	web := memoryBackend{
 		name: schema,
-		hits: []retrieval.Document[struct{}]{{ID: "web-1", Content: "web", Score: webFallbackScore}},
+		hits: []retrieval.Document[struct{}]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "web-1",
+				Content:        "web",
+				Score:          webFallbackScore,
+			},
+		},
 	}
 	pipeline, err := buildPipeline(
 		memoryBackend{name: schema},
@@ -63,7 +79,7 @@ func TestRescueFallbackAggregate_AllowWebFalse_VectorOutage(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: false},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -77,8 +93,7 @@ func TestRescueFallbackAggregate_AllowWebFalse_VectorOutage(t *testing.T) {
 		}
 	}
 	if err != nil && !errors.Is(err, ragy.ErrUnavailable) {
-		var partial *retrieval.PartialFailureError[struct{}]
-		if !errors.As(err, &partial) {
+		if _, ok := errors.AsType[*retrieval.PartialFailureError[struct{}]](err); !ok {
 			t.Fatalf("Retrieve() error = %v, want unavailable or partial failure", err)
 		}
 	}
@@ -88,7 +103,15 @@ func TestRescueFallbackAggregate_AllowWebFalse_SparseEmpty(t *testing.T) {
 	schema := testSchema(t)
 	web := memoryBackend{
 		name: schema,
-		hits: []retrieval.Document[struct{}]{{ID: "web-1", Content: "web", Score: webFallbackScore}},
+		hits: []retrieval.Document[struct{}]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "web-1",
+				Content:        "web",
+				Score:          webFallbackScore,
+			},
+		},
 	}
 	pipeline, err := buildPipeline(
 		memoryBackend{name: schema},
@@ -99,7 +122,7 @@ func TestRescueFallbackAggregate_AllowWebFalse_SparseEmpty(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: false},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},

@@ -1,0 +1,2 @@
+ok  	github.com/skosovsky/ragy/access	0.406s
+ok  	github.com/skosovsky/ragy/retrieval	0.453s

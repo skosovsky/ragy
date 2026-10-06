@@ -1,7 +1,10 @@
 package retrieval
 
 import (
+	"github.com/skosovsky/ragy/access"
+
 	"context"
+	"fmt"
 	"sort"
 
 	ragy "github.com/skosovsky/ragy"
@@ -84,16 +87,31 @@ func bindProcessorResolver[TMeta any](
 	}
 }
 
-// Process runs configured post-processors on an existing result set.
-// ctx is accepted for call-site symmetry with retrieval pipelines.
+// Process enforces freshness before each processor and at every delivery path.
 func (p *PostProcessorChain[TMeta]) Process(
 	ctx context.Context,
+	read access.Binding,
 	opts RetrieveOptions,
 	rs ResultSet[TMeta],
 ) (ResultSet[TMeta], error) {
-	_ = ctx
+	out, err := p.process(ctx, read, opts, rs)
+	var resolver IdentityResolver[TMeta]
+	if p != nil {
+		resolver = p.resolver
+	}
+	return DeliverRead(ctx, read, out, err, resolver)
+}
+
+func (p *PostProcessorChain[TMeta]) process(
+	ctx context.Context,
+	read access.Binding, opts RetrieveOptions,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	if p == nil {
 		return rs, nil
+	}
+	if err := read.Check(ctx); err != nil {
+		return NewResultSet[TMeta](nil, p.resolver), err
 	}
 	if err := opts.Validate(); err != nil {
 		return preserveResultOnError(rs, err, p.resolver)
@@ -105,11 +123,19 @@ func (p *PostProcessorChain[TMeta]) Process(
 		return preserveResultOnError(rs, err, p.resolver)
 	}
 
-	rs = applyMinSimilarity(rs, opts.MinSimilarity, p.resolver)
+	var thresholdErr error
+	rs, thresholdErr = applyScoreThreshold(rs, opts.Threshold, p.resolver)
+	if thresholdErr != nil {
+		return preserveResultOnError(rs, thresholdErr, p.resolver)
+	}
 
 	for _, processor := range p.processors {
+		if err := read.Check(ctx); err != nil {
+			return NewResultSet[TMeta](nil, p.resolver), err
+		}
 		var err error
-		rs, err = processor.Process(rs)
+		rs, err = processor.Process(ctx, read, rs)
+		rs, err = DeliverRead(ctx, read, rs, err, p.resolver)
 		if err != nil {
 			return preserveResultOnError(rs, err, p.resolver)
 		}
@@ -118,18 +144,35 @@ func (p *PostProcessorChain[TMeta]) Process(
 		}
 	}
 
+	if err := read.Check(ctx); err != nil {
+		return NewResultSet[TMeta](nil, p.resolver), err
+	}
+	if err := validateComparable(rs.Documents()); err != nil {
+		return preserveResultOnError(rs, err, p.resolver)
+	}
 	rs = applyTopK(rs, opts.TopK, p.resolver)
 	return rs, nil
 }
 
-// applyTerminalOptions applies MinSimilarity and TopK after all post-processors or orchestrator root.
+// applyTerminalOptions applies score threshold and TopK after all post-processors or orchestrator root.
 func applyTerminalOptions[TMeta any](
 	rs ResultSet[TMeta],
 	opts RetrieveOptions,
 	resolver IdentityResolver[TMeta],
-) ResultSet[TMeta] {
-	rs = applyMinSimilarity(rs, opts.MinSimilarity, resolver)
-	return applyTopK(rs, opts.TopK, resolver)
+) (ResultSet[TMeta], error) {
+	if err := opts.Validate(); err != nil {
+		return preserveResultOnError(rs, err, resolver)
+	}
+	if rs != nil {
+		if err := validateComparable(rs.Documents()); err != nil {
+			return preserveResultOnError(rs, err, resolver)
+		}
+	}
+	filtered, err := applyScoreThreshold(rs, opts.Threshold, resolver)
+	if err != nil {
+		return preserveResultOnError(filtered, err, resolver)
+	}
+	return applyTopK(filtered, opts.TopK, resolver), nil
 }
 
 func validateResultSet[TMeta any](rs ResultSet[TMeta]) error {
@@ -144,22 +187,31 @@ func validateResultSet[TMeta any](rs ResultSet[TMeta]) error {
 	return nil
 }
 
-func applyMinSimilarity[TMeta any](
+func applyScoreThreshold[TMeta any](
 	rs ResultSet[TMeta],
-	minSimilarity float64,
+	threshold *ScoreThreshold,
 	resolver IdentityResolver[TMeta],
-) ResultSet[TMeta] {
-	if minSimilarity <= 0 || rs == nil || rs.IsEmpty() {
-		return RewrapResultSet(rs, resolver)
+) (ResultSet[TMeta], error) {
+	if threshold == nil || rs == nil || rs.IsEmpty() {
+		return RewrapResultSet(rs, resolver), nil
+	}
+	if err := threshold.Validate(); err != nil {
+		return rs, err
 	}
 	docs := rs.Documents()
+	for _, doc := range docs {
+		if !doc.ScoreState.IsScored() || doc.ScoreState != threshold.State ||
+			doc.ScoreSemantics != threshold.Semantics {
+			return rs, fmt.Errorf("%w: threshold cannot compare score scale", ragy.ErrInvalidArgument)
+		}
+	}
 	out := make([]Document[TMeta], 0, len(docs))
 	for _, doc := range docs {
-		if doc.Score >= minSimilarity {
+		if doc.Score >= threshold.Value {
 			out = append(out, doc)
 		}
 	}
-	return NewResultSet(out, resolver)
+	return NewResultSet(out, resolver), nil
 }
 
 func applyTopK[TMeta any](rs ResultSet[TMeta], topK int, resolver IdentityResolver[TMeta]) ResultSet[TMeta] {

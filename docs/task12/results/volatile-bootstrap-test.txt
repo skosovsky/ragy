@@ -1,0 +1,3 @@
+ok  	github.com/skosovsky/ragy/lifecycle/integration	11.324s
+ok  	github.com/skosovsky/ragy/lexical/managed	(cached)
+ok  	github.com/skosovsky/ragy/graph/managed	(cached)

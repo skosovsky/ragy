@@ -22,7 +22,15 @@ func TestCatalogVectorFallback_AllowWebTrue_SparseEmpty(t *testing.T) {
 	schema := testSchema(t)
 	web := memoryBackend{
 		name: schema,
-		hits: []retrieval.Document[struct{}]{{ID: "web-1", Content: "web", Score: webFallbackScore}},
+		hits: []retrieval.Document[struct{}]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "web-1",
+				Content:        "web",
+				Score:          webFallbackScore,
+			},
+		},
 	}
 	pipeline, err := buildPipeline(
 		memoryBackend{name: schema},
@@ -33,7 +41,7 @@ func TestCatalogVectorFallback_AllowWebTrue_SparseEmpty(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: true},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -50,7 +58,15 @@ func TestCatalogVectorFallback_AllowWebFalse_SparseEmpty(t *testing.T) {
 	schema := testSchema(t)
 	web := memoryBackend{
 		name: schema,
-		hits: []retrieval.Document[struct{}]{{ID: "web-1", Content: "web", Score: webFallbackScore}},
+		hits: []retrieval.Document[struct{}]{
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "web-1",
+				Content:        "web",
+				Score:          webFallbackScore,
+			},
+		},
 	}
 	pipeline, err := buildPipeline(
 		memoryBackend{name: schema},
@@ -61,7 +77,7 @@ func TestCatalogVectorFallback_AllowWebFalse_SparseEmpty(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
 		Text:    "query",
 		Intent:  searchIntent{AllowWeb: false},
 		Options: retrieval.RetrieveOptions{TopK: exampleTopK},
@@ -79,13 +95,25 @@ func TestCatalogVectorFallback_VectorBranchReturnsVectorHit(t *testing.T) {
 	vector := memoryBackend{
 		name: schema,
 		hits: []retrieval.Document[struct{}]{
-			{ID: "vec-1", Content: "dense", Score: 0.9},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "vec-1",
+				Content:        "dense",
+				Score:          0.9,
+			},
 		},
 	}
 	web := memoryBackend{
 		name: schema,
 		hits: []retrieval.Document[struct{}]{
-			{ID: "web-1", Content: "web", Score: webFallbackScore},
+			{
+				ScoreSemantics: "fixture-similarity",
+				ScoreState:     retrieval.ScorePresent,
+				ID:             "web-1",
+				Content:        "web",
+				Score:          webFallbackScore,
+			},
 		},
 	}
 	pipeline, err := buildPipeline(
@@ -97,7 +125,7 @@ func TestCatalogVectorFallback_VectorBranchReturnsVectorHit(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
 		Text:   "query",
 		Intent: searchIntent{AllowWeb: true},
 		Options: retrieval.RetrieveOptions{

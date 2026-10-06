@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"slices"
 	"strings"
+
+	"github.com/skosovsky/ragy/access"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
@@ -14,14 +15,17 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 )
 
-const logisticClamp = 20.0
+const (
+	boolQueryKey     = "bool"
+	contentFieldName = "content"
+)
 
 // Hit is an Elasticsearch search hit in wire form (not a domain document).
 // Source holds raw _source JSON; adapters project into retrieval.Document[TMeta].
 type Hit struct {
 	ID     string
 	Score  float64
-	Source map[string]any
+	Source filter.RawAttributes
 }
 
 // Client executes lexical searches against Elasticsearch wire APIs.
@@ -98,7 +102,20 @@ func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
 	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	rs, err := s.retrieve(ctx, req)
+	return retrieval.DeliverRead(ctx, req.Read, rs, err, s.resolver)
+}
+
+func (s *Store[TMeta]) retrieve(
+	ctx context.Context,
+	req retrieval.Query[struct{}],
+) (retrieval.ResultSet[TMeta], error) {
 	query := req.EffectiveText()
+	prepared, readErr := retrieval.PrepareRead(ctx, req, s)
+	if readErr != nil {
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), readErr
+	}
+	req = prepared
 	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
@@ -166,7 +183,7 @@ func (s *Store[TMeta]) render(query string, opts retrieval.RetrieveOptions) (map
 		}
 		if rendered != nil {
 			esQuery = map[string]any{
-				"bool": map[string]any{
+				boolQueryKey: map[string]any{
 					"must":   []any{esQuery},
 					"filter": []any{rendered},
 				},
@@ -208,8 +225,8 @@ func renderFilter(expr filter.IR) (map[string]any, error) {
 }
 
 func (s *Store[TMeta]) projectHit(hit Hit) (retrieval.Document[TMeta], error) {
-	contentRequired := slices.Contains(s.fields, "content")
-	contentValue, ok := hit.Source["content"]
+	contentRequired := slices.Contains(s.fields, contentFieldName)
+	contentValue, ok := hit.Source[contentFieldName]
 	var content string
 	if !ok {
 		if contentRequired {
@@ -240,10 +257,12 @@ func (s *Store[TMeta]) projectHit(hit Hit) (retrieval.Document[TMeta], error) {
 	}
 
 	doc := retrieval.Document[TMeta]{
-		ID:      hit.ID,
-		Content: content,
-		Score:   logistic(hit.Score),
-		Meta:    meta,
+		ID:             hit.ID,
+		Content:        content,
+		Score:          hit.Score,
+		ScoreState:     retrieval.ScorePresent,
+		ScoreSemantics: "lexical.search-native",
+		Meta:           meta,
 	}
 	if err := retrieval.ValidateDocument(doc); err != nil {
 		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "elasticsearch validate")
@@ -259,7 +278,7 @@ func (s *Store[TMeta]) projectAttributes(source map[string]any) (filter.RawAttri
 
 	projected := make(filter.RawAttributes)
 	for key, value := range source {
-		if key == "content" {
+		if key == contentFieldName {
 			continue
 		}
 		if _, ok := s.schema.Lookup(key); !ok {
@@ -300,7 +319,7 @@ func (w *esFilterWalker) OnEq(field string, value filter.Value) error {
 
 func (w *esFilterWalker) OnNeq(field string, value filter.Value) error {
 	return w.push(map[string]any{
-		"bool": map[string]any{
+		boolQueryKey: map[string]any{
 			"must_not": []any{map[string]any{"term": map[string]any{field: value.Raw()}}},
 		},
 	})
@@ -345,7 +364,7 @@ func (w *esFilterWalker) LeaveAnd() error {
 	for _, item := range frame.items {
 		items = append(items, item)
 	}
-	return w.push(map[string]any{"bool": map[string]any{"filter": items}})
+	return w.push(map[string]any{boolQueryKey: map[string]any{"filter": items}})
 }
 
 func (w *esFilterWalker) EnterOr(_ int) error {
@@ -363,7 +382,7 @@ func (w *esFilterWalker) LeaveOr() error {
 	for _, item := range frame.items {
 		items = append(items, item)
 	}
-	return w.push(map[string]any{"bool": map[string]any{"should": items, "minimum_should_match": 1}})
+	return w.push(map[string]any{boolQueryKey: map[string]any{"should": items, "minimum_should_match": 1}})
 }
 
 func (w *esFilterWalker) EnterNot() error {
@@ -379,7 +398,7 @@ func (w *esFilterWalker) LeaveNot() error {
 	if len(frame.items) != 1 {
 		return fmt.Errorf("%w: invalid NOT filter", ragy.ErrUnsupported)
 	}
-	return w.push(map[string]any{"bool": map[string]any{"must_not": []any{frame.items[0]}}})
+	return w.push(map[string]any{boolQueryKey: map[string]any{"must_not": []any{frame.items[0]}}})
 }
 
 func (w *esFilterWalker) push(query map[string]any) error {
@@ -411,14 +430,15 @@ func rangeQuery(field, op string, value any) map[string]any {
 	return map[string]any{"range": map[string]any{field: map[string]any{op: value}}}
 }
 
-func logistic(score float64) float64 {
-	score = math.Max(-logisticClamp, math.Min(logisticClamp, score))
-	return 1.0 / (1.0 + math.Exp(-score))
-}
-
 func (s *Store[TMeta]) LexicalBackend() {}
 
 var (
 	_ retrieval.Backend[struct{}, any] = (*Store[any])(nil)
 	_ lexical.Backend[any]             = (*Store[any])(nil)
 )
+
+// ReadCapabilities declares pre-delivery scalar mandatory-filter enforcement.
+// Managed pinned publication requires the lifecycle-aware adapter path.
+func (s *Store[TMeta]) ReadCapabilities() access.Capabilities {
+	return access.Capabilities{RequirePinnedPublication: false, ScopeProfile: true, PinnedPublication: false}
+}

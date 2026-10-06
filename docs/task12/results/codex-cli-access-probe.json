@@ -1,0 +1,66 @@
+{
+  "purpose": "live-cli-access-and-usage-probe",
+  "authentication": "existing-chatgpt-login",
+  "model": "gpt-6-astra",
+  "runs": [
+    {
+      "profile": "default-agent",
+      "output": {
+        "ok": true
+      },
+      "usage": {
+        "input_tokens": 15566,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 15,
+        "reasoning_output_tokens": 0
+      },
+      "structured_success": true
+    },
+    {
+      "profile": "short-instructions-no-shell",
+      "output": {
+        "ok": true
+      },
+      "usage": {
+        "input_tokens": 8329,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 15,
+        "reasoning_output_tokens": 0
+      },
+      "structured_success": true
+    },
+    {
+      "profile": "bounded-skill-catalog",
+      "output": {
+        "ok": true
+      },
+      "usage": {
+        "input_tokens": 7266,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 15,
+        "reasoning_output_tokens": 0
+      },
+      "structured_success": true
+    },
+    {
+      "profile": "isolated-agent-features",
+      "output": {
+        "ok": true
+      },
+      "usage": {
+        "input_tokens": 5409,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 15,
+        "reasoning_output_tokens": 0
+      },
+      "structured_success": true
+    }
+  ],
+  "reference_text_input_cap": 2048,
+  "reference_graph_input_cap": 4096,
+  "limitation": "This is an access/usage probe, not a text or graph comparative experiment. CLI agent framing is included in observed usage and exceeds reference input caps even in the smallest tested profile. No exact pre-dispatch count or hard output cap is established by this probe. No key, authentication token, or arbitrary source content is recorded."
+}

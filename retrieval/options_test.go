@@ -58,16 +58,16 @@ func TestRetrieveOptionsBackendFetchLimitUsesExplicitValue(t *testing.T) {
 	}
 }
 
-func TestRetrieveOptionsValidateMinSimilarityOutOfRange(t *testing.T) {
+func TestRetrieveOptionsValidateScoreThresholdOutOfRange(t *testing.T) {
 	t.Parallel()
 
 	for _, ms := range []float64{-0.1, 1.1} {
-		err := (RetrieveOptions{TopK: 1, MinSimilarity: ms}).Validate()
+		err := (RetrieveOptions{TopK: 1, Threshold: &ScoreThreshold{Value: ms, State: ScoreNormalized, Semantics: "fixture-similarity"}}).Validate()
 		if err == nil {
-			t.Fatalf("Validate(min_similarity=%v) error = nil, want error", ms)
+			t.Fatalf("Validate(normalized_threshold=%v) error = nil, want error", ms)
 		}
 		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Validate(min_similarity=%v) error = %v, want invalid argument", ms, err)
+			t.Fatalf("Validate(normalized_threshold=%v) error = %v, want invalid argument", ms, err)
 		}
 	}
 }

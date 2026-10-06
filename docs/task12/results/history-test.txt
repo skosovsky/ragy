@@ -1,0 +1,5 @@
+ok  	github.com/skosovsky/ragy/graphingest	(cached)
+ok  	github.com/skosovsky/ragy/graphingest/extraction	1.600s
+ok  	github.com/skosovsky/ragy/graphingest/materialization	1.901s
+ok  	github.com/skosovsky/ragy/graphingest/resolution	1.600s
+ok  	github.com/skosovsky/ragy/graphingest/resolution/history	1.722s

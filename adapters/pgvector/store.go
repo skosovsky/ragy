@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/skosovsky/ragy/access"
+
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
@@ -80,6 +82,19 @@ func (s *Store[TMeta]) Retrieve(
 	ctx context.Context,
 	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
+	rs, err := s.retrieve(ctx, req)
+	return retrieval.DeliverRead(ctx, req.Read, rs, err, s.resolver)
+}
+
+func (s *Store[TMeta]) retrieve(
+	ctx context.Context,
+	req retrieval.Query[struct{}],
+) (retrieval.ResultSet[TMeta], error) {
+	prepared, readErr := retrieval.PrepareRead(ctx, req, s)
+	if readErr != nil {
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), readErr
+	}
+	req = prepared
 	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
@@ -171,10 +186,12 @@ func (s *Store[TMeta]) scanDocument(rows Rows) (retrieval.Document[TMeta], error
 	}
 
 	doc := retrieval.Document[TMeta]{
-		ID:      id,
-		Content: content,
-		Score:   ragy.ClampScore(relevance),
-		Meta:    meta,
+		ID:             id,
+		Content:        content,
+		Score:          relevance,
+		ScoreState:     retrieval.ScorePresent,
+		ScoreSemantics: "dense.cosine",
+		Meta:           meta,
 	}
 	if err := retrieval.ValidateDocument(doc); err != nil {
 		return retrieval.Document[TMeta]{}, ragy.WrapProjectionError(err, "pgvector search validate")
@@ -199,14 +216,13 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]
 		if err != nil {
 			return err
 		}
-		metaJSON, err := json.Marshal(attrs)
+		attrs, err = s.schema.NormalizeAttributes(attrs)
 		if err != nil {
 			return err
 		}
-		if len(attrs) > 0 {
-			if _, err := s.schema.NormalizeAttributes(attrs); err != nil {
-				return err
-			}
+		metaJSON, err := json.Marshal(attrs)
+		if err != nil {
+			return err
 		}
 
 		base := index*fieldsPerRecord + 1
@@ -234,7 +250,7 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]
 	return ragy.WrapBackendError(err, "pgvector upsert")
 }
 
-// FindByIDs implements documents.Store.
+// FindByIDs implements documents.RawStore.
 func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval.Document[TMeta], error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -287,7 +303,7 @@ func (s *Store[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval
 	return docs, nil
 }
 
-// DeleteByIDs implements documents.Store.
+// DeleteByIDs implements documents.RawStore.
 func (s *Store[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
 	if len(ids) == 0 {
 		return documents.DeleteResult{}, nil
@@ -302,7 +318,7 @@ func (s *Store[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents
 	return documents.DeleteResult{Deleted: int(result.RowsAffected())}, nil
 }
 
-// DeleteByFilter implements documents.Store.
+// DeleteByFilter implements documents.RawStore.
 func (s *Store[TMeta]) DeleteByFilter(ctx context.Context, cond filter.Condition) (documents.DeleteResult, error) {
 	ir := cond.IR()
 	if filter.IsEmpty(ir) {
@@ -577,5 +593,11 @@ func (w *sqlFilterWalker) popFrame(op string) (sqlFrame, error) {
 var (
 	_ retrieval.Backend[struct{}, any] = (*Store[any])(nil)
 	_ dense.Index[any]                 = (*Store[any])(nil)
-	_ documents.Store[any]             = (*Store[any])(nil)
+	_ documents.RawStore[any]          = (*Store[any])(nil)
 )
+
+// ReadCapabilities declares pre-delivery scalar mandatory-filter enforcement.
+// Managed pinned publication requires the lifecycle-aware adapter path.
+func (s *Store[TMeta]) ReadCapabilities() access.Capabilities {
+	return access.Capabilities{RequirePinnedPublication: false, ScopeProfile: true, PinnedPublication: false}
+}

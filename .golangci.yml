@@ -510,5 +510,5 @@ linters:
           - noctx
           - wrapcheck
           - exhaustruct
-      - path: 'internal/contracttest/'
+      - path: 'contracttest/'
         linters: [ exhaustruct ]

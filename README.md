@@ -95,6 +95,7 @@ func search(
 	}
 
 	return pipeline.Execute(ctx, retrieval.Query[struct{}]{
+	Read: retrieval.UnrestrictedRead(),
 		Text: "reset password",
 		Options: retrieval.RetrieveOptions{
 			TopK:    10,
@@ -157,7 +158,9 @@ if err != nil {
 	// handle error
 }
 
+read := retrieval.UnrestrictedRead()
 result, err := pipeline.Execute(ctx, retrieval.Query[Intent]{
+	Read: read,
 	Text:   "reset password",
 	Intent: Intent{AllowExternal: false},
 	Options: retrieval.RetrieveOptions{
@@ -169,8 +172,9 @@ if err != nil {
 	// handle error
 }
 
-artifact, err := retrieval.DefaultArtifactRenderer[DocMeta]{}.Render(result.ResultSet, retrieval.ArtifactRenderOptions[DocMeta]{
+artifact, err := retrieval.DefaultArtifactRenderer[DocMeta]{}.Render(ctx, read, result.ResultSet, retrieval.ArtifactRenderOptions[DocMeta]{
 	Budget: 4000,
+	CloneMeta: cloneDocMeta, // host-provided deep copy of DocMeta
 })
 _ = artifact
 ```
@@ -245,7 +249,9 @@ if err != nil {
 	// handle error
 }
 
+read := retrieval.UnrestrictedRead()
 result, err := pipeline.Execute(ctx, retrieval.Query[Intent]{
+	Read: read,
 	Text:   "reset password",
 	Intent: Intent{AllowExternal: false},
 	Options: retrieval.RetrieveOptions{
@@ -271,6 +277,7 @@ Graph backends implement `retrieval.Backend[struct{}, TMeta]` and accept travers
 
 ```go
 rs, err := store.Retrieve(ctx, retrieval.Query[struct{}]{
+	Read: retrieval.UnrestrictedRead(),
 	Options: retrieval.RetrieveOptions{
 		Graph: &retrieval.GraphOptions{
 			Seeds:     []string{"project:42"},
@@ -288,7 +295,7 @@ The same store also satisfies `graph.Store[TMeta]` for upsert and low-level trav
 
 - `dense.Index[TMeta]` and `tensor.Index[TMeta]` for vector/tensor writes
 - `graph.Store[TMeta]` for traversal and upsert
-- `documents.Store[TMeta]` for lookup and destructive document operations
+- `documents.RawStore[TMeta]` for explicit raw lookup and destructive operations; `documents.Hydrator` for scoped exact-revision hydration
 - `ranking.QueryReranker` and `ranking.Merger` for post-retrieval ranking
 - `adapters/cohere/rerank` — Cohere rerank: empty query is validation (empty RS); runtime errors preserve input docs
 
@@ -385,7 +392,25 @@ aggregate := retrieval.AggregateNode[Intent, Meta, retrieval.NoExecutionMeta]{
 }
 ```
 
-> Do not use `ScoreMerger` to fuse Elasticsearch or Qdrant with BM25/vector: their scores are logistic-normalized and not comparable across sources. Use RRF (default) for heterogeneous sources.
+> Do not use `ScoreMerger` to fuse Elasticsearch or Qdrant with BM25/vector: their native score semantics differ across sources. Use RRF (default) for heterogeneous sources.
+
+Retrieval requests require an explicit `Read` binding. Use
+`retrieval.UnrestrictedRead()` for live unrestricted reads. Protected requests use
+`access.Scoped` with a mandatory predicate, host policy snapshot/authority and
+publication selection. Planner, binder and projector cannot replace this binding.
+A capability/authorization failure is fatal to rescue. Pinned lifecycle publication,
+scoped graph traversal and the full scope matrix are still under implementation;
+existing adapters reject guarantees they cannot provide.
+
+Numeric documents require explicit `ScoreState` and `ScoreSemantics`. Native scores
+are finite and may lie outside [0,1]; only explicitly normalized scores use that
+range. `ScoreAbsent` is the zero-value rank-only state. `RetrieveOptions.Threshold`
+replaces `MinSimilarity` and declares its numeric value, state and semantics;
+negative and zero thresholds are meaningful. Incompatible comparisons return an
+error. Prior numeric observations remain in `ScoreHistory` through grouping,
+fusion and reranking. Caller-comparator `Rerank` produces explicit rank-only
+ordering while preserving those observations.
+
 
 ### BM25 lexical search
 
@@ -410,7 +435,7 @@ Empty `MergeKey` is rejected at merge time with `ragy.ErrInvalidArgument` (retur
 
 ### Equal-score tie-break policy
 
-Full integration semantics (score normalization, map allowlist, dual RS-on-error): see [INTEGRATION.md](.cursor/docs/INTEGRATION.md).
+Full integration semantics (score semantics, map allowlist, dual RS-on-error): see [INTEGRATION.md](.cursor/docs/INTEGRATION.md).
 
 | Layer                                     | Equal-score tie policy                              |
 | ----------------------------------------- | --------------------------------------------------- |
@@ -422,3 +447,17 @@ Full integration semantics (score normalization, map allowlist, dual RS-on-error
 | `GroupBy` / `TopPerGroup` group iteration | sorted group keys (ascending)                       |
 
 Post-process helpers (`GroupBy`, `TopPerGroup`, `Rerank`) validate input documents and return `ragy.ErrProtocol` (partial preserve) on projection failure. They return `ragy.ErrInvalidArgument` and preserve the input `ResultSet` when required callbacks are nil or invalid — programmer errors surfaced as validation, not panics.
+
+### Public adapter conformance
+
+Custom adapters can import `github.com/skosovsky/ragy/contracttest`.
+`RunScopedReadSuite` accepts generic host intent/request/source metadata and a fresh
+`ScopedReadFixture` per scenario. Instrument actual payload I/O and materialization
+before filtering; final allowed IDs alone do not establish scope enforcement.
+The suite checks direct adapter methods as well as capability admission, freshness,
+cancellation and deadline propagation. Older internal helper imports were removed.
+
+The [external consumer example](examples/conformance/README.md) runs outside ragy's
+module namespace with `GOWORK=off`, including negative adapters and explicit partial
+composition. Passing conformance certifies the supplied fixture/profile; hosts
+still own authorization policy, I/O instrumentation and target-specific integration.

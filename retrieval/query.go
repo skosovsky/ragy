@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/skosovsky/ragy/access"
+
 	"github.com/skosovsky/ragy/filter"
 )
 
@@ -17,6 +19,7 @@ type Query[TIntent any] = Request[TIntent, NoRequestMeta]
 // Request carries retrieval text, host intent, request metadata, tuning options,
 // and an optional planned query produced by QueryPlanner.
 type Request[TIntent, TRequestMeta any] struct {
+	Read    access.Binding
 	Text    string
 	Intent  TIntent
 	Meta    TRequestMeta
@@ -78,17 +81,17 @@ func ProjectPlannedQuery[TFromIntent, TToIntent any](
 // RangeConstraint describes a universal planned range without binding ragy to
 // an application domain type.
 type RangeConstraint struct {
-	Field string
-	Start *RangeBound
-	End   *RangeBound
+	Field string      `json:"field"`
+	Start *RangeBound `json:"start"`
+	End   *RangeBound `json:"end"`
 }
 
 // RangeBound is a typed range endpoint.
 type RangeBound struct {
-	Text      string
-	Number    *float64
-	Time      *time.Time
-	Inclusive bool
+	Text      string     `json:"text"`
+	Number    *float64   `json:"number"`
+	Time      *time.Time `json:"time"`
+	Inclusive bool       `json:"inclusive"`
 }
 
 // PlannerDiagnostic captures planner decisions for tests and observability.
@@ -127,4 +130,50 @@ func (p StaticPlanner[TIntent, TRequestMeta]) Plan(
 	Request[TIntent, TRequestMeta],
 ) (PlannedQuery[TIntent], error) {
 	return p.Planned, nil
+}
+
+// CopyRequestOptions snapshots core mutable query options and planning slices.
+// Host intent/metadata require an explicit BYOT snapshot policy. The caller must
+// not mutate inputs concurrently with this capture; returned core fields are owned.
+func CopyRequestOptions[TIntent, TRequestMeta any](req Request[TIntent, TRequestMeta]) Request[TIntent, TRequestMeta] {
+	req.Options.Vector = append([]float32(nil), req.Options.Vector...)
+	if req.Options.Threshold != nil {
+		threshold := *req.Options.Threshold
+		req.Options.Threshold = &threshold
+	}
+	if req.Options.Graph != nil {
+		graphOptions := *req.Options.Graph
+		graphOptions.Seeds = append([]string(nil), graphOptions.Seeds...)
+		if graphOptions.Page != nil {
+			page := *graphOptions.Page
+			graphOptions.Page = &page
+		}
+		req.Options.Graph = &graphOptions
+	}
+	if req.Plan != nil {
+		plan := *req.Plan
+		plan.Diagnostics = append([]PlannerDiagnostic(nil), plan.Diagnostics...)
+		plan.Ranges = append([]RangeConstraint(nil), plan.Ranges...)
+		for i := range plan.Ranges {
+			plan.Ranges[i].Start = copyRangeBound(plan.Ranges[i].Start)
+			plan.Ranges[i].End = copyRangeBound(plan.Ranges[i].End)
+		}
+		req.Plan = &plan
+	}
+	return req
+}
+func copyRangeBound(bound *RangeBound) *RangeBound {
+	if bound == nil {
+		return nil
+	}
+	copied := *bound
+	if bound.Number != nil {
+		number := *bound.Number
+		copied.Number = &number
+	}
+	if bound.Time != nil {
+		instant := *bound.Time
+		copied.Time = &instant
+	}
+	return &copied
 }

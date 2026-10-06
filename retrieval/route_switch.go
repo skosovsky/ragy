@@ -236,6 +236,21 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
+	coverage, admissionErr := InspectRead(ctx, req, n)
+	if admissionErr != nil {
+		var zero TExecMeta
+		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
+	}
+	result, err := n.execute(ctx, req, exec)
+	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
+}
+
+func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta]) execute(
+	ctx context.Context,
+	req Request[TIntent, TRequestMeta],
+	exec TExecMeta,
+) (RetrievalResult[TMeta, TExecMeta], error) {
 	result, decision, err := n.startRouteSwitch(ctx, req, exec)
 	if err != nil {
 		return result, err
@@ -271,6 +286,10 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 			fmt.Errorf("%w: route switch planner", ragy.ErrInvalidArgument)
 	}
 	decision, err := n.Planner.PlanRoute(ctx, req)
+	if gateErr := req.Read.Check(ctx); gateErr != nil {
+		var zero TExecMeta
+		return emptyRetrievalResult(resolver, zero), decision, gateErr
+	}
 	if n.RecordDecision != nil {
 		exec = n.RecordDecision(exec, decision)
 	}
@@ -421,6 +440,10 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	result RetrievalResult[TMeta, TExecMeta],
 	err error,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
+	if readErr := readDeliveryError(ctx, req.Read, err); readErr != nil {
+		var zero TExecMeta
+		return emptyRetrievalResult(executionResolver(n.Resolver), zero), readErr
+	}
 	resolver := n.Resolver
 	if resolver == nil {
 		resolver = DocumentIDResolver[TMeta]{}
@@ -448,6 +471,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 		resolver = DocumentIDResolver[TMeta]{}
 	}
 	child, err := c.Node.Execute(ctx, req, result.Executed)
+	child, err = finishReadResult(ctx, req.Read, child, err, resolver)
 	child.ResultSet = ensureResultSet(child.ResultSet, resolver)
 	caseStep := BranchStep{
 		Node:  c.Name,
@@ -461,6 +485,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	}
 	child.BranchTrace = append([]BranchStep{caseStep}, child.BranchTrace...)
 	child.Diagnostics = append(result.Diagnostics, child.Diagnostics...)
+	child.Coverage = mergeReadCoverage(result.Coverage, child.Coverage)
 	child.BranchTrace = append(result.BranchTrace, child.BranchTrace...)
 	return child, err
 }
@@ -683,7 +708,6 @@ func hasRouteCycle[TRoute comparable](graph map[TRoute][]TRoute) bool {
 	return false
 }
 
-//nolint:unused // injectExecutionNodeResolver discovers route switches through this internal hook.
 func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta]) withExecutionResolver(
 	resolver IdentityResolver[TMeta],
 ) (RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta], error) {

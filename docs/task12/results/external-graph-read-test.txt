@@ -1,0 +1,33 @@
+=== RUN   TestExternalManagedGraphScopedReadConformance
+=== RUN   TestExternalManagedGraphScopedReadConformance/allowed
+=== RUN   TestExternalManagedGraphScopedReadConformance/conflicting-query
+=== RUN   TestExternalManagedGraphScopedReadConformance/unsupported-query
+=== RUN   TestExternalManagedGraphScopedReadConformance/missing-binding
+=== RUN   TestExternalManagedGraphScopedReadConformance/revoked-before-io
+=== RUN   TestExternalManagedGraphScopedReadConformance/expired-before-io
+=== RUN   TestExternalManagedGraphScopedReadConformance/canceled-before-io
+=== RUN   TestExternalManagedGraphScopedReadConformance/revoked-during-io
+=== RUN   TestExternalManagedGraphScopedReadConformance/deadline-propagation
+--- PASS: TestExternalManagedGraphScopedReadConformance (0.93s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/allowed (0.11s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/conflicting-query (0.14s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/unsupported-query (0.10s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/missing-binding (0.09s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/revoked-before-io (0.13s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/expired-before-io (0.12s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/canceled-before-io (0.09s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/revoked-during-io (0.09s)
+    --- PASS: TestExternalManagedGraphScopedReadConformance/deadline-propagation (0.06s)
+=== RUN   TestExternalManagedGraphPlannerScope
+=== RUN   TestExternalManagedGraphPlannerScope/empty
+=== RUN   TestExternalManagedGraphPlannerScope/conflicting
+=== RUN   TestExternalManagedGraphPlannerScope/unsupported
+--- PASS: TestExternalManagedGraphPlannerScope (0.20s)
+    --- PASS: TestExternalManagedGraphPlannerScope/empty (0.06s)
+    --- PASS: TestExternalManagedGraphPlannerScope/conflicting (0.07s)
+    --- PASS: TestExternalManagedGraphPlannerScope/unsupported (0.07s)
+PASS
+ok  	example.com/ragyconsumer	2.595s
+testing: warning: no tests to run
+PASS
+ok  	example.com/ragyconsumer/tensor_comparison	1.183s [no tests to run]

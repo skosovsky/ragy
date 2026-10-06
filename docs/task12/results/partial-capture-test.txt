@@ -1,0 +1,3 @@
+ok  	github.com/skosovsky/ragy/lifecycle/integration	9.053s
+ok  	github.com/skosovsky/ragy/evidence	1.442s
+ok  	github.com/skosovsky/ragy/access	1.400s

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ragy.invalid/schemas/read-coverage-admission",
+  "title": "Read admission coverage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "skipped_branches"],
+  "properties": {
+    "schema": {"const": "ragy.read-coverage/admission"},
+    "state": {"enum": ["unobserved", "complete", "partial", "unrestricted"]},
+    "skipped_branches": {
+      "type": ["array", "null"],
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_.-]+$"}
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "state": {"const": "partial"},
+        "skipped_branches": {"type": "array", "minItems": 1}
+      }
+    },
+    {
+      "properties": {
+        "state": {"enum": ["unobserved", "complete", "unrestricted"]},
+        "skipped_branches": {"maxItems": 0}
+      }
+    }
+  ]
+}

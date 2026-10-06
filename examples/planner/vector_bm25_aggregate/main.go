@@ -12,6 +12,12 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 )
 
+const (
+	exampleVectorID  = "vec-1"
+	exampleLexicalID = "lex-1"
+	exampleQueryText = "keyword"
+)
+
 type searchIntent struct{}
 
 type vectorBackend struct {
@@ -45,7 +51,7 @@ func buildPipeline(
 	bm25Branch := retrieval.ProjectedBackend[searchIntent, retrieval.NoRequestMeta, struct{}, retrieval.NoRequestMeta, struct{}]{
 		Next: bm25,
 		Project: func(req retrieval.Query[searchIntent]) retrieval.Query[struct{}] {
-			return retrieval.Query[struct{}]{
+			return retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 				Text:    req.Text,
 				Options: req.Options,
 				Plan:    retrieval.ProjectPlannedQuery(req.Plan, struct{}{}),
@@ -77,16 +83,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if upsertErr := bm25.Upsert(retrieval.Document[struct{}]{
-		ID: "lex-1", Content: "bm25 keyword match", Score: 0,
-	}); upsertErr != nil {
+	if upsertErr := bm25.Upsert(
+		retrieval.Document[struct{}]{ScoreSemantics: exampleScoreSemantics, ScoreState: retrieval.ScorePresent,
+			ID: exampleLexicalID, Content: "bm25 keyword match", Score: 0,
+		},
+	); upsertErr != nil {
 		panic(upsertErr)
 	}
 
 	vector := vectorBackend{
 		schema: schema,
 		hits: []retrieval.Document[struct{}]{
-			{ID: "vec-1", Content: "dense neighbor", Score: vectorHitScore},
+			{
+				ScoreSemantics: exampleScoreSemantics,
+				ScoreState:     retrieval.ScorePresent,
+				ID:             exampleVectorID,
+				Content:        "dense neighbor",
+				Score:          vectorHitScore,
+			},
 		},
 	}
 
@@ -95,10 +109,13 @@ func main() {
 		panic(err)
 	}
 
-	result, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
-		Text:    "keyword",
-		Options: retrieval.RetrieveOptions{TopK: exampleTopK, Vector: []float32{0.1, 0.2}},
-	})
+	result, err := pipeline.Execute(
+		context.Background(),
+		retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
+			Text:    exampleQueryText,
+			Options: retrieval.RetrieveOptions{TopK: exampleTopK, Vector: []float32{0.1, 0.2}},
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -110,3 +127,5 @@ func main() {
 		fmt.Printf("- %s score=%.3f\n", doc.ID, doc.Score)
 	}
 }
+
+const exampleScoreSemantics = "fixture-similarity"

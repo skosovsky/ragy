@@ -1,0 +1,1 @@
+ok  	github.com/skosovsky/ragy/dense/persistent	1.632s

@@ -1,0 +1,74 @@
+package codexcall
+import("testing";"errors";"os";"encoding/json";"bytes";"reflect")
+func TestIndependentAuditFailedTraceRetainsReturnedUsageAndEvents(t *testing.T){
+ // Arrange: executor reports an execution error, then emits full available settlement.
+ data:=[]byte("{\"type\":\"error\",\"message\":\"temporary failure\"}\n{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"{\\\"ok\\\":true}\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":5327,\"output_tokens\":22,\"cached_input_tokens\":1}}\n")
+ var got Result
+ // Act.
+ err:=parseTrace(data,&got)
+ // Assert: execution failure remains failed, but already returned tokens/events are not hidden.
+ if !errors.Is(err,ErrExecution){t.Fatal("execution error ignored",err)}
+ if got.Usage==nil||got.Usage.Input!=5327||got.Usage.Output!=22||len(got.Events)!=3{t.Fatalf("returned executor evidence lost: usage=%v events=%d",got.Usage,len(got.Events))}
+}
+func TestIndependentAuditConsumerPortDecodeRejectsDuplicateFields(t *testing.T){
+ // Arrange.
+ var got struct{OK bool `json:"ok"`}
+ // Act.
+ err:=Decode([]byte(`{"ok":true,"ok":false}`),&got)
+ // Assert.
+ if err==nil{t.Fatalf("ambiguous model port accepted: %+v",got)}
+}
+func TestIndependentAuditFailedTraceRetainsLaterToolObservation(t *testing.T){
+ var got Result
+ err:=parseTrace([]byte("{\"type\":\"error\"}\n{\"type\":\"item.started\",\"item\":{\"type\":\"command_execution\"}}\n"),&got)
+ if !errors.Is(err,ErrExecution)||!got.ToolActivity||len(got.Events)!=2{t.Fatalf("failed trace hides tools: %+v err=%v",got,err)}
+}
+func TestIndependentAuditMultipleReturnedSettlementsRemainAccounted(t *testing.T){
+ var got Result
+ err:=parseTrace([]byte("{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":10,\"output_tokens\":2}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":20,\"output_tokens\":3}}\n"),&got)
+ if !errors.Is(err,ErrExecution){t.Fatal("multiple settlements must remain failed")}
+ if got.Usage==nil||got.Usage.Input!=30||got.Usage.Output!=5||len(got.Events)!=2{t.Fatalf("returned settlements overwritten: usage=%+v events=%d",got.Usage,len(got.Events))}
+}
+func TestIndependentAuditConsumerPortDecodeRejectsNestedAndEscapedDuplicate(t *testing.T){
+ for _,data:=range []string{`{"outer":{"ok":true,"ok":false}}`,`{"outer":{"ok":true,"\u006fk":false}}`}{
+ var got struct{Outer struct{OK bool `json:"ok"`} `json:"outer"`}
+ if err:=Decode([]byte(data),&got);err==nil{t.Fatalf("nested ambiguous JSON accepted: %s",data)}
+ }
+}
+
+func TestIndependentAuditOverflowRemainsUnavailableAfterLaterSettlement(t *testing.T){
+ var got Result
+ err:=parseTrace([]byte("{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":18446744073709551615,\"output_tokens\":1}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":2,\"output_tokens\":1}}\n"),&got)
+ if !errors.Is(err,ErrExecution)||got.Usage!=nil||len(got.Settlements)!=3{t.Fatalf("overflow forgotten: usage=%+v settlements=%d err=%v",got.Usage,len(got.Settlements),err)}
+}
+func TestIndependentAuditInvalidSettlementKeepsTotalUnavailable(t *testing.T){
+ var got Result
+ err:=parseTrace([]byte("{\"type\":\"turn.completed\",\"usage\":{}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":2,\"output_tokens\":1}}\n"),&got)
+ if !errors.Is(err,ErrExecution)||got.Usage!=nil||len(got.Settlements)!=1{t.Fatalf("missing usage forgotten: usage=%+v settlements=%d err=%v",got.Usage,len(got.Settlements),err)}
+}
+
+func TestIndependentActualCapturesCurrentParser(t *testing.T){
+ for _,name:=range []string{"text-cli-live-capture.json","graph-cli-live-capture.json","graph-cli-v2-capture.json","text-cli-v2-capture.json"}{
+ data,err:=os.ReadFile("../../../../docs/task12/results/"+name);if err!=nil{t.Fatal(err)}
+ var capture struct{Samples []struct{Calls []Result `json:"cli_receipts"`} `json:"samples"`;Preparation struct{Extractions []struct{Calls []Result `json:"cli_receipts"`} `json:"extractions"`} `json:"preparation"`}
+ if err=json.Unmarshal(data,&capture);err!=nil{t.Fatal(err)}
+ var calls []Result
+ for _,sample:=range capture.Samples{calls=append(calls,sample.Calls...)}
+ for _,extraction:=range capture.Preparation.Extractions{calls=append(calls,extraction.Calls...)}
+ for i,call:=range calls{
+ var trace bytes.Buffer;for _,event:=range call.Events{var compact bytes.Buffer;if err=json.Compact(&compact,event);err!=nil{t.Fatal(err)};trace.Write(compact.Bytes());trace.WriteByte('\n')}
+ if call.Trace!=""{trace.Reset();trace.WriteString(call.Trace)}
+ if err=UniqueJSON(call.Output);err!=nil{t.Fatal("actual port JSON ambiguous",err)}
+ var got Result
+ if err=parseTrace(trace.Bytes(),&got);err!=nil{t.Fatalf("%s receipt %d current parser rejected actual trace: %v",name,i,err)}
+ if !reflect.DeepEqual(got.Usage,call.Usage)||got.ToolActivity||got.UsageUnavailable{t.Fatalf("%s receipt %d observation changed: %+v",name,i,got)}
+ var original,parsed any;if err=json.Unmarshal(call.Output,&original);err!=nil{t.Fatal(err)};if err=json.Unmarshal(got.Output,&parsed);err!=nil{t.Fatal(err)}
+ if !reflect.DeepEqual(original,parsed){t.Fatal("actual output changed")}
+ }
+ t.Logf("%s %d actual traces accepted unchanged",name,len(calls))
+ }
+}
+func TestIndependentAuditRejectsUnicodeStructFieldAliases(t *testing.T){
+ var got struct{Sufficient bool `json:"sufficient"`}
+ if err:=Decode([]byte(`{"sufficient":true,"\u017Fufficient":false}`),&got);err==nil{t.Fatalf("Unicode field alias accepted: %+v",got)}
+}

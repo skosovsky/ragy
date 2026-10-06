@@ -1,0 +1,23 @@
+=== RUN   TestExternalManagedGraphFindByIDsScope
+=== RUN   TestExternalManagedGraphFindByIDsScope/allowed
+=== RUN   TestExternalManagedGraphFindByIDsScope/conflicting
+=== RUN   TestExternalManagedGraphFindByIDsScope/unsupported
+=== RUN   TestExternalManagedGraphFindByIDsScope/missing-binding
+=== RUN   TestExternalManagedGraphFindByIDsScope/revoked
+=== RUN   TestExternalManagedGraphFindByIDsScope/expired
+=== RUN   TestExternalManagedGraphFindByIDsScope/canceled
+=== RUN   TestExternalManagedGraphFindByIDsScope/revoked-during-clone
+--- PASS: TestExternalManagedGraphFindByIDsScope (0.50s)
+    --- PASS: TestExternalManagedGraphFindByIDsScope/allowed (0.06s)
+    --- PASS: TestExternalManagedGraphFindByIDsScope/conflicting (0.06s)
+    --- PASS: TestExternalManagedGraphFindByIDsScope/unsupported (0.06s)
+    --- PASS: TestExternalManagedGraphFindByIDsScope/missing-binding (0.07s)
+    --- PASS: TestExternalManagedGraphFindByIDsScope/revoked (0.08s)
+    --- PASS: TestExternalManagedGraphFindByIDsScope/expired (0.06s)
+    --- PASS: TestExternalManagedGraphFindByIDsScope/canceled (0.06s)
+    --- PASS: TestExternalManagedGraphFindByIDsScope/revoked-during-clone (0.06s)
+PASS
+ok  	example.com/ragyconsumer	1.940s
+testing: warning: no tests to run
+PASS
+ok  	example.com/ragyconsumer/tensor_comparison	1.440s [no tests to run]

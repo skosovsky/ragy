@@ -1,6 +1,10 @@
 package retrieval
 
 import (
+	"context"
+
+	"github.com/skosovsky/ragy/access"
+
 	"fmt"
 	"sort"
 	"strings"
@@ -17,6 +21,9 @@ func DefaultMergeStrategy[TMeta any]() MergeStrategy[TMeta] {
 		if len(docs) == 0 {
 			return Document[TMeta]{}, fmt.Errorf("%w: merge requires at least one document", ragy.ErrInvalidArgument)
 		}
+		if err := validateComparable(docs); err != nil {
+			return Document[TMeta]{}, err
+		}
 		best := docs[0]
 		for _, doc := range docs[1:] {
 			if rankedDocumentLess(doc, best) {
@@ -32,6 +39,17 @@ func DefaultMergeStrategy[TMeta any]() MergeStrategy[TMeta] {
 		}
 
 		merged := best
+		mapping, err := groupedSourceMapping(docs)
+		if err != nil {
+			return Document[TMeta]{}, err
+		}
+		merged.SourceMapping = mapping
+		merged.SourceSupports = nil
+		merged.ScoreHistory = nil
+		for _, doc := range docs {
+			merged.SourceSupports = combineLocatorSupports(merged.SourceSupports, doc.SourceLocations())
+			merged.ScoreHistory = append(merged.ScoreHistory, doc.ObservedScores()...)
+		}
 		merged.Content = strings.Join(parts, "\n\n")
 		return merged, ragy.WrapProjectionError(ValidateDocument(merged), "merge strategy validate")
 	}
@@ -49,7 +67,23 @@ func invalidPostProcessorFor[TMeta any](err error) PostProcessor[TMeta] {
 	}
 }
 
-func (p invalidPostProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p invalidPostProcessor[TMeta]) Process(
+	ctx context.Context,
+	read access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
+	if err := read.Check(ctx); err != nil {
+		return NewResultSet[TMeta](nil, p.resolver), err
+	}
+	out, err := p.process(ctx, read, rs)
+	return DeliverRead(ctx, read, out, err, p.resolver)
+}
+
+func (p invalidPostProcessor[TMeta]) process(
+	_ context.Context,
+	_ access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	return preserveResultOnError(rs, p.err, p.resolver)
 }
 
@@ -80,7 +114,23 @@ func GroupBy[TMeta any](
 	}
 }
 
-func (p groupByProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p groupByProcessor[TMeta]) Process(
+	ctx context.Context,
+	read access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
+	if err := read.Check(ctx); err != nil {
+		return NewResultSet[TMeta](nil, p.resolver), err
+	}
+	out, err := p.process(ctx, read, rs)
+	return DeliverRead(ctx, read, out, err, p.resolver)
+}
+
+func (p groupByProcessor[TMeta]) process(
+	ctx context.Context,
+	read access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	if rs == nil || rs.IsEmpty() {
 		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
@@ -88,9 +138,15 @@ func (p groupByProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta],
 		return preserveResultOnError(rs, err, p.resolver)
 	}
 	docs := rs.Documents()
+	if err := validateComparable(docs); err != nil {
+		return preserveResultOnError(rs, err, p.resolver)
+	}
 
 	groups := make(map[string][]Document[TMeta])
 	for _, doc := range docs {
+		if err := read.Check(ctx); err != nil {
+			return NewResultSet[TMeta](nil, p.resolver), err
+		}
 		key := p.keySelector(doc.Meta)
 		if key == "" {
 			return preserveResultOnError(rs, fmt.Errorf("%w: empty group key", ragy.ErrInvalidArgument), p.resolver)
@@ -106,8 +162,17 @@ func (p groupByProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta],
 
 	out := make([]Document[TMeta], 0, len(groupKeys))
 	for _, key := range groupKeys {
+		if err := read.Check(ctx); err != nil {
+			return NewResultSet[TMeta](nil, p.resolver), err
+		}
 		merged, err := p.mergeStrategy(groups[key])
 		if err != nil {
+			return preserveResultOnError(NewResultSet(out, p.resolver), err, p.resolver)
+		}
+		for _, input := range groups[key] {
+			merged.SourceSupports = combineLocatorSupports(merged.SourceSupports, input.SourceLocations())
+		}
+		if err := ValidateDocument(merged); err != nil {
 			return preserveResultOnError(NewResultSet(out, p.resolver), err, p.resolver)
 		}
 		out = append(out, merged)
@@ -145,7 +210,23 @@ func TopPerGroup[TMeta any](keySelector func(TMeta) string, limit int) PostProce
 	}
 }
 
-func (p topPerGroupProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p topPerGroupProcessor[TMeta]) Process(
+	ctx context.Context,
+	read access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
+	if err := read.Check(ctx); err != nil {
+		return NewResultSet[TMeta](nil, p.resolver), err
+	}
+	out, err := p.process(ctx, read, rs)
+	return DeliverRead(ctx, read, out, err, p.resolver)
+}
+
+func (p topPerGroupProcessor[TMeta]) process(
+	ctx context.Context,
+	read access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	if rs == nil || rs.IsEmpty() {
 		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
@@ -153,9 +234,15 @@ func (p topPerGroupProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMe
 		return preserveResultOnError(rs, err, p.resolver)
 	}
 	docs := rs.Documents()
+	if err := validateComparable(docs); err != nil {
+		return preserveResultOnError(rs, err, p.resolver)
+	}
 
 	groups := make(map[string][]Document[TMeta])
 	for _, doc := range docs {
+		if err := read.Check(ctx); err != nil {
+			return NewResultSet[TMeta](nil, p.resolver), err
+		}
 		key := p.keySelector(doc.Meta)
 		if key == "" {
 			return preserveResultOnError(rs, fmt.Errorf("%w: empty group key", ragy.ErrInvalidArgument), p.resolver)
@@ -171,6 +258,9 @@ func (p topPerGroupProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMe
 
 	out := make([]Document[TMeta], 0, len(docs))
 	for _, key := range groupKeys {
+		if err := read.Check(ctx); err != nil {
+			return NewResultSet[TMeta](nil, p.resolver), err
+		}
 		group := groups[key]
 		sort.SliceStable(group, func(i, j int) bool {
 			return rankedDocumentLess(group[i], group[j])
@@ -192,7 +282,8 @@ type rerankProcessor[TMeta any] struct {
 	resolver IdentityResolver[TMeta]
 }
 
-// Rerank sorts documents with a caller-provided ordering function.
+// Rerank applies an explicit caller ordering policy and returns rank-only results.
+// Original numeric observations remain in ScoreHistory; terminal TopK honors this rank.
 func Rerank[TMeta any](less func(a, b Document[TMeta]) bool) PostProcessor[TMeta] {
 	if less == nil {
 		return invalidPostProcessorFor[TMeta](
@@ -202,7 +293,23 @@ func Rerank[TMeta any](less func(a, b Document[TMeta]) bool) PostProcessor[TMeta
 	return rerankProcessor[TMeta]{less: less, resolver: DocumentIDResolver[TMeta]{}}
 }
 
-func (p rerankProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (p rerankProcessor[TMeta]) Process(
+	ctx context.Context,
+	read access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
+	if err := read.Check(ctx); err != nil {
+		return NewResultSet[TMeta](nil, p.resolver), err
+	}
+	out, err := p.process(ctx, read, rs)
+	return DeliverRead(ctx, read, out, err, p.resolver)
+}
+
+func (p rerankProcessor[TMeta]) process(
+	ctx context.Context,
+	read access.Binding,
+	rs ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	if rs == nil || rs.IsEmpty() {
 		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
@@ -213,5 +320,15 @@ func (p rerankProcessor[TMeta]) Process(rs ResultSet[TMeta]) (ResultSet[TMeta], 
 	sort.SliceStable(docs, func(i, j int) bool {
 		return p.less(docs[i], docs[j])
 	})
+	if err := read.Check(ctx); err != nil {
+		return NewResultSet[TMeta](nil, p.resolver), err
+	}
+	for i := range docs {
+		docs[i].ScoreHistory = docs[i].ObservedScores()
+		docs[i].Score = 0
+		docs[i].ScoreState = ScoreAbsent
+		docs[i].ScoreSemantics = ""
+		docs[i].Rank = i + 1
+	}
 	return NewResultSet(docs, p.resolver), nil
 }
