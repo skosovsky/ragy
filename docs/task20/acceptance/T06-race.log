@@ -1,0 +1,10 @@
+GOCACHE=/private/tmp/ragy-task20-go-cache go test -race -count=1 ./graphingest/...
+
+ok github.com/skosovsky/ragy/graphingest 2.074s
+ok github.com/skosovsky/ragy/graphingest/extraction 1.855s
+ok github.com/skosovsky/ragy/graphingest/materialization 2.303s
+ok github.com/skosovsky/ragy/graphingest/resolution 1.856s
+ok github.com/skosovsky/ragy/graphingest/resolution/history 2.071s
+
+Exit 0.
+Targeted lint: 0 issues, exit0.

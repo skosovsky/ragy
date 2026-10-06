@@ -34,3 +34,15 @@ canonical graph payloads; lifecycle publication remains a separate explicit stag
 Keep ontology/policy identities with transformation fingerprints and retained
 source decisions. This package does not yet supply a source extractor, model
 adapter, summary recipes or a complete materialization/history integration.
+
+Identity strings use valid UTF-8 without implicit Unicode/case/whitespace normalization.
+Entity IDs/names, relation IDs/endpoints, configuration ontology/policy identifiers,
+resolved namespace/key/name and relation keys must be nonempty. An input entity
+namespace may be absent; ambiguity remains the host's decision. A resolved decision
+must fill all three fields; an ambiguous decision must leave them empty.
+Malformed configuration/direct input returns `ragy.ErrInvalidArgument` before input
+support/identity callbacks. Malformed host decisions/keys return `ragy.ErrProtocol`
+before hashing/grouping; all errors suppress the entire result. Earlier admitted
+callbacks may already have run. Valid IDs retain the existing JSON tuple + SHA256
+framing. U+FFFD is valid; malformed ff/fe bytes are rejected, so they cannot collapse
+into a replacement-character key. Valid records need no ID migration.

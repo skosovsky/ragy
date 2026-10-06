@@ -240,12 +240,12 @@
         "report": "acceptance/T05-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "fd70ce6fc493620ec33448a40aacc7c19011f65e"
   },
   {
     "id": "T06",
     "title": "resolution identity",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: resolution identity",
     "criteria": [
       {
@@ -262,8 +262,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "3/3",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T06-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T06-correctness.md"
+      }
     },
     "commit_sha": null
   },

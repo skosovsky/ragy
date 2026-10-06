@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"slices"
 	"sort"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
@@ -16,7 +17,7 @@ import (
 type Resolver[TKind, TRel comparable, TAttr any] struct{ config Config[TKind, TRel, TAttr] }
 
 func New[TKind, TRel comparable, TAttr any](config Config[TKind, TRel, TAttr]) (*Resolver[TKind, TRel, TAttr], error) {
-	if config.OntologyIdentity == "" || config.PolicyIdentity == "" || config.MaxEntities <= 0 ||
+	if !requiredIdentities(config.OntologyIdentity, config.PolicyIdentity) || config.MaxEntities <= 0 ||
 		config.MaxRelations <= 0 ||
 		config.MaxSupports <= 0 ||
 		config.ValidateEntity == nil ||
@@ -76,7 +77,7 @@ func (r *Resolver[TKind, TRel, TAttr]) admit(
 	ids := make(map[string]bool)
 	var all []source.Locator
 	for _, entity := range input.Entities {
-		if entity.ID == "" || entity.Name == "" || ids[entity.ID] {
+		if !requiredIdentities(entity.ID, entity.Name) || !utf8.ValidString(entity.Namespace) || ids[entity.ID] {
 			return ragy.ErrInvalidArgument
 		}
 		ids[entity.ID] = true
@@ -86,7 +87,9 @@ func (r *Resolver[TKind, TRel, TAttr]) admit(
 	}
 	relations := make(map[string]bool)
 	for _, relation := range input.Relations {
-		if relation.ID == "" || relations[relation.ID] || !ids[relation.From] || !ids[relation.To] {
+		if !requiredIdentities(relation.ID, relation.From, relation.To) || relations[relation.ID] ||
+			!ids[relation.From] ||
+			!ids[relation.To] {
 			return ragy.ErrInvalidArgument
 		}
 		relations[relation.ID] = true
@@ -236,7 +239,7 @@ func (r *Resolver[TKind, TRel, TAttr]) entities(
 func validateDecision(decision Decision) error {
 	switch decision.State {
 	case Resolved:
-		if decision.Namespace == "" || decision.Key == "" || decision.Name == "" {
+		if !requiredIdentities(decision.Namespace, decision.Key, decision.Name) {
 			return ragy.ErrProtocol
 		}
 	case Ambiguous:
@@ -394,7 +397,7 @@ func (r *Resolver[TKind, TRel, TAttr]) relationPolicy(
 	if err = read.Check(ctx); err != nil {
 		return "", err
 	}
-	if key == "" {
+	if !requiredIdentities(key) {
 		return "", ragy.ErrProtocol
 	}
 	return key, nil
@@ -445,4 +448,13 @@ func (r *Resolver[TKind, TRel, TAttr]) validateRelation(
 		return err
 	}
 	return read.Check(ctx)
+}
+
+func requiredIdentities(values ...string) bool {
+	for _, value := range values {
+		if value == "" || !utf8.ValidString(value) {
+			return false
+		}
+	}
+	return true
 }

@@ -562,9 +562,15 @@
       "id": "F05",
       "task": "T06",
       "requirement": "P2: resolver объединяет разные identity keys из-за JSON UTF-8 repair",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Reject malformed UTF-8 configuration/input and host identity decisions/keys before framed JSON hashing/grouping; retain valid hashes, U+FFFD and host normalization ownership. History admits the same identity domain before serialization and decoded inventory delivery.",
+      "evidence": [
+        "T06.md",
+        "acceptance/T06-race.log",
+        "acceptance/T06-completeness.md",
+        "acceptance/T06-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "F06",
@@ -2263,7 +2269,16 @@
       "source": "reviews/graph.md",
       "id": "G-F02",
       "master": "F05",
-      "task": "T06"
+      "task": "T06",
+      "disposition": "fix",
+      "rationale": "Reject malformed UTF-8 configuration/input and host identity decisions/keys before framed JSON hashing/grouping; retain valid hashes, U+FFFD and host normalization ownership. History admits the same identity domain before serialization and decoded inventory delivery.",
+      "evidence": [
+        "T06.md",
+        "acceptance/T06-race.log",
+        "acceptance/T06-completeness.md",
+        "acceptance/T06-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "source": "reviews/ingestion.md",

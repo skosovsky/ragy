@@ -53,3 +53,16 @@ predecessor; it does not prove predecessor availability or impose an ordered CAS
 The host retains references in its durable source catalog and coordinates graph
 materialization/publication using existing lifecycle contracts. A successful history
 append is not evidence that graph publication succeeded.
+
+Declared identities follow the resolver UTF-8 domain: run/extraction configuration,
+input IDs/names/endpoints, result ontology/policy, group and per-mention decisions
+are checked before authorization/serialization and during decoded inventory admission.
+Required strings are nonempty; absent namespace/ambiguous fields remain explicitly
+optional. `Metadata.Parent` remains an optional canonical SHA256 snapshot ID.
+Malformed direct identities/configuration return `ragy.ErrInvalidArgument`, malformed
+resolution decision/result identities return `ragy.ErrProtocol`, with an empty snapshot.
+Raw persisted JSON must itself be valid UTF-8. BYOT kind/attribute codecs still must
+serialize faithfully; core does not normalize or interpret host types. Existing valid
+records retain their bytes/digests. Previously repaired malformed legacy identities
+cannot be reconstructed from replacement characters: quarantine or migrate them under
+host policy. Valid U+FFFD is preserved as a real identity character.

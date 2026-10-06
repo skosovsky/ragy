@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"io"
 	"slices"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
@@ -18,6 +19,7 @@ import (
 )
 
 // Metadata binds recomputation to host extraction configuration and predecessor.
+// Run and ExtractionFingerprint are nonempty valid UTF-8, without normalization.
 // Parent is an earlier snapshot ID, not a mutable latest pointer or a CAS claim.
 type Metadata struct {
 	Run                   string `json:"run"`
@@ -50,7 +52,8 @@ func Capture[TKind, TRel comparable, TAttr any](
 	admit Admission, maxBytes, maxSupports int,
 ) (Snapshot[TKind, TRel, TAttr], error) {
 	var empty Snapshot[TKind, TRel, TAttr]
-	if maxBytes <= 0 || maxSupports <= 0 || record.Metadata.Run == "" || record.Metadata.ExtractionFingerprint == "" ||
+	if maxBytes <= 0 || maxSupports <= 0 ||
+		!requiredIdentities(record.Metadata.Run, record.Metadata.ExtractionFingerprint) ||
 		(record.Metadata.Parent != "" && !validID(record.Metadata.Parent)) {
 		return empty, ragy.ErrInvalidArgument
 	}
@@ -101,6 +104,9 @@ func (s Snapshot[TKind, TRel, TAttr]) Record() (Record[TKind, TRel, TAttr], erro
 }
 
 func decode[T any](data []byte, result *T) error {
+	if !utf8.Valid(data) {
+		return ragy.ErrProtocol
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	decoder.DisallowUnknownFields()
@@ -167,8 +173,10 @@ func locations[TKind, TRel comparable, TAttr any](
 	if !boundedRecord(record, limit) {
 		return nil, ragy.ErrProtocol
 	}
-	if record.Result.OntologyIdentity == "" || record.Result.PolicyIdentity == "" ||
-		len(record.Input.Entities) != len(record.Result.EntityDecisions) ||
+	if err := validateRecordIdentities(record); err != nil {
+		return nil, err
+	}
+	if len(record.Input.Entities) != len(record.Result.EntityDecisions) ||
 		len(record.Input.Relations) != len(record.Result.RelationDecisions) {
 		return nil, ragy.ErrProtocol
 	}

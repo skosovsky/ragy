@@ -9,6 +9,8 @@ import (
 	"github.com/skosovsky/ragy/source"
 )
 
+// Entity IDs and names are nonempty valid UTF-8. Namespace may be absent,
+// but a nonempty namespace must be valid UTF-8. Core performs no normalization.
 type Entity[TKind comparable, TAttr any] struct {
 	ID         string           `json:"id"`
 	Namespace  string           `json:"namespace"`
@@ -17,6 +19,8 @@ type Entity[TKind comparable, TAttr any] struct {
 	Attributes TAttr            `json:"attributes"`
 	Supports   []source.Locator `json:"supports"`
 }
+
+// Relation ID and endpoints are nonempty valid UTF-8 mention identities.
 type Relation[TRel comparable, TAttr any] struct {
 	ID         string           `json:"id"`
 	From       string           `json:"from"`
@@ -36,6 +40,8 @@ const (
 	Ambiguous State = "ambiguous"
 )
 
+// Decision requires nonempty valid UTF-8 namespace/key/name when Resolved.
+// Ambiguous requires all three fields empty. Malformed host decisions are ErrProtocol.
 type Decision struct {
 	State     State  `json:"state"`
 	Namespace string `json:"namespace"`
@@ -96,6 +102,9 @@ type Result[TKind, TRel comparable, TAttr any] struct {
 	RelationDecisions []RelationDecision           `json:"relation_decisions"`
 }
 
+// Config ontology/policy identities and returned relation keys are nonempty valid UTF-8.
+// Direct malformed inputs/configuration are ErrInvalidArgument; malformed host keys
+// are ErrProtocol. Both suppress all output. Valid IDs retain JSON tuple + SHA256 framing.
 // Config ports are explicit and model-free. Identity must implement namespace and
 // alias rules; absent namespace is never guessed by the resolver. Equivalent compares
 // typed attributes; conflicting variants and all supports remain in the result.

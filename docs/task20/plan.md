@@ -278,3 +278,8 @@ Regression tests используют AAA и утверждают исправл
 - T05 in_progress: local/ledger clock composition, boundary gates, source-text byte and actual-envelope token contracts.
 
 - T05 accepted: completeness 4/4 = 100%, F04/G-F01/D28/graph:12 coverage 4/4 = 100%, correctness PASS. Final authority clock leap and Prepare error+expiry findings resolved; both independent gates repeated, fresh six-package race/lint and adversarial timer/accounting checks PASS. Reports: [completeness](acceptance/T05-completeness.md), [correctness](acceptance/T05-correctness.md). Commit SHA записывается следующим journal update.
+
+- T05 commit: `fd70ce6fc493620ec33448a40aacc7c19011f65e` — `fix: extraction deadlines`.
+- T06 in_progress: reject malformed UTF-8 identity before grouping/hashing and history serialization; preserve valid JSON tuple hashes and host normalization ownership.
+
+- T06 accepted: completeness 3/3 = 100%, F05/G-F02 coverage 2/2 = 100%, correctness PASS. Fresh five-package race/lint and independent late-host/raw-persisted/legacy-digest probes PASS. Reports: [completeness](acceptance/T06-completeness.md), [correctness](acceptance/T06-correctness.md). Commit SHA записывается следующим journal update.
