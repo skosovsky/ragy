@@ -283,3 +283,8 @@ Regression tests используют AAA и утверждают исправл
 - T06 in_progress: reject malformed UTF-8 identity before grouping/hashing and history serialization; preserve valid JSON tuple hashes and host normalization ownership.
 
 - T06 accepted: completeness 3/3 = 100%, F05/G-F02 coverage 2/2 = 100%, correctness PASS. Fresh five-package race/lint and independent late-host/raw-persisted/legacy-digest probes PASS. Reports: [completeness](acceptance/T06-completeness.md), [correctness](acceptance/T06-correctness.md). Commit SHA записывается следующим journal update.
+
+- T06 commit: `2b9d3c5918764b61488f2adfc245a92db70060c4` — `fix: resolution identity`.
+- T07 in_progress: unique normalized page text references at document admission; selector-addressed cell/image sharing remains explicit host retention contract.
+
+- T07 accepted: completeness 3/3 = 100%, F06/ING-F01 coverage 2/2 = 100%, correctness PASS. Fresh four-package race/lint and independent nonadjacent duplicate/representation controls PASS. Reports: [completeness](acceptance/T07-completeness.md), [correctness](acceptance/T07-correctness.md). Commit SHA записывается следующим journal update.

@@ -27,6 +27,8 @@ type ProjectionOptions struct {
 
 // Project emits page/cell/available image evidence, retaining observed coverage.
 // Callback, validation or freshness failure returns no partial evidence.
+// Whole-document validation, including unique page text references, precedes
+// any ImageText callback. Supplied payload ownership/authorization is host-owned.
 func Project(ctx context.Context, document Document, options ProjectionOptions) ([]Projected, error) {
 	if err := options.Read.Check(ctx); err != nil {
 		return nil, err

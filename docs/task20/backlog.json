@@ -274,12 +274,12 @@
         "report": "acceptance/T06-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "2b9d3c5918764b61488f2adfc245a92db70060c4"
   },
   {
     "id": "T07",
     "title": "layout reference admission",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: layout references",
     "criteria": [
       {
@@ -296,8 +296,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "3/3",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T07-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T07-correctness.md"
+      }
     },
     "commit_sha": null
   },

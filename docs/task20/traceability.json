@@ -576,9 +576,15 @@
       "id": "F06",
       "task": "T07",
       "requirement": "P2: layout допускает один exact source reference для разных текстов",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Unique exact normalized page text references enforced during full Document admission before Project/ImageText; retain full-selector cell/image sharing and unchanged source location hashing with explicit host loader/attestation limits.",
+      "evidence": [
+        "T07.md",
+        "acceptance/T07-race.log",
+        "acceptance/T07-completeness.md",
+        "acceptance/T07-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "F07",
@@ -2284,7 +2290,16 @@
       "source": "reviews/ingestion.md",
       "id": "ING-F01",
       "master": "F06",
-      "task": "T07"
+      "task": "T07",
+      "disposition": "fix",
+      "rationale": "Unique exact normalized page text references enforced during full Document admission before Project/ImageText; retain full-selector cell/image sharing and unchanged source location hashing with explicit host loader/attestation limits.",
+      "evidence": [
+        "T07.md",
+        "acceptance/T07-race.log",
+        "acceptance/T07-completeness.md",
+        "acceptance/T07-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "source": "reviews/tensor.md",

@@ -64,6 +64,8 @@ type Image struct {
 }
 
 // Page separates physical geometry from retained normalized text representation.
+// Reference uniquely addresses this page text within a Document, regardless of
+// text equality/length or geometry. Cells/images use their complete selectors.
 type Page struct {
 	Reference   source.Reference    `json:"reference"`
 	Geometry    source.PageGeometry `json:"geometry"`
@@ -86,7 +88,8 @@ type Document struct {
 	Pages       []Page           `json:"pages"`
 }
 
-// Validate checks representation identities, coverage, geometry and text spans.
+// Validate checks representation identities, unique page text references, coverage,
+// geometry and text spans. It rejects duplicates even when page texts are equal.
 func (d Document) Validate() error {
 	if d.Schema != Schema || d.PageCount <= 0 || len(d.Pages) > d.PageCount || !validCoverage(d.Coverage) {
 		return invalidLayout()
@@ -99,7 +102,12 @@ func (d Document) Validate() error {
 	}
 	complete := len(d.Pages) == d.PageCount
 	previous := -1
+	pageReferences := make(map[source.Reference]struct{}, len(d.Pages))
 	for _, page := range d.Pages {
+		if _, exists := pageReferences[page.Reference]; exists {
+			return invalidLayout()
+		}
+		pageReferences[page.Reference] = struct{}{}
 		if page.Geometry.PhysicalIndex <= previous || page.Geometry.PhysicalIndex >= d.PageCount ||
 			!sameSource(page.Reference, d.Reference) || page.Reference.Representation == d.Reference.Representation {
 			return invalidLayout()
