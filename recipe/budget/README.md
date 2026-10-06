@@ -29,3 +29,8 @@ or mutable domain metadata.
 This package does not dispatch work, perform pricing lookup, schedule workers,
 retry calls, maintain organization quotas or implement billing. Recipe dispatch
 integration, typed stage evidence and comparative experiments remain required.
+
+`Deadline()` returns the immutable configured attempt deadline. `Context(parent)`
+bounds cooperative callbacks by the remaining time measured with the host clock;
+its timer uses elapsed wall time and inherits any earlier parent deadline. Reserve
+rechecks the host deadline atomically. This does not stop uncooperative callbacks.

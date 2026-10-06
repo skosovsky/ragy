@@ -24,17 +24,27 @@ const maxSubquestions = 3
 func New[TIntent, TRequestMeta, TMeta any](
 	config Config[TIntent, TRequestMeta, TMeta],
 ) (*Recipe[TIntent, TRequestMeta, TMeta], error) {
-	if nilPort(config.Backend) || nilPort(config.Identity) || config.Admission == nil || config.Planner == nil ||
-		config.Assessor == nil || config.Pricing == nil || config.CloneIntent == nil || config.CloneRequestMeta == nil ||
-		config.CloneMeta == nil || config.Supports == nil || config.Now == nil || config.Duration <= 0 ||
-		config.Revision == "" || !utf8.ValidString(config.Revision) || config.MaxDocuments <= 0 || config.FusionK <= 0 {
+	if !validConfig(config) {
 		return nil, ragy.ErrInvalidArgument
 	}
+
 	maxQueries := queryLimit(config.Strategy)
 	if config.MaxQueries <= 0 || config.MaxQueries > maxQueries {
 		return nil, ragy.ErrInvalidArgument
 	}
 	return &Recipe[TIntent, TRequestMeta, TMeta]{config: config}, nil
+}
+
+func validConfig[TIntent, TRequestMeta, TMeta any](config Config[TIntent, TRequestMeta, TMeta]) bool {
+	ports := config.BackendModelFree && !nilPort(config.Backend) && !nilPort(config.Identity) &&
+		config.Admission != nil &&
+		config.Planner != nil &&
+		config.Assessor != nil &&
+		config.Pricing != nil
+	cloning := config.CloneIntent != nil && config.CloneRequestMeta != nil && config.CloneMeta != nil &&
+		config.Supports != nil
+	bounds := config.Now != nil && config.Duration > 0 && config.MaxDocuments > 0 && config.FusionK > 0
+	return ports && cloning && bounds && config.Revision != "" && utf8.ValidString(config.Revision)
 }
 
 func queryLimit(strategy Strategy) int {
@@ -86,8 +96,9 @@ type attempt[TIntent, TRequestMeta, TMeta any] struct {
 func (r *Recipe[TIntent, TRequestMeta, TMeta]) Run(
 	ctx context.Context,
 	request retrieval.Request[TIntent, TRequestMeta],
+	ledger *budget.Ledger,
 ) (Result[TMeta], error) {
-	result, err := r.RunObserved(ctx, request)
+	result, err := r.RunObserved(ctx, request, ledger)
 	if err != nil {
 		return Result[TMeta]{}, err
 	}
@@ -100,8 +111,9 @@ func (r *Recipe[TIntent, TRequestMeta, TMeta]) Run(
 func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunObserved(
 	ctx context.Context,
 	request retrieval.Request[TIntent, TRequestMeta],
+	ledger *budget.Ledger,
 ) (Result[TMeta], error) {
-	if r == nil {
+	if r == nil || ledger == nil {
 		return Result[TMeta]{}, ragy.ErrInvalidArgument
 	}
 	if err := request.Read.Check(ctx); err != nil {
@@ -117,17 +129,10 @@ func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunObserved(
 	deadline := r.config.Now().Add(r.config.Duration)
 	child, cancel := context.WithTimeout(ctx, r.config.Duration)
 	defer cancel()
-	ledger, err := budget.New(
-		budget.Config{
-			Limits:           r.config.Limits,
-			Deadline:         deadline,
-			Now:              r.config.Now,
-			RequireKnownCost: r.config.RequireKnownCost,
-		},
-	)
-	if err != nil {
-		return Result[TMeta]{}, err
-	}
+	child, ledgerCancel := ledger.Context(child)
+	defer ledgerCancel()
+	var err error
+
 	a := attempt[TIntent, TRequestMeta, TMeta]{
 		recipe:  r,
 		request: request,
@@ -141,6 +146,7 @@ func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunObserved(
 			RecipeRevision: r.config.Revision,
 			Publication:    request.Read.Publication().Reference(),
 			Fusion:         FusionNotRun,
+			Artifact:       nil, Encoding: nil,
 		},
 		planned:  0,
 		deadline: deadline,
@@ -180,6 +186,11 @@ func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunObserved(
 	}
 	a.result.Fusion = FusionObserved
 	a.result.Budget = ledger.Snapshot()
+	if err = a.renderDelivery(); err != nil {
+		if stopErr := a.stop(err, deadline); stopErr != nil {
+			return a.failedResult(stopErr)
+		}
+	}
 	a.finishOutcome(selected, sufficient)
 	if err = request.Read.Check(ctx); err != nil {
 		return Result[TMeta]{}, err
@@ -393,4 +404,37 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) gate(ctx context.Context) error 
 		return context.DeadlineExceeded
 	}
 	return nil
+}
+
+// RunOwn explicitly creates a private ledger for an independent attempt.
+func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunOwn(
+	ctx context.Context,
+	request retrieval.Request[TIntent, TRequestMeta],
+) (Result[TMeta], error) {
+	result, err := r.RunOwnObserved(ctx, request)
+	if err != nil {
+		return Result[TMeta]{}, err
+	}
+	return result, nil
+}
+
+func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunOwnObserved(
+	ctx context.Context,
+	request retrieval.Request[TIntent, TRequestMeta],
+) (Result[TMeta], error) {
+	if r == nil {
+		return Result[TMeta]{}, ragy.ErrInvalidArgument
+	}
+	ledger, err := budget.New(
+		budget.Config{
+			Limits:           r.config.Limits,
+			Deadline:         r.config.Now().Add(r.config.Duration),
+			Now:              r.config.Now,
+			RequireKnownCost: r.config.RequireKnownCost,
+		},
+	)
+	if err != nil {
+		return Result[TMeta]{}, err
+	}
+	return r.RunObserved(ctx, request, ledger)
 }

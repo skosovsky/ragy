@@ -4,9 +4,12 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"github.com/skosovsky/ragy/source"
 )
 
-func TestDefaultArtifactRendererBuildsBudgetedArtifact(t *testing.T) {
+func TestDefaultArtifactRendererBuildsResourceMeasuredArtifact(t *testing.T) {
 	t.Parallel()
 
 	rs := NewResultSet([]Document[struct{ Source string }]{
@@ -23,7 +26,7 @@ func TestDefaultArtifactRendererBuildsBudgetedArtifact(t *testing.T) {
 		context.Background(), UnrestrictedRead(),
 		rs,
 		ArtifactRenderOptions[struct{ Source string }]{
-			Budget:    5,
+			Resource:  RuneResource(1000),
 			CloneMeta: cloneArtifactValue[struct{ Source string }],
 			Provenance: func(doc Document[struct{ Source string }]) Provenance {
 				return Provenance{SourceID: doc.ID, URI: "file://doc-1", Label: doc.Meta.Source}
@@ -37,15 +40,15 @@ func TestDefaultArtifactRendererBuildsBudgetedArtifact(t *testing.T) {
 	if artifact.UntrustedDataBoundary == "" {
 		t.Fatal("UntrustedDataBoundary is empty")
 	}
-	if artifact.Budget.Used != 5 {
-		t.Fatalf("Budget.Used = %d, want 5", artifact.Budget.Used)
+	if artifact.Resource.Used != int64(utf8.RuneCountInString(artifact.RenderedText)) {
+		t.Fatalf("Resource.Used = %d, want exact final rune count", artifact.Resource.Used)
 	}
 	if len(artifact.Snippets) != 1 {
 		t.Fatalf("len(Snippets) = %d, want 1", len(artifact.Snippets))
 	}
 	snippet := artifact.Snippets[0]
-	if snippet.Content != "alpha" {
-		t.Fatalf("Content = %q, want budget-trimmed alpha", snippet.Content)
+	if snippet.Content != "alpha beta" {
+		t.Fatalf("Content = %q, want whole original content", snippet.Content)
 	}
 	if snippet.Provenance.URI != "file://doc-1" {
 		t.Fatalf("Provenance = %#v, want URI", snippet.Provenance)
@@ -61,14 +64,14 @@ func TestDefaultArtifactRendererBuildsBudgetedArtifact(t *testing.T) {
 	}
 }
 
-func TestDefaultArtifactRendererRejectsNegativeBudget(t *testing.T) {
+func TestDefaultArtifactRendererRejectsNegativeResourceLimit(t *testing.T) {
 	t.Parallel()
 
 	_, err := DefaultArtifactRenderer[struct{}]{}.Render(
 		context.Background(),
 		UnrestrictedRead(),
 		nil,
-		ArtifactRenderOptions[struct{}]{Budget: -1},
+		ArtifactRenderOptions[struct{}]{Resource: RuneResource(-1)},
 	)
 	if err == nil {
 		t.Fatal("Render() error = nil, want error")
@@ -95,12 +98,17 @@ func TestDefaultArtifactRendererDedupsAndFormatsRenderedText(t *testing.T) {
 		rs,
 		ArtifactRenderOptions[struct{}]{
 			UntrustedDataBoundary: "UNTRUSTED",
+			Resource:              RuneResource(1000),
 			CloneMeta:             cloneArtifactValue[struct{}],
 			DedupKey: func(_ Document[struct{}]) string {
 				return "same-source"
 			},
-			FormatSnippet: func(snippet ContextSnippet[struct{}]) string {
-				return snippet.DocumentID + ": " + snippet.Content
+			FormatSnippet: func(snippet ContextSnippet[struct{}]) (FormattedSnippet, error) {
+				prefix := snippet.DocumentID + ": "
+				return FormattedSnippet{
+					Text:        prefix + snippet.Content,
+					ContentSpan: source.ByteSpan{Start: len(prefix), End: len(prefix) + len(snippet.Content)},
+				}, nil
 			},
 		},
 	)

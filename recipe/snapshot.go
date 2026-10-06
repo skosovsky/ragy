@@ -6,6 +6,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/source"
 )
@@ -27,6 +28,12 @@ func SnapshotResult[TMeta any](
 	out := input
 	out.Stages = slices.Clone(input.Stages)
 	out.Coverage = slices.Clone(input.Coverage)
+	var err error
+	out, err = snapshotDelivery(input, out, clone)
+	if err != nil {
+		return Result[TMeta]{}, err
+	}
+
 	out.Queries = make([]QueryEvidence[TMeta], len(input.Queries))
 	for i, query := range input.Queries {
 		if query.Index != i || len(query.Keys) != len(query.Documents) || len(query.Supports) != len(query.Documents) {
@@ -103,4 +110,38 @@ func snapshotDocument[TMeta any](
 		return retrieval.Document[TMeta]{}, err
 	}
 	return doc, retrieval.ValidateDocument(doc)
+}
+
+func snapshotDelivery[TMeta any](input, out Result[TMeta], clone func(TMeta) (TMeta, error)) (Result[TMeta], error) {
+	out.Encoding = slices.Clone(input.Encoding)
+	for i, result := range out.Encoding {
+		out.Encoding[i].Embeddings = slices.Clone(result.Embeddings)
+		for j, value := range result.Embeddings {
+			out.Encoding[i].Embeddings[j] = dense.Embedding{Space: value.Space, Vector: slices.Clone(value.Vector)}
+		}
+	}
+	if input.Artifact != nil {
+		artifact := *input.Artifact
+		artifact.Snippets = slices.Clone(input.Artifact.Snippets)
+		artifact.Diagnostics = slices.Clone(input.Artifact.Diagnostics)
+		for i := range artifact.Snippets {
+			snippet := &artifact.Snippets[i]
+			var err error
+			snippet.Meta, err = clone(snippet.Meta)
+			if err != nil {
+				return Result[TMeta]{}, err
+			}
+			snippet.Contributors = slices.Clone(snippet.Contributors)
+			for _, contributor := range snippet.Contributors {
+				if contributor.InputIndex < 0 || contributor.InputIndex >= len(input.Selected) {
+					return Result[TMeta]{}, ragy.ErrProtocol
+				}
+			}
+			snippet.Supports = slices.Clone(snippet.Supports)
+			snippet.ScoreHistory = slices.Clone(snippet.ScoreHistory)
+		}
+		out.Artifact = &artifact
+	}
+
+	return out, nil
 }

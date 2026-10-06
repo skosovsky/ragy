@@ -1,6 +1,6 @@
 # Bounded text retrieval recipes
 
-`New(Config).Run(ctx, request)` provides three explicit opt-in strategies:
+`New(Config).Run(ctx, request, ledger)` provides three explicit opt-in strategies:
 
 | Strategy | Execution |
 |---|---|
@@ -9,9 +9,9 @@
 | Decomposition | One planning call, at most three independent subquestion retrievals, one assessment call; depth is always one |
 
 There is no default recipe, recursive planning, hidden retry, autonomous action or
-final answer generation. Queries execute sequentially; each attempt owns a shared
-atomic budget ledger. Concurrent Run calls on the same recipe instance create
-independent attempt ledgers; they do not enforce a shared host quota. Host ports
+final answer generation. Queries execute sequentially and reserve an explicitly supplied atomic ledger.
+Concurrent Run calls can share that ledger; RunOwn explicitly creates a private
+ledger. Neither path enforces an organization or conversation quota. Host ports
 must support concurrent calls, and caller inputs must remain stable during capture.
 All limits, duration, recipe identity, RRF configuration and
 maximum result sizes are explicit host configuration. Reference fixtures set
@@ -26,9 +26,9 @@ or policies. Existing plan filters/ranges remain attached when text changes.
 Precomputed `Options.Vector` and graph seeds are rejected before dispatch: text
 variants cannot silently reuse an embedding or traversal for the original query.
 This declared profile requires model-free backend/admission/pricing ports. Model
-work runs only through the reserved planner/assessor ports. A text-to-vector backend
-needs a separately implemented budget-aware encoder integration; it is not provided
-by this profile. Passing an arbitrary backend does not sandbox its implementation.
+work runs only through reserved planner/assessor and optional QueryEncoder ports.
+QueryEncoder separately admits strict remote bounds and receives each rewritten
+text with its actual reservation. Passing an arbitrary backend does not sandbox its implementation.
 
 Admission must negotiate every reachable target and original/preplanned predicate
 before payload/model I/O. It must not mutate the request or perform payload work.
@@ -124,3 +124,34 @@ Unknown accounting and integers outside the exact JSON-number range are
 unavailable, not rounded or replaced by zero. `recipe.SnapshotResult` owns mutable
 slices and metadata through the host clone port and suppresses its envelope if the
 final freshness gate fails. Do not mutate input results concurrently with export.
+
+
+TASK-16 execution contract: `Run` and `RunObserved` require a caller ledger.
+`RunOwn` and `RunOwnObserved` explicitly create an independent ledger from Config.
+Recording accepts optional Config.Ledger; omission uses the named own-ledger path.
+The effective callback deadline is the minimum parent, recipe duration, and shared
+ledger remaining duration. Injected clocks govern admission; real context timers
+also stop cooperative callbacks. Calls are never refunded.
+
+Config.BackendModelFree must explicitly attest that backend retrieval introduces
+no hidden model operations. Generic backend interfaces cannot prove this property.
+Optional Config.QueryEncoder has pure Admit and one Encode dispatch, independently
+priced/reserved with ModelLimits and dense Purpose=Query. Every text variant gets
+its own encoding. `UnsupportedQueryEncoderBridge` rejects supplied adapters without
+hard remote token limits before provider I/O. Hosts may provide capable encoders;
+unknown observed usage retains the complete reservation and result retains Space.
+
+Config.Artifact optionally renders the fused selection using explicit full-output
+resource policy. Queries retain retrieved evidence; Selected retains post-TopK
+contributors; Coverage separately records selected and delivered evidence per
+query. All planned decomposition parts must survive packing before Complete.
+Partial/derived/unattributable snippets cannot assert full delivery. Without artifact
+rendering, the full selected documents are the delivered payload and no tokenizer
+is required. Recording exports fusion and optional delivery as separate stages,
+and reports this run's own stages rather than other callers' shared ledger usage.
+
+Packed snippet contributors address the original selected document ordinal. Document
+IDs are display/storage identities and cannot prove which independently keyed
+fragment survived packing. Equal packed text can retain several input contributors
+with individual full/uncertain flags; discarded different text contributes nothing.
+Recording and snapshots preserve those actual input contributors.

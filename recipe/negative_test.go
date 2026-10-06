@@ -258,7 +258,7 @@ func TestParentDeadlineAndUnsafePrecomputedVectorProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.retrieved = nil
-	result, err = r.Run(
+	result, err = r.RunOwn(
 		context.Background(),
 		request{
 			Read: f.read,

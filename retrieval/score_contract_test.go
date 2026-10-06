@@ -146,7 +146,8 @@ func TestFusionAndRenderPreserveNativeScoreEvidence(t *testing.T) {
 		context.Background(),
 		UnrestrictedRead(),
 		fused,
-		ArtifactRenderOptions[struct{}]{CloneMeta: cloneArtifactValue[struct{}]},
+		ArtifactRenderOptions[struct{}]{
+			Resource: RuneResource(100000), CloneMeta: cloneArtifactValue[struct{}]},
 	)
 	docs := fused.Documents()
 	docs[0].ScoreHistory[0].Value = 999

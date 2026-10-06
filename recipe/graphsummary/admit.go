@@ -11,9 +11,6 @@ import (
 	"github.com/skosovsky/ragy/source"
 )
 
-const maxCommunities = 2
-const maxCommunitySnippets = 20
-
 func (r *Recipe[TAccess]) admit(
 	ctx context.Context,
 	request Request[TAccess],
@@ -74,7 +71,7 @@ func (r *Recipe[TAccess]) admit(
 
 func (r *Recipe[TAccess]) shape(request Request[TAccess]) error {
 	if request.Question == "" || !utf8.ValidString(request.Question) || len(request.Communities) == 0 ||
-		len(request.Communities) > maxCommunities {
+		len(request.Communities) > r.config.MaxCommunities {
 		return ragy.ErrInvalidArgument
 	}
 	remainingBytes := r.config.MaxInputBytes - len(request.Question)

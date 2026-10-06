@@ -150,10 +150,11 @@ func newFixture(t *testing.T, strategy recipe.Strategy) *fixture {
 		maxQueries = 3
 	}
 	f.config = recipe.Config[[]string, []string, meta]{
-		Strategy: strategy,
-		Revision: "bounded-test",
-		Backend:  b,
-		Identity: retrieval.DocumentIDResolver[meta]{},
+		BackendModelFree: true,
+		Strategy:         strategy,
+		Revision:         "bounded-test",
+		Backend:          b,
+		Identity:         retrieval.DocumentIDResolver[meta]{},
 		Admission: func(ctx context.Context, req request) (retrieval.ReadCoverage, error) {
 			_, admissionErr := retrieval.PrepareRead(ctx, req, b)
 			return retrieval.CompleteReadCoverage(), admissionErr
@@ -217,7 +218,7 @@ func (f *fixture) run(ctx context.Context, t *testing.T) (recipe.Result[meta], e
 	if err != nil {
 		t.Fatal(err)
 	}
-	return r.Run(
+	return r.RunOwn(
 		ctx,
 		request{
 			Read:    f.read,

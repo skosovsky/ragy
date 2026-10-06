@@ -207,6 +207,7 @@ func TestActualParserProjectionIndexRetrieveAndScopedResolve(t *testing.T) {
 		read,
 		results,
 		retrieval.ArtifactRenderOptions[sourceMeta]{
+			Resource:  retrieval.RuneResource(100000),
 			CloneMeta: func(meta sourceMeta) (sourceMeta, error) { return meta, nil },
 			Mapping:   func(retrieval.Document[sourceMeta]) (source.MappedText, error) { return resolved[0].Text, nil },
 		},

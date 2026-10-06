@@ -202,9 +202,10 @@ func integrationRecipe(
 		maxQueries = 3
 	}
 	configured, err := recipe.New(recipe.Config[string, string, corpusMeta]{
-		Strategy: strategy,
-		Revision: "bounded-http-fixture",
-		Backend:  backend,
+		BackendModelFree: true,
+		Strategy:         strategy,
+		Revision:         "bounded-http-fixture",
+		Backend:          backend,
 		Admission: func(ctx context.Context, req corpusRequest) (retrieval.ReadCoverage, error) {
 			_, e := retrieval.PrepareRead(ctx, req, backend)
 			return retrieval.CompleteReadCoverage(), e
@@ -314,7 +315,7 @@ func TestThreeRecipesScopedBM25ThroughHTTPModels(t *testing.T) {
 			read, schema := integrationRead(t, &revoked)
 			configured := integrationRecipe(t, strategy, server.URL, read, schema)
 			// Act.
-			result, err := configured.Run(
+			result, err := configured.RunOwn(
 				context.Background(),
 				corpusRequest{
 					Read:    read,
@@ -379,7 +380,7 @@ func TestHTTPPlannerRevocationFailsCombinedRecipeClosed(t *testing.T) {
 	read, schema := integrationRead(t, &revoked)
 	configured := integrationRecipe(t, recipe.SingleRewrite, server.URL, read, schema)
 	// Act.
-	result, err := configured.Run(
+	result, err := configured.RunOwn(
 		context.Background(),
 		corpusRequest{Read: read, Text: "возврат оплаты", Options: retrieval.RetrieveOptions{TopK: 3}},
 	)

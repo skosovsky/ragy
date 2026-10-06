@@ -186,7 +186,7 @@ if err != nil {
 }
 
 artifact, err := retrieval.DefaultArtifactRenderer[DocMeta]{}.Render(ctx, read, result.ResultSet, retrieval.ArtifactRenderOptions[DocMeta]{
-	Budget: 4000,
+	Resource: retrieval.RuneResource(4000),
 	CloneMeta: cloneDocMeta, // host-provided deep copy of DocMeta
 })
 _ = artifact
@@ -194,7 +194,11 @@ _ = artifact
 
 Use `retrieval.NewRequestExecutionPipelineBuilder[TIntent, TRequestMeta, TMeta, TExecMeta]` when request metadata must reach the planner, route predicates, nodes, backend, and execution metadata. If a request already has `Plan`, the pipeline reuses it and skips the configured planner.
 
-`PlannedQuery` carries normalized/expanded text, universal range constraints, typed filters, diagnostics, and a cache key. `RetrievalContextArtifact` carries ordered snippets, provenance, score/rank state, budget accounting, diagnostics, rendered text, dedup/source-formatting policy, and an untrusted-data boundary for downstream renderers.
+`PlannedQuery` carries normalized/expanded text, universal range constraints, typed filters, diagnostics, and a cache key. `RetrievalContextArtifact` carries ordered snippets, provenance, score/rank state, complete serialized resource accounting, diagnostics, rendered text, dedup/source-formatting policy, and an untrusted-data boundary for downstream renderers.
+
+Artifact rendering measures the complete final UTF-8 output: boundary, labels, separators and whole projected snippets. `RuneResource` explicitly selects Unicode code points and finite defaults of 1024 candidates, 1024 measurements and 4 MiB output; tokenization belongs to the host through `ArtifactResource.Measure`, `Unit` and `Profile`. Every accepted trial is measured as a whole, and that exact string is returned. Non-additive or non-monotonic tokenizers require no assumptions about partial snippets. `Resource.Packing` reports whether packing exhausted the candidates or stopped at a resource/measurement limit; it does not prove semantic sufficiency.
+
+Custom `FormatSnippet` returns `FormattedSnippet{Text, ContentSpan}` and an error. The declared byte span must contain the unchanged snippet content. `ContextSnippet.RenderedSpan` addresses that content inside final `RenderedText`, while `Mapping` continues to address the snippet's own content. Derived or callback-projected content sets `DeliveryUncertain`; whole original document delivery is explicit through `FullDocument`. Each snippet carries `Contributors` with positions in the renderer input result set and per-input delivery flags; IDs alone cannot correlate BYOT identities. Dedup only merges supports and contributors when projected text is equal. Input/candidate/output bounds are checked, but host callbacks must cooperate with cancellation and own their allocations. Envelope, byte-bound, formatter and measurement failures return no artifact; `ArtifactError` carries a fixed stage message and an unwrap-able cause.
 
 `RequestPlanBinder` runs after planner and before retrieval execution, including preplanned requests. It is the place to bind planned ranges/filters into `RetrieveOptions` or typed request metadata without splitting the pipeline into `plan -> bind -> retrieve` outside `ragy`.
 

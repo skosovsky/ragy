@@ -1,0 +1,1 @@
+ok  	github.com/skosovsky/ragy/adapters/pdf	10.575s

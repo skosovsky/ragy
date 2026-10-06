@@ -2,6 +2,7 @@ package graphsummary
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"unicode/utf8"
@@ -23,7 +24,7 @@ func New[TAccess any](cfg Config[TAccess]) (*Recipe[TAccess], error) {
 }
 
 // Community runs one map summary. Global performs one map per admitted community
-// and one non-recursive reduction, with at most three model calls in total.
+// and one non-recursive reduction within explicit host community and call bounds.
 func (r *Recipe[TAccess]) Community(
 	ctx context.Context,
 	request Request[TAccess],
@@ -35,7 +36,7 @@ func (r *Recipe[TAccess]) Community(
 	return r.run(ctx, request, ledger, false)
 }
 func (r *Recipe[TAccess]) Global(ctx context.Context, request Request[TAccess], ledger *budget.Ledger) (Result, error) {
-	if len(request.Communities) != maxCommunities {
+	if len(request.Communities) == 0 {
 		return Result{}, ragy.ErrInvalidArgument
 	}
 	return r.run(ctx, request, ledger, true)
@@ -50,7 +51,12 @@ func (r *Recipe[TAccess]) run(
 	if r == nil || ledger == nil {
 		return Result{}, ragy.ErrInvalidArgument
 	}
-	child, cancel := context.WithTimeout(ctx, r.config.Duration)
+	if err := r.preflightCalls(request.Communities, global); err != nil {
+		return Result{}, err
+	}
+	child, recipeCancel := context.WithTimeout(ctx, r.config.Duration)
+	defer recipeCancel()
+	child, cancel := ledger.Context(child)
 	defer cancel()
 	deadline := r.config.Now().Add(r.config.Duration)
 	gate := func() error {
@@ -117,6 +123,14 @@ func (r *Recipe[TAccess]) run(
 	return r.deliver(child, request.Read, result, gate)
 }
 
+func (r *Recipe[TAccess]) preflightCalls(communities []Community[TAccess], global bool) error {
+	required := uint64(len(communities))
+	if required > r.config.MaxModelCalls || global && required == r.config.MaxModelCalls {
+		return ragy.ErrInvalidArgument
+	}
+	return nil
+}
+
 func (r *Recipe[TAccess]) reduce(
 	ctx context.Context,
 	request Request[TAccess],
@@ -176,28 +190,12 @@ func (r *Recipe[TAccess]) call(
 	if err := gate(); err != nil {
 		return empty, err
 	}
-	quote, err := r.config.Quote(ctx, input.Stage)
-	if err != nil {
-		return empty, err
-	}
-	if err = gate(); err != nil {
-		return empty, err
-	}
-	if quote.Kind != budget.Model || quote.Usage.InputTokens == 0 || quote.Usage.OutputTokens == 0 {
-		return empty, ragy.ErrInvalidArgument
-	}
-	input.MaxInputTokens, input.MaxOutputTokens = quote.Usage.InputTokens, quote.Usage.OutputTokens
-	counter := input
-	counter.Snippets = slices.Clone(input.Snippets)
-	tokens, err := r.config.CountInputTokens(counter)
-	if err != nil {
-		return empty, err
-	}
-	if err = gate(); err != nil {
-		return empty, err
-	}
-	if tokens == 0 || tokens > quote.Usage.InputTokens {
+	if *calls >= r.config.MaxModelCalls {
 		return empty, budget.ErrExhausted
+	}
+	input, quote, err := r.prepareInput(ctx, input, gate)
+	if err != nil {
+		return empty, err
 	}
 	if err = ready(); err != nil {
 		return empty, err
@@ -233,6 +231,45 @@ func (r *Recipe[TAccess]) call(
 	}
 	output.Selected = slices.Clone(output.Selected)
 	return output, nil
+}
+
+func (r *Recipe[TAccess]) prepareInput(
+	ctx context.Context,
+	input ModelInput,
+	gate func() error,
+) (ModelInput, budget.Reservation, error) {
+	var noQuote budget.Reservation
+	quote, err := r.config.Quote(ctx, input.Stage)
+	if err != nil {
+		return ModelInput{}, noQuote, err
+	}
+	if err = gate(); err != nil {
+		return ModelInput{}, noQuote, err
+	}
+	if quote.Kind != budget.Model || quote.Usage.InputTokens == 0 || quote.Usage.OutputTokens == 0 {
+		return ModelInput{}, noQuote, ragy.ErrInvalidArgument
+	}
+	input.MaxInputTokens, input.MaxOutputTokens = quote.Usage.InputTokens, quote.Usage.OutputTokens
+	serialized, err := json.Marshal(input)
+	if err != nil {
+		return ModelInput{}, noQuote, err
+	}
+	if len(serialized) > r.config.MaxInputBytes {
+		return ModelInput{}, noQuote, budget.ErrExhausted
+	}
+	counter := input
+	counter.Snippets = slices.Clone(input.Snippets)
+	tokens, err := r.config.CountInputTokens(counter)
+	if err != nil {
+		return ModelInput{}, noQuote, err
+	}
+	if err = gate(); err != nil {
+		return ModelInput{}, noQuote, err
+	}
+	if tokens == 0 || tokens > quote.Usage.InputTokens {
+		return ModelInput{}, noQuote, budget.ErrExhausted
+	}
+	return input, quote, nil
 }
 
 func (r *Recipe[TAccess]) validateOutput(output ModelOutput, count int) error {
@@ -328,11 +365,10 @@ func (r *Recipe[TAccess]) deliver(
 
 func validLimits[TAccess any](cfg Config[TAccess]) bool {
 	return cfg.Schema.IsFinalized() && cfg.MaxMembers > 0 && cfg.MaxSnippets > 0 &&
-		cfg.MaxSnippets <= maxCommunitySnippets &&
+		cfg.MaxCommunities > 0 && cfg.MaxModelCalls > 0 &&
 		cfg.MaxSupports > 0 &&
 		cfg.MaxInputBytes > 0 &&
 		cfg.MaxSummaryBytes > 0 &&
-		cfg.MaxSummaryBytes <= cfg.MaxInputBytes/maxCommunities &&
 		cfg.Duration > 0
 }
 func validPorts[TAccess any](cfg Config[TAccess]) bool {

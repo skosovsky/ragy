@@ -70,7 +70,9 @@ func (r *Recipe[TMeta]) Run(ctx context.Context, request Request, ledger *budget
 		len(request.Traversal.Seeds) > r.config.MaxNodes {
 		return empty, ragy.ErrInvalidArgument
 	}
-	child, cancel := context.WithTimeout(ctx, r.config.Duration)
+	child, recipeCancel := context.WithTimeout(ctx, r.config.Duration)
+	defer recipeCancel()
+	child, cancel := ledger.Context(child)
 	defer cancel()
 	deadline := r.config.Now().Add(r.config.Duration)
 	gate := func() error {

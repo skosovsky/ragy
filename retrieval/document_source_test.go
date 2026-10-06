@@ -48,11 +48,11 @@ func TestDocumentGroupMappingAndImplicitArtifactCoordinates(t *testing.T) {
 		retrieval.UnrestrictedRead(),
 		result,
 		retrieval.ArtifactRenderOptions[struct{}]{
-			Budget:    9,
+			Resource:  retrieval.RuneResource(100000),
 			CloneMeta: func(v struct{}) (struct{}, error) { return v, nil },
 		},
 	)
-	// Assert: separator is derived, final cut maps into the second source.
+	// Assert: separator is derived and complete content preserves both source ranges.
 	merged := result.Documents()[0]
 	if err != nil || merged.Content != "Привет\n\nworld" || len(merged.SourceLocations()) != 2 ||
 		len(artifact.Snippets) != 1 {
@@ -60,9 +60,9 @@ func TestDocumentGroupMappingAndImplicitArtifactCoordinates(t *testing.T) {
 	}
 	snippet := artifact.Snippets[0]
 	fragments := snippet.Mapping.Fragments()
-	if snippet.Content != "Привет\n\nw" || len(fragments) != 3 || fragments[1].Origin != source.DerivedContent ||
+	if snippet.Content != "Привет\n\nworld" || len(fragments) != 3 || fragments[1].Origin != source.DerivedContent ||
 		fragments[2].Location.Reference.Source != "b" ||
-		fragments[2].Location.Span.End != 1 {
+		fragments[2].Location.Span.End != 5 {
 		t.Fatal(snippet, fragments)
 	}
 }
@@ -122,7 +122,7 @@ func TestUnknownGroupPrecisionAndStringRewriteRemainExplicit(t *testing.T) {
 		retrieval.UnrestrictedRead(),
 		retrieval.NewResultSet([]retrieval.Document[struct{}]{first}, nil),
 		retrieval.ArtifactRenderOptions[struct{}]{
-			Budget:    100,
+			Resource:  retrieval.RuneResource(100000),
 			Snippet:   func(retrieval.Document[struct{}]) string { return "changed" },
 			CloneMeta: func(v struct{}) (struct{}, error) { return v, nil },
 		},

@@ -1,0 +1,1 @@
+ok  	github.com/skosovsky/ragy/retrieval	1.557s

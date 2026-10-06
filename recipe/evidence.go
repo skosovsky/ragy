@@ -6,6 +6,8 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/dense"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/source"
@@ -62,6 +64,11 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) copyDocument(
 
 func (a *attempt[TIntent, TRequestMeta, TMeta]) retrieve(request retrieval.Request[TIntent, TRequestMeta]) error {
 	if err := a.gate(a.ctx); err != nil {
+		return err
+	}
+	var err error
+	request, err = a.encodeQuery(request)
+	if err != nil {
 		return err
 	}
 	coverage, err := a.recipe.config.Admission(a.ctx, request)
@@ -256,34 +263,105 @@ func allQueries[TMeta any](queries []QueryEvidence[TMeta]) []int {
 	return out
 }
 
-func (a *attempt[TIntent, TRequestMeta, TMeta]) finishOutcome(selected []int, sufficient bool) {
+func (a *attempt[TIntent, TRequestMeta, TMeta]) renderDelivery() error {
+	if a.recipe.config.Artifact == nil {
+		return nil
+	}
+	docs := make([]retrieval.Document[TMeta], len(a.result.Selected))
+	for i, s := range a.result.Selected {
+		docs[i] = s.Document
+	}
+	artifact, err := (retrieval.DefaultArtifactRenderer[TMeta]{}).Render(
+		a.ctx,
+		a.request.Read,
+		retrieval.NewResultSet(docs, a.recipe.config.Identity),
+		*a.recipe.config.Artifact,
+	)
+	if err != nil {
+		return err
+	}
+	a.result.Artifact = &artifact
+	return nil
+}
+func (a *attempt[TIntent, TRequestMeta, TMeta]) finishOutcome(selectedQueries []int, sufficient bool) {
 	a.result.Outcome = Insufficient
 	if len(a.result.Selected) > 0 {
 		a.result.Outcome = Partial
-		if a.result.Stop == Assessed && sufficient && a.result.Admission.State() != retrieval.CoveragePartial {
-			a.result.Outcome = Complete
-		}
 	}
-	if a.recipe.config.Strategy != Decomposition {
-		return
+	total := len(a.result.Queries)
+	if a.recipe.config.Strategy == Decomposition {
+		total = a.planned
 	}
-	for index := range a.planned {
-		coverage := Subquestion{
-			Index:       index,
-			Retrieved:   index < len(a.result.Queries),
-			Selected:    slices.Contains(selected, index),
-			HasEvidence: false,
-		}
-		if coverage.Retrieved {
-			coverage.HasEvidence = len(a.result.Queries[index].Documents) > 0
-		}
-		if !coverage.Selected || !coverage.HasEvidence {
-			if a.result.Outcome == Complete {
-				a.result.Outcome = Partial
-			}
+	complete := true
+	for index := range total {
+		coverage := a.queryCoverage(index)
+		if (a.recipe.config.Strategy == Decomposition || slices.Contains(selectedQueries, index)) &&
+			(!coverage.DeliveredEvidence || coverage.DeliveryUncertain) {
+			complete = false
 		}
 		a.result.Coverage = append(a.result.Coverage, coverage)
 	}
+	if complete && total > 0 && len(a.result.Selected) > 0 && sufficient && a.result.Stop == Assessed &&
+		a.result.Admission.State() != retrieval.CoveragePartial {
+		a.result.Outcome = Complete
+	}
+}
+
+func (a *attempt[TIntent, TRequestMeta, TMeta]) encodeQuery(
+	request retrieval.Request[TIntent, TRequestMeta],
+) (retrieval.Request[TIntent, TRequestMeta], error) {
+	if nilPort(a.recipe.config.QueryEncoder) {
+		return request, nil
+	}
+	input := dense.Request{
+		Inputs:                  []string{request.EffectiveText()},
+		Purpose:                 embedding.Query,
+		RequireRemoteTokenBound: true,
+	}
+	if err := a.gate(a.ctx); err != nil {
+		return request, err
+	}
+	if err := a.recipe.config.QueryEncoder.Admit(a.ctx, input); err != nil {
+		return request, err
+	}
+	lease, quote, err := a.reserve(Encode)
+	if err != nil {
+		return request, err
+	}
+	result, usage, callErr := a.recipe.config.QueryEncoder.Encode(
+		a.ctx,
+		input,
+		ModelLimits{InputTokens: quote.Usage.InputTokens, OutputTokens: quote.Usage.OutputTokens},
+	)
+	err = a.settle(Encode, lease, quote, usage, callErr)
+	if err != nil {
+		return request, err
+	}
+	if err = result.Usage.Validate(); err != nil {
+		return request, err
+	}
+	// Usage.Validate above rejects negative counters, so the conversion cannot wrap.
+	//nolint:gosec // Validated nonnegative provider counter.
+	if result.Usage.InputTokensKnown && usage.Known && uint64(result.Usage.InputTokens) != usage.Value.InputTokens {
+		return request, ragy.ErrProtocol
+	}
+	if len(result.Embeddings) != 1 {
+		return request, ragy.ErrProtocol
+	}
+	value := result.Embeddings[0]
+	if err = value.Validate(); err != nil {
+		return request, ragy.ErrProtocol
+	}
+	var zeroSpace dense.Space
+	if request.Options.Space != zeroSpace && request.Options.Space != value.Space {
+		return request, ragy.ErrProtocol
+	}
+	value.Vector = slices.Clone(value.Vector)
+	result.Embeddings = []dense.Embedding{value}
+	a.result.Encoding = append(a.result.Encoding, result)
+	request.Options.Space = value.Space
+	request.Options.Vector = slices.Clone(value.Vector)
+	return request, a.gate(a.ctx)
 }
 
 type capturedDocument[TMeta any] struct {
@@ -363,4 +441,44 @@ func supportedByPublication(publication access.Publication, reference source.Ref
 		}
 	}
 	return false
+}
+
+func (a *attempt[TIntent, TRequestMeta, TMeta]) queryCoverage(index int) Subquestion {
+	var coverage Subquestion
+	coverage.Index = index
+	coverage.Retrieved = index < len(a.result.Queries)
+	if coverage.Retrieved {
+		coverage.HasEvidence = len(a.result.Queries[index].Documents) > 0
+	}
+	for inputIndex, selected := range a.result.Selected {
+		if !slices.ContainsFunc(selected.Contributors, func(c Contribution) bool { return c.QueryIndex == index }) {
+			continue
+		}
+		coverage.Selected = true
+		coverage.SelectedEvidence = true
+		delivered, uncertain := a.documentDelivery(inputIndex)
+		coverage.DeliveredEvidence = coverage.DeliveredEvidence || delivered
+		coverage.DeliveryUncertain = coverage.DeliveryUncertain || uncertain
+	}
+	return coverage
+}
+func (a *attempt[TIntent, TRequestMeta, TMeta]) documentDelivery(inputIndex int) (bool, bool) {
+	if a.result.Artifact == nil {
+		return a.recipe.config.Artifact == nil, a.recipe.config.Artifact != nil
+	}
+	delivered, uncertain := false, false
+	for _, snippet := range a.result.Artifact.Snippets {
+		for _, contributor := range snippet.Contributors {
+			if contributor.InputIndex != inputIndex {
+				continue
+			}
+			if contributor.FullDocument && !contributor.DeliveryUncertain {
+				delivered = true
+			} else {
+				uncertain = true
+			}
+		}
+	}
+
+	return delivered, uncertain
 }

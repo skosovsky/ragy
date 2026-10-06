@@ -12,12 +12,14 @@ import (
 	"github.com/skosovsky/ragy/evidence"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/recipe"
+	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/source"
 )
 
 type Config[TIntent, TRequestMeta, TMeta any] struct {
 	Recipe          *recipe.Recipe[TIntent, TRequestMeta, TMeta]
+	Ledger          *budget.Ledger
 	Mode            evidence.Mode
 	Sink            evidence.Sink
 	RetrievalID     string
@@ -53,9 +55,15 @@ func Run[TIntent, TRequestMeta, TMeta any](
 		Sink: config.Sink,
 		Execute: func(callCtx context.Context) (recipe.Result[TMeta], error) {
 			if config.Mode == evidence.Disabled {
-				return config.Recipe.Run(callCtx, request)
+				if config.Ledger != nil {
+					return config.Recipe.Run(callCtx, request, config.Ledger)
+				}
+				return config.Recipe.RunOwn(callCtx, request)
 			}
-			return config.Recipe.RunObserved(callCtx, request)
+			if config.Ledger != nil {
+				return config.Recipe.RunObserved(callCtx, request, config.Ledger)
+			}
+			return config.Recipe.RunOwnObserved(callCtx, request)
 		},
 		CloneResult: func(result recipe.Result[TMeta]) (recipe.Result[TMeta], error) {
 			return recipe.SnapshotResult(ctx, request.Read, result, config.CloneMeta)
@@ -223,6 +231,8 @@ func stages[TMeta any](result recipe.Result[TMeta]) ([]evidence.Stage[TMeta], er
 	planned, assessed := false, false
 	for _, stage := range result.Stages {
 		switch stage.Operation {
+		case recipe.Encode:
+			out = append(out, observedStage[TMeta]("encode"))
 		case recipe.Plan:
 			planned = true
 			out = append(out, observedStage[TMeta]("plan"))
@@ -275,7 +285,8 @@ func stages[TMeta any](result recipe.Result[TMeta]) ([]evidence.Stage[TMeta], er
 	if !assessed {
 		out = append(out, unobservedStage[TMeta]("assess", evidence.NotRun))
 	}
-	return append(out, fusionStage(result)), nil
+	out = append(out, fusionStage(result))
+	return appendDelivery(out, result)
 }
 
 func fusionStage[TMeta any](result recipe.Result[TMeta]) evidence.Stage[TMeta] {
@@ -355,15 +366,31 @@ func diagnostics[TMeta any](result recipe.Result[TMeta]) []evidence.Diagnostic {
 			modelCalls++
 		}
 	}
-	known := result.Budget.UnknownUsage == 0
+	known := true
+	var actual budget.Usage
+	for _, stage := range result.Stages {
+		if !stage.Usage.Known {
+			known = false
+			continue
+		}
+		next := stage.Usage.Value
+		if ^uint64(0)-actual.InputTokens < next.InputTokens || ^uint64(0)-actual.OutputTokens < next.OutputTokens ||
+			^uint64(0)-actual.Cost < next.Cost {
+			known = false
+			continue
+		}
+		actual.InputTokens += next.InputTokens
+		actual.OutputTokens += next.OutputTokens
+		actual.Cost += next.Cost
+	}
 	return []evidence.Diagnostic{
 		{Kind: evidence.ModelCalls, Number: number(float64(modelCalls), true)},
 		{Kind: evidence.RetrievalCalls, Number: number(float64(retrievalCalls), true)},
-		{Kind: evidence.InputTokens, Number: integerNumber(result.Budget.Actual.InputTokens, known)},
-		{Kind: evidence.OutputTokens, Number: integerNumber(result.Budget.Actual.OutputTokens, known)},
+		{Kind: evidence.InputTokens, Number: integerNumber(actual.InputTokens, known)},
+		{Kind: evidence.OutputTokens, Number: integerNumber(actual.OutputTokens, known)},
 		{
 			Kind:   evidence.CostUnits,
-			Number: integerNumber(result.Budget.Actual.Cost, known && !result.Budget.UnknownCost),
+			Number: integerNumber(actual.Cost, known),
 		},
 	}
 }
@@ -376,4 +403,62 @@ func number(value float64, known bool) evidence.Number {
 		return evidence.Number{State: evidence.Unavailable, Value: nil}
 	}
 	return evidence.Number{State: evidence.Observed, Value: &value}
+}
+
+func deliveryStage[TMeta any](result recipe.Result[TMeta]) (evidence.Stage[TMeta], error) {
+	stage := observedStage[TMeta]("delivery")
+	for _, snippet := range result.Artifact.Snippets {
+		doc := retrieval.Document[TMeta]{
+			ID:             snippet.DocumentID,
+			Content:        snippet.Content,
+			Meta:           snippet.Meta,
+			Score:          snippet.Score,
+			ScoreState:     snippet.ScoreState,
+			ScoreSemantics: snippet.ScoreSemantics,
+			ScoreHistory:   slices.Clone(snippet.ScoreHistory),
+			Rank:           snippet.Rank,
+			SourceMapping:  snippet.Mapping,
+			SourceSupports: slices.Clone(snippet.Supports),
+		}
+		var contributions []evidence.Contribution
+		for _, packed := range snippet.Contributors {
+			if packed.InputIndex < 0 || packed.InputIndex >= len(result.Selected) {
+				return evidence.Stage[TMeta]{}, ragy.ErrProtocol
+			}
+			for _, original := range result.Selected[packed.InputIndex].Contributors {
+				contributions = append(
+					contributions,
+					evidence.Contribution{
+						QueryIndex: original.QueryIndex,
+						DocumentID: original.DocumentID,
+						Rank:       original.Rank,
+						Locations:  slices.Clone(original.Supports),
+					},
+				)
+			}
+		}
+		stage.Hits = append(
+			stage.Hits,
+			evidence.Hit[TMeta]{
+				Document:  doc,
+				Sources:   references(snippet.Supports),
+				Locations: slices.Clone(snippet.Supports), Judgment: nil, Contributions: contributions,
+			},
+		)
+	}
+	return stage, nil
+}
+
+func appendDelivery[TMeta any](
+	out []evidence.Stage[TMeta],
+	result recipe.Result[TMeta],
+) ([]evidence.Stage[TMeta], error) {
+	if result.Artifact == nil {
+		return out, nil
+	}
+	delivery, err := deliveryStage(result)
+	if err != nil {
+		return nil, err
+	}
+	return append(out, delivery), nil
 }

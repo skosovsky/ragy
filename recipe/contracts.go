@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/source"
@@ -90,6 +91,7 @@ const (
 	Retrieve Operation = "retrieve"
 	Plan     Operation = "plan"
 	Assess   Operation = "assess"
+	Encode   Operation = "encode"
 )
 
 // Quote executes before reservation/dispatch. It must not call a model itself.
@@ -107,11 +109,20 @@ type ModelLimits struct {
 	OutputTokens uint64
 }
 
-// Config ports must be bounded and concurrency-safe. Concurrent Run calls share
-// this configuration but own independent attempt ledgers and captured metadata.
-// Callers must keep input data stable while clone ports capture it.
+// QueryEncoder admits strict token bounds without model I/O, then enforces the
+// exact reserved limits during one encoding dispatch. Encoding usage is host-priced.
+type QueryEncoder interface {
+	Admit(context.Context, dense.Request) error
+	Encode(context.Context, dense.Request, ModelLimits) (dense.Result, Usage, error)
+}
+
+// Config ports are bounded and concurrency-safe; callers keep BYOT inputs stable.
+// Run may share a caller ledger, while RunOwn creates an independent attempt.
 type Config[TIntent, TRequestMeta, TMeta any] struct {
 	Strategy         Strategy
+	BackendModelFree bool
+	QueryEncoder     QueryEncoder
+	Artifact         *retrieval.ArtifactRenderOptions[TMeta]
 	Revision         string
 	Backend          retrieval.RequestBackend[TIntent, TRequestMeta, TMeta]
 	Admission        func(context.Context, retrieval.Request[TIntent, TRequestMeta]) (retrieval.ReadCoverage, error)
@@ -148,10 +159,13 @@ type SelectedEvidence[TMeta any] struct {
 }
 
 type Subquestion struct {
-	Index       int
-	Retrieved   bool
-	Selected    bool
-	HasEvidence bool
+	Index             int
+	Retrieved         bool
+	Selected          bool
+	HasEvidence       bool
+	SelectedEvidence  bool
+	DeliveredEvidence bool
+	DeliveryUncertain bool
 }
 
 type Stage struct {
@@ -172,4 +186,6 @@ type Result[TMeta any] struct {
 	Stages         []Stage
 	Budget         budget.Snapshot
 	Fusion         FusionObservation
+	Artifact       *retrieval.RetrievalContextArtifact[TMeta]
+	Encoding       []dense.Result
 }

@@ -103,7 +103,7 @@ func TestParallelRunsOfOneRecipeOwnIndependentAttempts(t *testing.T) {
 	// Act: both planning quotes rendezvous before their independently reserved dispatch.
 	for _, req := range requests {
 		go func() {
-			value, runErr := instance.Run(ctx, req)
+			value, runErr := instance.RunOwn(ctx, req)
 			results <- parallelRecipeResult{value: value, err: runErr}
 		}()
 	}

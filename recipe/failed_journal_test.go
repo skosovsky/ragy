@@ -119,7 +119,7 @@ func TestRunObservedProtectionSuppressesJournal(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Act.
-	result, err := r.RunObserved(context.Background(), recordedRequest(f))
+	result, err := r.RunOwnObserved(context.Background(), recordedRequest(f))
 	// Assert.
 	if !access.IsProtectionFailure(err) || len(result.Queries) != 0 || len(result.Stages) != 0 ||
 		result.Publication != "" {
@@ -174,7 +174,7 @@ func TestRunObservedParentCancellationSuppressesJournal(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Act.
-	result, err := r.RunObserved(ctx, recordedRequest(f))
+	result, err := r.RunOwnObserved(ctx, recordedRequest(f))
 	// Assert.
 	if !errors.Is(err, context.Canceled) || len(result.Queries) != 0 || len(result.Stages) != 0 ||
 		result.Publication != "" {

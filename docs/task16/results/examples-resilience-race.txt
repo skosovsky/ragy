@@ -1,0 +1,2 @@
+ok  	github.com/skosovsky/ragy/examples/resilience/rescue_search	1.435s
+?   	github.com/skosovsky/ragy/examples/resilience/retry_embedder	[no test files]

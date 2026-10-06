@@ -196,7 +196,7 @@ func captureCodexSample(
 	if err != nil {
 		return sample, err
 	}
-	result, runErr := instance.RunObserved(ctx, request)
+	result, runErr := instance.RunOwnObserved(ctx, request)
 	sample.CLIReceipts = ports.receipts
 	sample.ModelCalls = uint64(len(ports.receipts))
 	sample.RetrievalCalls = backend.calls

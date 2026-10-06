@@ -110,6 +110,7 @@ func checkModalityQuery(
 		read,
 		results,
 		retrieval.ArtifactRenderOptions[sourceMeta]{
+			Resource:  retrieval.RuneResource(100000),
 			CloneMeta: func(meta sourceMeta) (sourceMeta, error) { return meta, nil },
 			Mapping:   func(doc retrieval.Document[sourceMeta]) (source.MappedText, error) { return byID[doc.ID].Text, nil },
 		},

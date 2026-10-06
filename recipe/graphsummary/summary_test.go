@@ -118,6 +118,8 @@ func newFixture(t *testing.T) *fixture {
 	}
 	f.config = graphsummary.Config[acl]{
 		Schema:          schema,
+		MaxCommunities:  2,
+		MaxModelCalls:   3,
 		MaxMembers:      50,
 		MaxSnippets:     20,
 		MaxSupports:     100,

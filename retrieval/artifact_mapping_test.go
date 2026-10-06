@@ -28,14 +28,14 @@ func artifactLocation(id string) source.Locator {
 	}
 }
 
-func TestArtifactDedupRetainsBothSourcesAndExactTruncation(t *testing.T) {
+func TestArtifactDedupRetainsBothSourcesAndExactProjection(t *testing.T) {
 	// Arrange.
 	docs := []retrieval.Document[struct{}]{
 		{ID: "first", Content: "Alpha beta. Gamma."},
 		{ID: "second", Content: "Alpha beta. Gamma."},
 	}
 	rs := retrieval.NewResultSet(docs, retrieval.DocumentIDResolver[struct{}]{})
-	options := retrieval.ArtifactRenderOptions[struct{}]{Budget: 2,
+	options := retrieval.ArtifactRenderOptions[struct{}]{Resource: retrieval.RuneResource(1000),
 		CloneMeta: func(meta struct{}) (struct{}, error) { return meta, nil },
 		Mapping: func(doc retrieval.Document[struct{}]) (source.MappedText, error) {
 			return source.OriginalText(artifactLocation(doc.ID), doc.Content)
@@ -53,12 +53,12 @@ func TestArtifactDedupRetainsBothSourcesAndExactTruncation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(artifact.Snippets) != 1 || artifact.Snippets[0].Content != "be" || artifact.Budget.Used != 2 {
+	if len(artifact.Snippets) != 1 || artifact.Snippets[0].Content != "beta" {
 		t.Fatalf("wrong artifact %+v", artifact)
 	}
 	snippet := artifact.Snippets[0]
 	fragment := snippet.Mapping.Fragments()[0]
-	if fragment.Location.Span != (source.ByteSpan{Start: 6, End: 8}) || fragment.Precision != source.ExactPrecision {
+	if fragment.Location.Span != (source.ByteSpan{Start: 6, End: 10}) || fragment.Precision != source.ExactPrecision {
 		t.Fatal("lost exact mapping")
 	}
 	supports := map[string]bool{}
@@ -70,12 +70,12 @@ func TestArtifactDedupRetainsBothSourcesAndExactTruncation(t *testing.T) {
 	}
 }
 
-func TestArtifactTrimsWhitespaceWithUTF8SourceCoordinates(t *testing.T) {
+func TestArtifactPreservesWhitespaceWithUTF8SourceCoordinates(t *testing.T) {
 	// Arrange.
 	doc := retrieval.Document[struct{}]{ID: "letters", Content: "  АБВ  "}
 	rs := retrieval.NewResultSet([]retrieval.Document[struct{}]{doc}, retrieval.DocumentIDResolver[struct{}]{})
 	options := retrieval.ArtifactRenderOptions[struct{}]{
-		Budget:    1,
+		Resource:  retrieval.RuneResource(1000),
 		CloneMeta: func(meta struct{}) (struct{}, error) { return meta, nil },
 		Mapping: func(doc retrieval.Document[struct{}]) (source.MappedText, error) {
 			location := artifactLocation(doc.ID)
@@ -95,13 +95,14 @@ func TestArtifactTrimsWhitespaceWithUTF8SourceCoordinates(t *testing.T) {
 		t.Fatal(err)
 	}
 	snippet := artifact.Snippets[0]
-	if snippet.Content != "А" || snippet.Mapping.Fragments()[0].Location.Span != (source.ByteSpan{Start: 2, End: 4}) {
-		t.Fatalf("rune budget confused with bytes %+v", snippet)
+	if snippet.Content != "  АБВ  " ||
+		snippet.Mapping.Fragments()[0].Location.Span != (source.ByteSpan{Start: 0, End: len(doc.Content)}) {
+		t.Fatalf("whole Unicode source coordinates changed %+v", snippet)
 	}
 }
 
 func TestArtifactScopeGateStopsCallbacksAndDelivery(t *testing.T) {
-	for _, stage := range []string{"before", "mapping", "clone", "provenance", "format"} {
+	for _, stage := range []string{"before", "mapping", "clone", "provenance", "format", "measure"} {
 		t.Run(stage, func(t *testing.T) {
 			// Arrange.
 			revoked := false
@@ -125,6 +126,7 @@ func TestArtifactScopeGateStopsCallbacksAndDelivery(t *testing.T) {
 			callbacks := 0
 			mark := func(current string) { callbacks++; revoked = revoked || stage == current }
 			options := retrieval.ArtifactRenderOptions[accessMeta]{
+				Resource: retrieval.RuneResource(1000),
 				CloneMeta: func(meta accessMeta) (accessMeta, error) {
 					mark("clone")
 					return meta, nil
@@ -139,11 +141,15 @@ func TestArtifactScopeGateStopsCallbacksAndDelivery(t *testing.T) {
 					mark("provenance")
 					return retrieval.Provenance{SourceID: doc.ID}
 				},
-				FormatSnippet: func(snippet retrieval.ContextSnippet[accessMeta]) string {
+				FormatSnippet: func(snippet retrieval.ContextSnippet[accessMeta]) (retrieval.FormattedSnippet, error) {
 					mark("format")
-					return snippet.Content
+					return retrieval.FormattedSnippet{
+						Text:        snippet.Content,
+						ContentSpan: source.ByteSpan{Start: 0, End: len(snippet.Content)},
+					}, nil
 				},
 			}
+			options.Resource.Measure = func(_ context.Context, text string) (int64, error) { mark("measure"); return int64(len(text)), nil }
 			if stage == "before" {
 				revoked = true
 			}
@@ -179,16 +185,20 @@ func TestArtifactFormatterCannotMutateSnapshotOrSourceMetadata(t *testing.T) {
 		retrieval.DocumentIDResolver[mutableArtifactMeta]{},
 	)
 	options := retrieval.ArtifactRenderOptions[mutableArtifactMeta]{
+		Resource: retrieval.RuneResource(1000),
 		CloneMeta: func(meta mutableArtifactMeta) (mutableArtifactMeta, error) {
 			return mutableArtifactMeta{Labels: maps.Clone(meta.Labels)}, nil
 		},
 		Mapping: func(doc retrieval.Document[mutableArtifactMeta]) (source.MappedText, error) {
 			return source.OriginalText(artifactLocation(doc.ID), doc.Content)
 		},
-		FormatSnippet: func(snippet retrieval.ContextSnippet[mutableArtifactMeta]) string {
+		FormatSnippet: func(snippet retrieval.ContextSnippet[mutableArtifactMeta]) (retrieval.FormattedSnippet, error) {
 			snippet.Meta.Labels["title"] = "changed"
 			snippet.Supports[0].Reference.Source = "other"
-			return snippet.Content
+			return retrieval.FormattedSnippet{
+				Text:        snippet.Content,
+				ContentSpan: source.ByteSpan{Start: 0, End: len(snippet.Content)},
+			}, nil
 		},
 	}
 	// Act.
@@ -215,6 +225,7 @@ func TestArtifactRejectsMappingWithStringOnlyRewrite(t *testing.T) {
 		retrieval.DocumentIDResolver[struct{}]{},
 	)
 	options := retrieval.ArtifactRenderOptions[struct{}]{
+		Resource:  retrieval.RuneResource(1000),
 		CloneMeta: func(meta struct{}) (struct{}, error) { return meta, nil },
 		Mapping: func(doc retrieval.Document[struct{}]) (source.MappedText, error) {
 			return source.OriginalText(artifactLocation(doc.ID), doc.Content)

@@ -86,6 +86,24 @@ func New(config Config) (*Ledger, error) {
 	return &Ledger{mu: sync.Mutex{}, config: config, state: initial}, nil
 }
 
+// Deadline is the immutable host deadline for this attempt. A nil ledger has no deadline.
+func (l *Ledger) Deadline() time.Time {
+	if l == nil {
+		return time.Time{}
+	}
+	return l.config.Deadline
+}
+
+// Context bounds cooperative work by the remaining attempt time and parent deadline.
+// Remaining time uses the host clock; the context timer uses elapsed wall time.
+// The host clock must be concurrency-safe. Reserve also rechecks the host deadline.
+func (l *Ledger) Context(ctx context.Context) (context.Context, context.CancelFunc) {
+	if l == nil {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, l.config.Deadline.Sub(l.config.Now()))
+}
+
 // Reserve atomically checks every dimension before admitting one dispatch. A
 // successful reservation spends a call even if dispatch subsequently fails. Use
 // the same ledger for all concurrent branches of one attempt.

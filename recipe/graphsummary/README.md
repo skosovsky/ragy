@@ -2,13 +2,19 @@
 
 This optional recipe accepts host-declared community membership, admitted original
 source mappings and BYOT access metadata. `Community` uses one bounded map call.
-`Global` accepts exactly two communities, uses one map per community and one
-non-recursive reduce: at most three model calls. Each community has at most twenty
-source snippets; bytes, members, supports, generated text and attempt duration have
-explicit limits. Configure the reference ledger with 4096 input tokens, 1024 output
+`Global` accepts one through `MaxCommunities` communities, uses one map per
+community and one non-recursive reduce, including for a single community. Required
+map/reduce calls must fit `MaxModelCalls` before any dispatch. `MaxSnippets` is a
+per-community host limit with no built-in twenty-snippet cap. `MaxSupports` and
+source text plus question bytes are aggregate admission limits. `MaxInputBytes`
+also bounds each complete JSON `ModelInput`, including escaping, labels, question
+and reserved token limits, before reservation/dispatch. Reducer overflow returns
+budget-exhausted with admitted partial maps. Members, generated text and duration
+have explicit limits. Configure the reference ledger with 4096 input tokens, 1024 output
 tokens, three model calls and a 5-second deadline. The ledger is shared across stages.
-The host may also share this ledger across concurrent summary variants within an
-attempt. Reservations remain atomic: a variant refused the last available model
+The host may also share this ledger across concurrent text/graph recipes within an
+attempt. The effective context deadline is the earliest of parent, recipe duration
+and shared ledger remaining time. Reservations remain atomic: a variant refused the last available model
 call returns budget-exhausted without dispatch or retry. Host callbacks must be
 concurrency-safe; caller request data must remain stable during capture.
 
@@ -32,8 +38,8 @@ must not perform hidden model calls/retries; arbitrary Go callbacks are not sand
 Map selections retain only their original supports. Declared snippet-member coverage
 must cover the community for complete output; missing coverage is insufficient and
 does not proceed to reduce. `CoversMembership` describes this mechanical declaration,
-not whether model prose is semantically correct. Global reduce must select both map
-summaries and retains support from both communities. Natural-language quality and
+not whether model prose is semantically correct. Global reduce must select every map
+summary and retains support from all admitted communities. Natural-language quality and
 entailment remain external evaluation responsibilities.
 
 `Summary` keeps generated text, membership/support snapshot and binding identity

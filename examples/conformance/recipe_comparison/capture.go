@@ -291,7 +291,7 @@ func captureSample(
 	if err != nil {
 		return sample, err
 	}
-	result, runErr := instance.RunObserved(ctx, request)
+	result, runErr := instance.RunOwnObserved(ctx, request)
 	sample.RetrievalCalls, sample.ModelCalls = backend.calls, transport.calls.Load()
 	sample.InputTokens, sample.OutputTokens, sample.Cost = result.Budget.Actual.InputTokens, result.Budget.Actual.OutputTokens, result.Budget.Actual.Cost
 	sample.UsageKnown = runErr == nil && result.Budget.UnknownUsage == 0 && !result.Budget.UnknownCost
@@ -363,10 +363,11 @@ func comparisonRecipeConfig(
 		retrievalLimit = normalModelCalls
 	}
 	return recipe.Config[struct{}, retrieval.NoRequestMeta, comparisonMetadata]{
-		Strategy: strategy,
-		Revision: "task12-text-reference",
-		Backend:  backend,
-		Identity: retrieval.DocumentIDResolver[comparisonMetadata]{},
+		BackendModelFree: true,
+		Strategy:         strategy,
+		Revision:         "task12-text-reference",
+		Backend:          backend,
+		Identity:         retrieval.DocumentIDResolver[comparisonMetadata]{},
 		Admission: func(ctx context.Context, req retrieval.Query[struct{}]) (retrieval.ReadCoverage, error) {
 			_, err := retrieval.PrepareRead(ctx, req, backend)
 			return retrieval.CompleteReadCoverage(), err

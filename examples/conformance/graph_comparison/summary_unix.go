@@ -15,6 +15,8 @@ import (
 	"github.com/skosovsky/ragy/source"
 )
 
+const summaryMaxModelCalls = 3
+
 // summaryModelPorts is supplied by the consumer. The token counter qualifies the
 // entire provider request, and each Model invocation dispatches at most once.
 type summaryModelPorts struct {
@@ -113,6 +115,8 @@ func (s summarySources) summaryRecipe(
 ) (*graphsummary.Recipe[baselineMetadata], error) {
 	return graphsummary.New(graphsummary.Config[baselineMetadata]{
 		Schema:           s.schema,
+		MaxCommunities:   2,
+		MaxModelCalls:    summaryMaxModelCalls,
 		MaxMembers:       localNodeCap,
 		MaxSnippets:      communitySnippetCap,
 		MaxSupports:      globalSnippetCap,

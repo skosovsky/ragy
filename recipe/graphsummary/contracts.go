@@ -55,10 +55,12 @@ type Model func(context.Context, ModelInput) (ModelOutput, Usage, error)
 // callbacks perform no hidden model calls. Model dispatches once without retries.
 type Config[TAccess any] struct {
 	Schema           filter.Schema
+	MaxCommunities   int
+	MaxModelCalls    uint64
 	MaxMembers       int
-	MaxSnippets      int
+	MaxSnippets      int // Per community; MaxSupports and source text MaxInputBytes also bound the aggregate.
 	MaxSupports      int
-	MaxInputBytes    int
+	MaxInputBytes    int // Aggregate admitted source bytes, and complete JSON ModelInput per dispatch.
 	MaxSummaryBytes  int
 	Duration         time.Duration
 	Now              func() time.Time
