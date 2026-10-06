@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/internal/ident"
@@ -849,8 +850,8 @@ func validateValue(value Value) error {
 
 	switch value.Kind() {
 	case KindString:
-		if _, ok := value.Raw().(string); !ok {
-			return fmt.Errorf("%w: string value must use string raw type", ragy.ErrInvalidArgument)
+		if text, ok := value.Raw().(string); !ok || !utf8.ValidString(text) {
+			return fmt.Errorf("%w: string value must use valid UTF-8 string raw type", ragy.ErrInvalidArgument)
 		}
 	case KindInt:
 		if _, ok := value.Raw().(int64); !ok {

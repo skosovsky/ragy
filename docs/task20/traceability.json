@@ -604,9 +604,16 @@
       "id": "F08",
       "task": "T09",
       "requirement": "P2: pgvector отрицание расходится с portable filter на absent fields",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Normalize PostgreSQL scalar leaves before boolean composition; shared admitted-domain fixtures compare core truth with actual PostgreSQL query and delete IDs.",
+      "evidence": [
+        "adapters/pgvector/store.go",
+        "contracttest/filter_parity.go",
+        "contracttest/filter_parity_test.go",
+        "adapters/pgvector/filter_pg_test.go",
+        "docs/task20/acceptance/T09-pg.log",
+        "docs/task20/T09.md"
+      ]
     },
     {
       "id": "F09",
@@ -2326,7 +2333,17 @@
       "source": "reviews/storage.md",
       "id": "S1",
       "master": "F08",
-      "task": "T09"
+      "task": "T09",
+      "disposition": "fix",
+      "rationale": "Normalize PostgreSQL scalar leaves before boolean composition; shared admitted-domain fixtures compare core truth with actual PostgreSQL query and delete IDs.",
+      "evidence": [
+        "adapters/pgvector/store.go",
+        "contracttest/filter_parity.go",
+        "contracttest/filter_parity_test.go",
+        "adapters/pgvector/filter_pg_test.go",
+        "docs/task20/acceptance/T09-pg.log",
+        "docs/task20/T09.md"
+      ]
     },
     {
       "source": "reviews/storage.md",

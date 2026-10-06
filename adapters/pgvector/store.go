@@ -414,7 +414,10 @@ func renderScalarComparison(schema filter.Schema, field, op string, value any, a
 		return "", nil, err
 	}
 
-	return fmt.Sprintf("%s %s $%d", renderedField, op, argStart), []any{value}, nil
+	if op == "<>" {
+		return fmt.Sprintf("NOT COALESCE(%s = $%d, FALSE)", renderedField, argStart), []any{value}, nil
+	}
+	return fmt.Sprintf("COALESCE(%s %s $%d, FALSE)", renderedField, op, argStart), []any{value}, nil
 }
 
 func renderMembership(
@@ -435,7 +438,7 @@ func renderMembership(
 		placeholders = append(placeholders, fmt.Sprintf("$%d", argStart+index))
 	}
 
-	return fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")), args, nil
+	return fmt.Sprintf("COALESCE(%s IN (%s), FALSE)", field, strings.Join(placeholders, ",")), args, nil
 }
 
 func buildIDArgs(ids []string) (string, []any) {

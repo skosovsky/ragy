@@ -7,11 +7,14 @@ import (
 )
 
 // MatchCondition evaluates a validated filter against field values from lookup.
+// Present values must already be schema-normalized; absence is (nil, false).
+// Leaves are two-valued: absent Eq/In/order are false, absent Neq is true.
 func MatchCondition(cond Condition, lookup func(field string) (any, bool)) (bool, error) {
 	return MatchIR(cond.IR(), lookup)
 }
 
-// MatchIR evaluates filter IR against field values from lookup.
+// MatchIR evaluates validated filter IR against schema-normalized lookup values.
+// Null/wrong-kind values must be rejected at admission, not treated as omission.
 func MatchIR(expr IR, lookup func(field string) (any, bool)) (bool, error) {
 	matcher := &irMatcher{
 		lookup: lookup,

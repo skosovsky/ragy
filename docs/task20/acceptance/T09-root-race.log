@@ -1,0 +1,51 @@
+Command: GOCACHE=/private/tmp/ragy-task20-go-cache go test -race -count=1 ./...
+Go: go1.27.1 darwin/arm64; lint: 2.14.0 built go1.27.1
+--- FAIL: TestProductionDocsAvoidMigrationLanguage (0.10s)
+    docs_test.go:43: graphingest/resolution/history/README.md contains banned migration wording "legacy"
+FAIL
+FAIL	github.com/skosovsky/ragy	0.521s
+ok  	github.com/skosovsky/ragy/access	1.454s
+ok  	github.com/skosovsky/ragy/chunking	1.838s
+ok  	github.com/skosovsky/ragy/contracttest	1.405s
+ok  	github.com/skosovsky/ragy/dense	1.761s
+ok  	github.com/skosovsky/ragy/dense/persistent	10.995s
+ok  	github.com/skosovsky/ragy/documents	1.836s
+ok  	github.com/skosovsky/ragy/embedding	1.715s
+ok  	github.com/skosovsky/ragy/evidence	1.957s
+ok  	github.com/skosovsky/ragy/filter	1.183s
+ok  	github.com/skosovsky/ragy/graph	1.564s
+ok  	github.com/skosovsky/ragy/graph/managed	6.391s
+ok  	github.com/skosovsky/ragy/graphingest	1.930s
+ok  	github.com/skosovsky/ragy/graphingest/extraction	1.596s
+ok  	github.com/skosovsky/ragy/graphingest/materialization	2.270s
+ok  	github.com/skosovsky/ragy/graphingest/resolution	1.486s
+ok  	github.com/skosovsky/ragy/graphingest/resolution/history	1.719s
+ok  	github.com/skosovsky/ragy/internal/durablefs	1.929s
+?   	github.com/skosovsky/ragy/internal/ident	[no test files]
+?   	github.com/skosovsky/ragy/internal/mathutil	[no test files]
+?   	github.com/skosovsky/ragy/internal/metaattrs	[no test files]
+ok  	github.com/skosovsky/ragy/internal/parallel	1.869s
+ok  	github.com/skosovsky/ragy/internal/providerhttp	1.636s
+ok  	github.com/skosovsky/ragy/internal/readfailure	1.858s
+ok  	github.com/skosovsky/ragy/layout	1.808s
+ok  	github.com/skosovsky/ragy/lexical	1.731s
+ok  	github.com/skosovsky/ragy/lexical/managed	7.859s
+ok  	github.com/skosovsky/ragy/lifecycle	7.615s
+ok  	github.com/skosovsky/ragy/lifecycle/filestore	3.422s
+ok  	github.com/skosovsky/ragy/lifecycle/integration	76.054s
+ok  	github.com/skosovsky/ragy/multimodal	1.712s
+ok  	github.com/skosovsky/ragy/observation	1.451s
+ok  	github.com/skosovsky/ragy/ranking	1.478s
+ok  	github.com/skosovsky/ragy/recipe	1.717s
+ok  	github.com/skosovsky/ragy/recipe/budget	1.460s
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	2.064s
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	2.616s
+ok  	github.com/skosovsky/ragy/recipe/recording	1.429s
+ok  	github.com/skosovsky/ragy/retrieval	1.539s
+ok  	github.com/skosovsky/ragy/source	1.477s
+ok  	github.com/skosovsky/ragy/tensor	1.467s
+ok  	github.com/skosovsky/ragy/tensor/persistent	9.208s
+ok  	github.com/skosovsky/ragy/tensor/query	1.456s
+ok  	github.com/skosovsky/ragy/testutil	1.471s
+FAIL
+Exit: 1. Existing docs wording blacklist failure (history README legacy wording), explicitly assigned T21.C01; no global PASS claimed. Other root packages PASS.

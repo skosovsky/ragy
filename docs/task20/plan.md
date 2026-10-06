@@ -293,3 +293,9 @@ Regression tests используют AAA и утверждают исправл
 - T08 in_progress: per-codec/clone context/read gates across snapshot capture, scoring, managed cache miss/hit and delivery; raw metadata remains borrowed.
 
 - T08 accepted: completeness 3/3 = 100%, F07/T-F01 coverage 2/2 = 100%, correctness PASS after cause-retention P2 fix. Scoped readfailure preserves errors.Is without payload/text unwrap leakage; both independent gates repeated. Fresh four-package race/lint and callback/cause/privacy probes PASS. Reports: [completeness](acceptance/T08-completeness.md), [correctness](acceptance/T08-correctness.md). Commit SHA записывается следующим journal update.
+
+- T08 commit: `528164b711ef219b510a6056ae0335ba1ff0df7f` — `fix: lexical callback gates`.
+- T09 in_progress: leaf-level PG boolean normalization, portable all-scalar missing/equal/unequal corpus and actual isolated PostgreSQL query/delete parity.
+
+- T09 accepted: completeness 4/4 = 100%, F08/S1 coverage 2/2 = 100%, correctness PASS. Both independent real PostgreSQL 17.11 / pgvector 0.8.7 profiles PASS (81 records, 56 predicates, 55 actual deletes, 12 malformed admission samples), targeted race and tagged lint PASS, separate boundary/injection probes PASS. Reports: [completeness](acceptance/T09-completeness.md), [correctness](acceptance/T09-correctness.md). Reviewed SHA256 checked against current diff before bookkeeping. Additional whole-root race completed exit 1 solely existing broad wording blacklist/history README issue, explicitly assigned T21.C01; remaining root packages PASS, full log [here](acceptance/T09-root-race.log). No global suite PASS claimed. Commit SHA записывается следующим journal update.
+- T09 runtime cleanup: stopped only owned `ragy-task20-t09-528164b` container after both reviewers completed; --rm removed disposable instance. Other containers untouched.

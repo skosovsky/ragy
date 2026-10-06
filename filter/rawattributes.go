@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"reflect"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/internal/ident"
@@ -83,6 +84,9 @@ func normalizeRawAttributeValue(raw any) (any, error) {
 	value := reflect.ValueOf(raw)
 	switch value.Kind() {
 	case reflect.String:
+		if !utf8.ValidString(value.String()) {
+			return nil, fmt.Errorf("%w: attribute string must be valid UTF-8", ragy.ErrInvalidArgument)
+		}
 		return value.String(), nil
 	case reflect.Bool:
 		return value.Bool(), nil

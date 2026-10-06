@@ -342,12 +342,12 @@
         "report": "acceptance/T08-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "528164b711ef219b510a6056ae0335ba1ff0df7f"
   },
   {
     "id": "T09",
     "title": "portable filter parity",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: filter parity",
     "criteria": [
       {
@@ -368,8 +368,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T09-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T09-correctness.md"
+      }
     },
     "commit_sha": null
   },
