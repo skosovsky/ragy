@@ -380,12 +380,12 @@
         "report": "acceptance/T09-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "a2fc0a48ed24112cf3a1579e153ce2936454effb"
   },
   {
     "id": "T10",
     "title": "neo4j delivery",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: neo4j delivery",
     "criteria": [
       {
@@ -402,8 +402,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "3/3",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T10-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T10-correctness.md"
+      }
     },
     "commit_sha": null
   },

@@ -9,6 +9,7 @@ import (
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
+	"github.com/skosovsky/ragy/internal/readfailure"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -58,6 +59,18 @@ func New[TMeta any](runner Runner[TMeta], schema graph.Schema, cfg Config[TMeta]
 
 // Retrieve implements retrieval.Backend by traversing the graph and projecting nodes to documents.
 func (s *Store[TMeta]) Retrieve(
+	ctx context.Context,
+	req retrieval.Query[struct{}],
+) (retrieval.ResultSet[TMeta], error) {
+	rs, err := s.retrieve(ctx, req)
+	delivered, deliveryErr := retrieval.DeliverRead(ctx, req.Read, rs, err, s.resolver)
+	if access.IsProtectionFailure(deliveryErr) {
+		return delivered, readfailure.Join(deliveryErr, err)
+	}
+	return delivered, deliveryErr
+}
+
+func (s *Store[TMeta]) retrieve(
 	ctx context.Context,
 	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {

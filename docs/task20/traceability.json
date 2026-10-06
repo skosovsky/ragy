@@ -619,9 +619,14 @@
       "id": "F09",
       "task": "T10",
       "requirement": "P2: Neo4j Retrieve выдаёт payload после cancellation",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "All Neo4j Retrieve returns pass final DeliverRead; protected delivery suppresses payload and retains observed Runner/projection causes without retry.",
+      "evidence": [
+        "adapters/neo4j/neo4j.go",
+        "adapters/neo4j/delivery_test.go",
+        "adapters/neo4j/README.md",
+        "docs/task20/T10.md"
+      ]
     },
     {
       "id": "F10",
@@ -2349,7 +2354,15 @@
       "source": "reviews/storage.md",
       "id": "S2",
       "master": "F09",
-      "task": "T10"
+      "task": "T10",
+      "disposition": "fix",
+      "rationale": "All Neo4j Retrieve returns pass final DeliverRead; protected delivery suppresses payload and retains observed Runner/projection causes without retry.",
+      "evidence": [
+        "adapters/neo4j/neo4j.go",
+        "adapters/neo4j/delivery_test.go",
+        "adapters/neo4j/README.md",
+        "docs/task20/T10.md"
+      ]
     },
     {
       "source": "reviews/providers.md",
