@@ -20,7 +20,7 @@ class Fixture:
                            ("commit.gpgsign", "false"), ("tag.gpgsign", "false")):
             self.git("config", key, value)
         self.git("remote", "add", "origin", str(self.remote))
-        for name in ("release.sh", "release.py"):
+        for name in ("release.sh", "release.py", "release_state.py"):
             self.write("scripts/" + name, (SCRIPTS / name).read_text())
         self.write("scripts/release-modules.txt", ".\nadapters/test\n")
         self.write("go.mod", "module example.invalid/ragy\n\ngo 1.26.1\n")

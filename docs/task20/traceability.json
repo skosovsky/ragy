@@ -527,9 +527,16 @@
       "id": "F03",
       "task": "T04",
       "requirement": "P2: ошибка release оставляет detached HEAD и занятую версию",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Persist exact source/version/candidate and owned refs before publication, reconcile exact remote objects to explicit none/partial/complete/unknown/collision, and resume the same candidate without altering caller checkout or deleting refs.",
+      "evidence": [
+        "T04.md",
+        "acceptance/T04-isolation.log",
+        "acceptance/T04-recovery.log",
+        "acceptance/T04-completeness.md",
+        "acceptance/T04-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "F04",

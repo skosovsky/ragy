@@ -268,3 +268,8 @@ Regression tests используют AAA и утверждают исправл
 - T03 in_progress: reviewed SHA / isolated checkout / publishable-module and file/ref allowlists. Persistent candidate recovery остаётся T04.
 
 - T03 accepted: completeness 4/4 = 100%, coverage F02/A-F01 2/2 = 100%, correctness PASS. Relative-origin/colon P2 resolved and both independent gates repeated; nine fixture methods and independent adversarial cases PASS. Reports: [completeness](acceptance/T03-completeness.md), [correctness](acceptance/T03-correctness.md). Commit SHA записывается следующим journal update.
+
+- T03 commit: `b32a7e35106b8442f5a306559bf5589ff8e391ad` — `fix: release isolation`.
+- T04 in_progress: persistent exact candidate, inspection states, retry and atomic partial completion; scope per accepted target contract.
+
+- T04 accepted: completeness 4/4 = 100%, F03/A-F02 coverage 2/2 = 100%, correctness PASS. Canonical manifest P2 fixed and both gates repeated on final tree; 12 recovery + 9 isolation methods, independent interruption/identity/canonical-tamper fixtures PASS. Reports: [completeness](acceptance/T04-completeness.md), [correctness](acceptance/T04-correctness.md). Commit SHA записывается следующим journal update.

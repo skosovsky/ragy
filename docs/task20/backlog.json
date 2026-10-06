@@ -164,12 +164,12 @@
         "report": "acceptance/T03-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "b32a7e35106b8442f5a306559bf5589ff8e391ad"
   },
   {
     "id": "T04",
     "title": "release recovery",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: release recovery",
     "criteria": [
       {
@@ -190,8 +190,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T04-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T04-correctness.md"
+      }
     },
     "commit_sha": null
   },
