@@ -43,12 +43,12 @@
         "report": "acceptance/T00-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "517179b87209a1fb2a41c47057f766dfdce3f959"
   },
   {
     "id": "T01",
     "title": "remediation contracts",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "docs: remediation contracts",
     "criteria": [
       {
@@ -77,8 +77,18 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "6/6",
+        "percent": 100,
+        "coverage": "16/16",
+        "coverage_percent": 100,
+        "report": "acceptance/T01-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T01-correctness.md"
+      },
+      "contract_sha256": "65d31729d0f80ef8b85ca548fce419ff1019400bbd640592a013bb9a837b45df"
     },
     "commit_sha": null
   },

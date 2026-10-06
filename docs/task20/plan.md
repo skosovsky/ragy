@@ -253,3 +253,8 @@ Regression tests используют AAA и утверждают исправл
 ## Журнал
 
 - T00 accepted: completeness 6/6 = 100%, coverage 262/262 = 100%; correctness PASS. Отчёты: [completeness](acceptance/T00-completeness.md), [correctness](acceptance/T00-correctness.md). Implementation не менялся; commit SHA фиксируется следующим journal update.
+
+- T00 commit: `517179b87209a1fb2a41c47057f766dfdce3f959` — `docs: remediation backlog`.
+- T01: [target contracts](../contracts/remediation.md) подготовлены; implementation не менялся, приёмка pending.
+
+- T01 accepted: completeness 6/6 = 100%, coverage 16/16 = 100%; correctness PASS. Initial F11/empty-map/optional-namespace findings исправлены, обе приёмки повторены. Contract SHA256 `65d31729d0f80ef8b85ca548fce419ff1019400bbd640592a013bb9a837b45df`; commit SHA фиксируется следующим update.
