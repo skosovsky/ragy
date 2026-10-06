@@ -176,65 +176,104 @@
       "id": "D15",
       "task": "T13",
       "requirement": "Publication terminology: Развести source→manifest pointer, immutable read capture и durable metadata pin в глоссарии/названиях. Capture не lease, Acquire pin защищает metadata, не source/target payload availability.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep names to avoid gratuitous churn; current guide distinguishes source pointer, immutable read capture and durable metadata reservation. Capture not lease; pin metadata not payload/authorization.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/manifest.go",
+        "lifecycle/publication.go",
+        "lifecycle/pins_test.go"
+      ]
     },
     {
       "id": "D16",
       "task": "T13",
       "requirement": "Capture namespace check: Удалить tautology snapshot.Namespace!=namespace, сравнить requested namespace после Store.Load. Custom misrouted Store repro подтверждает hardening gap; native filestore cross-tenant defect не найден, F-счётчик не увеличивать.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Retain requested namespace across Store.Load before deriving publication; mismatched or malformed response yields protocol zero/no writes. Remove helper tautology. Custom Store hardening, not a new native/F defect.",
+      "evidence": [
+        "lifecycle/publication.go",
+        "lifecycle/capture_namespace_test.go",
+        "lifecycle/publication_test.go"
+      ]
     },
     {
       "id": "D17",
       "task": "T13",
       "requirement": "Lifecycle CAS/reuse: Namespace-wide CAS консервативен; positive CheckReuse — observation point, не permission/lease. Уточнить comment: только positive confirmation повторно проверяет generation. Retry/reconcile выбирает host.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Namespace generation remains conservative across sources/pins. Only positive reuse rechecks generation; all decisions are observations, not leases/permission. Host reloads/reconciles rather than hidden retry.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/reuse.go",
+        "lifecycle/reuse_test.go",
+        "lifecycle/pins_test.go"
+      ]
     },
     {
       "id": "D18",
       "task": "T13",
       "requirement": "Lifecycle unknown/cleanup: Read-only inspect может вернуть OutcomeUnknown без разрушительного вызова. Cleaner делает один шаг и выдаёт schedule/backoff; Complete не означает forensic/source erasure. Дать operation-specific recovery table.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain finite Executor/Cleaner steps. Current guide separates dispatch unknown, read-only inspection unknown and CAS acknowledgment unknown, plus host clock/backoff/overdue recovery and Complete scope.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor_test.go",
+        "lifecycle/cleanup_test.go",
+        "lifecycle/cleanup.go"
+      ]
     },
     {
       "id": "D19",
       "task": "T13",
       "requirement": "Постоянные reservations: Retired skeletons, released IDs, digests и receipts нужны против ABA. Не TTL-delete и не auto-evict при capacity; миграция/retention policy принадлежат host.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Permanent retired skeletons/digests/released IDs/bootstrap+cleanup receipts prevent ABA/rebinding and preserve replay. Capacity never evicts automatically; metadata retention and payload cleanup separate.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/maintenance_test.go",
+        "lifecycle/pins_test.go",
+        "lifecycle/filestore/maintenance_unix_test.go"
+      ]
     },
     {
       "id": "D20",
       "task": "T13",
       "requirement": "Lifecycle boundedness/clone: Finite port calls не равны constant CPU/bytes: full snapshot и scans растут с history. Оптимизация через temporary indexes/explicit deep clone — после замеров и differential validation.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Finite call count is not CPU/bytes/RSS bound. Whole history validation/scans/serialization and JSON ownership clone remain unchanged. No optimization/speedup claimed; before/after N/A. Future optimization requires measured profile and differential ownership/order validation.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor.go",
+        "lifecycle/cleanup.go",
+        "lifecycle/maintenance.go",
+        "lifecycle/maintenance_test.go"
+      ]
     },
     {
       "id": "D21",
       "task": "T13",
       "requirement": "Plan equality/CAS authority: Порядок artifacts/targets может быть частью idempotency. Не менять canonicalization существующих reservations молча. Raw CompareSwap — trusted low-level interface, не authenticated command API.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Plan target/artifact order remains semantic to reserved replay; capture sorting does not authorize reordering plans. Raw CAS is trusted checkpoint port with mandatory ValidateReplacement, not command authorization.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/store.go",
+        "lifecycle/order_contract_unix_test.go",
+        "lifecycle/maintenance_test.go"
+      ]
     },
     {
       "id": "D22",
       "task": "T13",
       "requirement": "Inventory fences: Сохранить sorted locks, exact-once synchronous observer callback и exact inventory. Нет принудительного прерывания arbitrary callback через unbounded goroutines.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Sorted simultaneous inventory fences and exactly-once synchronous cooperative callback preserve exact inventory. No goroutine detachment, implicit workers or distributed commitment claim.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/inventory_verifier.go",
+        "lifecycle/inventory_verifier_test.go"
+      ]
     },
     {
       "id": "D23",
@@ -983,9 +1022,14 @@
       "source": "reviews/lifecycle.md",
       "line": 24,
       "requirement": "Keep Executor and Cleaner. They implement publication and managed-index cleanup invariants; removing them as “orchestration” would force services to recreate atomic CAS and unknown-outcome protocol. Do not grow into flowy or agent-harness scheduling. Reference executor.go:51, cleanup.go:77–91.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Executor/Cleaner encode CAS/publication/unknown invariants; keep finite protocol and host scheduling, no new agent/workflow runtime.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor_test.go",
+        "lifecycle/cleanup_test.go",
+        "lifecycle/cleanup.go"
+      ]
     },
     {
       "id": "lifecycle:02",
@@ -993,9 +1037,14 @@
       "source": "reviews/lifecycle.md",
       "line": 26,
       "requirement": "Clarify publication terminology in current API docs. lifecycle.Publication is a source→manifest pointer; access.Publication is an immutable read observation; PublicationPin is a durable metadata reservation. These are three distinct concepts with similar names. Consider SourcePublication / PublicationSnapshot / MetadataPin in a clean break, or provide one diagram/glossary without gratuitous rename churn. References manifest.go:89, pins.go:12, maintenance.go:22.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep names to avoid gratuitous churn; current guide distinguishes source pointer, immutable read capture and durable metadata reservation. Capture not lease; pin metadata not payload/authorization.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/manifest.go",
+        "lifecycle/publication.go",
+        "lifecycle/pins_test.go"
+      ]
     },
     {
       "id": "lifecycle:03",
@@ -1003,9 +1052,14 @@
       "source": "reviews/lifecycle.md",
       "line": 28,
       "requirement": "Keep Capture versus Acquire distinction explicit in quickstart. Value capture is not a discoverable lease. Acquire protects metadata only; it cannot ensure availability of target payloads or source bytes. No TTL or cleanup blocking should be inferred. docs/task18/lifecycle-maintenance.md already documents this correctly; propagate to top-level lifecycle examples.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep names to avoid gratuitous churn; current guide distinguishes source pointer, immutable read capture and durable metadata reservation. Capture not lease; pin metadata not payload/authorization.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/manifest.go",
+        "lifecycle/publication.go",
+        "lifecycle/pins_test.go"
+      ]
     },
     {
       "id": "lifecycle:04",
@@ -1013,9 +1067,14 @@
       "source": "reviews/lifecycle.md",
       "line": 30,
       "requirement": "Namespace-wide CAS is deliberately conservative. Pin/release or an unrelated source mutation can conflict with CheckReuse/Prepare/Publish. Document caller retry/reconcile recipes, not an internal fallback retry loop. Large-host storage adapters may optimize internally while preserving generation contracts. reuse.go:78–84; store.go.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Namespace generation remains conservative across sources/pins. Only positive reuse rechecks generation; all decisions are observations, not leases/permission. Host reloads/reconciles rather than hidden retry.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/reuse.go",
+        "lifecycle/reuse_test.go",
+        "lifecycle/pins_test.go"
+      ]
     },
     {
       "id": "lifecycle:05",
@@ -1023,9 +1082,14 @@
       "source": "reviews/lifecycle.md",
       "line": 32,
       "requirement": "CheckReuse's comment “Any concurrent lifecycle generation change invalidates the decision” overstates behavior: early Absent/Changed/Incomplete returns do not reload. Only a positive Confirmed decision has the second-generation check. Narrow the wording to positive reuse confirmation; no need to make negative observations more expensive. reuse.go:29–31,57–85.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Namespace generation remains conservative across sources/pins. Only positive reuse rechecks generation; all decisions are observations, not leases/permission. Host reloads/reconciles rather than hidden retry.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/reuse.go",
+        "lifecycle/reuse_test.go",
+        "lifecycle/pins_test.go"
+      ]
     },
     {
       "id": "lifecycle:06",
@@ -1033,9 +1097,14 @@
       "source": "reviews/lifecycle.md",
       "line": 34,
       "requirement": "CheckReuse is an observation point, not a permission or lease. Even positive reuse can become stale immediately after final Load. Host must control lifecycle publication and subsequent use. Preserve explicit comment and require integrations not to cache CanSkip indefinitely. reuse.go:20–27.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Namespace generation remains conservative across sources/pins. Only positive reuse rechecks generation; all decisions are observations, not leases/permission. Host reloads/reconciles rather than hidden retry.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/reuse.go",
+        "lifecycle/reuse_test.go",
+        "lifecycle/pins_test.go"
+      ]
     },
     {
       "id": "lifecycle:07",
@@ -1043,9 +1112,14 @@
       "source": "reviews/lifecycle.md",
       "line": 36,
       "requirement": "ErrOutcomeUnknown also wraps failures from read-only Inspect/InspectCleanup/CheckReuse. This is defensible for unknown target state, but error wording “target outcome unknown” can be misread as proof that a destructive operation was issued. Document operation-specific recovery table; avoid a generic retry middleware. reuse.go:118–123; cleanup.go:265; executor.go:495.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain finite Executor/Cleaner steps. Current guide separates dispatch unknown, read-only inspection unknown and CAS acknowledgment unknown, plus host clock/backoff/overdue recovery and Complete scope.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor_test.go",
+        "lifecycle/cleanup_test.go",
+        "lifecycle/cleanup.go"
+      ]
     },
     {
       "id": "lifecycle:08",
@@ -1053,9 +1127,14 @@
       "source": "reviews/lifecycle.md",
       "line": 38,
       "requirement": "Keep one-step Cleaner, explicit host clock, backoff and overdue recovery flag. Backoff values are schedule outputs, not sleeping retries. Consider named recovery mode instead of bool only if extra modes arise; do not build a worker inside ragy. cleanup.go:77–100,171–235.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain finite Executor/Cleaner steps. Current guide separates dispatch unknown, read-only inspection unknown and CAS acknowledgment unknown, plus host clock/backoff/overdue recovery and Complete scope.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor_test.go",
+        "lifecycle/cleanup_test.go",
+        "lifecycle/cleanup.go"
+      ]
     },
     {
       "id": "lifecycle:09",
@@ -1063,9 +1142,15 @@
       "source": "reviews/lifecycle.md",
       "line": 40,
       "requirement": "Scope “bounded explicit operations” accurately: bounded *number of port calls* is not bounded CPU/bytes. Snapshot validation, cloning, retainedArtifacts, ancestry and full snapshot serialization scale with namespace history. Existing maintenance scale docs correctly acknowledge this. Link those limits from Executor/Cleaner public package docs; don't claim constant-work maintenance. executor.go:51; cleanup.go:396; maintenance.go:231; filestore/store_unix.go:147.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Finite call count is not CPU/bytes/RSS bound. Whole history validation/scans/serialization and JSON ownership clone remain unchanged. No optimization/speedup claimed; before/after N/A. Future optimization requires measured profile and differential ownership/order validation.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor.go",
+        "lifecycle/cleanup.go",
+        "lifecycle/maintenance.go",
+        "lifecycle/maintenance_test.go"
+      ]
     },
     {
       "id": "lifecycle:10",
@@ -1073,9 +1158,14 @@
       "source": "reviews/lifecycle.md",
       "line": 42,
       "requirement": "Retired skeletons, artifact digests, released IDs, bootstrap receipts are intentional permanent reservations. Do not “simplify” by deleting them on TTL; that permits ABA/rebinding and breaks replay. At capacity host must move profile/store or explicitly migrate, not evict silently. maintenance.go:15–24,134,304; docs/task18/lifecycle-maintenance.md.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Permanent retired skeletons/digests/released IDs/bootstrap+cleanup receipts prevent ABA/rebinding and preserve replay. Capacity never evicts automatically; metadata retention and payload cleanup separate.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/maintenance_test.go",
+        "lifecycle/pins_test.go",
+        "lifecycle/filestore/maintenance_unix_test.go"
+      ]
     },
     {
       "id": "lifecycle:11",
@@ -1083,9 +1173,14 @@
       "source": "reviews/lifecycle.md",
       "line": 44,
       "requirement": "Distinguish operation state Complete from total historical data destruction: pins protect metadata, target cleanup is separate, and source bytes are host-owned. Cleaner Complete means all captured target-cleanup items confirmed; it does not certify privacy erasure or tenant deletion. cleanup.go:31,315–330.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain finite Executor/Cleaner steps. Current guide separates dispatch unknown, read-only inspection unknown and CAS acknowledgment unknown, plus host clock/backoff/overdue recovery and Complete scope.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor_test.go",
+        "lifecycle/cleanup_test.go",
+        "lifecycle/cleanup.go"
+      ]
     },
     {
       "id": "lifecycle:12",
@@ -1093,9 +1188,15 @@
       "source": "reviews/lifecycle.md",
       "line": 46,
       "requirement": "Existing full-snapshot JSON roundtrip in CompactHistory is an ownership technique, not unexplained fallback. Keep unless profiling supports an explicit deep clone shared with other clone paths. A rewrite must preserve nested slice ownership and nil/order semantics used in replacement validation. maintenance.go:145–156; executor.go:453.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Finite call count is not CPU/bytes/RSS bound. Whole history validation/scans/serialization and JSON ownership clone remain unchanged. No optimization/speedup claimed; before/after N/A. Future optimization requires measured profile and differential ownership/order validation.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor.go",
+        "lifecycle/cleanup.go",
+        "lifecycle/maintenance.go",
+        "lifecycle/maintenance_test.go"
+      ]
     },
     {
       "id": "lifecycle:13",
@@ -1103,9 +1204,14 @@
       "source": "reviews/lifecycle.md",
       "line": 48,
       "requirement": "Plan equality is order-sensitive (JSON samePlan, target/artifact slices in sameReservedPlan), while publication target selection sorts input. Decide/document whether ingestion target/artifact order is semantic to idempotency. Do not silently canonicalize already-reserved plan identity during upgrade. executor.go:465; maintenance.go:272; publication.go:95–99.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Plan target/artifact order remains semantic to reserved replay; capture sorting does not authorize reordering plans. Raw CAS is trusted checkpoint port with mandatory ValidateReplacement, not command authorization.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/store.go",
+        "lifecycle/order_contract_unix_test.go",
+        "lifecycle/maintenance_test.go"
+      ]
     },
     {
       "id": "lifecycle:14",
@@ -1113,9 +1219,14 @@
       "source": "reviews/lifecycle.md",
       "line": 50,
       "requirement": "Store.CompareSwap is a trusted low-level checkpoint interface, not a public authorization boundary. ValidateReplacement preserves immutable reservations and certain monotonic receipts, but does not validate every transition as if calls came through Executor/Cleaner. Document this host/adapter responsibility; do not claim direct arbitrary snapshots are equivalent to authenticated workflow commands. maintenance.go:304–324,425–440. No demonstrated supported Executor path bypass was found.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Plan target/artifact order remains semantic to reserved replay; capture sorting does not authorize reordering plans. Raw CAS is trusted checkpoint port with mandatory ValidateReplacement, not command authorization.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/store.go",
+        "lifecycle/order_contract_unix_test.go",
+        "lifecycle/maintenance_test.go"
+      ]
     },
     {
       "id": "lifecycle:15",
@@ -1123,9 +1234,15 @@
       "source": "reviews/lifecycle.md",
       "line": 52,
       "requirement": "ValidateReplacement compares cleanup/pin/receipt history with scans; direct correctness wins over adding a second persisted index. If workload demands optimization, build temporary indexes within validation and verify differential equivalence. No new service/storage framework merely to optimize local profile. maintenance.go:442–507.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Finite call count is not CPU/bytes/RSS bound. Whole history validation/scans/serialization and JSON ownership clone remain unchanged. No optimization/speedup claimed; before/after N/A. Future optimization requires measured profile and differential ownership/order validation.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/executor.go",
+        "lifecycle/cleanup.go",
+        "lifecycle/maintenance.go",
+        "lifecycle/maintenance_test.go"
+      ]
     },
     {
       "id": "lifecycle:16",
@@ -1133,9 +1250,13 @@
       "source": "reviews/lifecycle.md",
       "line": 54,
       "requirement": "FencedInventoryVerifier acquires observer fences in sorted target order and requires callback exactly once. Keep these anti-deadlock/protocol checks. Observers are cooperative synchronous ports; do not introduce goroutines/timeouts to forcibly detach callbacks. Document that target/source snapshots after the verification point are host-governed. inventory_verifier.go:13,32–41,80–107.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Sorted simultaneous inventory fences and exactly-once synchronous cooperative callback preserve exact inventory. No goroutine detachment, implicit workers or distributed commitment claim.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/inventory_verifier.go",
+        "lifecycle/inventory_verifier_test.go"
+      ]
     },
     {
       "id": "lifecycle:17",
@@ -1143,9 +1264,14 @@
       "source": "reviews/lifecycle.md",
       "line": 56,
       "requirement": "There is no standalone lifecycle README; current migration/retention contract lives in docs/task18. Move or mirror stable guidance into lifecycle/README.md with state transitions, legal replay, failures and recovery, error taxonomy, pin distinctions, local-filesystem profile and capacity limits. Keep historical task docs as evidence instead of requiring users to discover runtime contracts through task numbers.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Stable current lifecycle/README.md now contains states, legal replay, unknown recovery, errors, pin distinctions, capacity/scale/filesystem/schema; top-level README points here rather than task chronology.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/manifest.go",
+        "lifecycle/publication.go",
+        "lifecycle/pins_test.go"
+      ]
     },
     {
       "id": "lifecycle:18",
@@ -1153,9 +1279,12 @@
       "source": "reviews/lifecycle.md",
       "line": 58,
       "requirement": "Consistent nil context behavior is optional API hygiene, not a supported-call correctness bug: pins explicitly reject nil while Capture/Executor/filestore use ctx.Err and ordinary Go convention disallows nil contexts. Choose a package-wide documented convention; do not count every missing nil check as a distinct defect.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "All context-taking APIs require non-nil Go context. Existing defensive pin rejection retained, no promise of package-wide nil handling. Nil-context hygiene is not promoted to defect.",
+      "evidence": [
+        "lifecycle/manifest.go",
+        "lifecycle/README.md"
+      ]
     },
     {
       "id": "graph:01",
@@ -2245,9 +2374,13 @@
       "source": "reviews/arch-docs.md",
       "line": 43,
       "requirement": "`access`, `lifecycle`, managed indexes repeat authority checks and retain fences.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Sorted simultaneous inventory fences and exactly-once synchronous cooperative callback preserve exact inventory. No goroutine detachment, implicit workers or distributed commitment claim.",
+      "evidence": [
+        "lifecycle/README.md",
+        "lifecycle/inventory_verifier.go",
+        "lifecycle/inventory_verifier_test.go"
+      ]
     },
     {
       "id": "arch-docs:03",
@@ -2583,7 +2716,14 @@
       "source": "reviews/lifecycle.md",
       "id": "L-H01",
       "master": "D16",
-      "task": "T13"
+      "task": "T13",
+      "disposition": "change",
+      "rationale": "Retain requested namespace across Store.Load before deriving publication; mismatched or malformed response yields protocol zero/no writes. Remove helper tautology. Custom Store hardening, not a new native/F defect.",
+      "evidence": [
+        "lifecycle/publication.go",
+        "lifecycle/capture_namespace_test.go",
+        "lifecycle/publication_test.go"
+      ]
     }
   ],
   "documentation": [

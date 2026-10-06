@@ -439,7 +439,7 @@ Lifecycle uses the explicit `ragy.lifecycle/v2` format. Local maintenance retain
 identity and cleanup fences, protects registered metadata pins and unfinished work,
 and refuses capacity without implicit deletion. Value-only publication capture
 does not register retention. Target/source availability and authority remain host
-contracts; see [maintenance and migration](docs/task18/lifecycle-maintenance.md).
+contracts; see the [current lifecycle guide](lifecycle/README.md).
 
 Bounded text/graph recipes share an explicit attempt ledger. Context packing counts
 the complete formatted artifact, records actual input contributors and reports

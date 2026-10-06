@@ -11,7 +11,9 @@ var ErrConflict = errors.New("lifecycle compare-and-swap conflict")
 // Store atomically replaces an owned namespace snapshot. CompareSwap increments
 // generation once; callers must reconcile uncertain I/O outcomes by Load, not infer
 // rollback. CompareSwap must apply ValidateReplacement to preserve retired and pin
-// reservations. Store does not execute target operations or retry a lifecycle workflow.
+// reservations. It is a trusted checkpoint port, not a command authorization API.
+// The namespace-wide generation also covers unrelated sources and pin changes.
+// Store does not execute target operations or retry a lifecycle workflow.
 type Store interface {
 	Load(context.Context, string) (Snapshot, error)
 	CompareSwap(context.Context, uint64, Snapshot) (Snapshot, error)

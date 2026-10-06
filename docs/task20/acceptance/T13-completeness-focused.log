@@ -1,0 +1,96 @@
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/matching/empty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/wrong_namespace/empty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/wrong_schema/empty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/malformed/empty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/matching/nonempty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/wrong_namespace/nonempty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/wrong_schema/nonempty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/malformed/nonempty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/matching/empty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/wrong_namespace/empty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/wrong_schema/empty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/malformed/empty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/matching/nonempty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/wrong_namespace/nonempty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/wrong_schema/nonempty
+=== RUN   TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/malformed/nonempty
+--- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/matching/empty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/wrong_namespace/empty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/wrong_schema/empty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/malformed/empty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/matching/nonempty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/wrong_namespace/nonempty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/wrong_schema/nonempty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/strict/malformed/nonempty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/matching/empty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/wrong_namespace/empty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/wrong_schema/empty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/malformed/empty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/matching/nonempty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/wrong_namespace/nonempty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/wrong_schema/nonempty (0.00s)
+    --- PASS: TestCaptureAdmitsRequestedNamespaceBeforeDerivation/partial/malformed/nonempty (0.00s)
+=== RUN   TestCaptureInvalidCallerArgumentsDoNotLoad
+--- PASS: TestCaptureInvalidCallerArgumentsDoNotLoad (0.00s)
+=== RUN   TestCleanupFakeClockBackoffDeadlineAndExplicitRecovery
+--- PASS: TestCleanupFakeClockBackoffDeadlineAndExplicitRecovery (0.69s)
+=== RUN   TestUnknownCleanupInspectedAfterRestartWithoutDeletingAgain
+--- PASS: TestUnknownCleanupInspectedAfterRestartWithoutDeletingAgain (0.35s)
+=== RUN   TestExecutorUnknownStageReconcilesWithoutBlindRetry
+--- PASS: TestExecutorUnknownStageReconcilesWithoutBlindRetry (0.18s)
+=== RUN   TestFencedVerifierOwnsConfigurationAndObservesTogether
+--- PASS: TestFencedVerifierOwnsConfigurationAndObservesTogether (0.00s)
+=== RUN   TestFencedVerifierRejectsMissingDuplicateAndSwallowedFailure
+=== RUN   TestFencedVerifierRejectsMissingDuplicateAndSwallowedFailure/missing
+=== RUN   TestFencedVerifierRejectsMissingDuplicateAndSwallowedFailure/duplicate
+=== RUN   TestFencedVerifierRejectsMissingDuplicateAndSwallowedFailure/swallowed
+--- PASS: TestFencedVerifierRejectsMissingDuplicateAndSwallowedFailure (0.00s)
+    --- PASS: TestFencedVerifierRejectsMissingDuplicateAndSwallowedFailure/missing (0.00s)
+    --- PASS: TestFencedVerifierRejectsMissingDuplicateAndSwallowedFailure/duplicate (0.00s)
+    --- PASS: TestFencedVerifierRejectsMissingDuplicateAndSwallowedFailure/swallowed (0.00s)
+=== RUN   TestReservedPlanOrderCannotChangeOnReplayOrCAS
+=== RUN   TestReservedPlanOrderCannotChangeOnReplayOrCAS/targets
+=== RUN   TestReservedPlanOrderCannotChangeOnReplayOrCAS/artifacts
+--- PASS: TestReservedPlanOrderCannotChangeOnReplayOrCAS (0.10s)
+    --- PASS: TestReservedPlanOrderCannotChangeOnReplayOrCAS/targets (0.05s)
+    --- PASS: TestReservedPlanOrderCannotChangeOnReplayOrCAS/artifacts (0.05s)
+=== RUN   TestPublicationPinRestartHistoricalReplayReleaseAndRetirement
+--- PASS: TestPublicationPinRestartHistoricalReplayReleaseAndRetirement (0.17s)
+=== RUN   TestPublicationPinCompleteEmptyReservesRequestedProfile
+--- PASS: TestPublicationPinCompleteEmptyReservesRequestedProfile (0.05s)
+=== RUN   TestPublicationPinCASRejectsConcurrentPublicationRetirement
+--- PASS: TestPublicationPinCASRejectsConcurrentPublicationRetirement (0.10s)
+=== RUN   TestPublicationPinUncertainCommitReplaysDurableHandle
+--- PASS: TestPublicationPinUncertainCommitReplaysDurableHandle (0.06s)
+=== RUN   TestPublicationPinInputAndUnknownPublication
+--- PASS: TestPublicationPinInputAndUnknownPublication (0.10s)
+=== RUN   TestCapturePublicationStagingDoesNotChangeLogicalInventory
+--- PASS: TestCapturePublicationStagingDoesNotChangeLogicalInventory (0.21s)
+=== RUN   TestCaptureStrictlyRejectsMissingPartialTarget
+--- PASS: TestCaptureStrictlyRejectsMissingPartialTarget (0.03s)
+=== RUN   TestReuseRequiresExactFingerprintsAndCompleteTargetProfile
+=== RUN   TestReuseRequiresExactFingerprintsAndCompleteTargetProfile/content
+=== RUN   TestReuseRequiresExactFingerprintsAndCompleteTargetProfile/access
+=== RUN   TestReuseRequiresExactFingerprintsAndCompleteTargetProfile/transformation
+=== RUN   TestReuseRequiresExactFingerprintsAndCompleteTargetProfile/revision
+--- PASS: TestReuseRequiresExactFingerprintsAndCompleteTargetProfile (0.19s)
+    --- PASS: TestReuseRequiresExactFingerprintsAndCompleteTargetProfile/content (0.00s)
+    --- PASS: TestReuseRequiresExactFingerprintsAndCompleteTargetProfile/access (0.00s)
+    --- PASS: TestReuseRequiresExactFingerprintsAndCompleteTargetProfile/transformation (0.00s)
+    --- PASS: TestReuseRequiresExactFingerprintsAndCompleteTargetProfile/revision (0.00s)
+=== RUN   TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication
+=== RUN   TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/missing
+=== RUN   TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/unknown
+=== RUN   TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/invalid
+=== RUN   TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/canceled
+=== RUN   TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/concurrent
+--- PASS: TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication (0.23s)
+    --- PASS: TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/missing (0.04s)
+    --- PASS: TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/unknown (0.03s)
+    --- PASS: TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/invalid (0.03s)
+    --- PASS: TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/canceled (0.04s)
+    --- PASS: TestReuseFailsClosedOnInspectionUncertaintyAndConcurrentPublication/concurrent (0.09s)
+PASS
+ok  	github.com/skosovsky/ragy/lifecycle	3.741s

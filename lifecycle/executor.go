@@ -52,7 +52,9 @@ type ExecutorConfig[TPayload any] struct {
 	ValidatePayload func(Manifest, TPayload) error
 }
 
-// Executor performs bounded explicit operations; scheduling belongs to the host.
+// Executor performs finite explicit port calls; scheduling belongs to the host.
+// Validation, copying and serialization scale with namespace history, not a
+// constant CPU/byte budget. See lifecycle/README.md for scale and recovery.
 type Executor[TPayload any] struct{ config ExecutorConfig[TPayload] }
 
 func NewExecutor[TPayload any](config ExecutorConfig[TPayload]) (*Executor[TPayload], error) {

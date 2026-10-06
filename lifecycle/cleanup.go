@@ -72,6 +72,7 @@ type CleanerConfig struct {
 }
 
 // Cleaner dispatches at most one operation per call; it never sleeps or retries.
+// Validation/copying scale with namespace history; see lifecycle/README.md.
 type Cleaner struct{ config CleanerConfig }
 
 func NewCleaner(config CleanerConfig) (*Cleaner, error) {

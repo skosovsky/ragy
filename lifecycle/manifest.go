@@ -1,4 +1,7 @@
 // Package lifecycle defines durable source publication and artifact checkpoints.
+// Context-taking APIs require a non-nil context (context.Background/TODO for no
+// parent). Nil is unsupported; defensive rejection by some APIs is not a general
+// nil-context guarantee. See lifecycle/README.md for the finite-step protocol.
 package lifecycle
 
 import (
@@ -79,6 +82,8 @@ type Manifest struct {
 	PublishedAt         time.Time       `json:"published_at"`
 }
 
+// Publication maps one source to its currently published manifest. It differs
+// from an immutable access.Publication read capture and a durable PublicationPin.
 type Publication struct {
 	Source   string `json:"source"`
 	Manifest string `json:"manifest"`

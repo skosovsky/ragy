@@ -14,7 +14,8 @@ import (
 // CapturePublication fixes the active inventory once before query fan-out. It
 // requires each requested target ready and omits tombstoned sources. An empty
 // namespace/tombstone-only inventory remains pinned complete-empty. Partial target
-// capture is not implicitly enabled by a partial source publication.
+// capture is not implicitly enabled by a partial source publication. This is a
+// value capture, not a registered metadata lease; see lifecycle/README.md.
 func CapturePublication(
 	ctx context.Context,
 	store Store,
@@ -56,6 +57,9 @@ func capturePublication(
 	if err != nil {
 		return access.Publication{}, err
 	}
+	if snapshot.Namespace != namespace {
+		return access.Publication{}, ragy.ErrProtocol
+	}
 	return publicationFromSnapshot(ctx, snapshot, targets, partial)
 }
 
@@ -74,7 +78,7 @@ func publicationFromSnapshot(
 	if err != nil {
 		return access.Publication{}, err
 	}
-	if snapshot.Namespace != namespace || snapshot.Validate() != nil {
+	if snapshot.Validate() != nil {
 		return access.Publication{}, ragy.ErrProtocol
 	}
 	var excluded []string

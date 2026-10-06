@@ -494,12 +494,12 @@
         "report": "acceptance/T12-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "4846cd00f71a0c031416b5f9856e146b2ca19e26"
   },
   {
     "id": "T13",
     "title": "lifecycle contracts",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: lifecycle contracts",
     "criteria": [
       {
@@ -524,8 +524,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "28/28",
+        "coverage_percent": 100,
+        "report": "acceptance/T13-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T13-correctness.md"
+      }
     },
     "commit_sha": null
   },

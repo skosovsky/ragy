@@ -27,8 +27,10 @@ type ReuseDecision struct {
 func (d ReuseDecision) CanSkip() bool { return d.Reason == ReuseConfirmed }
 
 // CheckReuse verifies exact identity/profile and backend inventory without writes.
-// Any concurrent lifecycle generation change invalidates the decision; retry policy
-// remains with the host. A changed ACL or missing volatile target cannot be skipped.
+// A positive Confirmed decision rechecks namespace generation; early negative
+// reasons do not reload. Confirmation is an observation point, not a lease.
+// Retry/reconciliation remains with the host; see lifecycle/README.md.
+// A changed ACL or missing volatile target cannot be skipped.
 func (e *Executor[TPayload]) CheckReuse(
 	ctx context.Context,
 	desired Identity,
