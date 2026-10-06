@@ -1,4 +1,4 @@
-// Package budget provides an attempt-local atomic reservation ledger. It does not
+// Package budget provides an atomic reservation ledger with host-selected scope. It does not
 // perform pricing, billing, scheduling, dispatch or retries.
 package budget
 

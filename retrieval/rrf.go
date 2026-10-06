@@ -29,9 +29,7 @@ func NewReciprocalRankFusion[TMeta any](
 	if k <= 0 {
 		return nil, fmt.Errorf("%w: RRF k must be > 0", ragy.ErrInvalidArgument)
 	}
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
+	resolver = DefaultResolver(resolver)
 
 	return &ReciprocalRankFusion[TMeta]{
 		k:        k,

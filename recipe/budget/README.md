@@ -1,7 +1,8 @@
-# Attempt-local budget ledger
+# Host-scoped budget ledger
 
-One `Ledger` belongs to one bounded recipe attempt. All parallel branches must use
-that same instance. The host provides limits, an absolute deadline, a pure clock
+The host chooses the scope of a supplied `Ledger`; it may span concurrent bounded
+recipe attempts. `RunOwn` creates an independent attempt ledger. Parallel branches
+share the supplied instance. The host provides limits, an absolute deadline, a pure clock
 callback, and pricing in integer cost units. The clock must be concurrency-safe and
 must not call back into the ledger. No limit, provider price or retry is implicit.
 

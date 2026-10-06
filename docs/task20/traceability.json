@@ -5,113 +5,172 @@
       "id": "D01",
       "task": "T12",
       "requirement": "Границы retrieval composition: Bounded recipes/fallback/rescue допустимы в ragy. General workflow — flowy, agent loop/UI/Ask–Plan–Action — harness; не создавать новую библиотеку на каждую retrieval стратегию.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Bounded retrieval strategies remain domain composition; general workflow and agent loop stay host-owned.",
+      "evidence": [
+        "README.md",
+        "recipe/README.md"
+      ]
     },
     {
       "id": "D02",
       "task": "T12",
       "requirement": "Два composition engines и ranking façade: Свести result-only и execution-aware внутренние engines, если это уменьшит drift; inventory consumers перед удалением ranking compatibility aliases. Без второго legacy engine ради совместимости.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Consumer inventory preceded removal. All result-only syntax delegates to RequestExecutionPipeline with NoExecutionMeta, removing duplicate dispatch/planning algorithms while preserving former ranking tests.",
+      "evidence": [
+        "docs/task20/T12-consumers.md",
+        "retrieval/orchestrator.go",
+        "retrieval/ranking_contract_test.go"
+      ]
     },
     {
       "id": "D03",
       "task": "T12",
       "requirement": "Merger fallback: Ошибка custom fusion сейчас ведёт к score merge с error. Это documented degradation, но лучше explicit policy/original observed sets; не сравнивать разные score scales автоматически.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "No implicit comparisons across score scales. Ordinary FusionFailureError retains branch inputs; host explicitly selects DegradingMerger. Protection/cancellation never degrade or expose diagnostics.",
+      "evidence": [
+        "retrieval/fusion_failure.go",
+        "retrieval/fusion_failure_test.go",
+        "retrieval/orchestrator.go"
+      ]
     },
     {
       "id": "D04",
       "task": "T12",
       "requirement": "Zero ExecMeta: reflect.DeepEqual(zero) означает omitted и мешает reset в корректный zero. При clean break ввести presence/update contract или всегда уважать returned value, без reflective угадывания.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Returned Executed including zero is authoritative; no reflective presence inference.",
+      "evidence": [
+        "retrieval/execution.go",
+        "retrieval/execution_test.go"
+      ]
     },
     {
       "id": "D05",
       "task": "T12",
       "requirement": "Partial result/error authority: Согласовать separate ResultSet и nested PartialFailureError.Result, сохранить outer causes при errors.Join/As. Не объявлять source-level подозрение отдельным доказанным багом.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Separately returned set is sole payload authority. As views synchronize diagnostics without mutating host errors; original outer/joined causes remain inspectable. Final delivery also suppresses stale diagnostics.",
+      "evidence": [
+        "retrieval/partial_failure.go",
+        "retrieval/access.go",
+        "retrieval/partial_authority_test.go"
+      ]
     },
     {
       "id": "D06",
       "task": "T12",
       "requirement": "Nil callbacks и resolver defaults: Унифицировать constructor validation; custom ResultSet не обязан быть built-in для сохранения resolver. Explicit resolver capability/argument лучше молчаливого default.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Required typed-nil ports reject; optional nil/typed-nil resolver explicitly defaults to document ID. Invalid processor sentinel preserves constructor shape. ResolverProvider lets custom sets retain identity through normalization.",
+      "evidence": [
+        "retrieval/composition_config_test.go",
+        "retrieval/identity.go",
+        "retrieval/resultset.go",
+        "recipe/config_ownership_test.go"
+      ]
     },
     {
       "id": "D07",
       "task": "T12",
       "requirement": "Threshold stage: Различить pre-postprocessor и terminal threshold, reranked/native score. Raw BM25/персистентные backends должны явно сообщать поддержку options; не выдавать topK за work cap.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Chain input threshold precedes processors; pipeline terminal threshold follows optional chain. Explicit score state/semantics prohibit inferred native/reranked comparisons; TopK is delivery count, not work cap. Backend-specific option claims remain adapter contracts.",
+      "evidence": [
+        "retrieval/composition_config_test.go",
+        "retrieval/score_contract_test.go",
+        "retrieval/execution.go",
+        "README.md"
+      ]
     },
     {
       "id": "D08",
       "task": "T12",
       "requirement": "MergeKey и evidence equality: Winner merge может объединять supports разных texts, RRF строже. Определить semantic grouping vs identical evidence; GroupBy остаётся явной сборкой content.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Business identity does not attest equal content/metadata. Different losing payload contributes no support/history to winner; equal payload union and strict RRF remain, GroupBy explicitly assembles text.",
+      "evidence": [
+        "retrieval/resultset.go",
+        "retrieval/document_source_test.go",
+        "retrieval/rrf_duplicates_test.go"
+      ]
     },
     {
       "id": "D09",
       "task": "T12",
       "requirement": "Config/metadata ownership: Документировать freeze/clone для Artifact pointer, SynonymMap, Run config и BYOT metadata. Host callbacks остаются cooperative/concurrency-safe; не blanket JSON deep-copy всего.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Recipe snapshots Artifact options/Diagnostics; builder rebind owns aggregate node slice. Arbitrary BYOT/callback state remains host-owned and stable. SynonymMap adapter-specific freeze is assigned to T16, not claimed here.",
+      "evidence": [
+        "recipe/run.go",
+        "recipe/config_ownership_test.go",
+        "recipe/README.md",
+        "retrieval/execution.go"
+      ]
     },
     {
       "id": "D10",
       "task": "T12",
       "requirement": "Budget semantics: Calls не refunded, unknown usage reserved, ledger scope может быть shared. Развести known tokens и known cost при необходимости; это не организация billing/quota и не metry ledger.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Calls are dispatch accounting and never refunded; unknown usage retains reservation. Known is a full supplied tokens/cost tuple, so unknown cost cannot become known zero. Supplied ledger scope is host-selected; RunOwn independent. No billing abstractions.",
+      "evidence": [
+        "recipe/budget/budget.go",
+        "recipe/budget/README.md",
+        "recipe/budget/budget_test.go",
+        "recipe/README.md"
+      ]
     },
     {
       "id": "D11",
       "task": "T12",
       "requirement": "Model-free attestation: Это declaration host, не sandbox. UnsupportedQueryEncoderBridge не должен хранить неиспользуемый Embedder; explicit unsupported, без скрытого model call.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Model-free remains honest host attestation, not sandboxing. Removed unused Embedder field from rejecting bridge; incapable hard token bounds reject before provider I/O.",
+      "evidence": [
+        "recipe/encoding.go",
+        "recipe/README.md",
+        "recipe/negative_test.go"
+      ]
     },
     {
       "id": "D12",
       "task": "T12",
       "requirement": "Counts против bytes/work: MaxDocuments, candidate count, cache entries и retained snapshots не гарантируют bounded RSS/CPU. Описать конкретные units/limits и trusted bounded callbacks, не хардкодить универсальный cap.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Document/cache/query caps count populations, not bytes/RSS/CPU. Ports remain cooperative and must enforce declared model text/token bounds. No arbitrary hidden universal cap.",
+      "evidence": [
+        "README.md",
+        "recipe/README.md",
+        "recipe/contracts.go"
+      ]
     },
     {
       "id": "D13",
       "task": "T12",
       "requirement": "Cache/copy cost: MemoryCache O(capacity) eviction и repeated result slice copies измерять; byte budget/singleflight только по потребности. Никакого refresh daemon/distributed cache по умолчанию.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "No cache/copy optimization or speedup claimed: existing O(capacity) eviction and cloning outside lock retain ownership/freshness. Before/after is N/A for unchanged cache/copy algorithms; measure profiles before optimization. No singleflight/refresh/distributed service introduced.",
+      "evidence": [
+        "retrieval/cache.go",
+        "retrieval/cache_test.go",
+        "retrieval/cache_profile_partition_test.go",
+        "README.md"
+      ]
     },
     {
       "id": "D14",
       "task": "T12",
       "requirement": "Fallback vs Rescue: Сохранить отличие empty-success от empty-error. Nil conditional predicate и rank degradation должны быть явной configuration policy, не неочевидным разрешением dispatch.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Fallback routes empty success; Rescue routes empty ordinary errors, never partial/protection. Nil conditional predicate now invalid; explicit false skips. No implicit rank degradation.",
+      "evidence": [
+        "retrieval/execution.go",
+        "retrieval/orchestrator_test.go",
+        "README.md"
+      ]
     },
     {
       "id": "D15",
@@ -666,9 +725,12 @@
       "source": "reviews/retrieval.md",
       "line": 35,
       "requirement": "Keep bounded recipe execution in ragy.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Bounded retrieval strategies remain domain composition; general workflow and agent loop stay host-owned.",
+      "evidence": [
+        "README.md",
+        "recipe/README.md"
+      ]
     },
     {
       "id": "retrieval:02",
@@ -676,9 +738,13 @@
       "source": "reviews/retrieval.md",
       "line": 36,
       "requirement": "Delete or mark deprecated compatibility façade `ranking`.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Consumer inventory preceded removal. All result-only syntax delegates to RequestExecutionPipeline with NoExecutionMeta, removing duplicate dispatch/planning algorithms while preserving former ranking tests.",
+      "evidence": [
+        "docs/task20/T12-consumers.md",
+        "retrieval/orchestrator.go",
+        "retrieval/ranking_contract_test.go"
+      ]
     },
     {
       "id": "retrieval:03",
@@ -686,9 +752,13 @@
       "source": "reviews/retrieval.md",
       "line": 37,
       "requirement": "Unify internal result-only and execution-aware composition engines.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Consumer inventory preceded removal. All result-only syntax delegates to RequestExecutionPipeline with NoExecutionMeta, removing duplicate dispatch/planning algorithms while preserving former ranking tests.",
+      "evidence": [
+        "docs/task20/T12-consumers.md",
+        "retrieval/orchestrator.go",
+        "retrieval/ranking_contract_test.go"
+      ]
     },
     {
       "id": "retrieval:04",
@@ -696,9 +766,13 @@
       "source": "reviews/retrieval.md",
       "line": 38,
       "requirement": "Remove hidden score-merge fallback on custom fusion failure or make explicit policy.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "No implicit comparisons across score scales. Ordinary FusionFailureError retains branch inputs; host explicitly selects DegradingMerger. Protection/cancellation never degrade or expose diagnostics.",
+      "evidence": [
+        "retrieval/fusion_failure.go",
+        "retrieval/fusion_failure_test.go",
+        "retrieval/orchestrator.go"
+      ]
     },
     {
       "id": "retrieval:05",
@@ -706,9 +780,12 @@
       "source": "reviews/retrieval.md",
       "line": 39,
       "requirement": "Zero execution metadata is not absence.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Returned Executed including zero is authoritative; no reflective presence inference.",
+      "evidence": [
+        "retrieval/execution.go",
+        "retrieval/execution_test.go"
+      ]
     },
     {
       "id": "retrieval:06",
@@ -716,9 +793,13 @@
       "source": "reviews/retrieval.md",
       "line": 40,
       "requirement": "Separate presence of partial error from result source.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Separately returned set is sole payload authority. As views synchronize diagnostics without mutating host errors; original outer/joined causes remain inspectable. Final delivery also suppresses stale diagnostics.",
+      "evidence": [
+        "retrieval/partial_failure.go",
+        "retrieval/access.go",
+        "retrieval/partial_authority_test.go"
+      ]
     },
     {
       "id": "retrieval:07",
@@ -726,9 +807,14 @@
       "source": "reviews/retrieval.md",
       "line": 41,
       "requirement": "Make nil configuration validation consistent.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Required typed-nil ports reject; optional nil/typed-nil resolver explicitly defaults to document ID. Invalid processor sentinel preserves constructor shape. ResolverProvider lets custom sets retain identity through normalization.",
+      "evidence": [
+        "retrieval/composition_config_test.go",
+        "retrieval/identity.go",
+        "retrieval/resultset.go",
+        "recipe/config_ownership_test.go"
+      ]
     },
     {
       "id": "retrieval:08",
@@ -736,9 +822,14 @@
       "source": "reviews/retrieval.md",
       "line": 42,
       "requirement": "Document resolver extraction fallback.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Required typed-nil ports reject; optional nil/typed-nil resolver explicitly defaults to document ID. Invalid processor sentinel preserves constructor shape. ResolverProvider lets custom sets retain identity through normalization.",
+      "evidence": [
+        "retrieval/composition_config_test.go",
+        "retrieval/identity.go",
+        "retrieval/resultset.go",
+        "recipe/config_ownership_test.go"
+      ]
     },
     {
       "id": "retrieval:09",
@@ -746,9 +837,14 @@
       "source": "reviews/retrieval.md",
       "line": 43,
       "requirement": "Clarify score threshold stage.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Chain input threshold precedes processors; pipeline terminal threshold follows optional chain. Explicit score state/semantics prohibit inferred native/reranked comparisons; TopK is delivery count, not work cap. Backend-specific option claims remain adapter contracts.",
+      "evidence": [
+        "retrieval/composition_config_test.go",
+        "retrieval/score_contract_test.go",
+        "retrieval/execution.go",
+        "README.md"
+      ]
     },
     {
       "id": "retrieval:10",
@@ -756,9 +852,13 @@
       "source": "reviews/retrieval.md",
       "line": 44,
       "requirement": "Revisit merged-payload/source support semantics.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Business identity does not attest equal content/metadata. Different losing payload contributes no support/history to winner; equal payload union and strict RRF remain, GroupBy explicitly assembles text.",
+      "evidence": [
+        "retrieval/resultset.go",
+        "retrieval/document_source_test.go",
+        "retrieval/rrf_duplicates_test.go"
+      ]
     },
     {
       "id": "retrieval:11",
@@ -766,9 +866,14 @@
       "source": "reviews/retrieval.md",
       "line": 45,
       "requirement": "Snapshot or explicitly freeze pointer configuration.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Recipe snapshots Artifact options/Diagnostics; builder rebind owns aggregate node slice. Arbitrary BYOT/callback state remains host-owned and stable. SynonymMap adapter-specific freeze is assigned to T16, not claimed here.",
+      "evidence": [
+        "recipe/run.go",
+        "recipe/config_ownership_test.go",
+        "recipe/README.md",
+        "retrieval/execution.go"
+      ]
     },
     {
       "id": "retrieval:12",
@@ -776,9 +881,14 @@
       "source": "reviews/retrieval.md",
       "line": 46,
       "requirement": "Retain conservative accounting semantics.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Calls are dispatch accounting and never refunded; unknown usage retains reservation. Known is a full supplied tokens/cost tuple, so unknown cost cannot become known zero. Supplied ledger scope is host-selected; RunOwn independent. No billing abstractions.",
+      "evidence": [
+        "recipe/budget/budget.go",
+        "recipe/budget/README.md",
+        "recipe/budget/budget_test.go",
+        "recipe/README.md"
+      ]
     },
     {
       "id": "retrieval:13",
@@ -786,9 +896,14 @@
       "source": "reviews/retrieval.md",
       "line": 47,
       "requirement": "Name budget scopes more precisely.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Calls are dispatch accounting and never refunded; unknown usage retains reservation. Known is a full supplied tokens/cost tuple, so unknown cost cannot become known zero. Supplied ledger scope is host-selected; RunOwn independent. No billing abstractions.",
+      "evidence": [
+        "recipe/budget/budget.go",
+        "recipe/budget/README.md",
+        "recipe/budget/budget_test.go",
+        "recipe/README.md"
+      ]
     },
     {
       "id": "retrieval:14",
@@ -796,9 +911,13 @@
       "source": "reviews/retrieval.md",
       "line": 48,
       "requirement": "Explicit model-free attestation is honest, not enforceable sandboxing.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Model-free remains honest host attestation, not sandboxing. Removed unused Embedder field from rejecting bridge; incapable hard token bounds reject before provider I/O.",
+      "evidence": [
+        "recipe/encoding.go",
+        "recipe/README.md",
+        "recipe/negative_test.go"
+      ]
     },
     {
       "id": "retrieval:15",
@@ -806,9 +925,14 @@
       "source": "reviews/retrieval.md",
       "line": 49,
       "requirement": "Cache capacity is entry count, not byte bound.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "No cache/copy optimization or speedup claimed: existing O(capacity) eviction and cloning outside lock retain ownership/freshness. Before/after is N/A for unchanged cache/copy algorithms; measure profiles before optimization. No singleflight/refresh/distributed service introduced.",
+      "evidence": [
+        "retrieval/cache.go",
+        "retrieval/cache_test.go",
+        "retrieval/cache_profile_partition_test.go",
+        "README.md"
+      ]
     },
     {
       "id": "retrieval:16",
@@ -816,9 +940,14 @@
       "source": "reviews/retrieval.md",
       "line": 50,
       "requirement": "Avoid repeated bulk copying solely to preserve shape.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "No cache/copy optimization or speedup claimed: existing O(capacity) eviction and cloning outside lock retain ownership/freshness. Before/after is N/A for unchanged cache/copy algorithms; measure profiles before optimization. No singleflight/refresh/distributed service introduced.",
+      "evidence": [
+        "retrieval/cache.go",
+        "retrieval/cache_test.go",
+        "retrieval/cache_profile_partition_test.go",
+        "README.md"
+      ]
     },
     {
       "id": "retrieval:17",
@@ -826,9 +955,13 @@
       "source": "reviews/retrieval.md",
       "line": 51,
       "requirement": "Clarify boundedness of model-produced text.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Document/cache/query caps count populations, not bytes/RSS/CPU. Ports remain cooperative and must enforce declared model text/token bounds. No arbitrary hidden universal cap.",
+      "evidence": [
+        "README.md",
+        "recipe/README.md",
+        "recipe/contracts.go"
+      ]
     },
     {
       "id": "retrieval:18",
@@ -836,9 +969,13 @@
       "source": "reviews/retrieval.md",
       "line": 52,
       "requirement": "Retain explicit distinction Fallback vs Rescue.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Fallback routes empty success; Rescue routes empty ordinary errors, never partial/protection. Nil conditional predicate now invalid; explicit false skips. No implicit rank degradation.",
+      "evidence": [
+        "retrieval/execution.go",
+        "retrieval/orchestrator_test.go",
+        "README.md"
+      ]
     },
     {
       "id": "lifecycle:01",
@@ -2095,9 +2232,12 @@
       "source": "reviews/arch-docs.md",
       "line": 42,
       "requirement": "`retrieval` includes planners, branches, fallback/rescue, execution metadata, recipes.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Bounded retrieval strategies remain domain composition; general workflow and agent loop stay host-owned.",
+      "evidence": [
+        "README.md",
+        "recipe/README.md"
+      ]
     },
     {
       "id": "arch-docs:02",
@@ -2155,9 +2295,12 @@
       "source": "reviews/arch-docs.md",
       "line": 48,
       "requirement": "`retrieval/execution.go:993-998`, README explicitly zero ExecMeta means omitted.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Returned Executed including zero is authoritative; no reflective presence inference.",
+      "evidence": [
+        "retrieval/execution.go",
+        "retrieval/execution_test.go"
+      ]
     },
     {
       "id": "arch-docs:08",
@@ -2165,9 +2308,16 @@
       "source": "reviews/arch-docs.md",
       "line": 49,
       "requirement": "README: nil conditional predicate runs child, explicit warning; aggregate merger fallback changes rank semantics.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Fallback routes empty success; Rescue routes empty ordinary errors, never partial/protection. Nil conditional predicate now invalid; explicit false skips. No implicit rank degradation. No implicit comparisons across score scales. Ordinary FusionFailureError retains branch inputs; host explicitly selects DegradingMerger. Protection/cancellation never degrade or expose diagnostics.",
+      "evidence": [
+        "retrieval/execution.go",
+        "retrieval/orchestrator_test.go",
+        "README.md",
+        "retrieval/fusion_failure.go",
+        "retrieval/fusion_failure_test.go",
+        "retrieval/orchestrator.go"
+      ]
     },
     {
       "id": "arch-docs:09",

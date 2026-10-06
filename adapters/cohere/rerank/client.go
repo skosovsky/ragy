@@ -13,7 +13,6 @@ import (
 	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/internal/providerhttp"
-	"github.com/skosovsky/ragy/ranking"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -185,7 +184,7 @@ func applyRerankResults[TMeta any](
 	return out, nil
 }
 
-// Rerank implements ranking.QueryReranker.
+// Rerank implements retrieval.QueryReranker.
 // Nil or empty result sets are returned unchanged without error.
 // Empty query is a validation error and returns an empty ResultSet (input docs are not preserved).
 // Runtime and payload errors preserve the input ResultSet via retrieval.PreserveResultOnError.
@@ -267,4 +266,4 @@ func (c *Client[TMeta]) rerank(
 	return retrieval.NewResultSet(out, resolver), nil
 }
 
-var _ ranking.QueryReranker[any] = (*Client[any])(nil)
+var _ retrieval.QueryReranker[any] = (*Client[any])(nil)

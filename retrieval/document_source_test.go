@@ -36,10 +36,20 @@ func mappedDocument(t *testing.T, id, text string) retrieval.Document[struct{}] 
 
 func TestDocumentGroupMappingAndImplicitArtifactCoordinates(t *testing.T) {
 	// Arrange: two source revisions with UTF-8 text and independent coordinates.
-	docs := []retrieval.Document[struct{}]{mappedDocument(t, "a", "Привет"), mappedDocument(t, "b", "world")}
-	group := retrieval.GroupBy(func(struct{}) string { return "all" }, retrieval.DefaultMergeStrategy[struct{}]())
+	docs := []retrieval.Document[struct{}]{
+		mappedDocument(t, "a", "Привет"),
+		mappedDocument(t, "b", "world"),
+	}
+	group := retrieval.GroupBy(
+		func(struct{}) string { return "all" },
+		retrieval.DefaultMergeStrategy[struct{}](),
+	)
 	// Act.
-	result, err := group.Process(context.Background(), retrieval.UnrestrictedRead(), retrieval.NewResultSet(docs, nil))
+	result, err := group.Process(
+		context.Background(),
+		retrieval.UnrestrictedRead(),
+		retrieval.NewResultSet(docs, nil),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +70,8 @@ func TestDocumentGroupMappingAndImplicitArtifactCoordinates(t *testing.T) {
 	}
 	snippet := artifact.Snippets[0]
 	fragments := snippet.Mapping.Fragments()
-	if snippet.Content != "Привет\n\nworld" || len(fragments) != 3 || fragments[1].Origin != source.DerivedContent ||
+	if snippet.Content != "Привет\n\nworld" || len(fragments) != 3 ||
+		fragments[1].Origin != source.DerivedContent ||
 		fragments[2].Location.Reference.Source != "b" ||
 		fragments[2].Location.Span.End != 5 {
 		t.Fatal(snippet, fragments)
@@ -77,7 +88,8 @@ func TestDocumentDedupAndRRFPreserveEverySource(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Act.
-	dedup, err := retrieval.NewResultSet([]retrieval.Document[struct{}]{first, second}, resolver).Dedup()
+	dedup, err := retrieval.NewResultSet([]retrieval.Document[struct{}]{first, second}, resolver).
+		Dedup()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +112,8 @@ func TestDocumentDedupAndRRFPreserveEverySource(t *testing.T) {
 			t.Fatal("result supports aliased")
 		}
 	}
-	if dedup.Documents()[0].ID != "b" || dedup.Documents()[0].SourceMapping.Supports()[0].Reference.Source != "b" {
+	if dedup.Documents()[0].ID != "b" ||
+		dedup.Documents()[0].SourceMapping.Supports()[0].Reference.Source != "b" {
 		t.Fatal("loser coordinates substituted")
 	}
 }
@@ -116,7 +129,9 @@ func TestUnknownGroupPrecisionAndStringRewriteRemainExplicit(t *testing.T) {
 		ScoreSemantics: "fixture",
 	}
 	// Act.
-	merged, err := retrieval.DefaultMergeStrategy[struct{}]()([]retrieval.Document[struct{}]{first, unmapped})
+	merged, err := retrieval.DefaultMergeStrategy[struct{}]()(
+		[]retrieval.Document[struct{}]{first, unmapped},
+	)
 	artifact, renderErr := (retrieval.DefaultArtifactRenderer[struct{}]{}).Render(
 		context.Background(),
 		retrieval.UnrestrictedRead(),
@@ -131,11 +146,50 @@ func TestUnknownGroupPrecisionAndStringRewriteRemainExplicit(t *testing.T) {
 	if err != nil || merged.SourceMapping.Text() != "" || len(merged.SourceLocations()) != 1 {
 		t.Fatal(merged, err)
 	}
-	if renderErr != nil || artifact.Snippets[0].Mapping.Text() != "" || len(artifact.Snippets[0].Supports) != 1 {
+	if renderErr != nil || artifact.Snippets[0].Mapping.Text() != "" ||
+		len(artifact.Snippets[0].Supports) != 1 {
 		t.Fatal(artifact, renderErr)
 	}
 	first.Content = "stale mapping"
 	if !errors.Is(retrieval.ValidateDocument(first), ragy.ErrInvalidArgument) {
 		t.Fatal("stale coordinate mapping accepted")
+	}
+}
+
+func TestBusinessMergeKeyDoesNotTransferDifferentEvidence(t *testing.T) {
+	for _, equal := range []bool{false, true} {
+		// Arrange.
+		left := mappedDocument(t, "a", "winner")
+		text := "loser"
+		if equal {
+			text = "winner"
+		}
+		right := mappedDocument(t, "b", text)
+		right.Score = 0.5
+		left.ScoreHistory = left.ObservedScores()
+		right.ScoreHistory = right.ObservedScores()
+		input := retrieval.NewResultSet(
+			[]retrieval.Document[struct{}]{right, left},
+			sameSourceKey{},
+		)
+		// Act.
+		out, err := input.Dedup()
+		// Assert: identical evidence can retain both original supports; other text cannot.
+		if err != nil || out.Len() != 1 {
+			t.Fatal(out, err)
+		}
+		winner := out.Documents()[0]
+		want := 1
+		if equal {
+			want = 2
+		}
+		if winner.ID != "a" || winner.Content != "winner" ||
+			len(winner.SourceLocations()) != want ||
+			len(winner.ScoreHistory) != 2*want-1 {
+			t.Fatal(equal, winner)
+		}
+		if len(input.Documents()[0].SourceLocations()) != 1 {
+			t.Fatal("input mutated")
+		}
 	}
 }

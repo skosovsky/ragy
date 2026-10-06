@@ -1,0 +1,16 @@
+ok  	github.com/skosovsky/ragy/examples/planner/catalog_vector_fallback	1.485s
+ok  	github.com/skosovsky/ragy/examples/planner/partial_failure_aggregate	1.424s
+ok  	github.com/skosovsky/ragy/examples/planner/rescue_fallback_aggregate	1.423s
+ok  	github.com/skosovsky/ragy/examples/planner/vector_bm25_aggregate	1.427s
+ok  	github.com/skosovsky/ragy/examples/resilience/rescue_search	1.408s
+?   	github.com/skosovsky/ragy/examples/resilience/retry_embedder	[no test files]
+ok  	example.com/ragyconsumer	11.768s
+ok  	example.com/ragyconsumer/final_contract	1.937s
+ok  	example.com/ragyconsumer/graph_comparison	43.081s
+ok  	example.com/ragyconsumer/internal/codexcall	1.167s
+?   	example.com/ragyconsumer/internal/modelcounter	[no test files]
+ok  	example.com/ragyconsumer/internal/task19	1.200s
+ok  	example.com/ragyconsumer/joint_read	24.301s
+ok  	example.com/ragyconsumer/observation_contract	1.180s
+ok  	example.com/ragyconsumer/recipe_comparison	43.321s
+ok  	example.com/ragyconsumer/tensor_comparison	18.930s

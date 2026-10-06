@@ -650,9 +650,10 @@ func TestExecutionBackendReturnsTypedSideOutputs(t *testing.T) {
 	}
 }
 
-func TestExecutionRetrieverPreservesIncomingExecutionWhenBackendOmitsIt(t *testing.T) {
+func TestExecutionRetrieverZeroResetsIncomingExecution(t *testing.T) {
 	t.Parallel()
 
+	// Arrange.
 	pipeline, err := NewExecutionPipelineBuilder[intentWithMode, struct{}, executionMetaFixture]().
 		WithExecutionSeed(func(Query[intentWithMode]) executionMetaFixture {
 			return executionMetaFixture{Bound: true, SideOutputs: []string{"seed"}}
@@ -665,15 +666,17 @@ func TestExecutionRetrieverPreservesIncomingExecutionWhenBackendOmitsIt(t *testi
 		t.Fatalf("Build(): %v", err)
 	}
 
+	// Act.
 	result, err := pipeline.Execute(context.Background(), Query[intentWithMode]{Read: UnrestrictedRead(),
 		Text:    "q",
 		Options: RetrieveOptions{TopK: 1},
 	})
+	// Assert.
 	if err != nil {
 		t.Fatalf("Execute(): %v", err)
 	}
-	if !result.Executed.Bound || len(result.Executed.SideOutputs) != 1 || result.Executed.SideOutputs[0] != "seed" {
-		t.Fatalf("Executed = %#v, want incoming execution metadata preserved", result.Executed)
+	if result.Executed.Bound || result.Executed.SideOutputs != nil {
+		t.Fatalf("Executed = %#v, want authoritative zero execution metadata", result.Executed)
 	}
 }
 

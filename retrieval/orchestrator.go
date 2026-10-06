@@ -5,27 +5,21 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/skosovsky/ragy/access"
-
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/filter"
-	"github.com/skosovsky/ragy/internal/parallel"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 	"github.com/skosovsky/ragy/observation"
 )
 
-// partialSuccessRS reports whether err should preserve a non-empty primary ResultSet
-// rather than invoke Fallback secondary or Rescue secondary.
-// True when err wraps PartialFailureError with documents, or when rs is non-empty.
-// Also true for any non-empty rs with error (e.g. adapter PreserveResultOnError),
-// which blocks Fallback/Rescue secondary per spec "empty ResultSet only".
+// partialSuccessRS uses only the separately returned set as payload authority.
+func nonRescuablePartial[TMeta any](rs ResultSet[TMeta], err error) bool {
+	_, partial := AsPartialFailure[TMeta](err)
+	return err != nil && (partial || partialSuccessRS(rs, err))
+}
+
 func partialSuccessRS[TMeta any](rs ResultSet[TMeta], err error) bool {
-	if err == nil {
-		return false
-	}
-	if partial, ok := AsPartialFailure[TMeta](err); ok && partial != nil && !partial.Result.IsEmpty() {
-		return true
-	}
-	return rs != nil && !rs.IsEmpty()
+	return err != nil && !nilvalue.IsNil(rs) && !rs.IsEmpty()
 }
 
 const defaultAggregateRRFK = 60
@@ -48,53 +42,12 @@ type resultRetrieverNode[TIntent, TRequestMeta, TMeta any] struct {
 type resultRetrieverNodeNoMeta[TIntent, TMeta any] = resultRetrieverNode[TIntent, NoRequestMeta, TMeta]
 
 // Retrieve implements resultNodeNoMeta.
-//
-//nolint:nonamedreturns // Deferred observation records the actual final returned result.
 func (n resultRetrieverNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
-) (out ResultSet[TMeta], returnErr error) {
-	ctx, span := observation.Begin(ctx, observation.StageRetrieval)
-	defer func() {
-		if span != nil {
-			span.End(observationCompletion(returnErr, out))
-		}
-	}()
-	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if n.Backend == nil {
-		return NewResultSet[TMeta](nil, resolver),
-			fmt.Errorf("%w: retriever node backend", ragy.ErrInvalidArgument)
-	}
-	if err := req.Options.Validate(); err != nil {
-		return NewResultSet[TMeta](nil, resolver), err
-	}
-	if err := admitBackendRead(ctx, req, n.Backend); err != nil {
-		return NewResultSet[TMeta](nil, resolver), err
-	}
-	if provider, ok := n.Backend.(ReadCapabilityProvider); ok {
-		prepared, prepErr := PrepareRead(ctx, req, provider)
-		if prepErr != nil {
-			return NewResultSet[TMeta](nil, resolver), prepErr
-		}
-		req = prepared
-	}
-	rs, err := n.Backend.Retrieve(ctx, req)
-	if gateErr := req.Read.Check(ctx); gateErr != nil {
-		return NewResultSet[TMeta](nil, resolver), gateErr
-	}
-	if access.IsProtectionFailure(err) {
-		return NewResultSet[TMeta](nil, resolver), err
-	}
-	if err != nil {
-		return preserveResultOnError(rs, err, resolver)
-	}
-	if rs == nil {
-		return NewResultSet[TMeta](nil, resolver), nil
-	}
-	return RewrapResultSet(rs, resolver), nil
+) (ResultSet[TMeta], error) {
+	result, err := resultExecutionNode[TIntent, TRequestMeta, TMeta](n).Execute(ctx, req, NoExecutionMeta{})
+	return result.ResultSet, err
 }
 
 // resultFallbackNode runs secondary when primary succeeds (err == nil) and ResultSet is empty.
@@ -110,51 +63,12 @@ type resultFallbackNode[TIntent, TRequestMeta, TMeta any] struct {
 type resultFallbackNodeNoMeta[TIntent, TMeta any] = resultFallbackNode[TIntent, NoRequestMeta, TMeta]
 
 // Retrieve implements resultNodeNoMeta.
-//
-//nolint:nonamedreturns // Deferred observation records the actual final returned result.
 func (n resultFallbackNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
-) (out ResultSet[TMeta], returnErr error) {
-	ctx, span := observation.Begin(ctx, observation.StageFallback)
-	defer func() {
-		if span != nil {
-			span.End(observationCompletion(returnErr, out))
-		}
-	}()
-	if err := PreflightRead(ctx, req, n); err != nil {
-		return NewResultSet[TMeta](nil, n.Resolver), err
-	}
-	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if n.Primary == nil {
-		return NewResultSet[TMeta](nil, resolver),
-			fmt.Errorf("%w: fallback primary node", ragy.ErrInvalidArgument)
-	}
-
-	primary, err := n.Primary.Retrieve(observation.WithBranch(ctx, 0), req)
-	if access.IsProtectionFailure(err) {
-		return NewResultSet[TMeta](nil, resolver), err
-	}
-	if err != nil {
-		if partialSuccessRS(primary, err) {
-			return preserveResultOnError(primary, err, resolver)
-		}
-		return NewResultSet[TMeta](nil, resolver), err
-	}
-	if primary != nil && !primary.IsEmpty() {
-		return RewrapResultSet(primary, resolver), nil
-	}
-	if n.Secondary == nil {
-		return NewResultSet[TMeta](nil, resolver), nil
-	}
-	rs, err := n.Secondary.Retrieve(observation.WithBranch(ctx, 1), req)
-	if err != nil {
-		return preserveResultOnError(rs, err, resolver)
-	}
-	return RewrapResultSet(rs, resolver), nil
+) (ResultSet[TMeta], error) {
+	result, err := resultExecutionNode[TIntent, TRequestMeta, TMeta](n).Execute(ctx, req, NoExecutionMeta{})
+	return result.ResultSet, err
 }
 
 // resultRescueNode runs secondary when primary returns an error and ResultSet is empty.
@@ -171,62 +85,19 @@ type resultRescueNode[TIntent, TRequestMeta, TMeta any] struct {
 type resultRescueNodeNoMeta[TIntent, TMeta any] = resultRescueNode[TIntent, NoRequestMeta, TMeta]
 
 // Retrieve implements resultNodeNoMeta.
-//
-//nolint:nonamedreturns // Deferred observation records the actual final returned result.
 func (n resultRescueNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
-) (out ResultSet[TMeta], returnErr error) {
-	ctx, span := observation.Begin(ctx, observation.StageRescue)
-	defer func() {
-		if span != nil {
-			span.End(observationCompletion(returnErr, out))
-		}
-	}()
-	if err := PreflightRead(ctx, req, n); err != nil {
-		return NewResultSet[TMeta](nil, n.Resolver), err
-	}
-	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if n.Primary == nil {
-		return NewResultSet[TMeta](nil, resolver),
-			fmt.Errorf("%w: rescue primary node", ragy.ErrInvalidArgument)
-	}
-
-	primary, err := n.Primary.Retrieve(observation.WithBranch(ctx, 0), req)
-	if access.IsProtectionFailure(err) {
-		return NewResultSet[TMeta](nil, resolver), err
-	}
-	if err != nil {
-		if partialSuccessRS(primary, err) {
-			return preserveResultOnError(primary, err, resolver)
-		}
-		if n.Secondary == nil {
-			return NewResultSet[TMeta](nil, resolver), err
-		}
-		secondary, secErr := n.Secondary.Retrieve(observation.WithBranch(ctx, 1), req)
-		if secErr != nil {
-			wrapped := fmt.Errorf("%w; rescue secondary: %w", err, secErr)
-			return preserveResultOnError(secondary, wrapped, resolver)
-		}
-		if secondary.IsEmpty() {
-			return NewResultSet[TMeta](nil, resolver), fmt.Errorf("%w: rescue secondary empty", err)
-		}
-		return RewrapResultSet(secondary, resolver), nil
-	}
-	if primary != nil && !primary.IsEmpty() {
-		return RewrapResultSet(primary, resolver), nil
-	}
-	return NewResultSet[TMeta](nil, resolver), nil
+) (ResultSet[TMeta], error) {
+	result, err := resultExecutionNode[TIntent, TRequestMeta, TMeta](n).Execute(ctx, req, NoExecutionMeta{})
+	return result.ResultSet, err
 }
 
 // resultAggregateNode runs child nodes in parallel and merges their ResultSets.
 // When Merger is nil, ReciprocalRankFusion is used (recommended for heterogeneous sources).
 // For homogeneous score scales, set Merger to NewScoreMerger explicitly.
-// When merger.Merge fails, degraded fallback uses sequential ResultSet.Merge (score-by-MergeKey),
-// not RRF — ordering may differ from the success-path merger.
+// Fusion errors preserve observations without an implicit merger. Hosts select
+// degradation explicitly with DegradingMerger; score scales remain host-attested.
 type resultAggregateNode[TIntent, TRequestMeta, TMeta any] struct {
 	Nodes       []resultNode[TIntent, TRequestMeta, TMeta]
 	Concurrency int
@@ -244,72 +115,12 @@ type aggregateChildResult[TMeta any] struct {
 }
 
 // Retrieve implements resultNodeNoMeta.
-//
-//nolint:nonamedreturns // Deferred observation records the actual final returned result.
 func (n resultAggregateNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
-) (out ResultSet[TMeta], returnErr error) {
-	ctx, span := observation.Begin(ctx, observation.StageAggregate)
-	defer func() {
-		if span != nil {
-			span.End(observationCompletion(returnErr, out))
-		}
-	}()
-	if err := PreflightRead(ctx, req, n); err != nil {
-		return NewResultSet[TMeta](nil, n.Resolver), err
-	}
-	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if len(n.Nodes) == 0 {
-		return NewResultSet[TMeta](nil, resolver), nil
-	}
-
-	type branch struct {
-		node    resultNode[TIntent, TRequestMeta, TMeta]
-		ordinal uint64
-	}
-	nodes := make([]branch, 0, len(n.Nodes))
-	for i, node := range n.Nodes {
-		if node == nil {
-			return NewResultSet[TMeta](nil, resolver),
-				fmt.Errorf("%w: aggregate node child at index %d", ragy.ErrInvalidArgument, i)
-		}
-		nodes = append(nodes, branch{node: node, ordinal: uint64(i)})
-	}
-
-	concurrency := n.Concurrency
-	if concurrency <= 0 {
-		concurrency = len(nodes)
-	}
-
-	sets, err := parallel.MapOrdered(
-		ctx,
-		concurrency,
-		nodes,
-		func(ctx context.Context, child branch) (aggregateChildResult[TMeta], error) {
-			return runAggregateChild(observation.WithBranch(ctx, child.ordinal), child.node, req, resolver), nil
-		},
-	)
-	if err != nil {
-		merger, mergeResolveErr := resolveAggregateMerger(n.Merger, resolver)
-		if mergeResolveErr != nil {
-			return NewResultSet[TMeta](nil, resolver), mergeResolveErr
-		}
-		if partialSets, hasPartial := partialAggregateChildResults(sets); hasPartial {
-			rs, finalizeErr := finalizeAggregateRetrieve(ctx, resolver, merger, partialSets)
-			return preserveResultOnError(rs, errors.Join(err, finalizeErr), resolver)
-		}
-		return NewResultSet[TMeta](nil, resolver), err
-	}
-
-	merger, err := resolveAggregateMerger(n.Merger, resolver)
-	if err != nil {
-		return NewResultSet[TMeta](nil, resolver), err
-	}
-	return finalizeAggregateRetrieve(ctx, resolver, merger, sets)
+) (ResultSet[TMeta], error) {
+	result, err := resultExecutionNode[TIntent, TRequestMeta, TMeta](n).Execute(ctx, req, NoExecutionMeta{})
+	return result.ResultSet, err
 }
 
 func resolveAggregateMerger[TMeta any](
@@ -317,6 +128,19 @@ func resolveAggregateMerger[TMeta any](
 	resolver IdentityResolver[TMeta],
 ) (ResultMerger[TMeta], error) {
 	if merger != nil {
+		if nilvalue.IsNil(merger) {
+			return nil, fmt.Errorf("%w: typed-nil aggregate merger", ragy.ErrInvalidArgument)
+		}
+		switch m := merger.(type) {
+		case DegradingMerger[TMeta]:
+			if err := m.validate(); err != nil {
+				return nil, err
+			}
+		case *DegradingMerger[TMeta]:
+			if err := m.validate(); err != nil {
+				return nil, err
+			}
+		}
 		return merger, nil
 	}
 	return NewReciprocalRankFusion(defaultAggregateRRFK, resolver)
@@ -333,134 +157,53 @@ func finalizeAggregateRetrieve[TMeta any](
 	for _, result := range sets {
 		if result.err != nil {
 			childErrors = append(childErrors, result.err)
-			if result.rs != nil && !result.rs.IsEmpty() {
-				successSets = append(successSets, result.rs)
-			}
-			continue
 		}
-		if result.rs != nil && !result.rs.IsEmpty() {
+		if !nilvalue.IsNil(result.rs) && !result.rs.IsEmpty() {
 			successSets = append(successSets, result.rs)
 		}
 	}
-
+	if err := errors.Join(childErrors...); access.IsProtectionFailure(err) {
+		return NewResultSet[TMeta](nil, resolver), &access.ProtectionError{Cause: err}
+	}
+	if err := ctx.Err(); err != nil {
+		return NewResultSet[TMeta](nil, resolver), errors.Join(append(childErrors, err)...)
+	}
 	fusionCtx, fusionSpan := observation.Begin(ctx, observation.StageFusion)
 	merged, mergeErr := merger.Merge(fusionCtx, successSets...)
+	merged = ensureResultSet(merged, resolver)
 	if fusionSpan != nil {
 		fusionSpan.End(observationCompletion(mergeErr, merged))
 	}
-	if mergeErr != nil {
-		return aggregateMergeFailureResult(resolver, successSets, childErrors, mergeErr)
+	if err := ctx.Err(); err != nil {
+		return NewResultSet[TMeta](nil, resolver), errors.Join(append(childErrors, mergeErr, err)...)
 	}
-	if !merged.IsEmpty() {
-		if len(childErrors) > 0 {
-			return merged, &PartialFailureError[TMeta]{Errors: childErrors, Result: merged}
+	if stopsDegradation(mergeErr) {
+		return NewResultSet[TMeta](
+			nil,
+			resolver,
+		), &access.ProtectionError{
+			Cause: errors.Join(append(childErrors, mergeErr)...),
 		}
-		return merged, nil
+	}
+	if mergeErr != nil {
+		observations := make([]ResultSet[TMeta], 0, len(successSets))
+		for _, set := range successSets {
+			observations = append(observations, NewResultSet(set.Documents(), ResolverFor(set)))
+		}
+		failure := &FusionFailureError[TMeta]{
+			Cause:        errors.Join(append(childErrors, mergeErr)...),
+			observations: observations,
+		}
+		if !merged.IsEmpty() {
+			return merged, &PartialFailureError[TMeta]{Errors: []error{failure}, Result: merged}
+		}
+		return merged, failure
 	}
 	if len(childErrors) > 0 {
-		return aggregatePartialWithChildErrors(resolver, successSets, childErrors)
-	}
-	return merged, nil
-}
-
-func aggregatePartialWithChildErrors[TMeta any](
-	resolver IdentityResolver[TMeta],
-	successSets []ResultSet[TMeta],
-	childErrors []error,
-) (ResultSet[TMeta], error) {
-	fallback, fbErr := tryAggregateFallback(successSets, resolver)
-	if fallback != nil && !fallback.IsEmpty() {
-		errs := append([]error{}, childErrors...)
-		if fbErr != nil {
-			errs = append(errs, fbErr)
+		if len(successSets) == 0 {
+			return merged, errors.Join(childErrors...)
 		}
-		return fallback, &PartialFailureError[TMeta]{Errors: errs, Result: fallback}
-	}
-	return NewResultSet[TMeta](nil, resolver), errors.Join(childErrors...)
-}
-
-func aggregateMergeFailureResult[TMeta any](
-	resolver IdentityResolver[TMeta],
-	successSets []ResultSet[TMeta],
-	childErrors []error,
-	mergeErr error,
-) (ResultSet[TMeta], error) {
-	fallback, fbErr := tryAggregateFallback(successSets, resolver)
-	if fallback != nil && !fallback.IsEmpty() {
-		errs := append(append([]error{}, childErrors...), mergeErr)
-		if fbErr != nil {
-			errs = append(errs, fbErr)
-		}
-		return fallback, &PartialFailureError[TMeta]{Errors: errs, Result: fallback}
-	}
-	errs := append(append([]error{}, childErrors...), mergeErr)
-	if fbErr != nil {
-		errs = append(errs, fbErr)
-	}
-	return NewResultSet[TMeta](nil, resolver), errors.Join(errs...)
-}
-
-func tryAggregateFallback[TMeta any](
-	successSets []ResultSet[TMeta],
-	resolver IdentityResolver[TMeta],
-) (ResultSet[TMeta], error) {
-	// Score-merge fallback: sequential ResultSet.Merge, not RRF.
-	fallback, fbErr := fallbackUnmergedSets(successSets, resolver)
-	if fbErr != nil {
-		fallback, _ = preserveResultOnError(fallback, fbErr, resolver)
-	}
-	return fallback, fbErr
-}
-
-func runAggregateChild[TIntent, TRequestMeta, TMeta any](
-	ctx context.Context,
-	node resultNode[TIntent, TRequestMeta, TMeta],
-	req Request[TIntent, TRequestMeta],
-	resolver IdentityResolver[TMeta],
-) aggregateChildResult[TMeta] {
-	rs, retrieveErr := node.Retrieve(ctx, req)
-	if retrieveErr != nil {
-		rs, _ = preserveResultOnError(rs, retrieveErr, resolver)
-		return aggregateChildResult[TMeta]{
-			rs:  rs,
-			err: retrieveErr,
-		}
-	}
-	if rs == nil {
-		rs = NewResultSet[TMeta](nil, resolver)
-	}
-	return aggregateChildResult[TMeta]{rs: RewrapResultSet(rs, resolver), err: nil}
-}
-
-func partialAggregateChildResults[TMeta any](
-	sets []aggregateChildResult[TMeta],
-) ([]aggregateChildResult[TMeta], bool) {
-	if len(sets) == 0 {
-		return nil, false
-	}
-	out := make([]aggregateChildResult[TMeta], 0, len(sets))
-	for _, result := range sets {
-		if result.err != nil || (result.rs != nil && !result.rs.IsEmpty()) {
-			out = append(out, result)
-		}
-	}
-	return out, len(out) > 0
-}
-
-func fallbackUnmergedSets[TMeta any](
-	sets []ResultSet[TMeta],
-	resolver IdentityResolver[TMeta],
-) (ResultSet[TMeta], error) {
-	if len(sets) == 0 {
-		return NewResultSet[TMeta](nil, resolver), nil
-	}
-	merged := NewResultSet[TMeta](nil, resolver)
-	for _, set := range sets {
-		var err error
-		merged, err = merged.Merge(set)
-		if err != nil {
-			return merged, err
-		}
+		return merged, &PartialFailureError[TMeta]{Errors: childErrors, Result: merged}
 	}
 	return merged, nil
 }
@@ -476,47 +219,12 @@ type resultConditionalNode[TIntent, TRequestMeta, TMeta any] struct {
 type resultConditionalNodeNoMeta[TIntent, TMeta any] = resultConditionalNode[TIntent, NoRequestMeta, TMeta]
 
 // Retrieve implements resultNodeNoMeta.
-//
-//nolint:nonamedreturns // Deferred observation records the actual final returned result.
 func (n resultConditionalNode[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
-) (out ResultSet[TMeta], returnErr error) {
-	ctx, span := observation.Begin(ctx, observation.StageConditional)
-	skipped := false
-	defer func() {
-		if span != nil {
-			completion := observationCompletion(returnErr, out)
-			if skipped {
-				completion.Outcome = observation.OutcomeSkipped
-			}
-			span.End(completion)
-		}
-	}()
-	if err := PreflightRead(ctx, req, n); err != nil {
-		return NewResultSet[TMeta](nil, n.Resolver), err
-	}
-	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	// Nil Predicate is treated as always true (child always runs).
-	if n.Predicate != nil && !n.Predicate(req) {
-		skipped = true
-		return NewResultSet[TMeta](nil, resolver), nil
-	}
-	if n.Child == nil {
-		return NewResultSet[TMeta](nil, resolver),
-			fmt.Errorf("%w: conditional child node", ragy.ErrInvalidArgument)
-	}
-	rs, err := n.Child.Retrieve(observation.WithBranch(ctx, 0), req)
-	if err != nil {
-		return preserveResultOnError(rs, err, resolver)
-	}
-	if rs == nil {
-		return NewResultSet[TMeta](nil, resolver), nil
-	}
-	return RewrapResultSet(rs, resolver), nil
+) (ResultSet[TMeta], error) {
+	result, err := resultExecutionNode[TIntent, TRequestMeta, TMeta](n).Execute(ctx, req, NoExecutionMeta{})
+	return result.ResultSet, err
 }
 
 type resultPipelineBuilder[TIntent, TRequestMeta, TMeta any] struct {
@@ -637,37 +345,19 @@ func (b *resultPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithResolver(
 
 // Build returns the configured orchestrator pipeline.
 func (b *resultPipelineBuilder[TIntent, TRequestMeta, TMeta]) Build() (*resultPipeline[TIntent, TRequestMeta, TMeta], error) {
-	if b.root == nil {
-		return nil, fmt.Errorf("%w: pipeline root node", ragy.ErrInvalidArgument)
-	}
-	if err := validateNodeTree(b.root); err != nil {
-		return nil, err
-	}
-	resolver := b.resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	root, err := injectNodeResolver(b.root, resolver)
+	engine, err := (&RequestExecutionPipelineBuilder[TIntent, TRequestMeta, TMeta, NoExecutionMeta]{
+		root: resultExecutionNode[TIntent, TRequestMeta, TMeta](b.root), postChain: b.postChain, resolver: b.resolver, planner: b.planner, binder: b.binder, seed: nil,
+	}).Build()
 	if err != nil {
 		return nil, err
 	}
-	postChain := b.postChain
-	if postChain != nil {
-		postChain = postChain.withResolver(resolver)
-	}
-	return &resultPipeline[TIntent, TRequestMeta, TMeta]{
-		root:      root,
-		postChain: postChain,
-		resolver:  resolver,
-		planner:   b.planner,
-		binder:    b.binder,
-	}, nil
+	return &resultPipeline[TIntent, TRequestMeta, TMeta]{engine: engine}, nil
 }
 
 func validateNodeTree[TIntent, TRequestMeta, TMeta any](
 	node resultNode[TIntent, TRequestMeta, TMeta],
 ) error {
-	if node == nil {
+	if nilvalue.IsNil(node) {
 		return fmt.Errorf("%w: pipeline node", ragy.ErrInvalidArgument)
 	}
 	switch n := node.(type) {
@@ -729,7 +419,7 @@ func injectNodeResolver[TIntent, TRequestMeta, TMeta any](
 	node resultNode[TIntent, TRequestMeta, TMeta],
 	resolver IdentityResolver[TMeta],
 ) (resultNode[TIntent, TRequestMeta, TMeta], error) {
-	if node == nil {
+	if nilvalue.IsNil(node) {
 		var zero resultNode[TIntent, TRequestMeta, TMeta]
 		return zero, nil // unreachable after validateNodeTree; kept as defense-in-depth
 	}
@@ -826,7 +516,25 @@ func rebindAggregateMerger[TMeta any](
 	merger ResultMerger[TMeta],
 	resolver IdentityResolver[TMeta],
 ) (ResultMerger[TMeta], error) {
+	if merger != nil && nilvalue.IsNil(merger) {
+		return nil, fmt.Errorf("%w: typed-nil aggregate merger", ragy.ErrInvalidArgument)
+	}
 	switch m := merger.(type) {
+	case *DegradingMerger[TMeta]:
+		return rebindAggregateMerger(*m, resolver)
+	case DegradingMerger[TMeta]:
+		if err := m.validate(); err != nil {
+			return nil, err
+		}
+		primary, err := rebindAggregateMerger(m.Primary, resolver)
+		if err != nil {
+			return nil, err
+		}
+		fallback, err := rebindAggregateMerger(m.Fallback, resolver)
+		if err != nil {
+			return nil, err
+		}
+		return DegradingMerger[TMeta]{Primary: primary, Fallback: fallback}, nil
 	case *ScoreMerger[TMeta]:
 		return NewScoreMerger(resolver), nil
 	case *ReciprocalRankFusion[TMeta]:
@@ -841,167 +549,71 @@ func rebindAggregateMerger[TMeta any](
 	}
 }
 
-// resultPipeline is a declarative retrieval orchestrator.
+// resultPipeline is a result-shaped adapter over the common execution engine.
 type resultPipeline[TIntent, TRequestMeta, TMeta any] struct {
-	root      resultNode[TIntent, TRequestMeta, TMeta]
-	postChain *PostProcessorChain[TMeta]
-	resolver  IdentityResolver[TMeta]
-	planner   QueryPlanner[TIntent, TRequestMeta]
-	binder    RequestPlanBinder[TIntent, TRequestMeta, NoExecutionMeta]
+	engine *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, NoExecutionMeta]
 }
 
-// Execute runs planner, binder, retrieval graph, and optional post-processors.
-//
-//nolint:nonamedreturns // Completion runs after finishReadResult has enforced trusted delivery.
 func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
-) (out RetrievalResult[TMeta, NoExecutionMeta], returnErr error) {
-	ctx, span := observation.Begin(ctx, observation.StagePipeline)
-	defer func() {
-		if span != nil {
-			completion := observationCompletion(returnErr, out.ResultSet)
-			if out.Coverage.IsPartial() && returnErr == nil {
-				completion.Outcome = observation.OutcomePartial
-			}
-			span.End(completion)
-		}
-	}()
-	var coverage ReadCoverage
-	if p != nil && p.root != nil {
-		var admissionErr error
-		coverage, admissionErr = InspectRead(ctx, req, p.root)
-		if admissionErr != nil {
-			return emptyRetrievalResult(executionResolver(p.resolver), NoExecutionMeta{}), admissionErr
-		}
-	}
-	result, err := p.execute(ctx, req)
-	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
-	var resolver IdentityResolver[TMeta]
-	if p != nil {
-		resolver = p.resolver
-	}
-	return finishReadResult(ctx, req.Read, result, err, executionResolver(resolver))
-}
-
-func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) execute(
-	ctx context.Context,
-	req Request[TIntent, TRequestMeta],
 ) (RetrievalResult[TMeta, NoExecutionMeta], error) {
-	exec := NoExecutionMeta{}
-	if p == nil || p.root == nil {
-		return emptyRetrievalResult(DocumentIDResolver[TMeta]{}, exec),
-			fmt.Errorf("%w: pipeline root", ragy.ErrInvalidArgument)
+	var engine *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, NoExecutionMeta]
+	if p != nil {
+		engine = p.engine
 	}
-	if err := PreflightRead(ctx, req, p.root); err != nil {
-		return emptyRetrievalResult(p.resolver, exec), err
-	}
-	trustedRead := req.Read
-	var diagnostics []ExecutionDiagnostic
-	var planErr error
-	req, diagnostics, planErr = p.planQuery(ctx, req)
-	if planErr != nil {
-		return RetrievalResult[TMeta, NoExecutionMeta]{
-			Coverage:    UnobservedReadCoverage(),
-			ResultSet:   NewResultSet[TMeta](nil, p.resolver),
-			Executed:    exec,
-			Diagnostics: diagnostics,
-			BranchTrace: pipelineErrorTrace(plannerStage, planErr),
-		}, planErr
-	}
-	if p.binder != nil {
-		bound, bindErr := p.binder.BindPlan(ctx, req, req.Plan, exec)
-		diagnostics = append(diagnostics, bound.Diagnostics...)
-		if bindErr != nil {
-			return RetrievalResult[TMeta, NoExecutionMeta]{
-				Coverage:    UnobservedReadCoverage(),
-				ResultSet:   NewResultSet[TMeta](nil, p.resolver),
-				Executed:    bound.Executed,
-				Diagnostics: diagnostics,
-				BranchTrace: pipelineErrorTrace("binder", bindErr),
-			}, bindErr
-		}
-		bound.Request.Read = trustedRead
-		req = bound.Request
-		exec = bound.Executed
-	}
-	if err := validateReadRequest(ctx, req, p.root); err != nil {
-		return RetrievalResult[TMeta, NoExecutionMeta]{
-			Coverage:    UnobservedReadCoverage(),
-			ResultSet:   NewResultSet[TMeta](nil, p.resolver),
-			Executed:    exec,
-			Diagnostics: diagnostics,
-			BranchTrace: pipelineErrorTrace("options", err),
-		}, err
-	}
-
-	rs, err := p.root.Retrieve(ctx, req)
-	partialErr := err
-	if partialErr != nil {
-		rs, _ = preserveResultOnError(rs, partialErr, p.resolver)
-	} else if rs == nil {
-		rs = NewResultSet[TMeta](nil, p.resolver)
-	}
-	if readErr := readDeliveryError(ctx, trustedRead, partialErr); readErr != nil {
-		var zero NoExecutionMeta
-		return emptyRetrievalResult(p.resolver, zero), readErr
-	}
-
-	result := RetrievalResult[TMeta, NoExecutionMeta]{
-		Coverage:    UnobservedReadCoverage(),
-		ResultSet:   ensureResultSet(rs, p.resolver),
-		Executed:    exec,
-		Diagnostics: diagnostics,
-		BranchTrace: []BranchStep{nodeBranchStep("root", resultState(rs, partialErr), partialErr)},
-	}
-	var terminalErr error
-	if p.postChain != nil {
-		var postErr error
-		result.ResultSet, postErr = p.postChain.Process(ctx, req.Read, req.Options, result.ResultSet)
-		if postErr != nil {
-			result.ResultSet, _ = preserveResultOnError(result.ResultSet, postErr, p.resolver)
-			final := NewResultSet(result.ResultSet.Documents(), p.resolver)
-			result.ResultSet = final
-			if partialErr != nil {
-				return result, errors.Join(syncPartialFailureResult(partialErr, final), postErr)
-			}
-			return result, postErr
-		}
-	} else {
-		result.ResultSet, terminalErr = applyTerminalOptions(result.ResultSet, req.Options, p.resolver)
-	}
-	if terminalErr != nil {
-		return result, errors.Join(partialErr, terminalErr)
-	}
-	final := NewResultSet(result.ResultSet.Documents(), p.resolver)
-	result.ResultSet = final
-	if partialErr != nil {
-		return result, syncPartialFailureResult(partialErr, final)
-	}
-	return result, nil
+	return engine.Execute(ctx, req)
 }
 
-func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) planQuery(
-	ctx context.Context,
-	req Request[TIntent, TRequestMeta],
-) (Request[TIntent, TRequestMeta], []ExecutionDiagnostic, error) {
-	if req.Plan != nil {
-		req = applyPlannedQuery(req)
-		return req, plannerDiagnostics(req.Plan.Diagnostics), nil
+// resultExecutionNode translates declarative result syntax, never dispatch policy.
+func resultExecutionNode[TIntent, TRequestMeta, TMeta any](
+	node resultNode[TIntent, TRequestMeta, TMeta],
+) RequestExecutionNode[TIntent, TRequestMeta, TMeta, NoExecutionMeta] {
+	if nilvalue.IsNil(node) {
+		return nil
 	}
-	if p.planner == nil {
-		return req, nil, nil
+	switch n := node.(type) {
+	case resultRetrieverNode[TIntent, TRequestMeta, TMeta]:
+		return RequestBackendNode[TIntent, TRequestMeta, TMeta, NoExecutionMeta]{
+			Backend:  n.Backend,
+			Resolver: n.Resolver, Name: "",
+		}
+	case resultFallbackNode[TIntent, TRequestMeta, TMeta]:
+		return RequestFallbackNode[TIntent, TRequestMeta, TMeta, NoExecutionMeta]{
+			Primary:   resultExecutionNode(n.Primary),
+			Secondary: resultExecutionNode(n.Secondary),
+			Resolver:  n.Resolver, Name: "",
+		}
+	case resultRescueNode[TIntent, TRequestMeta, TMeta]:
+		return RequestRescueNode[TIntent, TRequestMeta, TMeta, NoExecutionMeta]{
+			Primary:   resultExecutionNode(n.Primary),
+			Secondary: resultExecutionNode(n.Secondary),
+			Resolver:  n.Resolver, Name: "",
+		}
+	case resultConditionalNode[TIntent, TRequestMeta, TMeta]:
+		return RequestConditionalNode[TIntent, TRequestMeta, TMeta, NoExecutionMeta]{
+			Predicate: n.Predicate,
+			Child:     resultExecutionNode(n.Child),
+			Resolver:  n.Resolver, Name: "",
+		}
+	case resultAggregateNode[TIntent, TRequestMeta, TMeta]:
+		children := make([]RequestExecutionNode[TIntent, TRequestMeta, TMeta, NoExecutionMeta], len(n.Nodes))
+		for i, child := range n.Nodes {
+			children[i] = resultExecutionNode(child)
+		}
+		return RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, NoExecutionMeta]{
+			Nodes:       children,
+			Concurrency: n.Concurrency,
+			Resolver:    n.Resolver,
+			Merger:      n.Merger, MergeExecution: nil, Name: "",
+		}
+	default:
+		return requestNodeExecutionAdapter[TIntent, TRequestMeta, TMeta, NoExecutionMeta]{
+			Node:     node,
+			Resolver: nil,
+			Name:     "",
+		}
 	}
-	planCtx, planSpan := observation.Begin(ctx, observation.StagePlan)
-	plan, err := p.planner.Plan(planCtx, req)
-	if planSpan != nil {
-		planSpan.End(observation.Finish(err, observation.Count{Known: false, Value: 0}))
-	}
-	if err != nil {
-		return req, plannerDiagnostics(plan.Diagnostics), err
-	}
-	req = applyPlannedQuery(req.WithPlan(plan))
-	return req, plannerDiagnostics(plan.Diagnostics), nil
 }
 
 func applyPlannedQuery[TIntent, TRequestMeta any](

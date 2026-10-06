@@ -1,0 +1,8 @@
+ok  	github.com/skosovsky/ragy/retrieval	2.133s
+ok  	github.com/skosovsky/ragy/recipe	2.244s
+ok  	github.com/skosovsky/ragy/recipe/budget	2.073s
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	2.214s
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	2.505s
+ok  	github.com/skosovsky/ragy/recipe/recording	2.117s
+ok  	github.com/skosovsky/ragy/adapters/cohere/rerank	2.190s
+ok  	github.com/skosovsky/ragy/adapters/observability/otel	2.070s

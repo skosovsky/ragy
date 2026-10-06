@@ -1,0 +1,24 @@
+ok  	github.com/skosovsky/ragy/retrieval	1.360s
+ok  	github.com/skosovsky/ragy/recipe	1.451s
+ok  	github.com/skosovsky/ragy/recipe/budget	1.317s
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	1.370s
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	1.847s
+ok  	github.com/skosovsky/ragy/recipe/recording	1.197s
+ok  	github.com/skosovsky/ragy/adapters/cohere/rerank	1.292s
+ok  	github.com/skosovsky/ragy/adapters/observability/otel	1.198s
+ok  	github.com/skosovsky/ragy/examples/planner/catalog_vector_fallback	1.511s
+ok  	github.com/skosovsky/ragy/examples/planner/partial_failure_aggregate	1.448s
+ok  	github.com/skosovsky/ragy/examples/planner/rescue_fallback_aggregate	1.451s
+ok  	github.com/skosovsky/ragy/examples/planner/vector_bm25_aggregate	1.452s
+ok  	github.com/skosovsky/ragy/examples/resilience/rescue_search	1.414s
+?   	github.com/skosovsky/ragy/examples/resilience/retry_embedder	[no test files]
+ok  	example.com/ragyconsumer	11.266s
+ok  	example.com/ragyconsumer/final_contract	2.340s
+ok  	example.com/ragyconsumer/graph_comparison	43.698s
+ok  	example.com/ragyconsumer/internal/codexcall	1.265s
+?   	example.com/ragyconsumer/internal/modelcounter	[no test files]
+ok  	example.com/ragyconsumer/internal/task19	1.433s
+ok  	example.com/ragyconsumer/joint_read	26.424s
+ok  	example.com/ragyconsumer/observation_contract	1.422s
+ok  	example.com/ragyconsumer/recipe_comparison	43.484s
+ok  	example.com/ragyconsumer/tensor_comparison	20.571s

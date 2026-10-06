@@ -12,7 +12,6 @@ import (
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
 	"github.com/skosovsky/ragy/multimodal"
-	"github.com/skosovsky/ragy/ranking"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/tensor"
 
@@ -376,13 +375,13 @@ func (w *DocumentStore[TMeta]) Schema() filter.Schema {
 
 // QueryReranker wraps a query-aware reranker with tracing.
 type QueryReranker[TMeta any] struct {
-	next   ranking.QueryReranker[TMeta]
+	next   retrieval.QueryReranker[TMeta]
 	tracer trace.Tracer
 }
 
 // WrapQueryReranker constructs a traced query-aware reranker.
 func WrapQueryReranker[TMeta any](
-	next ranking.QueryReranker[TMeta],
+	next retrieval.QueryReranker[TMeta],
 	tracer trace.Tracer,
 ) (*QueryReranker[TMeta], error) {
 	if next == nil {
@@ -396,7 +395,7 @@ func WrapQueryReranker[TMeta any](
 	return &QueryReranker[TMeta]{next: next, tracer: tracer}, nil
 }
 
-// Rerank implements ranking.QueryReranker.
+// Rerank implements retrieval.QueryReranker.
 func (w *QueryReranker[TMeta]) Rerank(
 	ctx context.Context,
 	read access.Binding, query string,
@@ -470,12 +469,12 @@ func (w *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) Exec
 
 // Merger wraps a ranked-list merger with tracing.
 type Merger[TMeta any] struct {
-	next   ranking.Merger[TMeta]
+	next   retrieval.ResultMerger[TMeta]
 	tracer trace.Tracer
 }
 
 // WrapMerger constructs a traced ranked-list merger.
-func WrapMerger[TMeta any](next ranking.Merger[TMeta], tracer trace.Tracer) (*Merger[TMeta], error) {
+func WrapMerger[TMeta any](next retrieval.ResultMerger[TMeta], tracer trace.Tracer) (*Merger[TMeta], error) {
 	if next == nil {
 		return nil, fmt.Errorf("%w: ranking merger", ragy.ErrInvalidArgument)
 	}
@@ -487,7 +486,7 @@ func WrapMerger[TMeta any](next ranking.Merger[TMeta], tracer trace.Tracer) (*Me
 	return &Merger[TMeta]{next: next, tracer: tracer}, nil
 }
 
-// Merge implements ranking.Merger.
+// Merge implements retrieval.ResultMerger.
 func (w *Merger[TMeta]) Merge(
 	ctx context.Context,
 	sets ...retrieval.ResultSet[TMeta],
@@ -508,6 +507,6 @@ var (
 	_ multimodal.Embedder              = (*MultimodalEmbedder)(nil)
 	_ graph.Store[any]                 = (*GraphStore[any])(nil)
 	_ documents.RawStore[any]          = (*DocumentStore[any])(nil)
-	_ ranking.QueryReranker[any]       = (*QueryReranker[any])(nil)
-	_ ranking.Merger[any]              = (*Merger[any])(nil)
+	_ retrieval.QueryReranker[any]     = (*QueryReranker[any])(nil)
+	_ retrieval.ResultMerger[any]      = (*Merger[any])(nil)
 )

@@ -1,0 +1,18 @@
+--- FAIL: TestReviewConditionalInvalidChildBeforePredicate (0.00s)
+    review_adversarial_test.go:5: err=<nil> calls=1
+--- FAIL: TestReviewFallbackTypedNilSecondaryBeforePrimary (0.00s)
+    review_adversarial_test.go:6: panic=typed nil dispatched primary calls=1
+--- FAIL: TestReviewDegradingInvalidPortsRemainInvalidAtBuild (0.00s)
+    review_adversarial_test.go:7: invalid degrading config build err=<nil>
+--- FAIL: TestReviewProtectionPreservesJoinedCauses (0.00s)
+    review_adversarial_test.go:8: lost joined sibling: read protection failed
+--- FAIL: TestReviewDegradePrimarySuccessCanceledSuppresses (0.00s)
+    review_adversarial_test.go:10: payload len=1 err=<nil>
+--- FAIL: TestReviewPartialEmptyNeverRescued (0.00s)
+    review_adversarial_test.go:11: secondary calls=1 err=aggregate partial failure (1 child error(s)): unavailable: rescue secondary empty
+--- FAIL: TestReviewTypedNilRoutePlanner (0.00s)
+    review_adversarial_test.go:13: build err=<nil>
+    review_adversarial_test.go:13: typed nil route planner panic: runtime error: invalid memory address or nil pointer dereference
+FAIL
+FAIL	github.com/skosovsky/ragy/retrieval	0.470s
+FAIL

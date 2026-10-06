@@ -3,7 +3,6 @@ package recipe
 import (
 	"context"
 	"errors"
-	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 	"github.com/skosovsky/ragy/observation"
 	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/retrieval"
@@ -33,6 +33,11 @@ func New[TIntent, TRequestMeta, TMeta any](
 	if config.MaxQueries <= 0 || config.MaxQueries > maxQueries {
 		return nil, ragy.ErrInvalidArgument
 	}
+	if config.Artifact != nil {
+		artifact := *config.Artifact
+		artifact.Diagnostics = slices.Clone(artifact.Diagnostics)
+		config.Artifact = &artifact
+	}
 	return &Recipe[TIntent, TRequestMeta, TMeta]{config: config}, nil
 }
 
@@ -45,7 +50,9 @@ func validConfig[TIntent, TRequestMeta, TMeta any](config Config[TIntent, TReque
 	cloning := config.CloneIntent != nil && config.CloneRequestMeta != nil && config.CloneMeta != nil &&
 		config.Supports != nil
 	bounds := config.Now != nil && config.Duration > 0 && config.MaxDocuments > 0 && config.FusionK > 0
-	return ports && cloning && bounds && config.Revision != "" && utf8.ValidString(config.Revision)
+	return ports && cloning && bounds && (config.QueryEncoder == nil || !nilPort(config.QueryEncoder)) &&
+		config.Revision != "" &&
+		utf8.ValidString(config.Revision)
 }
 
 func queryLimit(strategy Strategy) int {
@@ -61,23 +68,7 @@ func queryLimit(strategy Strategy) int {
 	}
 }
 
-func nilPort(port any) bool {
-	if port == nil {
-		return true
-	}
-	value := reflect.ValueOf(port)
-	switch value.Kind() {
-	case reflect.Pointer, reflect.Interface, reflect.Func, reflect.Map, reflect.Slice, reflect.Chan:
-		return value.IsNil()
-	case reflect.Invalid, reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-		reflect.Array, reflect.String, reflect.Struct, reflect.UnsafePointer:
-		return false
-	default:
-		return false
-	}
-}
+func nilPort(port any) bool { return nilvalue.IsNil(port) }
 
 type attempt[TIntent, TRequestMeta, TMeta any] struct {
 	recipe   *Recipe[TIntent, TRequestMeta, TMeta]

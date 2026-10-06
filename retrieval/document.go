@@ -42,7 +42,8 @@ type Document[TMeta any] struct {
 	Meta           TMeta
 	// SourceMapping addresses Content only; zero means unobserved precision.
 	SourceMapping source.MappedText
-	// SourceSupports retains every original contributor, including dedup losers.
+	// SourceSupports retains contributors to this payload. Dedup losers with
+	// different content or metadata never contribute evidence to the winner.
 	SourceSupports []source.Locator
 }
 

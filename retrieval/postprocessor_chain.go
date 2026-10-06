@@ -2,6 +2,7 @@ package retrieval
 
 import (
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 
 	"context"
 	"fmt"
@@ -28,7 +29,7 @@ func NewPostProcessorChainWithResolver[TMeta any](
 	resolver IdentityResolver[TMeta],
 	processors ...PostProcessor[TMeta],
 ) *PostProcessorChain[TMeta] {
-	if resolver == nil {
+	if nilvalue.IsNil(resolver) {
 		resolver = DocumentIDResolver[TMeta]{}
 	}
 	return &PostProcessorChain[TMeta]{
@@ -41,7 +42,7 @@ func (p *PostProcessorChain[TMeta]) withResolver(resolver IdentityResolver[TMeta
 	if p == nil {
 		return nil
 	}
-	if resolver == nil {
+	if nilvalue.IsNil(resolver) {
 		resolver = DocumentIDResolver[TMeta]{}
 	}
 	clone := *p
@@ -59,6 +60,9 @@ func bindProcessorsResolver[TMeta any](
 	}
 	out := make([]PostProcessor[TMeta], len(processors))
 	for i, processor := range processors {
+		if nilvalue.IsNil(processor) {
+			processor = invalidPostProcessorFor[TMeta](fmt.Errorf("%w: nil postprocessor", ragy.ErrInvalidArgument))
+		}
 		out[i] = bindProcessorResolver(processor, resolver)
 	}
 	return out
@@ -116,7 +120,12 @@ func (p *PostProcessorChain[TMeta]) process(
 	if err := opts.Validate(); err != nil {
 		return preserveResultOnError(rs, err, p.resolver)
 	}
-	if rs == nil {
+	for _, processor := range p.processors {
+		if invalid, ok := processor.(invalidPostProcessor[TMeta]); ok {
+			return preserveResultOnError(rs, invalid.err, p.resolver)
+		}
+	}
+	if nilvalue.IsNil(rs) {
 		rs = NewResultSet[TMeta](nil, p.resolver)
 	}
 	if err := validateResultSet(rs); err != nil {
@@ -176,7 +185,7 @@ func applyTerminalOptions[TMeta any](
 }
 
 func validateResultSet[TMeta any](rs ResultSet[TMeta]) error {
-	if rs == nil {
+	if nilvalue.IsNil(rs) {
 		return nil
 	}
 	for _, doc := range rs.Documents() {
@@ -192,7 +201,7 @@ func applyScoreThreshold[TMeta any](
 	threshold *ScoreThreshold,
 	resolver IdentityResolver[TMeta],
 ) (ResultSet[TMeta], error) {
-	if threshold == nil || rs == nil || rs.IsEmpty() {
+	if threshold == nil || nilvalue.IsNil(rs) || rs.IsEmpty() {
 		return RewrapResultSet(rs, resolver), nil
 	}
 	if err := threshold.Validate(); err != nil {
@@ -215,7 +224,7 @@ func applyScoreThreshold[TMeta any](
 }
 
 func applyTopK[TMeta any](rs ResultSet[TMeta], topK int, resolver IdentityResolver[TMeta]) ResultSet[TMeta] {
-	if topK <= 0 || rs == nil {
+	if topK <= 0 || nilvalue.IsNil(rs) {
 		return RewrapResultSet(rs, resolver)
 	}
 	docs := rs.Documents()

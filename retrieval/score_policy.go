@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 )
 
 // RankToScoreNormalizer explicitly converts rank-only evidence into a score.
@@ -38,7 +39,7 @@ func ApplyRankScorePolicy[TMeta any](
 	docs []Document[TMeta],
 	normalizer RankToScoreNormalizer,
 ) ([]Document[TMeta], error) {
-	if normalizer == nil {
+	if nilvalue.IsNil(normalizer) {
 		return nil, fmt.Errorf("%w: rank score normalizer", ragy.ErrInvalidArgument)
 	}
 	out := copyDocuments(docs)
@@ -76,7 +77,7 @@ func NormalizeRankOnlyResultSet[TMeta any](
 	normalizer RankToScoreNormalizer,
 ) (ResultSet[TMeta], error) {
 	resolver := ResolverFor(rs)
-	if rs == nil || rs.IsEmpty() {
+	if nilvalue.IsNil(rs) || rs.IsEmpty() {
 		return NewResultSet[TMeta](nil, resolver), nil
 	}
 	docs, err := ApplyRankScorePolicy(rs.Documents(), normalizer)

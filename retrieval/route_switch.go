@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/skosovsky/ragy/internal/nilvalue"
 	"github.com/skosovsky/ragy/observation"
 
 	ragy "github.com/skosovsky/ragy"
@@ -288,10 +289,8 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], RouteDecision[TRoute, TSignal], error) {
 	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if n.Planner == nil {
+	resolver = DefaultResolver(resolver)
+	if nilvalue.IsNil(n.Planner) {
 		return emptyRetrievalResult(resolver, exec),
 			RouteDecision[TRoute, TSignal]{
 				Route:       *new(TRoute),
@@ -475,10 +474,8 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), readErr
 	}
 	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if partialSuccessRS(result.ResultSet, err) {
+	resolver = DefaultResolver(resolver)
+	if nonRescuablePartial(result.ResultSet, err) {
 		result.ResultSet, _ = preserveResultOnError(result.ResultSet, err, resolver)
 		return result, err
 	}
@@ -497,9 +494,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	result RetrievalResult[TMeta, TExecMeta],
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
+	resolver = DefaultResolver(resolver)
 	childCtx, childSpan := observation.Begin(
 		observation.WithBranch(ctx, n.branchOrdinal(c.Route)),
 		observation.StageRetrieval,
@@ -690,12 +685,12 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 }
 
 func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta]) validateExecutionNode() error {
-	if n.Planner == nil {
+	if nilvalue.IsNil(n.Planner) {
 		return fmt.Errorf("%w: route switch planner", ragy.ErrInvalidArgument)
 	}
 	routes := make(map[TRoute]struct{}, len(n.Cases))
 	for i, c := range n.Cases {
-		if c.Node == nil {
+		if nilvalue.IsNil(c.Node) {
 			return fmt.Errorf("%w: route switch case at index %d", ragy.ErrInvalidArgument, i)
 		}
 		if _, exists := routes[c.Route]; exists {

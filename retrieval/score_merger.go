@@ -10,9 +10,7 @@ type ScoreMerger[TMeta any] struct {
 
 // NewScoreMerger constructs a score-based merger for homogeneous ranked lists.
 func NewScoreMerger[TMeta any](resolver IdentityResolver[TMeta]) *ScoreMerger[TMeta] {
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
+	resolver = DefaultResolver(resolver)
 	return &ScoreMerger[TMeta]{resolver: resolver}
 }
 

@@ -10,7 +10,7 @@ import (
 // UnsupportedQueryEncoderBridge documents the strict integration boundary for
 // adapters which cannot enforce recipe-reserved remote input/output token caps.
 // Admit rejects before pricing, reservation or provider I/O.
-type UnsupportedQueryEncoderBridge struct{ Embedder dense.Embedder }
+type UnsupportedQueryEncoderBridge struct{}
 
 func (UnsupportedQueryEncoderBridge) Admit(context.Context, dense.Request) error {
 	return ragy.ErrUnsupported

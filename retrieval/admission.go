@@ -27,6 +27,12 @@ func InspectRead[TIntent, TRequestMeta any](
 	if isNilReadTarget(node) {
 		return UnobservedReadCoverage(), access.Protect(ragy.ErrInvalidArgument)
 	}
+	// Validate built-in composition configuration before any host callback.
+	if validator, ok := node.(interface{ validateExecutionNode() error }); ok {
+		if err := validator.validateExecutionNode(); err != nil {
+			return UnobservedReadCoverage(), err
+		}
+	}
 	if !req.Read.IsScoped() && req.Read.Publication().IsCurrent() {
 		return ReadCoverage{state: CoverageUnrestricted, skipped: nil}, nil
 	}

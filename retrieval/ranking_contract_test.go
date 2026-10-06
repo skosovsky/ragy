@@ -1,4 +1,4 @@
-package ranking
+package retrieval_test
 
 import (
 	"context"
@@ -31,7 +31,7 @@ func resultSet(docs ...retrieval.Document[contracttest.StructMeta]) retrieval.Re
 
 func mergeDocLists(
 	ctx context.Context,
-	merger Merger[contracttest.StructMeta],
+	merger retrieval.ResultMerger[contracttest.StructMeta],
 	lists ...[]retrieval.Document[contracttest.StructMeta],
 ) (retrieval.ResultSet[contracttest.StructMeta], error) {
 	sets := make([]retrieval.ResultSet[contracttest.StructMeta], len(lists))
@@ -62,7 +62,7 @@ func assertCanceledMergePreserves(
 ) {
 	t.Helper()
 
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
@@ -80,7 +80,7 @@ func assertCanceledMergePreserves(
 }
 
 func TestRRFMergeNormalizesScore(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
@@ -133,7 +133,7 @@ func TestRRFMergeNormalizesScore(t *testing.T) {
 }
 
 func TestRRFMergeTreatsNilContextAsBackground(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
@@ -183,7 +183,7 @@ func TestRRFMergeTreatsNilContextAsBackground(t *testing.T) {
 }
 
 func TestRRFRejectsDocumentsWithoutID(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
@@ -198,7 +198,7 @@ func TestRRFRejectsDocumentsWithoutID(t *testing.T) {
 }
 
 func TestRRFRejectsConflictingContentForSameID(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
@@ -215,7 +215,7 @@ func TestRRFRejectsConflictingContentForSameID(t *testing.T) {
 }
 
 func TestRRFRejectsConflictingMetaForSameID(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
@@ -238,7 +238,7 @@ func TestRRFRejectsConflictingMetaForSameID(t *testing.T) {
 }
 
 func TestRRFTreatsNilAndEmptyMetaAsDistinct(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
@@ -253,7 +253,7 @@ func TestRRFTreatsNilAndEmptyMetaAsDistinct(t *testing.T) {
 }
 
 func TestRRFMergesMatchingMeta(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, nil)
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}
@@ -272,7 +272,7 @@ func TestRRFMergesMatchingMeta(t *testing.T) {
 }
 
 func TestRRFMergeUsesMergeKey(t *testing.T) {
-	merger, err := NewReciprocalRankFusion[contracttest.StructMeta](60, tenantResolver{})
+	merger, err := retrieval.NewReciprocalRankFusion[contracttest.StructMeta](60, tenantResolver{})
 	if err != nil {
 		t.Fatalf("NewReciprocalRankFusion(): %v", err)
 	}

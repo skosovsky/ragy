@@ -15,7 +15,6 @@ import (
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
 	"github.com/skosovsky/ragy/multimodal"
-	"github.com/skosovsky/ragy/ranking"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/tensor"
 
@@ -879,9 +878,9 @@ var (
 		contracttest.StructMeta,
 		otelExecutionMeta,
 	] = (*captureRequestExecutionBackend)(nil)
-	_ ranking.QueryReranker[contracttest.StructMeta] = (*captureQueryReranker)(nil)
-	_ ranking.Merger[contracttest.StructMeta]        = (*captureMerger)(nil)
-	_ documents.RawStore[contracttest.StructMeta]    = (*captureDocumentStore)(nil)
+	_ retrieval.QueryReranker[contracttest.StructMeta] = (*captureQueryReranker)(nil)
+	_ retrieval.ResultMerger[contracttest.StructMeta]  = (*captureMerger)(nil)
+	_ documents.RawStore[contracttest.StructMeta]      = (*captureDocumentStore)(nil)
 )
 
 func tracedSpace() embedding.Space {

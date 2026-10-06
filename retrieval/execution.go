@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/skosovsky/ragy/access"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 	"github.com/skosovsky/ragy/internal/parallel"
 	"github.com/skosovsky/ragy/observation"
 )
@@ -71,7 +71,7 @@ type RetrievalResult[TMeta, TExecMeta any] struct {
 // Documents returns the result documents for callers that do not need direct
 // ResultSet access.
 func (r RetrievalResult[TMeta, TExecMeta]) Documents() []Document[TMeta] {
-	if r.ResultSet == nil {
+	if nilvalue.IsNil(r.ResultSet) {
 		return nil
 	}
 	return r.ResultSet.Documents()
@@ -79,7 +79,7 @@ func (r RetrievalResult[TMeta, TExecMeta]) Documents() []Document[TMeta] {
 
 // Len returns the number of result documents.
 func (r RetrievalResult[TMeta, TExecMeta]) Len() int {
-	if r.ResultSet == nil {
+	if nilvalue.IsNil(r.ResultSet) {
 		return 0
 	}
 	return r.ResultSet.Len()
@@ -87,7 +87,7 @@ func (r RetrievalResult[TMeta, TExecMeta]) Len() int {
 
 // IsEmpty reports whether the result has no documents.
 func (r RetrievalResult[TMeta, TExecMeta]) IsEmpty() bool {
-	return r.ResultSet == nil || r.ResultSet.IsEmpty()
+	return nilvalue.IsNil(r.ResultSet) || r.ResultSet.IsEmpty()
 }
 
 // BoundRequest is the output of a plan binding stage.
@@ -144,7 +144,8 @@ type ExecutionNode[TIntent, TMeta, TExecMeta any] = RequestExecutionNode[
 ]
 
 // RequestExecutionBackend retrieves with access to typed execution metadata and
-// can return side outputs through RetrievalResult.
+// can return side outputs through RetrievalResult. Returned Executed is authoritative,
+// including zero; a backend retaining prior state must return it explicitly.
 type RequestExecutionBackend[TIntent, TRequestMeta, TMeta, TExecMeta any] interface {
 	Retrieve(
 		ctx context.Context,
@@ -212,10 +213,8 @@ func (n RequestBackendNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if n.Backend == nil {
+	resolver = DefaultResolver(resolver)
+	if nilvalue.IsNil(n.Backend) {
 		return emptyRetrievalResult(resolver, exec),
 			fmt.Errorf("%w: backend node backend", ragy.ErrInvalidArgument)
 	}
@@ -253,7 +252,7 @@ func (n RequestBackendNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 }
 
 func (n RequestBackendNode[TIntent, TRequestMeta, TMeta, TExecMeta]) validateExecutionNode() error {
-	if n.Backend == nil {
+	if nilvalue.IsNil(n.Backend) {
 		return fmt.Errorf("%w: backend node backend", ragy.ErrInvalidArgument)
 	}
 	return nil
@@ -325,7 +324,7 @@ func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	resolver := executionResolver(n.Resolver)
-	if n.Primary == nil {
+	if nilvalue.IsNil(n.Primary) {
 		return emptyRetrievalResult(resolver, exec),
 			fmt.Errorf("%w: fallback primary node", ragy.ErrInvalidArgument)
 	}
@@ -356,7 +355,7 @@ func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 }
 
 func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta, TExecMeta]) validateExecutionNode() error {
-	if n.Primary == nil {
+	if nilvalue.IsNil(n.Primary) {
 		return fmt.Errorf("%w: fallback primary node", ragy.ErrInvalidArgument)
 	}
 	if err := validateExecutionNodeTree[TIntent, TRequestMeta, TMeta, TExecMeta](n.Primary); err != nil {
@@ -444,7 +443,7 @@ func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	resolver := executionResolver(n.Resolver)
-	if n.Primary == nil {
+	if nilvalue.IsNil(n.Primary) {
 		return emptyRetrievalResult(resolver, exec),
 			fmt.Errorf("%w: rescue primary node", ragy.ErrInvalidArgument)
 	}
@@ -457,7 +456,7 @@ func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 	if access.IsProtectionFailure(err) {
 		return emptyRetrievalResult(resolver, exec), err
 	}
-	if partialSuccessRS(primary.ResultSet, err) {
+	if nonRescuablePartial(primary.ResultSet, err) {
 		primary.ResultSet, _ = preserveResultOnError(primary.ResultSet, err, resolver)
 		primary.BranchTrace = append(primary.BranchTrace, rescueBranchStep(n.Name, BranchStateSkipped, err))
 		return primary, err
@@ -484,7 +483,7 @@ func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 }
 
 func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) validateExecutionNode() error {
-	if n.Primary == nil {
+	if nilvalue.IsNil(n.Primary) {
 		return fmt.Errorf("%w: rescue primary node", ragy.ErrInvalidArgument)
 	}
 	if err := validateExecutionNodeTree[TIntent, TRequestMeta, TMeta, TExecMeta](n.Primary); err != nil {
@@ -572,12 +571,15 @@ func (n RequestConditionalNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	resolver := executionResolver(n.Resolver)
+	if n.Predicate == nil {
+		return emptyRetrievalResult(resolver, exec), fmt.Errorf("%w: conditional predicate", ragy.ErrInvalidArgument)
+	}
 	if n.Predicate != nil && !n.Predicate(req) {
 		result := emptyRetrievalResult(resolver, exec)
 		result.BranchTrace = []BranchStep{nodeBranchStep(n.Name, BranchStateSkipped, nil)}
 		return result, nil
 	}
-	if n.Child == nil {
+	if nilvalue.IsNil(n.Child) {
 		err := fmt.Errorf("%w: conditional child node", ragy.ErrInvalidArgument)
 		result := emptyRetrievalResult(resolver, exec)
 		result.BranchTrace = []BranchStep{nodeBranchStep(n.Name, BranchStateErrored, err)}
@@ -592,7 +594,10 @@ func (n RequestConditionalNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute
 }
 
 func (n RequestConditionalNode[TIntent, TRequestMeta, TMeta, TExecMeta]) validateExecutionNode() error {
-	if n.Child == nil {
+	if n.Predicate == nil {
+		return fmt.Errorf("%w: conditional predicate", ragy.ErrInvalidArgument)
+	}
+	if nilvalue.IsNil(n.Child) {
 		return fmt.Errorf("%w: conditional child node", ragy.ErrInvalidArgument)
 	}
 	return validateExecutionNodeTree[TIntent, TRequestMeta, TMeta, TExecMeta](n.Child)
@@ -666,7 +671,7 @@ func (n requestNodeExecutionAdapter[TIntent, TRequestMeta, TMeta, TExecMeta]) ex
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	resolver := executionResolver(n.Resolver)
-	if n.Node == nil {
+	if nilvalue.IsNil(n.Node) {
 		return emptyRetrievalResult(resolver, exec),
 			fmt.Errorf("%w: result node adapter child", ragy.ErrInvalidArgument)
 	}
@@ -685,7 +690,7 @@ func (n requestNodeExecutionAdapter[TIntent, TRequestMeta, TMeta, TExecMeta]) ex
 }
 
 func (n requestNodeExecutionAdapter[TIntent, TRequestMeta, TMeta, TExecMeta]) validateExecutionNode() error {
-	if n.Node == nil {
+	if nilvalue.IsNil(n.Node) {
 		return fmt.Errorf("%w: result node adapter child", ragy.ErrInvalidArgument)
 	}
 	return validateNodeTree[TIntent, TRequestMeta, TMeta](n.Node)
@@ -769,11 +774,17 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
+	resolver = DefaultResolver(resolver)
+	if _, err := resolveAggregateMerger(n.Merger, resolver); err != nil {
+		return emptyRetrievalResult(resolver, exec), err
 	}
 	if len(n.Nodes) == 0 {
 		return emptyRetrievalResult(resolver, exec), nil
+	}
+	for _, child := range n.Nodes {
+		if nilvalue.IsNil(child) {
+			return emptyRetrievalResult(resolver, exec), fmt.Errorf("%w: aggregate child node", ragy.ErrInvalidArgument)
+		}
 	}
 	nodes := append([]RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta](nil), n.Nodes...)
 	concurrency := n.Concurrency
@@ -810,9 +821,7 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 ) executionAggregateChildResult[TMeta, TExecMeta] {
 	result, err := node.Execute(ctx, req, exec)
 	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
+	resolver = DefaultResolver(resolver)
 	result.ResultSet = ensureResultSet(result.ResultSet, resolver)
 	if err != nil {
 		result.ResultSet, _ = preserveResultOnError(result.ResultSet, err, resolver)
@@ -868,8 +877,11 @@ func aggregateChildTrace[TMeta, TExecMeta any](
 }
 
 func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) validateExecutionNode() error {
+	if _, err := resolveAggregateMerger(n.Merger, executionResolver(n.Resolver)); err != nil {
+		return err
+	}
 	for i, child := range n.Nodes {
-		if child == nil {
+		if nilvalue.IsNil(child) {
 			return fmt.Errorf("%w: execution aggregate child at index %d", ragy.ErrInvalidArgument, i)
 		}
 		if err := validateExecutionNodeTree[TIntent, TRequestMeta, TMeta, TExecMeta](child); err != nil {
@@ -883,6 +895,7 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 	resolver IdentityResolver[TMeta],
 ) (RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta], error) {
 	n.Resolver = resolver
+	n.Nodes = append([]RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta](nil), n.Nodes...)
 	for i, child := range n.Nodes {
 		rebound, err := injectExecutionNodeResolver[TIntent, TRequestMeta, TMeta, TExecMeta](child, resolver)
 		if err != nil {
@@ -934,10 +947,8 @@ func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 	exec TExecMeta,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	resolver := n.Resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if n.Backend == nil {
+	resolver = DefaultResolver(resolver)
+	if nilvalue.IsNil(n.Backend) {
 		return emptyRetrievalResult(resolver, exec),
 			fmt.Errorf("%w: execution retriever backend", ragy.ErrInvalidArgument)
 	}
@@ -963,7 +974,6 @@ func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 		var zero TExecMeta
 		return emptyRetrievalResult(resolver, zero), err
 	}
-	result.Executed = preserveExecutionMeta(exec, result.Executed)
 	result.ResultSet = ensureResultSet(result.ResultSet, resolver)
 	result.BranchTrace = append(
 		[]BranchStep{nodeBranchStep(n.Name, resultState(result.ResultSet, err), err)},
@@ -976,7 +986,7 @@ func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 }
 
 func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) validateExecutionNode() error {
-	if n.Backend == nil {
+	if nilvalue.IsNil(n.Backend) {
 		return fmt.Errorf("%w: execution retriever backend", ragy.ErrInvalidArgument)
 	}
 	return nil
@@ -988,14 +998,6 @@ func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 ) (RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta], error) {
 	n.Resolver = resolver
 	return n, nil
-}
-
-func preserveExecutionMeta[TExecMeta any](incoming, returned TExecMeta) TExecMeta {
-	var zero TExecMeta
-	if reflect.DeepEqual(returned, zero) {
-		return incoming
-	}
-	return returned
 }
 
 // RequestExecutionPipelineBuilder builds an execution-aware retrieval pipeline.
@@ -1102,16 +1104,17 @@ func (b *RequestExecutionPipelineBuilder[TIntent, TRequestMeta, TMeta, TExecMeta
 	*RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta],
 	error,
 ) {
-	if b.root == nil {
+	if (b.planner != nil && nilvalue.IsNil(b.planner)) || (b.binder != nil && nilvalue.IsNil(b.binder)) {
+		return nil, fmt.Errorf("%w: typed-nil planner or binder", ragy.ErrInvalidArgument)
+	}
+	if nilvalue.IsNil(b.root) {
 		return nil, fmt.Errorf("%w: execution pipeline root node", ragy.ErrInvalidArgument)
 	}
 	if err := validateExecutionNodeTree[TIntent, TRequestMeta, TMeta, TExecMeta](b.root); err != nil {
 		return nil, err
 	}
 	resolver := b.resolver
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
+	resolver = DefaultResolver(resolver)
 	root, err := injectExecutionNodeResolver[TIntent, TRequestMeta, TMeta, TExecMeta](b.root, resolver)
 	if err != nil {
 		return nil, err
@@ -1263,9 +1266,8 @@ func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) exec
 			}
 			return result, postErr
 		}
-	} else {
-		result.ResultSet, terminalErr = applyTerminalOptions(result.ResultSet, req.Options, p.resolver)
 	}
+	result.ResultSet, terminalErr = applyTerminalOptions(result.ResultSet, req.Options, p.resolver)
 	if terminalErr != nil {
 		return result, errors.Join(retrieveErr, terminalErr)
 	}
@@ -1312,7 +1314,7 @@ func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) plan
 func validateExecutionNodeTree[TIntent, TRequestMeta, TMeta, TExecMeta any](
 	node RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta],
 ) error {
-	if node == nil {
+	if nilvalue.IsNil(node) {
 		return fmt.Errorf("%w: execution pipeline node", ragy.ErrInvalidArgument)
 	}
 	if n, ok := node.(interface{ validateExecutionNode() error }); ok {
@@ -1325,7 +1327,7 @@ func injectExecutionNodeResolver[TIntent, TRequestMeta, TMeta, TExecMeta any](
 	node RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta],
 	resolver IdentityResolver[TMeta],
 ) (RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta], error) {
-	if node == nil {
+	if nilvalue.IsNil(node) {
 		var zero RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta]
 		return zero, nil
 	}
@@ -1351,10 +1353,7 @@ func emptyRetrievalResult[TMeta, TExecMeta any](
 }
 
 func executionResolver[TMeta any](resolver IdentityResolver[TMeta]) IdentityResolver[TMeta] {
-	if resolver == nil {
-		return DocumentIDResolver[TMeta]{}
-	}
-	return resolver
+	return DefaultResolver(resolver)
 }
 
 func mergeExecutionBranchResult[TMeta, TExecMeta any](
@@ -1379,10 +1378,8 @@ func mergeExecutionBranchResult[TMeta, TExecMeta any](
 }
 
 func ensureResultSet[TMeta any](rs ResultSet[TMeta], resolver IdentityResolver[TMeta]) ResultSet[TMeta] {
-	if resolver == nil {
-		resolver = DocumentIDResolver[TMeta]{}
-	}
-	if rs == nil {
+	resolver = DefaultResolver(resolver)
+	if nilvalue.IsNil(rs) {
 		return NewResultSet[TMeta](nil, resolver)
 	}
 	return RewrapResultSet(rs, resolver)
@@ -1458,7 +1455,7 @@ func resultState[TMeta any](rs ResultSet[TMeta], err error) string {
 	if err != nil {
 		return BranchStateErrored
 	}
-	if rs == nil || rs.IsEmpty() {
+	if nilvalue.IsNil(rs) || rs.IsEmpty() {
 		return BranchStateEmpty
 	}
 	return BranchStateReturned

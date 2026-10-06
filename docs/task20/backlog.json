@@ -452,12 +452,12 @@
         "report": "acceptance/T11-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "63e775d8e1faee624d04429a63e6958b1efa30a3"
   },
   {
     "id": "T12",
     "title": "retrieval composition",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "refactor!: retrieval composition",
     "criteria": [
       {
@@ -482,8 +482,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "35/35",
+        "coverage_percent": 100,
+        "report": "acceptance/T12-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T12-correctness.md"
+      }
     },
     "commit_sha": null
   },

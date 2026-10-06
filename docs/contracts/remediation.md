@@ -123,3 +123,19 @@ Task20 exercises publication only in disposable repositories with local bare rem
 ## Acceptance and compatibility
 
 The contract-first commit does not close defects. T02–T11 implement and independently verify the relevant sections, including the full original AAA matrices. T12–T21 decide remaining design items and synchronize current public guides; T22 verifies the complete final state. Regression tests assert target behavior and exact call/settlement counts, not the historical diagnostic output. Clean breaks may remove APIs/legacy implementations after consumer inventory while preserving the guarantees above. Substantive contract revisions require explicit rationale, traceability and two independent acceptances of the implementing task.
+
+## Retrieval composition cleanup (D01–D14)
+
+One execution-aware engine owns fallback, rescue, aggregation, conditional dispatch and pipeline semantics. Result-only adapters specialize NoExecutionMeta without independent algorithms. Bounded recipes remain retrieval algorithms with host ports, not a workflow harness. Ranking aliases and unused unsupported-encoder Embedder storage are removed after consumer inventory; retrieval owns query-aware rerank and merge interfaces.
+
+Returned Executed is authoritative, including legitimate zero. Separate ResultSet is the single payload authority even empty; PartialFailureError.Result is a synchronized diagnostic view, cannot resurrect old documents. Synchronization preserves joined/wrapped causes and typed discovery instead of replacing outer errors.
+
+Custom-fusion failure returns an error with original observations, never chooses score fusion automatically. Host may explicitly configure degradation merger. Protection suppresses retained payload. Fallback runs secondary on empty success, Rescue on empty ordinary failure; partial/protection never rescued. Missing conditional predicate is invalid configuration.
+
+Required nil/typed-nil ports are rejected before dispatch. Optional resolver nil/typed-nil explicitly selects DocumentIDResolver; an optional QueryEncoder typed-nil is rejected. Invalid chain processors become explicit invalid sentinels, never nil-method panic. Custom ResultSets may expose optional identity resolver capability; absent capability uses documented default or supplied resolver. Chain threshold precedes processors; terminal pipeline threshold follows root/postprocessing. Different score semantics are never implicitly comparable.
+
+MergeKey may name business groups without proving evidence equality. Winner merge combines source support/history only for identical payload; different losing text contributes no citations to winner. RRF strict equality remains; GroupBy explicitly assembles content.
+
+Recipe snapshots ragy-owned Artifact option collections. Callback/BYOT values stay host-owned, stable, concurrency-safe; no blanket reflection clone. Supplied ledger scope host-selected and may span attempts; RunOwn independent. Calls never refunded; unknown usage reserved. Usage.Known denotes full host accounting tuple, not known zero cost.
+
+Cache/document/query limits bound entries/counts, not bytes, RSS, callback CPU or allocations. Model ports enforce declared text/token limits and remain cooperative. Retained O(capacity) eviction, cloning outside lock and owned slice copying claim no speedup; optimization requires before/after measurements. No distributed cache, refresh daemon, global quota or hidden universal cap.

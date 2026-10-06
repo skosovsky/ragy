@@ -9,6 +9,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 	"github.com/skosovsky/ragy/source"
 )
 
@@ -258,7 +259,7 @@ func (DefaultArtifactRenderer[TMeta]) render(
 		return artifact, &ArtifactError{Stage: "envelope", Cause: ErrArtifactLimit}
 	}
 	artifact.RenderedText, artifact.Resource.Used = boundary, used
-	if rs == nil {
+	if nilvalue.IsNil(rs) {
 		return artifact, nil
 	}
 	if opts.CloneMeta == nil {

@@ -82,7 +82,7 @@ func TestLegacyObservedBranchOutcomes(t *testing.T) {
 					t.Fatalf("correlation %+v", events[idx])
 				}
 			}
-			if events[1].Branch.Value != 0 || events[3].Branch.Value != 1 {
+			if events[1].Branch.Value != 1 || events[3].Branch.Value != 2 {
 				t.Fatalf("branches %+v", events)
 			}
 			if session.Stats().Failures != 6 {

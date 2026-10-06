@@ -28,7 +28,10 @@ type stubNode[TMeta any] struct {
 	docs []Document[TMeta]
 }
 
-func (n stubNode[TMeta]) Retrieve(_ context.Context, _ Query[stubIntent]) (ResultSet[TMeta], error) {
+func (n stubNode[TMeta]) Retrieve(
+	_ context.Context,
+	_ Query[stubIntent],
+) (ResultSet[TMeta], error) {
 	return NewResultSet(n.docs, DocumentIDResolver[TMeta]{}), nil
 }
 
@@ -36,7 +39,10 @@ type errorNode[TIntent, TMeta any] struct {
 	err error
 }
 
-func (n errorNode[TIntent, TMeta]) Retrieve(context.Context, Query[TIntent]) (ResultSet[TMeta], error) {
+func (n errorNode[TIntent, TMeta]) Retrieve(
+	context.Context,
+	Query[TIntent],
+) (ResultSet[TMeta], error) {
 	return NewResultSet[TMeta](nil, DocumentIDResolver[TMeta]{}), n.err
 }
 
@@ -165,14 +171,20 @@ func TestPartialSuccessRS(t *testing.T) {
 		{
 			name: "partial empty",
 			rs:   emptyRS,
-			err:  &PartialFailureError[struct{}]{Errors: []error{ragy.ErrUnavailable}, Result: emptyRS},
+			err: &PartialFailureError[struct{}]{
+				Errors: []error{ragy.ErrUnavailable},
+				Result: emptyRS,
+			},
 			want: false,
 		},
 		{
-			name: "partial non-empty",
+			name: "diagnostic non-empty cannot resurrect returned empty",
 			rs:   emptyRS,
-			err:  &PartialFailureError[struct{}]{Errors: []error{ragy.ErrUnavailable}, Result: rsWithDoc},
-			want: true,
+			err: &PartialFailureError[struct{}]{
+				Errors: []error{ragy.ErrUnavailable},
+				Result: rsWithDoc,
+			},
+			want: false,
 		},
 		{name: "plain err empty rs", rs: emptyRS, err: ragy.ErrUnavailable, want: false},
 		{name: "plain err with docs", rs: rsWithDoc, err: ragy.ErrUnavailable, want: true},
@@ -1901,7 +1913,7 @@ func TestPipelineBuilderWithPostProcessorsPreservesResultOnError(t *testing.T) {
 	}
 }
 
-func TestAggregateNodePreservesResultsOnContextCancel(t *testing.T) {
+func TestAggregateNodeSuppressesResultsOnContextCancel(t *testing.T) {
 	t.Parallel()
 
 	// Concurrency=1 exercises sequential dispatch; high-concurrency cancel is covered below.
@@ -1912,12 +1924,24 @@ func TestAggregateNodePreservesResultsOnContextCancel(t *testing.T) {
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			stubNode[struct{}]{
 				docs: []Document[struct{}]{
-					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "a", Content: "A", Score: 1},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "a",
+						Content:        "A",
+						Score:          1,
+					},
 				},
 			},
 			gateNode[struct{}]{
 				docs: []Document[struct{}]{
-					{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "b", Content: "B", Score: 0.5},
+					{
+						ScoreSemantics: "fixture-similarity",
+						ScoreState:     ScorePresent,
+						ID:             "b",
+						Content:        "B",
+						Score:          0.5,
+					},
 				},
 				gate: gate,
 			},
@@ -1937,8 +1961,8 @@ func TestAggregateNodePreservesResultsOnContextCancel(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("Retrieve() error = %v, want context canceled", err)
 	}
-	if rs.Len() != 1 || rs.Documents()[0].ID != "a" {
-		t.Fatalf("Documents() = %#v, want partial results before cancel", rs.Documents())
+	if rs.Len() != 0 || !access.IsProtectionFailure(err) {
+		t.Fatalf("Documents() = %#v, want empty protected cancellation", rs.Documents())
 	}
 }
 
@@ -1993,7 +2017,10 @@ type gateNode[TMeta any] struct {
 	gate chan struct{}
 }
 
-func (n gateNode[TMeta]) Retrieve(ctx context.Context, _ Query[stubIntent]) (ResultSet[TMeta], error) {
+func (n gateNode[TMeta]) Retrieve(
+	ctx context.Context,
+	_ Query[stubIntent],
+) (ResultSet[TMeta], error) {
 	if n.gate != nil {
 		n.gate <- struct{}{}
 	}
@@ -2172,7 +2199,10 @@ type partialErrorNode[TIntent, TMeta any] struct {
 	err  error
 }
 
-func (n partialErrorNode[TIntent, TMeta]) Retrieve(context.Context, Query[TIntent]) (ResultSet[TMeta], error) {
+func (n partialErrorNode[TIntent, TMeta]) Retrieve(
+	context.Context,
+	Query[TIntent],
+) (ResultSet[TMeta], error) {
 	return NewResultSet(n.docs, DocumentIDResolver[TMeta]{}), n.err
 }
 
@@ -2180,7 +2210,10 @@ type stubEmptyMerger[TMeta any] struct {
 	resolver IdentityResolver[TMeta]
 }
 
-func (m stubEmptyMerger[TMeta]) Merge(_ context.Context, _ ...ResultSet[TMeta]) (ResultSet[TMeta], error) {
+func (m stubEmptyMerger[TMeta]) Merge(
+	_ context.Context,
+	_ ...ResultSet[TMeta],
+) (ResultSet[TMeta], error) {
 	resolver := m.resolver
 	if resolver == nil {
 		resolver = DocumentIDResolver[TMeta]{}
@@ -2209,16 +2242,19 @@ func TestAggregateReportsPartialWhenMergeEmptyButChildHadDocs(t *testing.T) {
 		},
 		Merger: stubEmptyMerger[struct{}]{},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	rs, err := node.Retrieve(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"},
+	)
 	partial, ok := AsPartialFailure[struct{}](err)
 	if !ok {
 		t.Fatalf("Retrieve() error = %v, want partial failure", err)
 	}
-	if rs.Len() != 1 || rs.Documents()[0].ID != "a" {
-		t.Fatalf("Documents() = %#v, want child partial doc", rs.Documents())
+	if !rs.IsEmpty() {
+		t.Fatalf("Documents() = %#v, want authoritative empty fusion result", rs.Documents())
 	}
-	if partial.Result.Len() != 1 {
-		t.Fatalf("partial.Result.Len() = %d, want 1", partial.Result.Len())
+	if !partial.Result.IsEmpty() {
+		t.Fatalf("partial.Result.Len() = %d, want 0", partial.Result.Len())
 	}
 }
 
@@ -2640,10 +2676,12 @@ func (stubFailingMerger[TMeta]) Merge(context.Context, ...ResultSet[TMeta]) (Res
 	return NewResultSet[TMeta](nil, DocumentIDResolver[TMeta]{}), ragy.ErrInvalidArgument
 }
 
-func TestAggregateFallbackUnmergedUsesPipelineResolver(t *testing.T) {
+func TestAggregateExplicitDegradationUsesConfiguredResolver(t *testing.T) {
 	t.Parallel()
 
-	resolver := mergeKeyResolver[struct{}]{key: func(doc Document[struct{}]) string { return doc.Content }}
+	resolver := mergeKeyResolver[struct{}]{
+		key: func(doc Document[struct{}]) string { return doc.Content },
+	}
 	node := resultAggregateNodeNoMeta[stubIntent, struct{}]{
 		Nodes: []resultNodeNoMeta[stubIntent, struct{}]{
 			stubNode[struct{}]{
@@ -2669,10 +2707,16 @@ func TestAggregateFallbackUnmergedUsesPipelineResolver(t *testing.T) {
 				},
 			},
 		},
-		Merger:   stubFailingMerger[struct{}]{},
+		Merger: DegradingMerger[struct{}]{
+			Primary:  stubFailingMerger[struct{}]{},
+			Fallback: NewScoreMerger(resolver),
+		},
 		Resolver: resolver,
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	rs, err := node.Retrieve(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"},
+	)
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want merge failure")
 	}
@@ -2684,7 +2728,7 @@ func TestAggregateFallbackUnmergedUsesPipelineResolver(t *testing.T) {
 	}
 }
 
-func TestAggregateEmptyMergeFallbackIncludesFbErr(t *testing.T) {
+func TestAggregateEmptyMergeHasNoImplicitFallback(t *testing.T) {
 	t.Parallel()
 
 	resolver := aggregateBadMergeKeyResolver[struct{}]{emptyID: "bad"}
@@ -2719,25 +2763,19 @@ func TestAggregateEmptyMergeFallbackIncludesFbErr(t *testing.T) {
 			},
 		},
 	}
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	rs, err := node.Retrieve(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"},
+	)
 	var partial *PartialFailureError[struct{}]
 	if !errors.As(err, &partial) {
 		t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
 	}
-	if rs.IsEmpty() || rs.Documents()[0].ID != "good" {
-		t.Fatalf("Documents() = %#v, want fallback good doc", rs.Documents())
+	if !rs.IsEmpty() || !partial.Result.IsEmpty() {
+		t.Fatal("successful empty fusion must not resurrect observations", rs, partial)
 	}
-	if !errors.Is(err, ragy.ErrUnavailable) {
-		t.Fatalf("error = %v, want unavailable in chain", err)
-	}
-	hasInvalidArgument := false
-	for _, childErr := range partial.Errors {
-		if errors.Is(childErr, ragy.ErrInvalidArgument) {
-			hasInvalidArgument = true
-		}
-	}
-	if !hasInvalidArgument {
-		t.Fatalf("partial.Errors = %v, want fallback merge error", partial.Errors)
+	if !errors.Is(err, ragy.ErrUnavailable) || errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatal("no unconfigured fallback merger may execute", err)
 	}
 }
 
@@ -2751,18 +2789,18 @@ func TestAggregateMergeFailurePreservesChildErrors(t *testing.T) {
 				docs:   nil,
 				errors: []error{ragy.ErrUnavailable},
 			},
-			errorNode[stubIntent, struct{}]{err: ragy.ErrProtocol},
+			errorNode[stubIntent, struct{}]{err: errors.New("ordinary branch failure")},
 		},
 	}
-	_, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	_, err := node.Retrieve(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"},
+	)
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("error = %v, want unavailable", err)
 	}
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("error = %v, want merge failure", err)
-	}
-	if !errors.Is(err, ragy.ErrProtocol) {
-		t.Fatalf("error = %v, want protocol child error", err)
 	}
 }
 
@@ -2990,7 +3028,10 @@ type intentStubNode[TMeta any] struct {
 	docs []Document[TMeta]
 }
 
-func (n intentStubNode[TMeta]) Retrieve(_ context.Context, _ Query[intentWithMode]) (ResultSet[TMeta], error) {
+func (n intentStubNode[TMeta]) Retrieve(
+	_ context.Context,
+	_ Query[intentWithMode],
+) (ResultSet[TMeta], error) {
 	return NewResultSet(n.docs, DocumentIDResolver[TMeta]{}), nil
 }
 
@@ -3270,36 +3311,59 @@ func TestPipelineUsesPreplannedQueryWithoutCallingPlanner(t *testing.T) {
 	}
 }
 
-func TestConditionalNodeRunsChildWhenPredicateNil(t *testing.T) {
+func TestConditionalNodeRejectsNilPredicate(t *testing.T) {
 	t.Parallel()
 
 	node := resultConditionalNodeNoMeta[stubIntent, struct{}]{
 		Predicate: nil,
 		Child: stubNode[struct{}]{
 			docs: []Document[struct{}]{
-				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Score: 1},
+				{
+					ScoreSemantics: "fixture-similarity",
+					ScoreState:     ScorePresent,
+					ID:             "hit",
+					Score:          1,
+				},
 			},
 		},
 	}
 
-	rs, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
-	if err != nil {
-		t.Fatalf("Retrieve(): %v", err)
-	}
-	if rs.IsEmpty() || rs.Documents()[0].ID != "hit" {
-		t.Fatalf("Documents() = %#v, want hit when Predicate nil", rs.Documents())
+	rs, err := node.Retrieve(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"},
+	)
+	if !errors.Is(err, ragy.ErrInvalidArgument) || !rs.IsEmpty() {
+		t.Fatal("nil predicate must reject without payload", rs, err)
 	}
 }
 
-func TestAggregateFallbackOrderingDiffersFromRRF(t *testing.T) {
+func TestAggregateExplicitScoreDegradationOrderingDiffersFromRRF(t *testing.T) {
 	t.Parallel()
 
 	left := NewResultSet([]Document[struct{}]{
-		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "rank-first", Content: "a", Score: 0.2},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "rank-first",
+			Content:        "a",
+			Score:          0.2,
+		},
 	}, DocumentIDResolver[struct{}]{})
 	right := NewResultSet([]Document[struct{}]{
-		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "score-first", Content: "b", Score: 0.99},
-		{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "tail", Content: "c", Score: 0.98},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "score-first",
+			Content:        "b",
+			Score:          0.99,
+		},
+		{
+			ScoreSemantics: "fixture-similarity",
+			ScoreState:     ScorePresent,
+			ID:             "tail",
+			Content:        "c",
+			Score:          0.98,
+		},
 	}, DocumentIDResolver[struct{}]{})
 
 	rrf, err := NewReciprocalRankFusion[struct{}](60, DocumentIDResolver[struct{}]{})
@@ -3316,9 +3380,15 @@ func TestAggregateFallbackOrderingDiffersFromRRF(t *testing.T) {
 			stubNode[struct{}]{docs: left.Documents()},
 			stubNode[struct{}]{docs: right.Documents()},
 		},
-		Merger: stubFailingMerger[struct{}]{},
+		Merger: DegradingMerger[struct{}]{
+			Primary:  stubFailingMerger[struct{}]{},
+			Fallback: NewScoreMerger[struct{}](nil),
+		},
 	}
-	fallbackOut, err := node.Retrieve(context.Background(), Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"})
+	fallbackOut, err := node.Retrieve(
+		context.Background(),
+		Query[stubIntent]{Read: UnrestrictedRead(), Text: "q"},
+	)
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want merge failure")
 	}
@@ -3326,7 +3396,10 @@ func TestAggregateFallbackOrderingDiffersFromRRF(t *testing.T) {
 		t.Fatalf("Retrieve() error = %v, want invalid argument from failing merger", err)
 	}
 	if fallbackOut.Documents()[0].ID != "score-first" {
-		t.Fatalf("fallback top = %q, want score-first (raw score merge)", fallbackOut.Documents()[0].ID)
+		t.Fatalf(
+			"fallback top = %q, want score-first (raw score merge)",
+			fallbackOut.Documents()[0].ID,
+		)
 	}
 	if rrfOut.Documents()[0].ID == fallbackOut.Documents()[0].ID {
 		t.Fatalf(

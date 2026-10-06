@@ -7,7 +7,7 @@ The core is domain-first and capability-specific:
 - `retrieval` for `Document[TMeta]`, `Backend[TIntent, TMeta]`, `Query[TIntent]`, `ExecutionPipeline`, `RetrieveOptions`, planners, and post-processors
 - `filter` for schema-bound filter builders and adapter-readable IR
 - `embedding` for declared model/revision/config/metric spaces and query/document purpose; `dense`, `lexical`, `tensor`, `graph`, `documents` for capability contracts
-- `ranking` for query-aware reranking and ranked-list merging
+- `retrieval` for query-aware reranking and ranked-list merging
 - [`chunking`](chunking/README.md) for source-mapped fragments and explicit index text; [`graphingest`](graphingest/README.md) for typed extraction/resolution/materialization with host lifecycle handoff
 
 Provider and storage adapters live under `adapters/...`. Host applications own IAM, prompts, agent/tool loops, model selection, tokenizers, prices and retention policy. The [capability matrix](docs/task19/capabilities.md) separates implemented contracts, local/wire verification and real-service verification.
@@ -287,7 +287,7 @@ trace := result.BranchTrace
 _, _, _ = docs, route, trace
 ```
 
-`WithExecutionSeed` derives the initial `TExecMeta` from the incoming request before planner, binder, route switch, and retrieval nodes run. `RequestExecutionRetrieverNode` passes that metadata into execution-aware backends. Backends that add side outputs should return the updated `Executed`; a zero-value `Executed` is treated as omitted and preserves the incoming metadata.
+`WithExecutionSeed` derives the initial `TExecMeta` from the incoming request before planner, binder, route switch, and retrieval nodes run. `RequestExecutionRetrieverNode` passes that metadata into execution-aware backends. Backends that add side outputs should return the updated `Executed`; the returned `Executed` is authoritative, including zero. To retain incoming metadata, return it explicitly.
 
 ### Graph retrieval (Neo4j)
 
@@ -314,7 +314,7 @@ The same store also satisfies `graph.Store[TMeta]` for upsert and low-level trav
 - `dense.Index[TMeta]` and `tensor.Index[TMeta]` for vector/tensor writes
 - `graph.Store[TMeta]` for traversal and upsert
 - `documents.RawStore[TMeta]` for explicit raw lookup and destructive operations; `documents.Hydrator` for scoped exact-revision hydration
-- `ranking.QueryReranker` and `ranking.Merger` for post-retrieval ranking
+- `retrieval.QueryReranker` and `retrieval.ResultMerger` for post-retrieval ranking
 - `adapters/cohere/rerank` — Cohere rerank: empty query is validation (empty RS); runtime errors preserve input docs
 
 ## Resilience & execution control
@@ -404,9 +404,9 @@ Rescue(
 - Outer Rescue: aggregate/vector hard failure → web (only if `AllowWeb`).
 - Apply the same intent gate on **both** web paths; an unguarded Rescue secondary bypasses `AllowWeb`.
 
-- `AggregateNode` merges parallel child nodes with RRF by default (`ReciprocalRankFusion`, `k=60`); set `Merger` to `NewScoreMerger` for homogeneous score scales. When `Merger.Merge` fails, degraded fallback uses sequential `ResultSet.Merge` (highest score per MergeKey) — ordering may differ from RRF. Child errors surface as `PartialFailureError` when other branches succeed.
-- Post-processors in `ExecutionPipeline` run even when the root returns `PartialFailureError`; on post-processor error the pipeline preserves the last non-empty `ResultSet`.
-- `ConditionalNode` gates execution on query intent (for example `len(opts.Vector) > 0` or `intent.AllowWeb`). A **nil `Predicate` runs the child always** (footgun); use an explicit `func(_) bool { return false }` to disable.
+- `AggregateNode` merges parallel child nodes with RRF by default (`ReciprocalRankFusion`, `k=60`); set `Merger` to `NewScoreMerger` for homogeneous score scales. Fusion never automatically score-merges on failure. `FusionFailureError.Observations()` retains admitted inputs for ordinary errors. Configure `DegradingMerger{Primary: merger, Fallback: fallback}` explicitly to select degradation; both causes remain observable. Protection/cancellation suppress observations and never dispatch degradation. A successful empty fusion result remains empty. Child errors surface as `PartialFailureError` when admitted observations exist; failures without observations retain ordinary joined causes. The separate returned set is authoritative.
+- Post-processors in `ExecutionPipeline` run even when the root returns `PartialFailureError`; on post-processor error the pipeline preserves the separately returned admitted `ResultSet`, including empty. Error-carried payloads never replace it.
+- `ConditionalNode` gates execution on query intent (for example `len(opts.Vector) > 0` or `intent.AllowWeb`). A nil `Predicate` is invalid configuration. Use an explicit true or false predicate; false skips the child.
 
 Build a pipeline once with `retrieval.NewExecutionPipelineBuilder`, optionally chain `WithResolver` for custom `MergeKey`, then execute with `pipeline.Execute(ctx, query)` (include `query.Options.TopK` or `FetchLimit`).
 See `examples/planner/catalog_vector_fallback`, `examples/planner/partial_failure_aggregate`, `examples/planner/rescue_fallback_aggregate`, `examples/planner/vector_bm25_aggregate`, and `examples/resilience/rescue_search` for planner topologies.
@@ -455,6 +455,32 @@ negative and zero thresholds are meaningful. Incompatible comparisons return an
 error. Prior numeric observations remain in `ScoreHistory` through grouping,
 fusion and reranking. Caller-comparator `Rerank` produces explicit rank-only
 ordering while preserving those observations.
+
+`PostProcessorChain` applies threshold before its processors and TopK after them.
+A pipeline applies terminal threshold and TopK after root and optional chain.
+A processor changing the score scale must use an explicit normalization policy;
+no native or reranked scale is inferred. Host code can compose separate chains
+with different options when input and output thresholds use different scales.
+TopK limits delivered count, not backend work or callback memory.
+
+Result-only composition delegates to the execution engine using `NoExecutionMeta`.
+`PartialFailureError.Result` is a synchronized diagnostic view; the separately
+returned result set is authoritative, even when empty. Joined and wrapped causes
+remain inspectable. Protection and cancellation suppress all diagnostic payloads.
+`ResolverFor` uses a custom set's optional `ResolverProvider` capability; otherwise
+it selects `DocumentIDResolver`. A supplied resolver and nil/typed-nil resolver
+(default DocumentID) are explicit alternatives. Required nil/typed-nil ports and
+nil chain processors return `ErrInvalidArgument` before invocation.
+
+MergeKey can identify a business group. Winner merge combines supports and score
+history only for equal content and metadata; another payload's citations do not
+become citations for the winner. RRF still requires equal payloads for a shared
+key. Use `GroupBy` to explicitly assemble different content.
+
+`MemoryCache` capacity bounds entry count, not bytes or peak allocation. Its
+O(capacity) eviction, metadata cloning outside the lock and owned ragy slices
+are retained to preserve ownership. Callback and BYOT values remain stable and
+concurrency-safe host inputs. This cleanup makes no cache/copy speedup claim.
 
 
 ### BM25 lexical search

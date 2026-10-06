@@ -3,13 +3,13 @@ package retrieval
 import (
 	"context"
 
-	"github.com/skosovsky/ragy/access"
-
 	"fmt"
 	"sort"
 	"strings"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 )
 
 // MergeStrategy combines grouped documents into one result.
@@ -131,7 +131,7 @@ func (p groupByProcessor[TMeta]) process(
 	read access.Binding,
 	rs ResultSet[TMeta],
 ) (ResultSet[TMeta], error) {
-	if rs == nil || rs.IsEmpty() {
+	if nilvalue.IsNil(rs) || rs.IsEmpty() {
 		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
 	if err := validateResultSet(rs); err != nil {
@@ -227,7 +227,7 @@ func (p topPerGroupProcessor[TMeta]) process(
 	read access.Binding,
 	rs ResultSet[TMeta],
 ) (ResultSet[TMeta], error) {
-	if rs == nil || rs.IsEmpty() {
+	if nilvalue.IsNil(rs) || rs.IsEmpty() {
 		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
 	if err := validateResultSet(rs); err != nil {
@@ -310,7 +310,7 @@ func (p rerankProcessor[TMeta]) process(
 	read access.Binding,
 	rs ResultSet[TMeta],
 ) (ResultSet[TMeta], error) {
-	if rs == nil || rs.IsEmpty() {
+	if nilvalue.IsNil(rs) || rs.IsEmpty() {
 		return NewResultSet[TMeta](nil, p.resolver), nil
 	}
 	if err := validateResultSet(rs); err != nil {

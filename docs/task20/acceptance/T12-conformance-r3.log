@@ -1,0 +1,10 @@
+ok  	example.com/ragyconsumer	12.634s
+ok  	example.com/ragyconsumer/final_contract	2.337s
+ok  	example.com/ragyconsumer/graph_comparison	40.716s
+ok  	example.com/ragyconsumer/internal/codexcall	1.203s
+?   	example.com/ragyconsumer/internal/modelcounter	[no test files]
+ok  	example.com/ragyconsumer/internal/task19	1.490s
+ok  	example.com/ragyconsumer/joint_read	24.599s
+ok  	example.com/ragyconsumer/observation_contract	1.467s
+ok  	example.com/ragyconsumer/recipe_comparison	43.563s
+ok  	example.com/ragyconsumer/tensor_comparison	19.178s

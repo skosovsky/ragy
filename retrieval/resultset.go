@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 )
 
 // ResultSet owns ranked documents and ragy-defined slices with merge semantics.
@@ -23,23 +24,29 @@ type sliceResultSet[TMeta any] struct {
 	resolver IdentityResolver[TMeta]
 }
 
-// ResolverFor returns the identity resolver bound to rs.
+// ResolverProvider is an optional capability for custom BYOT ResultSets.
+type ResolverProvider[TMeta any] interface {
+	IdentityResolver() IdentityResolver[TMeta]
+}
+
+// ResolverFor uses optional resolver capability or defaults to document identity.
 func ResolverFor[TMeta any](rs ResultSet[TMeta]) IdentityResolver[TMeta] {
-	if rs == nil {
+	if nilvalue.IsNil(rs) {
 		return DocumentIDResolver[TMeta]{}
 	}
-	if typed, ok := rs.(sliceResultSet[TMeta]); ok {
-		if typed.resolver == nil {
-			return DocumentIDResolver[TMeta]{}
-		}
-		return typed.resolver
+	if provider, ok := rs.(ResolverProvider[TMeta]); ok {
+		return DefaultResolver(provider.IdentityResolver())
 	}
 	return DocumentIDResolver[TMeta]{}
 }
 
+func (r sliceResultSet[TMeta]) IdentityResolver() IdentityResolver[TMeta] {
+	return DefaultResolver(r.resolver)
+}
+
 // NewResultSet constructs a ResultSet; nil docs yields an empty non-nil set.
 func NewResultSet[TMeta any](docs []Document[TMeta], resolver IdentityResolver[TMeta]) ResultSet[TMeta] {
-	if resolver == nil {
+	if nilvalue.IsNil(resolver) {
 		resolver = DocumentIDResolver[TMeta]{}
 	}
 	return sliceResultSet[TMeta]{
@@ -50,10 +57,10 @@ func NewResultSet[TMeta any](docs []Document[TMeta], resolver IdentityResolver[T
 
 // RewrapResultSet re-binds rs documents to resolver without changing merge semantics.
 func RewrapResultSet[TMeta any](rs ResultSet[TMeta], resolver IdentityResolver[TMeta]) ResultSet[TMeta] {
-	if resolver == nil {
+	if nilvalue.IsNil(resolver) {
 		resolver = DocumentIDResolver[TMeta]{}
 	}
-	if rs == nil || rs.IsEmpty() {
+	if nilvalue.IsNil(rs) || rs.IsEmpty() {
 		return NewResultSet[TMeta](nil, resolver)
 	}
 	return NewResultSet(rs.Documents(), resolver)
@@ -182,6 +189,13 @@ func keepWinner[TMeta any](byKey map[string]Document[TMeta], key string, doc Doc
 	current, ok := byKey[key]
 	if !ok {
 		byKey[key] = doc
+		return
+	}
+	if !samePayload(doc, current) {
+		// A business merge key does not attest equality of source evidence.
+		if rankedDocumentLess(doc, current) {
+			byKey[key] = doc
+		}
 		return
 	}
 	if rankedDocumentLess(doc, current) {

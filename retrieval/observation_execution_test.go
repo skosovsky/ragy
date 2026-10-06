@@ -204,8 +204,12 @@ func TestObservationConditionalSelectedEmptyChild(t *testing.T) {
 	})
 	child := ConditionalNode[struct{}, struct{}, NoExecutionMeta]{
 		Predicate: func(Query[struct{}]) bool { return false },
+		Child:     AggregateNode[struct{}, struct{}, NoExecutionMeta]{},
 	}
-	parent := ConditionalNode[struct{}, struct{}, NoExecutionMeta]{Child: child}
+	parent := ConditionalNode[struct{}, struct{}, NoExecutionMeta]{
+		Predicate: func(Query[struct{}]) bool { return true },
+		Child:     child,
+	}
 	// Act.
 	_, err := parent.Execute(ctx, Query[struct{}]{Read: UnrestrictedRead()}, NoExecutionMeta{})
 	// Assert.

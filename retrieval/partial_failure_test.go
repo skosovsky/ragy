@@ -39,7 +39,7 @@ func TestPreserveResultOnError(t *testing.T) {
 		}
 	})
 
-	t.Run("partial failure error preserves result", func(t *testing.T) {
+	t.Run("partial failure cannot resurrect result", func(t *testing.T) {
 		t.Parallel()
 		rs := NewResultSet(docs, resolver)
 		partial := &PartialFailureError[struct{}]{Errors: []error{ragy.ErrProtocol}, Result: rs}
@@ -47,8 +47,8 @@ func TestPreserveResultOnError(t *testing.T) {
 		if _, ok := errors.AsType[*PartialFailureError[struct{}]](err); !ok {
 			t.Fatalf("err = %v, want PartialFailureError", err)
 		}
-		if out.Len() != 1 {
-			t.Fatalf("Len() = %d, want partial result", out.Len())
+		if out.Len() != 0 {
+			t.Fatalf("Len() = %d, want authoritative empty result", out.Len())
 		}
 	})
 

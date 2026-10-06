@@ -1,5 +1,7 @@
 package retrieval
 
+import "github.com/skosovsky/ragy/internal/nilvalue"
+
 // Identity describes document identity for result fusion. DocumentID is the storage key;
 // MergeKey is the deduplication key and may differ (for example URI from TMeta).
 type Identity struct {
@@ -20,9 +22,9 @@ func (DocumentIDResolver[TMeta]) Resolve(doc Document[TMeta]) Identity {
 	return Identity{DocumentID: doc.ID, MergeKey: doc.ID}
 }
 
-// DefaultResolver returns resolver or DocumentIDResolver when resolver is nil.
+// DefaultResolver returns resolver or DocumentIDResolver when resolver is nil or typed nil.
 func DefaultResolver[TMeta any](resolver IdentityResolver[TMeta]) IdentityResolver[TMeta] {
-	if resolver == nil {
+	if nilvalue.IsNil(resolver) {
 		return DocumentIDResolver[TMeta]{}
 	}
 	return resolver

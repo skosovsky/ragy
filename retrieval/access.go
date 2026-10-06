@@ -2,11 +2,13 @@ package retrieval
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/internal/nilvalue"
 )
 
 // UnrestrictedRead explicitly chooses the unrestricted live-read profile.
@@ -107,10 +109,27 @@ func isNilReadTarget(target any) bool {
 	switch value.Kind() {
 	case reflect.Pointer, reflect.Interface, reflect.Func, reflect.Map, reflect.Slice, reflect.Chan:
 		return value.IsNil()
-	case reflect.Invalid, reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
-		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
-		reflect.Array, reflect.String, reflect.Struct, reflect.UnsafePointer:
+	case reflect.Invalid,
+		reflect.Bool,
+		reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64,
+		reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32,
+		reflect.Float64,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.Array,
+		reflect.String,
+		reflect.Struct,
+		reflect.UnsafePointer:
 		return false
 	default:
 		return false
@@ -127,16 +146,20 @@ func DeliverRead[TMeta any](
 	resolver IdentityResolver[TMeta],
 ) (ResultSet[TMeta], error) {
 	if readErr := readDeliveryError(ctx, binding, err); readErr != nil {
-		return NewResultSet[TMeta](nil, resolver), readErr
+		empty := NewResultSet[TMeta](nil, resolver)
+		return empty, suppressErrorPayload(readErr, empty)
 	}
-	return rs, err
+	if nilvalue.IsNil(rs) {
+		rs = NewResultSet[TMeta](nil, resolver)
+	}
+	return rs, syncPartialFailureResult(err, rs)
 }
 func readDeliveryError(ctx context.Context, binding access.Binding, err error) error {
 	if gateErr := binding.Check(ctx); gateErr != nil {
-		return gateErr
+		return errors.Join(gateErr, err)
 	}
 	if access.IsProtectionFailure(err) {
-		return access.Protect(err)
+		return &access.ProtectionError{Cause: err}
 	}
 	return nil
 }
@@ -150,8 +173,9 @@ func finishReadResult[TMeta, TExecMeta any](
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	if readErr := readDeliveryError(ctx, binding, err); readErr != nil {
 		var zero TExecMeta
-		return emptyRetrievalResult(resolver, zero), readErr
+		empty := emptyRetrievalResult[TMeta](resolver, zero)
+		return empty, suppressErrorPayload(readErr, empty.ResultSet)
 	}
 	result.Coverage = BindPublicationCoverage(binding, result.Coverage)
-	return result, err
+	return result, syncPartialFailureResult(err, result.ResultSet)
 }
