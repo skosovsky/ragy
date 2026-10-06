@@ -1,0 +1,718 @@
+[
+  {
+    "id": "T00",
+    "title": "backlog and traceability",
+    "status": "accepted",
+    "commit_message": "docs: remediation backlog",
+    "criteria": [
+      {
+        "id": "T00.C01",
+        "text": "Зафиксированы неизменённые master review и восемь ролевых отчётов с SHA256 и review SHA."
+      },
+      {
+        "id": "T00.C02",
+        "text": "Каждый F01–F11, D01–D61, 161 частное design-замечание и все ролевые дефекты сопоставлены задаче без пропусков."
+      },
+      {
+        "id": "T00.C03",
+        "text": "Документационные требования 1–9 и DoD 1–8 сопоставлены задачам; ограничения и сохраняемые гарантии включены в общий gate."
+      },
+      {
+        "id": "T00.C04",
+        "text": "Backlog имеет строгий последовательный порядок, проверяемые критерии для каждой задачи и отдельный предполагаемый коммит."
+      },
+      {
+        "id": "T00.C05",
+        "text": "Определены независимые роли приёмки, расчёт полноты, повторная приёмка изменённого diff, запрет SKIP=PASS и журнал SHA."
+      },
+      {
+        "id": "T00.C06",
+        "text": "Проверка целостности источников и полноты реестра выполнена; implementation и исторические результаты не изменены."
+      }
+    ],
+    "acceptance": {
+      "completeness": {
+        "criteria": "6/6",
+        "percent": 100,
+        "coverage": "262/262",
+        "coverage_percent": 100,
+        "report": "acceptance/T00-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T00-correctness.md"
+      }
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T01",
+    "title": "remediation contracts",
+    "status": "pending",
+    "commit_message": "docs: remediation contracts",
+    "criteria": [
+      {
+        "id": "T01.C01",
+        "text": "Опубликован error/recovery contract: protection/parent cancellation suppressive; callback protocol/ordinary errors и usage overrun не становятся bounded success при deadline; сохраняются причины и разрешённый failed journal."
+      },
+      {
+        "id": "T01.C02",
+        "text": "Определены clock composition min(parent, ledger, local), injected-clock gates на callback/clone/project/delivery и exact-once settlement независимо от истечения."
+      },
+      {
+        "id": "T01.C03",
+        "text": "Опубликована two-valued truth table missing/equal/unequal для каждого supported scalar/operator, NOT/AND/OR; null/wrong-kind и validated lookup precondition заданы явно."
+      },
+      {
+        "id": "T01.C04",
+        "text": "Identity domain зафиксирован как valid UTF-8 без молчаливой нормализации; namespace/key/name/policy/history согласованы, valid ID hashing сохраняется; invalid response vs invalid config errors разделены."
+      },
+      {
+        "id": "T01.C05",
+        "text": "Определены unique exact page reference и допустимые media/cell sharing, callback/read delivery gates и authorized-input precondition."
+      },
+      {
+        "id": "T01.C06",
+        "text": "Определены release reviewed SHA, publishable-module/file/ref allowlist, dirty/staged/untracked policy, caller preservation, candidate retry и none/partial/unknown publication; v2 требует отдельного import-version плана."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T02",
+    "title": "deadline precedence",
+    "status": "pending",
+    "commit_message": "fix: deadline precedence",
+    "criteria": [
+      {
+        "id": "T02.C01",
+        "text": "F01 устранён в Run/RunOwn/RunObserved: callback, settlement и gate causes сохранены; mixed protection+deadline suppresses все payload/side output; failed journal разрешён только своим контрактом."
+      },
+      {
+        "id": "T02.C02",
+        "text": "AAA regression matrix охватывает planner/backend/assessor/encoder, protection/protocol/ordinary error, joined deadline, known usage overrun, unknown usage, parent cancel и pure local bounded partial; один dispatch и settlement."
+      },
+      {
+        "id": "T02.C03",
+        "text": "D32 и graph:20 проверены на extraction/graphexpand/graphsummary: simultaneous causes не теряются и protection classification сохраняется."
+      },
+      {
+        "id": "T02.C04",
+        "text": "Current error GoDoc/README синхронизированы; targeted race tests соответствующих пакетов PASS."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T03",
+    "title": "release isolation",
+    "status": "pending",
+    "commit_message": "fix: release isolation",
+    "criteria": [
+      {
+        "id": "T03.C01",
+        "text": "F02: release source строится от reviewed SHA; stage ограничен разрешёнными manifests, push ограничен перечисленными release refs."
+      },
+      {
+        "id": "T03.C02",
+        "text": "AAA local bare fixtures доказывают отсутствие unrelated untracked files/tags remotely; caller files остаются целыми."
+      },
+      {
+        "id": "T03.C03",
+        "text": "Dirty tracked/index policy и existing module-tag collision проверяются до mutation; publishable modules отделены от examples."
+      },
+      {
+        "id": "T03.C04",
+        "text": "Scope runbook и script contract синхронны; fixtures и shell syntax check PASS."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T04",
+    "title": "release recovery",
+    "status": "pending",
+    "commit_message": "fix: release recovery",
+    "criteria": [
+      {
+        "id": "T04.C01",
+        "text": "F03: ошибки до tag/после tag/push не меняют caller branch/index/worktree и чужие refs."
+      },
+      {
+        "id": "T04.C02",
+        "text": "Candidate manifest содержит source/candidate SHA, версию, intended refs и publication status; повтор использует тот же candidate, failed local tag не повышает версию."
+      },
+      {
+        "id": "T04.C03",
+        "text": "Atomic push применяется при поддержке; none/partial/unknown состояния имеют явный inspect/recovery протокол без blind ref deletion."
+      },
+      {
+        "id": "T04.C04",
+        "text": "AAA rejecting-hook, existing-tag и partial/unknown fixtures PASS; runbook соответствует поведению."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T05",
+    "title": "extraction deadlines",
+    "status": "pending",
+    "commit_message": "fix: extraction deadlines",
+    "criteria": [
+      {
+        "id": "T05.C01",
+        "text": "F04: model получает min(parent, shared-ledger, local) deadline; injected shared clock проверяется на completion/clone/project/delivery."
+      },
+      {
+        "id": "T05.C02",
+        "text": "AAA controlled clocks/barriers: ранние parent/ledger/local deadlines, leap during model/project/clone, just-before success; expired result пустой, errors.Is DeadlineExceeded и usage settled один раз."
+      },
+      {
+        "id": "T05.C03",
+        "text": "D28/graph:12: MaxInputBytes явно source-text bound либо отдельный envelope cap; CountInputTokens покрывает actual request; limits docs синхронны."
+      },
+      {
+        "id": "T05.C04",
+        "text": "Extraction/budget targeted race tests PASS без hidden retry."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T06",
+    "title": "resolution identity",
+    "status": "pending",
+    "commit_message": "fix: resolution identity",
+    "criteria": [
+      {
+        "id": "T06.C01",
+        "text": "F05: malformed namespace/key/name/relation key и config/policy identities отвергаются до grouping/hashing с zero result; история следует выбранному UTF-8 domain."
+      },
+      {
+        "id": "T06.C02",
+        "text": "AAA U+FFFD, ff/fe, equal/distinct valid tuples, tuple boundaries и relation path PASS; valid IDs остаются совместимыми или предоставлен явный migration contract."
+      },
+      {
+        "id": "T06.C03",
+        "text": "Resolver/identity/history GoDoc и README синхронны; targeted race tests PASS."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T07",
+    "title": "layout reference admission",
+    "status": "pending",
+    "commit_message": "fix: layout references",
+    "criteria": [
+      {
+        "id": "T07.C01",
+        "text": "F06: duplicate exact page references отвергаются Validate/Project до ImageText и projection, для equal/different-length texts."
+      },
+      {
+        "id": "T07.C02",
+        "text": "Разрешённые cell/image sharing определены и проверены; добавление page только в hash не используется для маскировки неоднозначного Loader."
+      },
+      {
+        "id": "T07.C03",
+        "text": "Distinct refs имеют независимо разрешимые цитаты; AAA zero payload/callback и control tests PASS; contract docs обновлены."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T08",
+    "title": "lexical callback gates",
+    "status": "pending",
+    "commit_message": "fix: lexical callback gates",
+    "criteria": [
+      {
+        "id": "T08.C01",
+        "text": "F07: context/read проверяются до и после каждого metadata callback; первый cancel/revoke запрещает следующий codec и дальнейший clone/delivery."
+      },
+      {
+        "id": "T08.C02",
+        "text": "AAA snapshot и managed cache hit/miss, cancellation+ordinary codec error дают empty protected result, one callback; normal ranking сохраняется."
+      },
+      {
+        "id": "T08.C03",
+        "text": "Raw BM25 borrowed metadata contract сохранён; targeted race tests и current docs PASS."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T09",
+    "title": "portable filter parity",
+    "status": "pending",
+    "commit_message": "fix: filter parity",
+    "criteria": [
+      {
+        "id": "T09.C01",
+        "text": "F08: atomic PG predicates two-valued до composition; Eq/Neq/In/order и nested NOT/AND/OR согласованы с core для всех supported scalar kinds."
+      },
+      {
+        "id": "T09.C02",
+        "text": "Portable conformance покрывает missing/equal/unequal, null/wrong-kind policy; exact int64 >2^53 и injection tests сохранены."
+      },
+      {
+        "id": "T09.C03",
+        "text": "На isolated real PostgreSQL corpus query и DeleteByFilter возвращают те же IDs, что core matcher; SQL fake/translation не заменяет real parity."
+      },
+      {
+        "id": "T09.C04",
+        "text": "Targeted tests и live PG profile PASS с versions/corpus/command evidence; недоступность DB — pending blocker, не PASS."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T10",
+    "title": "neo4j delivery",
+    "status": "pending",
+    "commit_message": "fix: neo4j delivery",
+    "criteria": [
+      {
+        "id": "T10.C01",
+        "text": "F09: public Retrieve/private retrieve/DeliverRead покрывают success/empty/ordinary partial paths."
+      },
+      {
+        "id": "T10.C02",
+        "text": "AAA cancel-on-Runner-return и projection error after cancel дают empty protected result, errors.Is Canceled, один traversal; ordinary partial и success сохраняются."
+      },
+      {
+        "id": "T10.C03",
+        "text": "Runner bridge scoped/pinned unsupported profile сохранён; current docs и targeted race tests PASS."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T11",
+    "title": "structured transport",
+    "status": "pending",
+    "commit_message": "fix: structured transport",
+    "criteria": [
+      {
+        "id": "T11.C01",
+        "text": "F10: headers/body/transport context cancel/deadline сохраняются до sanitized classification, zero output/unknown usage, body закрыт, один dispatch."
+      },
+      {
+        "id": "T11.C02",
+        "text": "F11: ForceQuery/query/fragment/credentials/opaque config отклоняется до network; valid custom base path/slash даёт exact endpoint."
+      },
+      {
+        "id": "T11.C03",
+        "text": "D55/providers:1: общая internal URL/error policy либо common contract suite предотвращает drift без public transport framework."
+      },
+      {
+        "id": "T11.C04",
+        "text": "Fake Doer AAA body timeout/parent cancel/ordinary I/O/valid baseline и URL matrix PASS; docs синхронны."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T12",
+    "title": "retrieval composition",
+    "status": "pending",
+    "commit_message": "refactor!: retrieval composition",
+    "criteria": [
+      {
+        "id": "T12.C01",
+        "text": "D01–D14 и все retrieval:01–18 имеют retain/change/contract решение с конкретным rationale и evidence, включая measurement decision для cache/copy."
+      },
+      {
+        "id": "T12.C02",
+        "text": "Consumer inventory выполнен перед ranking façade removal; один internal composition engine выбран по снижению drift; любой retained independent path обоснован ответственностью."
+      },
+      {
+        "id": "T12.C03",
+        "text": "Explicit fusion degradation/conditional predicate, zero ExecMeta reset, single partial-result authority и outer joined causes закреплены контрактом и meaningful regressions."
+      },
+      {
+        "id": "T12.C04",
+        "text": "Nil/typed-nil validation, custom resolver capability, threshold stage и MergeKey evidence policy согласованы; Artifact/config ownership и unsupported unused Embedder решены."
+      },
+      {
+        "id": "T12.C05",
+        "text": "Budget scopes/calls/known-unknown и bounded ports описаны; retained guarantees, targeted race/conformance и examples PASS; оптимизации имеют before/after measurements."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T13",
+    "title": "lifecycle contracts",
+    "status": "pending",
+    "commit_message": "fix: lifecycle contracts",
+    "criteria": [
+      {
+        "id": "T13.C01",
+        "text": "D15–D22 и lifecycle:01–18 имеют явные dispositions; terminology/capture-vs-pin, namespace CAS, positive reuse observation, unknown recovery, one-step cleanup и Complete semantics опубликованы."
+      },
+      {
+        "id": "T13.C02",
+        "text": "D16 AAA strict/partial capture wrong/matching namespace, empty/nonempty/malformed snapshot: zero publication/no writes/ErrProtocol и unchanged success."
+      },
+      {
+        "id": "T13.C03",
+        "text": "Permanent reservations/ABA, order-sensitive replay/CAS trusted boundary и exact inventory fences сохранены; nil-context convention определён."
+      },
+      {
+        "id": "T13.C04",
+        "text": "History-scaled CPU/bytes и filesystem profile описаны в current lifecycle guide; clone/index оптимизации только с замерами и differential ownership/order validation."
+      },
+      {
+        "id": "T13.C05",
+        "text": "Targeted lifecycle race/replay/fence tests PASS."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T14",
+    "title": "graph ingestion contracts",
+    "status": "pending",
+    "commit_message": "docs: graph contracts",
+    "criteria": [
+      {
+        "id": "T14.C01",
+        "text": "D23–D27,D29–D31,D33 и соответствующие graph:01–22 имеют dispositions; stale resolution roadmap заменён current package boundaries."
+      },
+      {
+        "id": "T14.C02",
+        "text": "Source-local endpoint closure и cross-document example, canonical name/mention kind, stable generic kinds, history attestation/cardinality/platform/bytes описаны."
+      },
+      {
+        "id": "T14.C03",
+        "text": "Graphsummary repeated admission cost, selected citations vs complete derivation inputs/revocation, owned delivered text и set coverage policy явно зафиксированы."
+      },
+      {
+        "id": "T14.C04",
+        "text": "Graph fail-zero limits, seed-only heuristic и volatile managed unavailable/no raw fallback сохранены; normalization stage Build/Stage определён."
+      },
+      {
+        "id": "T14.C05",
+        "text": "Минимальный complete generic composition/lifecycle example runnable; targeted race tests PASS; support/group/summary оптимизации имеют upper-bound before/after benchmarks."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T15",
+    "title": "source and chunk contracts",
+    "status": "pending",
+    "commit_message": "fix!: source contracts",
+    "criteria": [
+      {
+        "id": "T15.C01",
+        "text": "D34–D43 и ingestion:01–28 имеют dispositions; overlap/separator keep/drop, Markdown/sentence grammar и BYO segmenter coverage явно определены."
+      },
+      {
+        "id": "T15.C02",
+        "text": "Chunk Total0/index/UTF-8/admission/gaps и contextual callback/order policy согласованы; meaningful property/regression tests проверяют выбранное поведение."
+      },
+      {
+        "id": "T15.C03",
+        "text": "Projection all-or-nothing/partial и descriptor/chunk identity/StorageID/URI authority едины в docs/code; borrowed metadata и authorized layout input явно описаны."
+      },
+      {
+        "id": "T15.C04",
+        "text": "Mapping duplicate/case/Unicode policy закреплена; exact source authority/no-latest, raw administration, support ancestry/whole media сохранены."
+      },
+      {
+        "id": "T15.C05",
+        "text": "OCR partial/ImageText empty override, multimodal transport URL/provider/host boundaries и evidence membership/rank/input-work semantics решены и проверены."
+      },
+      {
+        "id": "T15.C06",
+        "text": "Current source→layout→chunk→index→authorized resolve guide/examples runnable; targeted race tests PASS; range-validation оптимизации имеют realistic before/after measurements."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T16",
+    "title": "local retrieval contracts",
+    "status": "pending",
+    "commit_message": "fix!: local retrieval contracts",
+    "criteria": [
+      {
+        "id": "T16.C01",
+        "text": "D44–D50 и tensor:01–20 имеют dispositions; metric-dependent normalization, negative/>1 scores, candidate/token/dimension work и cancellation checkpoints согласованы."
+      },
+      {
+        "id": "T16.C02",
+        "text": "Candidate budget/dedup/first order/catalog scan/MaxRecords units и lexical snapshot/transient cache bounds описаны; explicit B=0/K1=0 поддержаны либо решение обосновано контрактом."
+      },
+      {
+        "id": "T16.C03",
+        "text": "Повторные admission/clone gates сохранены либо объединены с fence tests; generation invalidation и raw borrowed ownership явно описаны."
+      },
+      {
+        "id": "T16.C04",
+        "text": "Durable root/power-loss vs process-crash, flock handle/local profile, redacted errors/trusted root, explicit retired rejection и dense/tensor duplication решены."
+      },
+      {
+        "id": "T16.C05",
+        "text": "Targeted race/process-restart/retired/fence tests PASS; CPU/cache/clone optimizations имеют before/after measurements без threshold fitting."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T17",
+    "title": "storage bridge contracts",
+    "status": "pending",
+    "commit_message": "fix!: storage bridge contracts",
+    "criteria": [
+      {
+        "id": "T17.C01",
+        "text": "D51–D54 и storage:D1–D17 имеют dispositions; codec canonical scalar/empty attributes и filter constructor sentinels согласованы."
+      },
+      {
+        "id": "T17.C02",
+        "text": "ES SynonymMap ownership и single tokenizer dispatch проверены mutation/stateful fixtures; no double tokenization."
+      },
+      {
+        "id": "T17.C03",
+        "text": "PG identifier quoting/policy, host batch bound, equal-distance tie policy и Rows.Close outcome policy явно определены."
+      },
+      {
+        "id": "T17.C04",
+        "text": "Neo4j generic filters и projection vs full snapshot validation закреплены; affected counts exact/unknown без fabrication; raw operations остаются explicit administration."
+      },
+      {
+        "id": "T17.C05",
+        "text": "Bridge-only/live certification границы сохранены; targeted wire/conformance и applicable changed-adapter real-service profiles PASS, skips pending."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T18",
+    "title": "provider and PDF contracts",
+    "status": "pending",
+    "commit_message": "fix!: provider contracts",
+    "criteria": [
+      {
+        "id": "T18.C01",
+        "text": "D55–D59 и providers:01–18 имеют dispositions; shared URL/error/credential policy согласована, JSON unknown-fields vs duplicate/case/surrogate отдельно, choice Index missing/null явно отвергаются либо контракт обоснован."
+      },
+      {
+        "id": "T18.C02",
+        "text": "Space vs Model identity/attestation, purpose/metric, defaults/explicit caps и vector-row/Cohere query+docs units опубликованы; current API naming согласовано."
+      },
+      {
+        "id": "T18.C03",
+        "text": "Known usage при rejected payload сохраняется; unknown не оценивается как known; Cohere prefix/input с error не считается reranked success."
+      },
+      {
+        "id": "T18.C04",
+        "text": "PDF sanitized invalid-input/internal-error policy, supported platform/dependency versions/fingerprint и output-vs-RSS bounds опубликованы."
+      },
+      {
+        "id": "T18.C05",
+        "text": "Compilable provider examples/GoDoc, fake transport tests и actual PDF parser profile при изменении PDF PASS; live платный LLM benchmark не требуется; metric оптимизации только с замерами."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T19",
+    "title": "observation contracts",
+    "status": "pending",
+    "commit_message": "docs: observation contracts",
+    "criteria": [
+      {
+        "id": "T19.C01",
+        "text": "D60 и arch-docs:A-D03–06 имеют dispositions; finite payload-free events/enums, known/unknown, pair/drop/callback units и cooperative custom error boundary опубликованы."
+      },
+      {
+        "id": "T19.C02",
+        "text": "Synchronous serialized callbacks/no workers/retry и optional host bridge/OTel сохранены; targeted privacy/order/reentrancy/race tests PASS."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T20",
+    "title": "public documentation",
+    "status": "pending",
+    "commit_message": "docs: public guides",
+    "criteria": [
+      {
+        "id": "T20.C01",
+        "text": "D61 и assigned arch-docs findings имеют dispositions; root onboarding содержит install/Go/schema/meta/local BM25/explicit Read/partial-protection-error handling, runnable и gofmt."
+      },
+      {
+        "id": "T20.C02",
+        "text": "Stable integration/lifecycle/source/layout/ownership/score/limits/recovery guides находятся в public topic paths с working links; README разгружен, языковая структура согласована."
+      },
+      {
+        "id": "T20.C03",
+        "text": "DOC1–DOC8 синхронны final API: units/defaults/bounds, callback ownership, source authority/derivation deps, profile capability matrix и exact release runbook."
+      },
+      {
+        "id": "T20.C04",
+        "text": "DOC9: license/versioning/contribution/security policy inventory сохранён; существующие owner decisions используются, отсутствующие явно отмечены без выдуманной лицензии; required owner decisions — blocker."
+      },
+      {
+        "id": "T20.C05",
+        "text": "Исторические task13–19 acceptance/evidence сохранены с отдельным remediation reference; checklist percentages не выданы за production readiness; conformance suite limits и external advisory runner описаны."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T21",
+    "title": "fresh acceptance and release tooling",
+    "status": "pending",
+    "commit_message": "test: fresh acceptance",
+    "criteria": [
+      {
+        "id": "T21.C01",
+        "text": "D61 и arch-docs:A-D12,A-D14–18 выполнены: broad wording blacklist заменён targeted symbols/contracts/links/snippets; fresh acceptance отделена от cached developer runs."
+      },
+      {
+        "id": "T21.C02",
+        "text": "All modules перечислены без двойного тестирования examples; explicit -count=1/race и examples build; normal CI имеет GOWORK=off matrix и validated Go/lint versions."
+      },
+      {
+        "id": "T21.C03",
+        "text": "Fuzz functions перечисляются индивидуально с bounded budgets; пустые PHONY targets исправлены/удалены."
+      },
+      {
+        "id": "T21.C04",
+        "text": "Publishable-module manifest отделяет examples, script platform/portable editor и semantic import-version guard documented; local candidate clean consumer smoke PASS."
+      },
+      {
+        "id": "T21.C05",
+        "text": "Targeted CI/tooling fixtures PASS; real release/push не выполнялся."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  },
+  {
+    "id": "T22",
+    "title": "final acceptance",
+    "status": "pending",
+    "commit_message": "test: remediation acceptance",
+    "criteria": [
+      {
+        "id": "T22.C01",
+        "text": "Все T00–T21 приняты двумя независимыми агентами и имеют отдельные commits; каждый F/D/raw requirement закрыт evidence/disposition, все blockers разрешены."
+      },
+      {
+        "id": "T22.C02",
+        "text": "Fresh all-module lint и race tests, planner/resilience/conformance examples PASS; versions/commands/exit codes и skips зафиксированы."
+      },
+      {
+        "id": "T22.C03",
+        "text": "GOWORK=off matrix и isolated release-candidate clean consumer install/build/tests PASS; fake/local remote остаётся единственным release publication fixture."
+      },
+      {
+        "id": "T22.C04",
+        "text": "F08 real PG query/delete parity и остальные applicable changed-backend/parser profiles PASS; непроверенные live enforcement/quality/power-loss claims не заявлены."
+      },
+      {
+        "id": "T22.C05",
+        "text": "Все фактические bounds/clone/union/cache/metric оптимизации имеют before/after relevant measurements и сохранённые concurrency/protection properties."
+      },
+      {
+        "id": "T22.C06",
+        "text": "Final API docs/examples/trace registry и git diff --check сверены с current state; финальные независимые completeness 100% и correctness PASS, затем отдельный commit."
+      }
+    ],
+    "acceptance": {
+      "completeness": null,
+      "correctness": null
+    },
+    "commit_sha": null
+  }
+]

@@ -1,0 +1,2418 @@
+{
+  "baseline_sha": "b63d5e19a52c7d4e621b1a85a3ce428a92acbcb7",
+  "master": [
+    {
+      "id": "D01",
+      "task": "T12",
+      "requirement": "Границы retrieval composition: Bounded recipes/fallback/rescue допустимы в ragy. General workflow — flowy, agent loop/UI/Ask–Plan–Action — harness; не создавать новую библиотеку на каждую retrieval стратегию.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D02",
+      "task": "T12",
+      "requirement": "Два composition engines и ranking façade: Свести result-only и execution-aware внутренние engines, если это уменьшит drift; inventory consumers перед удалением ranking compatibility aliases. Без второго legacy engine ради совместимости.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D03",
+      "task": "T12",
+      "requirement": "Merger fallback: Ошибка custom fusion сейчас ведёт к score merge с error. Это documented degradation, но лучше explicit policy/original observed sets; не сравнивать разные score scales автоматически.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D04",
+      "task": "T12",
+      "requirement": "Zero ExecMeta: reflect.DeepEqual(zero) означает omitted и мешает reset в корректный zero. При clean break ввести presence/update contract или всегда уважать returned value, без reflective угадывания.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D05",
+      "task": "T12",
+      "requirement": "Partial result/error authority: Согласовать separate ResultSet и nested PartialFailureError.Result, сохранить outer causes при errors.Join/As. Не объявлять source-level подозрение отдельным доказанным багом.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D06",
+      "task": "T12",
+      "requirement": "Nil callbacks и resolver defaults: Унифицировать constructor validation; custom ResultSet не обязан быть built-in для сохранения resolver. Explicit resolver capability/argument лучше молчаливого default.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D07",
+      "task": "T12",
+      "requirement": "Threshold stage: Различить pre-postprocessor и terminal threshold, reranked/native score. Raw BM25/персистентные backends должны явно сообщать поддержку options; не выдавать topK за work cap.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D08",
+      "task": "T12",
+      "requirement": "MergeKey и evidence equality: Winner merge может объединять supports разных texts, RRF строже. Определить semantic grouping vs identical evidence; GroupBy остаётся явной сборкой content.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D09",
+      "task": "T12",
+      "requirement": "Config/metadata ownership: Документировать freeze/clone для Artifact pointer, SynonymMap, Run config и BYOT metadata. Host callbacks остаются cooperative/concurrency-safe; не blanket JSON deep-copy всего.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D10",
+      "task": "T12",
+      "requirement": "Budget semantics: Calls не refunded, unknown usage reserved, ledger scope может быть shared. Развести known tokens и known cost при необходимости; это не организация billing/quota и не metry ledger.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D11",
+      "task": "T12",
+      "requirement": "Model-free attestation: Это declaration host, не sandbox. UnsupportedQueryEncoderBridge не должен хранить неиспользуемый Embedder; explicit unsupported, без скрытого model call.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D12",
+      "task": "T12",
+      "requirement": "Counts против bytes/work: MaxDocuments, candidate count, cache entries и retained snapshots не гарантируют bounded RSS/CPU. Описать конкретные units/limits и trusted bounded callbacks, не хардкодить универсальный cap.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D13",
+      "task": "T12",
+      "requirement": "Cache/copy cost: MemoryCache O(capacity) eviction и repeated result slice copies измерять; byte budget/singleflight только по потребности. Никакого refresh daemon/distributed cache по умолчанию.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D14",
+      "task": "T12",
+      "requirement": "Fallback vs Rescue: Сохранить отличие empty-success от empty-error. Nil conditional predicate и rank degradation должны быть явной configuration policy, не неочевидным разрешением dispatch.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D15",
+      "task": "T13",
+      "requirement": "Publication terminology: Развести source→manifest pointer, immutable read capture и durable metadata pin в глоссарии/названиях. Capture не lease, Acquire pin защищает metadata, не source/target payload availability.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D16",
+      "task": "T13",
+      "requirement": "Capture namespace check: Удалить tautology snapshot.Namespace!=namespace, сравнить requested namespace после Store.Load. Custom misrouted Store repro подтверждает hardening gap; native filestore cross-tenant defect не найден, F-счётчик не увеличивать.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D17",
+      "task": "T13",
+      "requirement": "Lifecycle CAS/reuse: Namespace-wide CAS консервативен; positive CheckReuse — observation point, не permission/lease. Уточнить comment: только positive confirmation повторно проверяет generation. Retry/reconcile выбирает host.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D18",
+      "task": "T13",
+      "requirement": "Lifecycle unknown/cleanup: Read-only inspect может вернуть OutcomeUnknown без разрушительного вызова. Cleaner делает один шаг и выдаёт schedule/backoff; Complete не означает forensic/source erasure. Дать operation-specific recovery table.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D19",
+      "task": "T13",
+      "requirement": "Постоянные reservations: Retired skeletons, released IDs, digests и receipts нужны против ABA. Не TTL-delete и не auto-evict при capacity; миграция/retention policy принадлежат host.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D20",
+      "task": "T13",
+      "requirement": "Lifecycle boundedness/clone: Finite port calls не равны constant CPU/bytes: full snapshot и scans растут с history. Оптимизация через temporary indexes/explicit deep clone — после замеров и differential validation.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D21",
+      "task": "T13",
+      "requirement": "Plan equality/CAS authority: Порядок artifacts/targets может быть частью idempotency. Не менять canonicalization существующих reservations молча. Raw CompareSwap — trusted low-level interface, не authenticated command API.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D22",
+      "task": "T13",
+      "requirement": "Inventory fences: Сохранить sorted locks, exact-once synchronous observer callback и exact inventory. Нет принудительного прерывания arbitrary callback через unbounded goroutines.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D23",
+      "task": "T14",
+      "requirement": "Graph ingestion scope: Extraction/resolution/materialization/history — retrieval-domain facts/provenance. Ontology, aliases, semantic truth, model transport и lifecycle driving — host.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D24",
+      "task": "T14",
+      "requirement": "Relation closure/naming: Source-local endpoint support обязателен по контракту; пример cross-document relation. Name — canonical, не mention label; рассмотреть CanonicalName/MentionKind вместо перегруженного Kind.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D25",
+      "task": "T14",
+      "requirement": "Graph generic kinds/history: Stable comparable enum/value и faithful bounded JSON callbacks — host contract. History capture не пересчитывает ontology и не доказывает policy truth; maxSupports также считает другие populations.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D26",
+      "task": "T14",
+      "requirement": "Graph history bytes/platform: Marshal cap — accepted wire, не peak allocation. FileStore darwin/linux и host-prepared durable root описать явно; no automatic retention/retry после unknown append.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D27",
+      "task": "T14",
+      "requirement": "Graph scaling: Support unions/variant grouping и summary admission могут быть quadratic. Сначала benchmark upper bounds; map[Locator] со stable order допустим, новая indexing framework не нужна.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D28",
+      "task": "T05",
+      "requirement": "Extraction full-input budget: MaxInputBytes сейчас source-text only, не весь model envelope. Назвать точно или отдельный envelope cap; CountInputTokens должен учитывать реальный provider input.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D29",
+      "task": "T14",
+      "requirement": "Summary dependencies: Selected citations не равны всем model derivation inputs. Уточнить revocation policy для unselected input; при необходимости separate dependency inventory. Structural association не semantic truth.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D30",
+      "task": "T14",
+      "requirement": "Summary delivery/coverage: Resolve проверяет текущий доступ; возвращённый MappedText уже owned и не отзывается задним числом. Coverage — declared set coverage, не качество prose, MissingCoverage не запускает hidden repair.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D31",
+      "task": "T14",
+      "requirement": "Graph recipe heuristics: Seed-only graph как Insufficient и fail-zero при node/edge limit — explicit policies. Volatile managed graph не восстанавливается из одного manifest; не fallback на raw/current graph.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D32",
+      "task": "T02",
+      "requirement": "Error precedence в graph recipes: Graphsummary/graphexpand/extraction также могут скрыть callback/settle causes за gate. Расширить F01 acceptance на эти пути; отдельный payload-release defect там не доказан.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D33",
+      "task": "T14",
+      "requirement": "Materialization/ergonomics: Build validation не обязательно возвращает normalized metadata. Определить normalization stage, дать минимальную композицию generics/callbacks; не добавлять DI builder framework.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D34",
+      "task": "T15",
+      "requirement": "Chunk overlap/separators: Overlap применяется лишь fixed-splitting fallback; описать best-effort либо реализовать boundary overlap. Custom non-whitespace delimiters могут исчезать — explicit keep/drop policy и coverage properties.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D35",
+      "task": "T15",
+      "requirement": "Markdown/sentence heuristics: Hash-line splitter не полноценный Markdown, punctuation sentence splitter не NLP. Назвать поддерживаемую грамматику, учесть code fences/Setext либо дать BYO ports, без скрытых моделей.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D36",
+      "task": "T15",
+      "requirement": "Segment/chunk admission: Определить allowed gaps, Total0, unmapped UTF-8 и Index ordering. Проверять trusted callback contract пропорционально; не выдумывать source coordinates без оригинала.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D37",
+      "task": "T15",
+      "requirement": "Projection partial/identity: Унифицировать all-or-nothing vs partial projection. Descriptor/chunk identity precedence, StorageID для всех chunks и URI MergeKey требуют ясной authority; не global ID service.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D38",
+      "task": "T15",
+      "requirement": "Source ownership/RawStore: Reader Catalog→admitted Loader и no-latest гарантии сохранить. RawStore — explicit unscoped administration. Project получает уже authorized document, Binding сам не доказывает его принадлежность scope.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D39",
+      "task": "T15",
+      "requirement": "Mapping strictness/attestation: Persisted mapping JSON менее строг locator/evidence wire; решить duplicate/case/Unicode policy. Structural mapping не доказательство exact source text — нужен authorized resolve, не «защита» hash-ом.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D40",
+      "task": "T15",
+      "requirement": "Source/layout cost/supports: Повторное UTF-8 scanning каждого span может быть O(words×text). Validate once на trusted snapshot boundary. Slice сохраняет broad support ancestry; whole media Resolve не crop API.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D41",
+      "task": "T15",
+      "requirement": "OCR/image projection: Partial coverage и original-vs-derived distinctions сохранить. ImageText callback явно заменяет OCR даже при empty output; описать или explicit host policy, не hidden fallback.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D42",
+      "task": "T15",
+      "requirement": "Multimodal URL: Transport-neutral URL не downloader/SSRF policy service. Providers валидируют supported schemes/MIME, host — network allowlist; trim/normalization и inactive fields согласовать.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D43",
+      "task": "T15",
+      "requirement": "Evidence scope/bounds: Membership tuple без Transformation может означать original source, не index artifact. Зафиксировать семантику; rank int→float64 ограничить meaningful ordinal domain; output wire cap не входной CPU bound.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D44",
+      "task": "T16",
+      "requirement": "Tensor score/work: MaxSim может быть negative/>1, Dot не требует normalized input. Candidate-bound != token×dimension bound; ctx checks между rows/candidates и limits нужны по профилю, не implicit clamping.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D45",
+      "task": "T16",
+      "requirement": "Candidate catalog semantics: Exact-within-candidates не ANN/exhaustive. Budget считает docs, projection dedup считает refs; catalog scan шире payload budget. MaxRecords не должен скрывать несколько независимых units.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D46",
+      "task": "T16",
+      "requirement": "Lexical cache/config: Snapshot count не byte/transient-builder cap; generation-wide invalidation безопасна. B=0/K1=0 как default мешает математическим zero значениям — optional config при clean break. Borrowed raw metadata явно ограничивает concurrency.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D47",
+      "task": "T16",
+      "requirement": "Повторные admission passes: Некоторые clone/build/check нужны для ownership/freshness; объединять только с fence tests. CPU scoring/sorting BM25 требует cancellation checkpoints при больших corpora.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D48",
+      "task": "T16",
+      "requirement": "Local file profile: fsync files/root не доказывает power-loss mkdir ancestor durability. Явный pre-provisioned root либо synced init при нужном контракте; не заявлять hardware crash verification по process-crash tests.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D49",
+      "task": "T16",
+      "requirement": "Filesystem boundaries: Nonblocking flock конфликт возвращает host; describe handle/OS semantics, no networkFS fallback. Trusted root не hostile filesystem sandbox. Explicit Retired check полезен, native retired-payload bypass не подтверждён.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D50",
+      "task": "T16",
+      "requirement": "Dense/tensor duplication: Узкий internal helper для inventory/cleanup может сократить drift; не публичный универсальный storage engine, скрывающий gates и type-specific validation.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D51",
+      "task": "T17",
+      "requirement": "Storage codec/filter contract: PG custom codec получает json.Number, ES/Qdrant normalized scalar: согласовать input types/empty attrs. Portable missing/null/wrong-kind truth table и constructor sentinel errors нужны независимо от SQL.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D52",
+      "task": "T17",
+      "requirement": "ES tokenizer/config: SynonymMap следует clone/freeze; tokenize один раз и передавать результат. Stateful tokenizer не должен менять preflight и dispatched query; не новый tokenizer framework.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D53",
+      "task": "T17",
+      "requirement": "PG identifiers/batch/order: Unquoted safe regex защищает injection, но uppercase/keywords требуют policy/quoting. Upsert batch bound host-owned без hidden chunked partial commits. Equal-distance tie order определить с учётом ANN planning.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D54",
+      "task": "T17",
+      "requirement": "Bridge capability honesty: Neo4j — Runner bridge, не native driver; generic Filters mapping/rejection и projection validation явны. Unknown affected counts не заменять длиной input. Local wire tests не certification live scope enforcement.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D55",
+      "task": "T18",
+      "requirement": "Provider transports: Shared URL/error contract tests предотвращают F10/F11 drift; structured usage/schema semantics не обязательно объединять с embedding client. Consistent cancellation/I/O/protocol taxonomy и credential preflight.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D56",
+      "task": "T18",
+      "requirement": "Provider JSON/schema: Unknown fields evolution отдельно от duplicate/case/surrogate policy. Structured choice Index missing/null требует explicit admission; executable domain schema host-owned, не новый universal validator.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D57",
+      "task": "T18",
+      "requirement": "Space/config naming: Model/Space.Model дублируются; ModelRevision/Configuration — host attestation, не remote fact. MaxOutputTokens для tensor rows лучше MaxVectorRows. Defaults/explicit limits и Cohere query+docs accounting описать таблицей.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D58",
+      "task": "T18",
+      "requirement": "Usage/error materialization: Известный usage не должен теряться только из-за rejected vectors; где неизвестен, не оценивать как known. Cohere retained input/prefix с error не считать reranked success; billing/prices остаются host.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D59",
+      "task": "T18",
+      "requirement": "PDF limits/errors: Catch-all invalid_pdf скрывает engine bugs; sanitized internal class рассмотреть отдельно. Output limits не гарантируют RSS/CPU. Документировать tested Python deps/fingerprint/real parser opt-in, host process isolation вне core.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D60",
+      "task": "T19",
+      "requirement": "Observation boundaries: Сохранить bounded enums, known/unknown, payload-free events и synchronous serialized callbacks. Pair/drop/event units описать; custom error.Is/Unwrap не sandbox. Adapter to metry optional, без exporter daemon.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "D61",
+      "task": "T20",
+      "requirement": "Docs/CI/release surface: Current guides вынести из task/.cursor chronology; убрать blanket word blacklist в пользу symbol/snippet tests. Standalone GOWORK=off CI, fresh acceptance и publishable-module manifest отдельно от example modules.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F01",
+      "task": "T02",
+      "requirement": "P1: deadline превращает protection failure в успешный partial result",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F02",
+      "task": "T03",
+      "requirement": "P1: release публикует посторонние файлы и теги",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F03",
+      "task": "T04",
+      "requirement": "P2: ошибка release оставляет detached HEAD и занятую версию",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F04",
+      "task": "T05",
+      "requirement": "P2: extraction не соблюдает более ранний deadline общего ledger",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F05",
+      "task": "T06",
+      "requirement": "P2: resolver объединяет разные identity keys из-за JSON UTF-8 repair",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F06",
+      "task": "T07",
+      "requirement": "P2: layout допускает один exact source reference для разных текстов",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F07",
+      "task": "T08",
+      "requirement": "P2: BM25Snapshot вызывает следующий codec после отмены чтения",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F08",
+      "task": "T09",
+      "requirement": "P2: pgvector отрицание расходится с portable filter на absent fields",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F09",
+      "task": "T10",
+      "requirement": "P2: Neo4j Retrieve выдаёт payload после cancellation",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F10",
+      "task": "T11",
+      "requirement": "P2: structured adapter теряет deadline при чтении response body",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "F11",
+      "task": "T11",
+      "requirement": "P2: structured BaseURL с bare query меняет pathname запроса",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    }
+  ],
+  "role_findings": [
+    {
+      "id": "retrieval:01",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 35,
+      "requirement": "Keep bounded recipe execution in ragy.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:02",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 36,
+      "requirement": "Delete or mark deprecated compatibility façade `ranking`.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:03",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 37,
+      "requirement": "Unify internal result-only and execution-aware composition engines.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:04",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 38,
+      "requirement": "Remove hidden score-merge fallback on custom fusion failure or make explicit policy.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:05",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 39,
+      "requirement": "Zero execution metadata is not absence.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:06",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 40,
+      "requirement": "Separate presence of partial error from result source.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:07",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 41,
+      "requirement": "Make nil configuration validation consistent.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:08",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 42,
+      "requirement": "Document resolver extraction fallback.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:09",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 43,
+      "requirement": "Clarify score threshold stage.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:10",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 44,
+      "requirement": "Revisit merged-payload/source support semantics.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:11",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 45,
+      "requirement": "Snapshot or explicitly freeze pointer configuration.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:12",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 46,
+      "requirement": "Retain conservative accounting semantics.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:13",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 47,
+      "requirement": "Name budget scopes more precisely.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:14",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 48,
+      "requirement": "Explicit model-free attestation is honest, not enforceable sandboxing.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:15",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 49,
+      "requirement": "Cache capacity is entry count, not byte bound.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:16",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 50,
+      "requirement": "Avoid repeated bulk copying solely to preserve shape.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:17",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 51,
+      "requirement": "Clarify boundedness of model-produced text.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "retrieval:18",
+      "task": "T12",
+      "source": "reviews/retrieval.md",
+      "line": 52,
+      "requirement": "Retain explicit distinction Fallback vs Rescue.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:01",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 24,
+      "requirement": "Keep Executor and Cleaner. They implement publication and managed-index cleanup invariants; removing them as “orchestration” would force services to recreate atomic CAS and unknown-outcome protocol. Do not grow into flowy or agent-harness scheduling. Reference executor.go:51, cleanup.go:77–91.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:02",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 26,
+      "requirement": "Clarify publication terminology in current API docs. lifecycle.Publication is a source→manifest pointer; access.Publication is an immutable read observation; PublicationPin is a durable metadata reservation. These are three distinct concepts with similar names. Consider SourcePublication / PublicationSnapshot / MetadataPin in a clean break, or provide one diagram/glossary without gratuitous rename churn. References manifest.go:89, pins.go:12, maintenance.go:22.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:03",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 28,
+      "requirement": "Keep Capture versus Acquire distinction explicit in quickstart. Value capture is not a discoverable lease. Acquire protects metadata only; it cannot ensure availability of target payloads or source bytes. No TTL or cleanup blocking should be inferred. docs/task18/lifecycle-maintenance.md already documents this correctly; propagate to top-level lifecycle examples.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:04",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 30,
+      "requirement": "Namespace-wide CAS is deliberately conservative. Pin/release or an unrelated source mutation can conflict with CheckReuse/Prepare/Publish. Document caller retry/reconcile recipes, not an internal fallback retry loop. Large-host storage adapters may optimize internally while preserving generation contracts. reuse.go:78–84; store.go.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:05",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 32,
+      "requirement": "CheckReuse's comment “Any concurrent lifecycle generation change invalidates the decision” overstates behavior: early Absent/Changed/Incomplete returns do not reload. Only a positive Confirmed decision has the second-generation check. Narrow the wording to positive reuse confirmation; no need to make negative observations more expensive. reuse.go:29–31,57–85.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:06",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 34,
+      "requirement": "CheckReuse is an observation point, not a permission or lease. Even positive reuse can become stale immediately after final Load. Host must control lifecycle publication and subsequent use. Preserve explicit comment and require integrations not to cache CanSkip indefinitely. reuse.go:20–27.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:07",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 36,
+      "requirement": "ErrOutcomeUnknown also wraps failures from read-only Inspect/InspectCleanup/CheckReuse. This is defensible for unknown target state, but error wording “target outcome unknown” can be misread as proof that a destructive operation was issued. Document operation-specific recovery table; avoid a generic retry middleware. reuse.go:118–123; cleanup.go:265; executor.go:495.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:08",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 38,
+      "requirement": "Keep one-step Cleaner, explicit host clock, backoff and overdue recovery flag. Backoff values are schedule outputs, not sleeping retries. Consider named recovery mode instead of bool only if extra modes arise; do not build a worker inside ragy. cleanup.go:77–100,171–235.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:09",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 40,
+      "requirement": "Scope “bounded explicit operations” accurately: bounded *number of port calls* is not bounded CPU/bytes. Snapshot validation, cloning, retainedArtifacts, ancestry and full snapshot serialization scale with namespace history. Existing maintenance scale docs correctly acknowledge this. Link those limits from Executor/Cleaner public package docs; don't claim constant-work maintenance. executor.go:51; cleanup.go:396; maintenance.go:231; filestore/store_unix.go:147.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:10",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 42,
+      "requirement": "Retired skeletons, artifact digests, released IDs, bootstrap receipts are intentional permanent reservations. Do not “simplify” by deleting them on TTL; that permits ABA/rebinding and breaks replay. At capacity host must move profile/store or explicitly migrate, not evict silently. maintenance.go:15–24,134,304; docs/task18/lifecycle-maintenance.md.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:11",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 44,
+      "requirement": "Distinguish operation state Complete from total historical data destruction: pins protect metadata, target cleanup is separate, and source bytes are host-owned. Cleaner Complete means all captured target-cleanup items confirmed; it does not certify privacy erasure or tenant deletion. cleanup.go:31,315–330.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:12",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 46,
+      "requirement": "Existing full-snapshot JSON roundtrip in CompactHistory is an ownership technique, not unexplained fallback. Keep unless profiling supports an explicit deep clone shared with other clone paths. A rewrite must preserve nested slice ownership and nil/order semantics used in replacement validation. maintenance.go:145–156; executor.go:453.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:13",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 48,
+      "requirement": "Plan equality is order-sensitive (JSON samePlan, target/artifact slices in sameReservedPlan), while publication target selection sorts input. Decide/document whether ingestion target/artifact order is semantic to idempotency. Do not silently canonicalize already-reserved plan identity during upgrade. executor.go:465; maintenance.go:272; publication.go:95–99.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:14",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 50,
+      "requirement": "Store.CompareSwap is a trusted low-level checkpoint interface, not a public authorization boundary. ValidateReplacement preserves immutable reservations and certain monotonic receipts, but does not validate every transition as if calls came through Executor/Cleaner. Document this host/adapter responsibility; do not claim direct arbitrary snapshots are equivalent to authenticated workflow commands. maintenance.go:304–324,425–440. No demonstrated supported Executor path bypass was found.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:15",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 52,
+      "requirement": "ValidateReplacement compares cleanup/pin/receipt history with scans; direct correctness wins over adding a second persisted index. If workload demands optimization, build temporary indexes within validation and verify differential equivalence. No new service/storage framework merely to optimize local profile. maintenance.go:442–507.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:16",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 54,
+      "requirement": "FencedInventoryVerifier acquires observer fences in sorted target order and requires callback exactly once. Keep these anti-deadlock/protocol checks. Observers are cooperative synchronous ports; do not introduce goroutines/timeouts to forcibly detach callbacks. Document that target/source snapshots after the verification point are host-governed. inventory_verifier.go:13,32–41,80–107.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:17",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 56,
+      "requirement": "There is no standalone lifecycle README; current migration/retention contract lives in docs/task18. Move or mirror stable guidance into lifecycle/README.md with state transitions, legal replay, failures and recovery, error taxonomy, pin distinctions, local-filesystem profile and capacity limits. Keep historical task docs as evidence instead of requiring users to discover runtime contracts through task numbers.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "lifecycle:18",
+      "task": "T13",
+      "source": "reviews/lifecycle.md",
+      "line": 58,
+      "requirement": "Consistent nil context behavior is optional API hygiene, not a supported-call correctness bug: pins explicitly reject nil while Capture/Executor/filestore use ctx.Err and ordinary Go convention disallows nil contexts. Choose a package-wide documented convention; do not count every missing nil check as a distinct defect.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:01",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 39,
+      "requirement": "Keep graph ingestion inside ragy.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:02",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 40,
+      "requirement": "Resolution README is stale.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:03",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 41,
+      "requirement": "Source-local relation closure is deliberate but restrictive.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:04",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 42,
+      "requirement": "Same identity with different display name errors.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:05",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 43,
+      "requirement": "Comparable generic kind permits semantically odd types.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:06",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 44,
+      "requirement": "`Unresolved.Kind` is an untyped string while other states are named.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:07",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 45,
+      "requirement": "Snapshot history is a declared record, not recomputation proof.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:08",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 46,
+      "requirement": "History `maxSupports` also caps fact/variant populations.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:09",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 47,
+      "requirement": "History JSON byte limit is post-serialization.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:10",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 48,
+      "requirement": "History file store portability and durability.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:11",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 49,
+      "requirement": "Quadratic support unions / variant grouping.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:12",
+      "task": "T05",
+      "source": "reviews/graph.md",
+      "line": 50,
+      "requirement": "Extraction MaxInputBytes only counts source text.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:13",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 51,
+      "requirement": "Repeated original-source authorization in graphsummary is intentional but potentially expensive.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:14",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 52,
+      "requirement": "Selected citations are not information-flow taint.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:15",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 53,
+      "requirement": "Summary object authorization scope differs from returned results.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:16",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 54,
+      "requirement": "Community coverage is set coverage only.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:17",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 55,
+      "requirement": "Graph traversal result limit is rejection, not truncation.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:18",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 56,
+      "requirement": "Managed graph volatile storage is a reference profile.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:19",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 57,
+      "requirement": "graphexpand default outcome policy is hard-coded.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:20",
+      "task": "T02",
+      "source": "reviews/graph.md",
+      "line": 58,
+      "requirement": "Error precedence consistency.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:21",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 59,
+      "requirement": "Materializer validates normalized graph but returns original typed metadata.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "graph:22",
+      "task": "T14",
+      "source": "reviews/graph.md",
+      "line": 60,
+      "requirement": "Config ergonomics need examples, not builder frameworks.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:01",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 20,
+      "requirement": "Overlap has fallback-only semantics.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:02",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 21,
+      "requirement": "Markdown is a hash-line heuristic.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:03",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 22,
+      "requirement": "Custom separators can discard non-whitespace delimiters.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:04",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 23,
+      "requirement": "Semantic segment coverage not enforced.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:05",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 24,
+      "requirement": "Default sentence segmentation is punctuation only.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:06",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 25,
+      "requirement": "Contextual sorting after ordered map.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:07",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 26,
+      "requirement": "Contextual output validation gap is a contract choice.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:08",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 27,
+      "requirement": "Chunk validation granularity.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:09",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 28,
+      "requirement": "Projection partial-result asymmetry.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:10",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 29,
+      "requirement": "Default identity fallback precedence.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:11",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 30,
+      "requirement": "StorageID reused for all chunks.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:12",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 31,
+      "requirement": "Metadata borrowing is intentional but needs end-to-end ownership docs.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:13",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 32,
+      "requirement": "Source reader architecture is justified.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:14",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 33,
+      "requirement": "RawStore boundary is correctly explicit.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:15",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 34,
+      "requirement": "Ingestion authorization vs Project binding.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:16",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 35,
+      "requirement": "Mapping wire strictness differs from locator/evidence.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:17",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 36,
+      "requirement": "Reference/locator trust distinction must remain explicit.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:18",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 37,
+      "requirement": "Potential quadratic range validation cost.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:19",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 38,
+      "requirement": "Whole-source supports retained by Slice.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:20",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 39,
+      "requirement": "Resolve region returns whole media.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:21",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 40,
+      "requirement": "Coverage conservatism is deliberate.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:22",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 41,
+      "requirement": "Optional ImageText replaces OCR mapping rather than merges/fallbacks.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:23",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 42,
+      "requirement": "Multimodal URL is transport-neutral.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:24",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 43,
+      "requirement": "Evidence admission and payload privacy are mostly well bounded.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:25",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 44,
+      "requirement": "Evidence publication membership excludes Transformation.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:26",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 45,
+      "requirement": "Evidence numeric representation of Rank.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:27",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 46,
+      "requirement": "Evidence input work bounds vs wire bounds.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "ingestion:28",
+      "task": "T15",
+      "source": "reviews/ingestion.md",
+      "line": 47,
+      "requirement": "Package-local docs discoverability.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:01",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 25,
+      "requirement": "Tensor is bounded only by candidate count",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:02",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 26,
+      "requirement": "Cancellation during tensor validation",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:03",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 27,
+      "requirement": "Native MaxSim negative and >1 scores correct",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:04",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 28,
+      "requirement": "Candidate loss intentionally observable",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:05",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 29,
+      "requirement": "Duplicate source references are explicitly deduplicated",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:06",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 30,
+      "requirement": "Catalog work is broader than candidate budget",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:07",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 31,
+      "requirement": "MaxRecords overloaded",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:08",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 32,
+      "requirement": "Lexical cache bound counts snapshots",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:09",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 33,
+      "requirement": "Lexical generation invalidates all scope caches",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:10",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 34,
+      "requirement": "Repeated admission/build passes",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:11",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 35,
+      "requirement": "BM25 B=0 cannot mean no length normalization",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:12",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 36,
+      "requirement": "Raw BM25 mutable metadata is host-owned",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:13",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 37,
+      "requirement": "Cancellation inside BM25 CPU loops",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:14",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 38,
+      "requirement": "Threshold semantics belong terminal composition",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:15",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 39,
+      "requirement": "Persistent filesystem initialization",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:16",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 40,
+      "requirement": "Nonblocking flock intentional",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:17",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 41,
+      "requirement": "Persistent read failures are deliberately redacted",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:18",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 42,
+      "requirement": "selectedManifest omits Retired flag",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:19",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 43,
+      "requirement": "Local root ownership is explicit boundary",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "tensor:20",
+      "task": "T16",
+      "source": "reviews/tensor.md",
+      "line": 44,
+      "requirement": "dense/tensor persistence duplication",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:01",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 35,
+      "requirement": "`pgvector/store.go:374-383` hands raw json.Number to custom codec directly and skips codec on empty wire; Qdrant `:326-334` and ES `:273-299` normalize first. Probe TestReviewPGCodecCanonical using codec expecting schema-canonical int64 prints `canonical tenant: got json.Number` for 9007199254740993; built-in JSONCodec remains correct because it normalizes itself. MetadataCodec's current interface does NOT explicitly promise canonical Decode input, so classify as contract inconsistency to settle, not precision regression. Prefer adapter-owned normalization then custom codec receives stable scalar kinds on every backend; document empty attributes behavior.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:02",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 37,
+      "requirement": "`elasticsearch.go:95` retains caller SynonymMap and nested slices, while BM25 constructor deep clones (`lexical/bm25.go:86-89`). Decide ownership once: clone immutable config maps/slices at construction, document callback concurrency separately. Otherwise post-construction config edits change behavior and concurrent edits can race. No concurrent mutation probe run; not a proven caller-contract violation.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:03",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 39,
+      "requirement": "ES calls Tokenizer twice (`elasticsearch.go:129`, `:168`, `:212`) per successful retrieval. Stateful or expensive tokenizers see duplicate work and potentially inconsistent empty admission vs dispatched query. Compute once and pass tokens/expanded string; require stable tokenizer behavior explicitly. Avoid creating a tokenization framework.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:04",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 41,
+      "requirement": "pgvector adapter names accepted by `ValidateSQLIdentifier` are interpolated unquoted (`:180`, `:271`), so uppercase names fold and SQL keywords fail. Safe regex prevents injection; this is not an injection defect. Specify lowercase unquoted identifiers vs correctly quote identifiers, including schema-qualified names if intentionally supported. Do not expand identifier policy speculatively.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:05",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 43,
+      "requirement": "Filter missing/NULL/wrong-kind contract should be documented independently of backend implementation, with conformance cases. RawAttributes nil rejected, absent accepted; portable missing-field behavior still matters without explicit null. `MatchIR` takes a lookup that can supply NaN/wrong numeric types; decide validated-boundary precondition vs graceful rejection. Don't let arbitrary user maps become domain metadata API.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:06",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 45,
+      "requirement": "Neo4j currently exposes a typed Runner abstraction, not Cypher/driver implementation (`neo4j.go:26-29`). Keep that honest in naming and docs; a built-in driver is an optional separate adapter, not a prerequisite for correctness. Existing capability matrix explicitly says no native driver and scoped/pinned unsupported — retain this honesty.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:07",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 47,
+      "requirement": "Neo4j Retrieve accepts generic Filters/Plan filters but only passes Graph.NodeFilter/EdgeFilter. Contract should explicitly reject unsupported generic filter fields or define mapping; don't silently reinterpret node-vs-edge domain semantics. Graph module owner should assess together with managed graph query behavior. No scope bypass claim because this backend denies scoped reads.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:08",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 49,
+      "requirement": "Neo4j Traverse normalizes full returned snapshot, while Retrieve projects only document fields (`neo4j.go:106-125`, `:153`). Decide whether invalid labels/edge endpoints/metadata from Runner must be rejected during retrieval or intentionally excluded from the projection contract; documenting only schema-validated traversal is insufficient if consumers assume full returned graph validation.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:09",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 51,
+      "requirement": "pgvector Upsert builds one SQL statement with four parameters per record. Host must bound batch size (Postgres parameter/statement capacities); no implicit chunking that turns atomic single-statement semantics into partial commits. Expose/document explicit capacity or host batching responsibility and errors.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:10",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 53,
+      "requirement": "pgvector search orders only distance (`store.go:182`) and lacks tie-break ID. Define whether deterministic equal-score ordering is required, especially evaluation reproducibility/caches. Add stable tie-break if supported without undermining ANN index planning; no ANN guarantees currently claimed.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:11",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 55,
+      "requirement": "RawStore FindByIDs/Delete methods deliberately bypass read Binding and use explicit raw administration contract. Keep them clearly named/documented. Do not retrofit service IAM into every raw storage operation or misreport this as boundary violation.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:12",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 57,
+      "requirement": "Returned affected counts from Qdrant bridge trusted; transport driver must implement exact vs unknown counts honestly (especially async deletes). Current int API leaves unknown unrepresentable. Decide known/unknown DeleteResult count contract if real drivers cannot provide exact count; don't synthesize count from request length.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:13",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 59,
+      "requirement": "pgvector Rows.Close errors ignored; query/decode partial handling otherwise explicit. Decide if close error can contain a meaningful host-driver query outcome and whether to expose it; no blanket defer-error machinery without real driver requirement.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:14",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 61,
+      "requirement": "All storage bridges lack native live transport, retries, migrations and remote profile inspection. These are documented host responsibilities and appropriate boundaries. Keep no hidden fallback/backoff; do not add automatic remote DDL/schema mutation, shadow collections or re-embedding to adapter constructors.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:15",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 63,
+      "requirement": "Capability claims for pgvector/Qdrant/ES rely on host bridge actually enforcing supplied predicate before loading payload. Local SQL/DSL/condition tests cannot prove bridge/server enforcement. Keep integration certification separate, including tenant pairs, >2^53 int64 neighbors, omission metadata cases and unsupported pinned requests. Existing docs/task19/capabilities.md distinguishes wire/local/live correctly.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:16",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 65,
+      "requirement": "Public filter aliases expose constraints with underlying scalar (~) types but constructors produce only built-in typed fields, while internal scalarKind/toValue handle exact types. Avoid speculative generic alias support until public constructor permits it; simplify constraints or ensure alias-normalization deliberately if that API expands.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "storage:17",
+      "task": "T17",
+      "source": "reviews/storage.md",
+      "line": 67,
+      "requirement": "Public builders return bare errors for nil/unfinalized states (`filter/builder.go:15`, `:38`) while schema/adapters use ErrInvalidArgument. Standardize sentinel classification where callers need it; naming/building no schema provenance token is fine because final schema validation checks names+kinds.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:01",
+      "task": "T11",
+      "source": "reviews/providers.md",
+      "line": 36,
+      "requirement": "Two HTTP implementations diverge.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:02",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 37,
+      "requirement": "JSON strictness is different.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:03",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 38,
+      "requirement": "Structured choice index presence.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:04",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 39,
+      "requirement": "Error classes vary by transport.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:05",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 40,
+      "requirement": "Credentials validation differs.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:06",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 41,
+      "requirement": "Config.Model duplication.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:07",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 42,
+      "requirement": "Host attestation vs remote fact.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:08",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 43,
+      "requirement": "Mixed defaults and strict configuration.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:09",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 44,
+      "requirement": "Output admission vs allocation bounds.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:10",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 45,
+      "requirement": "Cohere MaxInputs includes query.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:11",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 46,
+      "requirement": "Cohere partial/error contract.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:12",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 47,
+      "requirement": "Usage on failed embedding materialization.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:13",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 48,
+      "requirement": "Purpose/metric semantics are well bounded.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:14",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 49,
+      "requirement": "PDF catch-all hides implementation failures.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:15",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 50,
+      "requirement": "PDF reproducibility.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:16",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 51,
+      "requirement": "GoDoc discoverability and examples.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:17",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 52,
+      "requirement": "Dense metric implementation.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "providers:18",
+      "task": "T18",
+      "source": "reviews/providers.md",
+      "line": 53,
+      "requirement": "No extra mandatory library needed for adapters.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:01",
+      "task": "T12",
+      "source": "reviews/arch-docs.md",
+      "line": 42,
+      "requirement": "`retrieval` includes planners, branches, fallback/rescue, execution metadata, recipes.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:02",
+      "task": "T13",
+      "source": "reviews/arch-docs.md",
+      "line": 43,
+      "requirement": "`access`, `lifecycle`, managed indexes repeat authority checks and retain fences.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:03",
+      "task": "T19",
+      "source": "reviews/arch-docs.md",
+      "line": 44,
+      "requirement": "Core observation and OTel module plus metry elsewhere.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:04",
+      "task": "T19",
+      "source": "reviews/arch-docs.md",
+      "line": 45,
+      "requirement": "`observation/README.md`; synchronous serialized callbacks may delay/cannot recursively re-enable session.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:05",
+      "task": "T19",
+      "source": "reviews/arch-docs.md",
+      "line": 46,
+      "requirement": "Fixed enum observation, counts and usage can have different units and unknown state.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:06",
+      "task": "T19",
+      "source": "reviews/arch-docs.md",
+      "line": 47,
+      "requirement": "`observation.Classify` errors.Is invokes custom Is/Unwrap.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:07",
+      "task": "T12",
+      "source": "reviews/arch-docs.md",
+      "line": 48,
+      "requirement": "`retrieval/execution.go:993-998`, README explicitly zero ExecMeta means omitted.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:08",
+      "task": "T12",
+      "source": "reviews/arch-docs.md",
+      "line": 49,
+      "requirement": "README: nil conditional predicate runs child, explicit warning; aggregate merger fallback changes rank semantics.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:09",
+      "task": "T20",
+      "source": "reviews/arch-docs.md",
+      "line": 50,
+      "requirement": "root README now ~500+ lines and mixes Russian wire table with English API prose; Quick start is a parameterized helper, no schema/provider setup.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:10",
+      "task": "T20",
+      "source": "reviews/arch-docs.md",
+      "line": 51,
+      "requirement": "Public README links `.cursor/docs/INTEGRATION.md` and `docs/task18/19` as core contract locations.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:11",
+      "task": "T20",
+      "source": "reviews/arch-docs.md",
+      "line": 52,
+      "requirement": "No root LICENSE/CHANGELOG/CONTRIBUTING/SECURITY tracked in inspected checkout.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:12",
+      "task": "T21",
+      "source": "reviews/arch-docs.md",
+      "line": 53,
+      "requirement": "`docs_test.go:22-29` bans words legacy/deprecated/instead of across all public source and README.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:13",
+      "task": "T20",
+      "source": "reviews/arch-docs.md",
+      "line": 54,
+      "requirement": "`contracttest` public scoped suite accepts BYOT and instruments payload I/O; older structmeta/index suites use fixed fixtures.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:14",
+      "task": "T21",
+      "source": "reviews/arch-docs.md",
+      "line": 55,
+      "requirement": "`examples/conformance` real external module name and local replace, GOWORK=off documented; CI executes under ambient workspace.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:15",
+      "task": "T21",
+      "source": "reviews/arch-docs.md",
+      "line": 56,
+      "requirement": "Makefile:20-37 tests planner/resilience twice (module loop then test-examples), no -count=1, ambient go.work.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:16",
+      "task": "T21",
+      "source": "reviews/arch-docs.md",
+      "line": 57,
+      "requirement": "Makefile:45-54 `-fuzz=.` assumes one fuzz function per package; presently only one in chunking.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:17",
+      "task": "T21",
+      "source": "reviews/arch-docs.md",
+      "line": 58,
+      "requirement": "release.sh BSD sed -i '', version policy increments major for >=1 but no /vN import migration; tags generated for examples too.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:18",
+      "task": "T21",
+      "source": "reviews/arch-docs.md",
+      "line": 59,
+      "requirement": "CI pinned golangci-lint2.11.3, local reviewer may newer; TASK19 actual parser/provider/DB profile distinctions clear.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:19",
+      "task": "T20",
+      "source": "reviews/arch-docs.md",
+      "line": 60,
+      "requirement": "README exposes typed documents and filter schema but private wire maps allowed.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    },
+    {
+      "id": "arch-docs:20",
+      "task": "T20",
+      "source": "reviews/arch-docs.md",
+      "line": 61,
+      "requirement": "TASK19 accepted with 100% task checklist and quality profiles failing promotion; public matrix qualifies dated/profile limits.",
+      "disposition": "pending",
+      "rationale": "",
+      "evidence": []
+    }
+  ],
+  "role_defects": [
+    {
+      "source": "reviews/retrieval.md",
+      "id": "R-01",
+      "master": "F01",
+      "task": "T02"
+    },
+    {
+      "source": "reviews/graph.md",
+      "id": "G-F01",
+      "master": "F04",
+      "task": "T05"
+    },
+    {
+      "source": "reviews/graph.md",
+      "id": "G-F02",
+      "master": "F05",
+      "task": "T06"
+    },
+    {
+      "source": "reviews/ingestion.md",
+      "id": "ING-F01",
+      "master": "F06",
+      "task": "T07"
+    },
+    {
+      "source": "reviews/tensor.md",
+      "id": "T-F01",
+      "master": "F07",
+      "task": "T08"
+    },
+    {
+      "source": "reviews/storage.md",
+      "id": "S1",
+      "master": "F08",
+      "task": "T09"
+    },
+    {
+      "source": "reviews/storage.md",
+      "id": "S2",
+      "master": "F09",
+      "task": "T10"
+    },
+    {
+      "source": "reviews/providers.md",
+      "id": "P-01",
+      "master": "F10",
+      "task": "T11"
+    },
+    {
+      "source": "reviews/providers.md",
+      "id": "P-02",
+      "master": "F11",
+      "task": "T11"
+    },
+    {
+      "source": "reviews/arch-docs.md",
+      "id": "A-F01",
+      "master": "F02",
+      "task": "T03"
+    },
+    {
+      "source": "reviews/arch-docs.md",
+      "id": "A-F02",
+      "master": "F03",
+      "task": "T04"
+    },
+    {
+      "source": "reviews/lifecycle.md",
+      "id": "L-H01",
+      "master": "D16",
+      "task": "T13"
+    }
+  ],
+  "documentation": [
+    {
+      "id": "DOC1",
+      "tasks": [
+        "T20"
+      ]
+    },
+    {
+      "id": "DOC2",
+      "tasks": [
+        "T13",
+        "T15",
+        "T20"
+      ]
+    },
+    {
+      "id": "DOC3",
+      "tasks": [
+        "T14"
+      ]
+    },
+    {
+      "id": "DOC4",
+      "tasks": [
+        "T05",
+        "T12",
+        "T14",
+        "T16",
+        "T18",
+        "T20"
+      ]
+    },
+    {
+      "id": "DOC5",
+      "tasks": [
+        "T01",
+        "T02",
+        "T04",
+        "T13",
+        "T20"
+      ]
+    },
+    {
+      "id": "DOC6",
+      "tasks": [
+        "T12",
+        "T14",
+        "T15",
+        "T20"
+      ]
+    },
+    {
+      "id": "DOC7",
+      "tasks": [
+        "T17",
+        "T20",
+        "T22"
+      ]
+    },
+    {
+      "id": "DOC8",
+      "tasks": [
+        "T03",
+        "T04",
+        "T20",
+        "T21",
+        "T22"
+      ]
+    },
+    {
+      "id": "DOC9",
+      "tasks": [
+        "T20"
+      ]
+    }
+  ],
+  "definition_of_done": [
+    {
+      "id": "DOD1",
+      "tasks": [
+        "T01"
+      ]
+    },
+    {
+      "id": "DOD2",
+      "tasks": [
+        "T02",
+        "T03"
+      ]
+    },
+    {
+      "id": "DOD3",
+      "tasks": [
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10",
+        "T11"
+      ]
+    },
+    {
+      "id": "DOD4",
+      "tasks": [
+        "T06",
+        "T07",
+        "T09",
+        "T11"
+      ]
+    },
+    {
+      "id": "DOD5",
+      "tasks": [
+        "T12",
+        "T13",
+        "T14",
+        "T15",
+        "T16",
+        "T17",
+        "T18",
+        "T19"
+      ]
+    },
+    {
+      "id": "DOD6",
+      "tasks": [
+        "T20"
+      ]
+    },
+    {
+      "id": "DOD7",
+      "tasks": [
+        "T21",
+        "T22"
+      ]
+    },
+    {
+      "id": "DOD8",
+      "tasks": [
+        "T12",
+        "T13",
+        "T14",
+        "T15",
+        "T16",
+        "T18",
+        "T22"
+      ]
+    }
+  ]
+}
