@@ -280,15 +280,30 @@ func projectParsedPage(
 	meta sourceMeta,
 ) []retrieval.Document[sourceMeta] {
 	t.Helper()
-	// This reference profile keeps one complete normalized page per chunk; source
-	// offsets are not inferred for arbitrary legacy string splitter transformations.
+	// Normalized page text is retained under its explicit representation. Splitters
+	// slice this supplied mapping rather than infer offsets from finished text.
 	splitter, err := chunking.NewRecursive[sourceMeta](256, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+	location := source.Locator{
+		Reference: page.Reference,
+		Kind:      source.TextLocation,
+		Span:      source.ByteSpan{Start: 0, End: len(page.Text)},
+	}
+	mapping, mapErr := source.OriginalText(location, page.Text)
+	if mapErr != nil {
+		t.Fatal(mapErr)
+	}
 	chunks, err := splitter.Split(
 		ctx,
-		retrieval.Document[sourceMeta]{ID: page.Reference.Artifact, Content: page.Text, Meta: meta},
+		retrieval.Document[sourceMeta]{
+			ID:             page.Reference.Artifact,
+			Content:        page.Text,
+			Meta:           meta,
+			SourceMapping:  mapping,
+			SourceSupports: mapping.Supports(),
+		},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -297,7 +312,8 @@ func projectParsedPage(
 		t.Fatal("fixture page no longer fits the declared exact whole-page chunk profile")
 	}
 	documents, err := chunking.ProjectDocuments(chunks, chunking.ProjectionConfig[sourceMeta, sourceMeta, sourceMeta]{
-		Source: chunking.SourceDescriptor[sourceMeta]{ID: page.Reference.Artifact, Meta: meta},
+		Source:    chunking.SourceDescriptor[sourceMeta]{ID: page.Reference.Artifact, Meta: meta},
+		IndexText: chunking.OriginalIndexText[sourceMeta],
 		MetadataProjector: chunking.MetadataProjectorFunc[sourceMeta, sourceMeta, sourceMeta](
 			func(input chunking.SourceDescriptor[sourceMeta], _ chunking.Chunk[sourceMeta], _ chunking.ChunkIdentity) (sourceMeta, error) {
 				return input.Meta, nil
@@ -307,5 +323,9 @@ func projectParsedPage(
 	if err != nil {
 		t.Fatal(err)
 	}
-	return documents
+	result := make([]retrieval.Document[sourceMeta], len(documents))
+	for i, projected := range documents {
+		result[i] = projected.Document
+	}
+	return result
 }

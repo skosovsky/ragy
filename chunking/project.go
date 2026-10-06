@@ -2,10 +2,13 @@ package chunking
 
 import (
 	"fmt"
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/retrieval"
+	"github.com/skosovsky/ragy/source"
 )
 
 // SourceDescriptor carries source-level identity and metadata into chunk projection.
@@ -126,18 +129,33 @@ func (f MetadataProjectorFunc[TSourceMeta, TChunkMeta, TDocMeta]) Project(
 	return f(source, chunk, id)
 }
 
+// ProjectedDocument keeps original quote payload separate from host-selected index
+// text. Hosts pass IndexText to their encoder/index field and retain Document for
+// retrieval. IndexMapping describes index bytes only and never invents exact spans.
+type ProjectedDocument[TMeta any] struct {
+	retrieval.Document[TMeta]
+
+	IndexText    string
+	IndexMapping source.MappedText
+}
+
+// OriginalIndexText explicitly chooses unchanged original content for indexing.
+func OriginalIndexText[TMeta any](chunk Chunk[TMeta]) (string, error) { return chunk.Content, nil }
+
 // ProjectionConfig configures storage-ready document projection.
 type ProjectionConfig[TSourceMeta, TChunkMeta, TDocMeta any] struct {
 	Source            SourceDescriptor[TSourceMeta]
 	IdentityPolicy    ChunkIdentityPolicy[TSourceMeta, TChunkMeta]
 	MetadataProjector MetadataProjector[TSourceMeta, TChunkMeta, TDocMeta]
+	// IndexText is a pure host policy; synthetic Context stays separate from original quotes.
+	IndexText func(Chunk[TChunkMeta]) (string, error)
 }
 
 // ProjectDocuments converts chunks into storage-ready retrieval documents.
 func ProjectDocuments[TSourceMeta, TChunkMeta, TDocMeta any](
 	chunks []Chunk[TChunkMeta],
 	cfg ProjectionConfig[TSourceMeta, TChunkMeta, TDocMeta],
-) ([]retrieval.Document[TDocMeta], error) {
+) ([]ProjectedDocument[TDocMeta], error) {
 	if err := cfg.Source.Validate(); err != nil {
 		return nil, err
 	}
@@ -145,11 +163,11 @@ func ProjectDocuments[TSourceMeta, TChunkMeta, TDocMeta any](
 	if policy == nil {
 		policy = DefaultChunkIdentityPolicy[TSourceMeta, TChunkMeta]{}
 	}
-	if cfg.MetadataProjector == nil {
+	if cfg.MetadataProjector == nil || cfg.IndexText == nil {
 		return nil, fmt.Errorf("%w: metadata projector", ragy.ErrInvalidArgument)
 	}
 
-	docs := make([]retrieval.Document[TDocMeta], 0, len(chunks))
+	docs := make([]ProjectedDocument[TDocMeta], 0, len(chunks))
 	for _, chunk := range chunks {
 		id, err := policy.Identity(cfg.Source, chunk)
 		if err != nil {
@@ -159,17 +177,51 @@ func ProjectDocuments[TSourceMeta, TChunkMeta, TDocMeta any](
 		if err != nil {
 			return docs, err
 		}
+		indexText, indexMapping, supports, indexErr := projectIndexText(chunk, cfg.IndexText)
+		if indexErr != nil {
+			return nil, indexErr
+		}
 		doc := retrieval.Document[TDocMeta]{
-			ID:         id.DocumentID,
-			Content:    chunk.Content,
-			ScoreState: retrieval.ScoreAbsent,
-			Rank:       id.Index + 1,
-			Meta:       meta,
+			ID:            id.DocumentID,
+			Content:       chunk.Content,
+			ScoreState:    retrieval.ScoreAbsent,
+			Rank:          id.Index + 1,
+			Meta:          meta,
+			SourceMapping: chunk.SourceMapping, SourceSupports: supports,
 		}
 		if err := retrieval.ValidateDocument(doc); err != nil {
 			return docs, err
 		}
-		docs = append(docs, doc)
+		docs = append(
+			docs,
+			ProjectedDocument[TDocMeta]{Document: doc, IndexText: indexText, IndexMapping: indexMapping},
+		)
 	}
 	return docs, nil
+}
+
+func projectIndexText[TMeta any](
+	chunk Chunk[TMeta],
+	policy func(Chunk[TMeta]) (string, error),
+) (string, source.MappedText, []source.Locator, error) {
+	indexText, indexErr := policy(chunk)
+	if indexErr != nil {
+		return "", source.MappedText{}, nil, indexErr
+	}
+	if strings.TrimSpace(indexText) == "" || !utf8.ValidString(indexText) {
+		return "", source.MappedText{}, nil, ragy.ErrInvalidArgument
+	}
+	supports := append(slices.Clone(chunk.SourceSupports), chunk.SourceMapping.Supports()...)
+	indexMapping := chunk.SourceMapping
+	if indexText != chunk.Content {
+		indexMapping = source.MappedText{}
+		if len(supports) > 0 {
+			var mappingErr error
+			indexMapping, mappingErr = source.DerivedText(indexText, supports)
+			if mappingErr != nil {
+				return "", source.MappedText{}, nil, mappingErr
+			}
+		}
+	}
+	return indexText, indexMapping, supports, nil
 }

@@ -12,17 +12,18 @@ import (
 	"github.com/skosovsky/ragy/chunking"
 	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/retrieval"
+	"github.com/skosovsky/ragy/source"
 	"github.com/skosovsky/ragy/testutil"
 )
 
 type fixedSegmenter struct {
-	Parts    []string
+	Spans    []source.ByteSpan
 	Requests []string
 }
 
-func (s *fixedSegmenter) Split(text string) []string {
+func (s *fixedSegmenter) Split(_ context.Context, text string) ([]source.ByteSpan, error) {
 	s.Requests = append(s.Requests, text)
-	return append([]string(nil), s.Parts...)
+	return slices.Clone(s.Spans), nil
 }
 
 func TestRecursiveRequiresSourceID(t *testing.T) {
@@ -147,7 +148,7 @@ func TestNewSemanticRejectsNilSegmenter(t *testing.T) {
 }
 
 func TestSemanticUsesInjectedSentenceSegmenter(t *testing.T) {
-	segmenter := &fixedSegmenter{Parts: []string{"alpha beta", "gamma delta"}}
+	segmenter := &fixedSegmenter{Spans: []source.ByteSpan{{Start: 0, End: 10}, {Start: 11, End: 22}}}
 	embedder := &testutil.DenseEmbedder{Vectors: [][]float32{{1, 0}, {0, 1}}}
 	splitter, err := chunking.NewSemantic[contracttest.StructMeta](embedder, segmenter, 0.5, 1)
 	if err != nil {
@@ -156,17 +157,17 @@ func TestSemanticUsesInjectedSentenceSegmenter(t *testing.T) {
 
 	chunks, err := splitter.Split(context.Background(), retrieval.Document[contracttest.StructMeta]{
 		ID:      "doc-1",
-		Content: "ignored by fixed segmenter",
+		Content: "alpha beta gamma delta",
 	})
 	if err != nil {
 		t.Fatalf("Split(): %v", err)
 	}
 
-	if !slices.Equal(segmenter.Requests, []string{"ignored by fixed segmenter"}) {
+	if !slices.Equal(segmenter.Requests, []string{"alpha beta gamma delta"}) {
 		t.Fatalf("segmenter requests = %#v, want source content", segmenter.Requests)
 	}
-	if len(embedder.Requests) != 1 || !slices.Equal(embedder.Requests[0], segmenter.Parts) {
-		t.Fatalf("embedder requests = %#v, want %#v", embedder.Requests, segmenter.Parts)
+	if len(embedder.Requests) != 1 || !slices.Equal(embedder.Requests[0], []string{"alpha beta", "gamma delta"}) {
+		t.Fatalf("embedder requests = %#v, want %#v", embedder.Requests, []string{"alpha beta", "gamma delta"})
 	}
 	if len(chunks) != 2 {
 		t.Fatalf("len(chunks) = %d, want 2", len(chunks))
@@ -179,11 +180,15 @@ func TestSemanticUsesInjectedSentenceSegmenter(t *testing.T) {
 func TestDefaultSentenceSegmenterSplitsWithoutWhitespaceAfterBoundary(t *testing.T) {
 	segmenter := chunking.DefaultSentenceSegmenter{}
 
-	out := segmenter.Split("你好。世界")
+	text := "你好。世界"
+	out, err := segmenter.Split(t.Context(), text)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(out) != 2 {
 		t.Fatalf("len(out) = %d, want 2 (%#v)", len(out), out)
 	}
-	if out[0] != "你好。" || out[1] != "世界" {
+	if text[out[0].Start:out[0].End] != "你好。" || text[out[1].Start:out[1].End] != "世界" {
 		t.Fatalf("out = %#v, want [\"你好。\", \"世界\"]", out)
 	}
 }

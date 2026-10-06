@@ -246,20 +246,6 @@ func (g *ContextGenerator) Context(
 	return g.Value, g.Err
 }
 
-// GraphProvider is a fake graph extraction provider.
-type GraphProvider struct {
-	Snapshot graph.Snapshot[contracttest.StructMeta]
-	Err      error
-}
-
-// Extract extracts a graph snapshot from chunks.
-func (p *GraphProvider) Extract(
-	_ context.Context,
-	_ []chunking.Chunk[contracttest.StructMeta],
-) (graph.Snapshot[contracttest.StructMeta], error) {
-	return cloneSnapshot(p.Snapshot), p.Err
-}
-
 func cloneTensor(in tensor.Tensor) tensor.Tensor {
 	if len(in) == 0 {
 		return nil

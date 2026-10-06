@@ -1,0 +1,5 @@
+=== RUN   TestActualParserProjectionIndexRetrieveAndScopedResolve
+    pipeline_test.go:129: set RAGY_PDF_PYTHON to run the optional actual-parser integration
+--- SKIP: TestActualParserProjectionIndexRetrieveAndScopedResolve (0.01s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/pdf	0.517s

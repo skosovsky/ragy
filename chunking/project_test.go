@@ -35,6 +35,7 @@ func TestProjectDocumentsBuildsStorageReadyDocuments(t *testing.T) {
 				Tenant: "acme",
 			},
 		},
+		IndexText: OriginalIndexText[struct{}],
 		MetadataProjector: MetadataProjectorFunc[sourceMeta, struct{}, docMeta](
 			func(source SourceDescriptor[sourceMeta], _ Chunk[struct{}], id ChunkIdentity) (docMeta, error) {
 				return docMeta{
@@ -71,6 +72,7 @@ func TestProjectDocumentsDerivesMissingChunkID(t *testing.T) {
 		Source: SourceDescriptor[sourceMeta]{
 			ID: "src",
 		},
+		IndexText: OriginalIndexText[struct{}],
 		MetadataProjector: MetadataProjectorFunc[sourceMeta, struct{}, docMeta](
 			func(_ SourceDescriptor[sourceMeta], _ Chunk[struct{}], id ChunkIdentity) (docMeta, error) {
 				return docMeta{

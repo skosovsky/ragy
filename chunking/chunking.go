@@ -4,13 +4,17 @@ package chunking
 import (
 	"context"
 	"fmt"
+	"math"
+	"slices"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/internal/parallel"
 	"github.com/skosovsky/ragy/retrieval"
+	"github.com/skosovsky/ragy/source"
 )
 
 // Splitter splits a source document into typed chunks.
@@ -18,54 +22,83 @@ type Splitter[TMeta any] interface {
 	Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error)
 }
 
-// ContextGenerator derives chunk context without mutating raw chunk content.
+// ContextGenerator derives context from immutable host metadata/content. It must
+// honor cancellation: Split cancels and joins all started cooperative callbacks.
 type ContextGenerator[TMeta any] interface {
 	Context(ctx context.Context, source retrieval.Document[TMeta], chunk Chunk[TMeta]) (string, error)
 }
 
-// SentenceSegmenter extracts sentences from text.
+// SentenceSegmenter returns ordered non-overlapping original UTF-8 byte spans.
+// Implementations must honor context and must not replace or normalize source text.
 type SentenceSegmenter interface {
-	Split(text string) []string
+	Split(context.Context, string) ([]source.ByteSpan, error)
 }
 
-func validateSource[TMeta any](doc retrieval.Document[TMeta]) (retrieval.Document[TMeta], error) {
+func validateSource[TMeta any](ctx context.Context, doc retrieval.Document[TMeta]) (retrieval.Document[TMeta], error) {
+	if err := ctx.Err(); err != nil {
+		return retrieval.Document[TMeta]{}, err
+	}
 	if doc.ID == "" {
 		return retrieval.Document[TMeta]{}, fmt.Errorf("%w: source document id", ragy.ErrMissingSourceID)
 	}
 	if strings.TrimSpace(doc.Content) == "" {
-		return retrieval.Document[TMeta]{}, fmt.Errorf("%w: source document content", ragy.ErrEmptyText)
+		return retrieval.Document[TMeta]{}, ragy.ErrEmptyText
+	}
+	if !utf8.ValidString(doc.Content) {
+		return retrieval.Document[TMeta]{}, ragy.ErrInvalidArgument
+	}
+	if doc.SourceMapping.Text() != "" &&
+		(doc.SourceMapping.Text() != doc.Content || doc.SourceMapping.Validate() != nil) {
+		return retrieval.Document[TMeta]{}, ragy.ErrInvalidArgument
+	}
+	for _, support := range doc.SourceSupports {
+		if err := support.Validate(); err != nil {
+			return retrieval.Document[TMeta]{}, err
+		}
 	}
 	return doc, nil
 }
 
-func buildChunks[TMeta any](doc retrieval.Document[TMeta], parts []string) []Chunk[TMeta] {
-	if len(parts) == 0 {
-		return nil
-	}
-
-	cleanParts := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part != "" {
-			cleanParts = append(cleanParts, part)
+func buildChunks[TMeta any](
+	ctx context.Context,
+	doc retrieval.Document[TMeta],
+	spans []source.ByteSpan,
+) ([]Chunk[TMeta], error) {
+	chunks := make([]Chunk[TMeta], 0, len(spans))
+	for index, span := range spans {
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
+		if err := span.ValidateText(doc.Content); err != nil {
+			return nil, err
+		}
+		var mapping source.MappedText
+		if doc.SourceMapping.Text() != "" {
+			var err error
+			mapping, err = doc.SourceMapping.Slice(span)
+			if err != nil {
+				return nil, err
+			}
+		}
+		supports := append(slices.Clone(doc.SourceSupports), mapping.Supports()...)
+		chunk := Chunk[TMeta]{
+			ID:             fmt.Sprintf("%s_%d", doc.ID, index),
+			SourceID:       doc.ID,
+			Index:          index,
+			Total:          len(spans),
+			Content:        doc.Content[span.Start:span.End],
+			Context:        "",
+			Meta:           doc.Meta,
+			InputSpan:      span,
+			SourceMapping:  mapping,
+			SourceSupports: supports,
+		}
+		if err := ValidateChunk(chunk); err != nil {
+			return nil, err
+		}
+		chunks = append(chunks, chunk)
 	}
-
-	chunks := make([]Chunk[TMeta], 0, len(cleanParts))
-	total := len(cleanParts)
-	for index, part := range cleanParts {
-		chunks = append(chunks, Chunk[TMeta]{
-			ID:       fmt.Sprintf("%s_%d", doc.ID, index),
-			SourceID: doc.ID,
-			Index:    index,
-			Total:    total,
-			Content:  part,
-			Context:  "",
-			Meta:     doc.Meta,
-		})
-	}
-
-	return chunks
+	return chunks, nil
 }
 
 // Recursive is an iterative chunk splitter.
@@ -89,149 +122,39 @@ func NewRecursive[TMeta any](chunkSize, overlap int, separators []string) (*Recu
 		separators = []string{"\n\n", "\n", " "}
 	}
 
+	for _, separator := range separators {
+		if separator == "" || !utf8.ValidString(separator) {
+			return nil, ragy.ErrInvalidArgument
+		}
+	}
 	return &Recursive[TMeta]{
 		chunkSize:  chunkSize,
 		overlap:    overlap,
-		separators: separators,
+		separators: slices.Clone(separators),
 	}, nil
 }
 
 // Split splits a source document.
-func (r *Recursive[TMeta]) Split(_ context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
-	normalized, err := validateSource(doc)
+func (r *Recursive[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
+	if r == nil || r.chunkSize <= 0 || r.overlap < 0 || r.overlap >= r.chunkSize {
+		return nil, ragy.ErrInvalidArgument
+	}
+	normalized, err := validateSource(ctx, doc)
 	if err != nil {
 		return nil, err
 	}
-
-	parts := splitIterative(normalized.Content, r.chunkSize, r.overlap, r.separators)
-	chunks := buildChunks(normalized, parts)
-	for i, chunk := range chunks {
-		if err := ValidateChunk(chunk); err != nil {
-			return nil, err
-		}
-		chunks[i] = chunk
-	}
-	return chunks, nil
-}
-
-type splitTask struct {
-	text       string
-	separators []string
-}
-
-func splitIterative(text string, chunkSize, overlap int, separators []string) []string {
-	var out []string
-	queue := []splitTask{{text: strings.TrimSpace(text), separators: separators}}
-
-	for len(queue) > 0 {
-		task := queue[0]
-		queue = queue[1:]
-		out, queue = processSplitTask(task, queue, out, chunkSize, overlap)
-	}
-
-	return out
-}
-
-func processSplitTask(
-	task splitTask,
-	queue []splitTask,
-	out []string,
-	chunkSize int,
-	overlap int,
-) ([]string, []splitTask) {
-	switch {
-	case task.text == "":
-		return out, queue
-	case runeLen(task.text) <= chunkSize:
-		return append(out, task.text), queue
-	case len(task.separators) == 0:
-		return append(out, splitFixed(task.text, chunkSize, overlap)...), queue
-	default:
-		return out, append(queue, splitBySeparator(task, chunkSize)...)
-	}
-}
-
-func splitBySeparator(task splitTask, chunkSize int) []splitTask {
-	sep := task.separators[0]
-	rest := task.separators[1:]
-	pieces := strings.Split(task.text, sep)
-	if len(pieces) == 1 {
-		return []splitTask{{text: task.text, separators: rest}}
-	}
-
-	var (
-		out     []splitTask
-		current strings.Builder
+	parts, err := splitRanges(
+		ctx,
+		normalized.Content,
+		source.ByteSpan{Start: 0, End: len(normalized.Content)},
+		r.chunkSize,
+		r.overlap,
+		r.separators,
 	)
-	for _, piece := range pieces {
-		appendSplitPiece(&out, &current, piece, sep, rest, chunkSize)
+	if err != nil {
+		return nil, err
 	}
-
-	if current.Len() > 0 {
-		out = append(out, splitTask{text: current.String(), separators: rest})
-	}
-
-	return out
-}
-
-func appendSplitPiece(
-	out *[]splitTask,
-	current *strings.Builder,
-	piece string,
-	sep string,
-	rest []string,
-	chunkSize int,
-) {
-	piece = strings.TrimSpace(piece)
-	if piece == "" {
-		return
-	}
-
-	candidate := piece
-	if current.Len() > 0 {
-		candidate = current.String() + sep + piece
-	}
-
-	if runeLen(candidate) <= chunkSize {
-		current.Reset()
-		current.WriteString(candidate)
-		return
-	}
-
-	if current.Len() > 0 {
-		*out = append(*out, splitTask{text: current.String(), separators: rest})
-		current.Reset()
-	}
-
-	*out = append(*out, splitTask{text: piece, separators: rest})
-}
-
-func splitFixed(text string, chunkSize, overlap int) []string {
-	runes := []rune(text)
-	if len(runes) == 0 {
-		return nil
-	}
-
-	step := chunkSize - overlap
-	if step <= 0 {
-		step = chunkSize
-	}
-
-	out := make([]string, 0, 1+(len(runes)/step))
-	for start := 0; start < len(runes); start += step {
-		end := min(start+chunkSize, len(runes))
-
-		out = append(out, strings.TrimSpace(string(runes[start:end])))
-		if end == len(runes) {
-			break
-		}
-	}
-
-	return out
-}
-
-func runeLen(text string) int {
-	return len([]rune(text))
+	return buildChunks(ctx, normalized, parts)
 }
 
 // Markdown splits markdown documents by headings first and then recursively.
@@ -250,85 +173,73 @@ func NewMarkdown[TMeta any](base *Recursive[TMeta]) (*Markdown[TMeta], error) {
 
 // Split splits a markdown document.
 func (m *Markdown[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
-	normalized, err := validateSource(doc)
+	if m == nil || m.base == nil || m.base.chunkSize <= 0 {
+		return nil, ragy.ErrInvalidArgument
+	}
+	normalized, err := validateSource(ctx, doc)
 	if err != nil {
 		return nil, err
 	}
-
-	sections := splitMarkdownSections(normalized.Content)
-	if len(sections) == 0 {
-		return m.base.Split(ctx, normalized)
+	sections, err := markdownRanges(ctx, normalized.Content)
+	if err != nil {
+		return nil, err
 	}
-
-	var parts []string
+	var parts []source.ByteSpan
 	for _, section := range sections {
-		parts = append(parts, splitIterative(section, m.base.chunkSize, m.base.overlap, m.base.separators)...)
-	}
-
-	chunks := buildChunks(normalized, parts)
-	for i, chunk := range chunks {
-		if err := ValidateChunk(chunk); err != nil {
-			return nil, err
+		fragments, splitErr := splitRanges(
+			ctx,
+			normalized.Content,
+			section,
+			m.base.chunkSize,
+			m.base.overlap,
+			m.base.separators,
+		)
+		if splitErr != nil {
+			return nil, splitErr
 		}
-		chunks[i] = chunk
+		parts = append(parts, fragments...)
 	}
-	return chunks, nil
+	return buildChunks(ctx, normalized, parts)
 }
 
-func splitMarkdownSections(text string) []string {
-	lines := strings.Split(text, "\n")
-	var sections []string
-	var current []string
-
-	for _, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), "#") && len(current) > 0 {
-			sections = append(sections, strings.Join(current, "\n"))
-			current = current[:0]
-		}
-
-		current = append(current, line)
-	}
-
-	if len(current) > 0 {
-		sections = append(sections, strings.Join(current, "\n"))
-	}
-
-	return sections
-}
-
-// DefaultSentenceSegmenter is a UTF-8-safe punctuation-based segmenter.
+// DefaultSentenceSegmenter returns original punctuation-delimited byte spans.
 type DefaultSentenceSegmenter struct{}
 
-// Split segments text into sentences.
-func (DefaultSentenceSegmenter) Split(text string) []string {
-	runes := []rune(text)
-	if len(runes) == 0 {
-		return nil
+// Split returns UTF-8-safe ranges without reconstructing source text.
+func (DefaultSentenceSegmenter) Split(ctx context.Context, text string) ([]source.ByteSpan, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-
-	var out []string
-	var start int
-	for index, r := range runes {
+	if !utf8.ValidString(text) {
+		return nil, ragy.ErrInvalidArgument
+	}
+	var out []source.ByteSpan
+	start := 0
+	for index, r := range text {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if !isSentenceBoundary(r) {
 			continue
 		}
-
-		next := index + 1
-		sentence := strings.TrimSpace(string(runes[start : index+1]))
-		if sentence != "" {
-			out = append(out, sentence)
+		end := index + utf8.RuneLen(r)
+		span, err := trimRange(ctx, text, source.ByteSpan{Start: start, End: end})
+		if err != nil {
+			return nil, err
 		}
-		start = next
-	}
-
-	if start < len(runes) {
-		tail := strings.TrimSpace(string(runes[start:]))
-		if tail != "" {
-			out = append(out, tail)
+		if span.End > span.Start {
+			out = append(out, span)
 		}
+		start = end
 	}
-
-	return out
+	span, err := trimRange(ctx, text, source.ByteSpan{Start: start, End: len(text)})
+	if err != nil {
+		return nil, err
+	}
+	if span.End > span.Start {
+		out = append(out, span)
+	}
+	return out, nil
 }
 
 func isSentenceBoundary(r rune) bool {
@@ -362,7 +273,7 @@ func NewSemantic[TMeta any](
 		return nil, fmt.Errorf("%w: semantic sentence segmenter", ragy.ErrInvalidArgument)
 	}
 
-	if threshold < -1 || threshold > 1 {
+	if math.IsNaN(threshold) || math.IsInf(threshold, 0) || threshold < -1 || threshold > 1 {
 		return nil, fmt.Errorf("%w: semantic threshold must be in [-1,1]", ragy.ErrInvalidArgument)
 	}
 
@@ -380,17 +291,33 @@ func NewSemantic[TMeta any](
 
 // Split splits a source document by semantic boundaries.
 func (s *Semantic[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
-	normalized, err := validateSource(doc)
+	if s == nil || s.segmenter == nil || s.embedder == nil || s.minGroup <= 0 {
+		return nil, ragy.ErrInvalidArgument
+	}
+	normalized, err := validateSource(ctx, doc)
 	if err != nil {
 		return nil, err
 	}
 
-	sentences := s.segmenter.Split(normalized.Content)
+	spans, err := s.segmenter.Split(ctx, normalized.Content)
+	if gateErr := ctx.Err(); gateErr != nil {
+		return nil, gateErr
+	}
+	if err != nil {
+		return nil, err
+	}
+	sentences, err := sentenceTexts(ctx, normalized.Content, spans)
+	if err != nil {
+		return nil, err
+	}
 	if len(sentences) == 0 {
 		return nil, fmt.Errorf("%w: semantic sentence segmentation returned no sentences", ragy.ErrProtocol)
 	}
 
 	embeddings, err := s.embedder.Embed(ctx, sentences)
+	if gateErr := ctx.Err(); gateErr != nil {
+		return nil, gateErr
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -404,22 +331,21 @@ func (s *Semantic[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMet
 		)
 	}
 
-	if err := validateSemanticEmbeddings(embeddings); err != nil {
+	if err = ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err = validateSemanticEmbeddings(ctx, embeddings); err != nil {
 		return nil, err
 	}
 
-	parts := semanticGroups(sentences, embeddings, s.threshold, s.minGroup)
-	chunks := buildChunks(normalized, parts)
-	for i, chunk := range chunks {
-		if err := ValidateChunk(chunk); err != nil {
-			return nil, err
-		}
-		chunks[i] = chunk
+	parts, err := semanticGroups(ctx, spans, embeddings, s.threshold, s.minGroup)
+	if err != nil {
+		return nil, err
 	}
-	return chunks, nil
+	return buildChunks(ctx, normalized, parts)
 }
 
-func validateSemanticEmbeddings(embeddings [][]float32) error {
+func validateSemanticEmbeddings(ctx context.Context, embeddings [][]float32) error {
 	if len(embeddings) == 0 {
 		return fmt.Errorf("%w: semantic embeddings missing", ragy.ErrProtocol)
 	}
@@ -441,6 +367,14 @@ func validateSemanticEmbeddings(embeddings [][]float32) error {
 				len(embedding),
 			)
 		}
+		for _, value := range embedding {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+				return fmt.Errorf("%w: non-finite semantic embedding", ragy.ErrProtocol)
+			}
+		}
 		if isZeroNormVector(embedding) {
 			return fmt.Errorf("%w: semantic embedding %d has zero norm", ragy.ErrProtocol, index)
 		}
@@ -458,39 +392,48 @@ func isZeroNormVector(embedding []float32) bool {
 	return true
 }
 
-func semanticGroups(sentences []string, embeddings [][]float32, threshold float64, minGroup int) []string {
-	if len(sentences) == 0 {
-		return nil
-	}
-
-	var parts []string
+func semanticGroups(
+	ctx context.Context,
+	spans []source.ByteSpan,
+	embeddings [][]float32,
+	threshold float64,
+	minGroup int,
+) ([]source.ByteSpan, error) {
+	var parts []source.ByteSpan
 	groupStart := 0
-	for index := 1; index < len(sentences); index++ {
+	for index := 1; index < len(spans); index++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if index-groupStart < minGroup {
 			continue
 		}
-
-		if cosine(embeddings[index-1], embeddings[index]) >= threshold {
+		similarity, err := cosine(ctx, embeddings[index-1], embeddings[index])
+		if err != nil {
+			return nil, err
+		}
+		if similarity >= threshold {
 			continue
 		}
-
-		parts = append(parts, strings.Join(sentences[groupStart:index], " "))
+		parts = append(parts, source.ByteSpan{Start: spans[groupStart].Start, End: spans[index-1].End})
 		groupStart = index
 	}
-
-	parts = append(parts, strings.Join(sentences[groupStart:], " "))
-	return parts
+	parts = append(parts, source.ByteSpan{Start: spans[groupStart].Start, End: spans[len(spans)-1].End})
+	return parts, nil
 }
 
-func cosine(left, right []float32) float64 {
+func cosine(ctx context.Context, left, right []float32) (float64, error) {
 	if len(left) == 0 || len(right) == 0 || len(left) != len(right) {
-		return 0
+		return 0, ragy.ErrProtocol
 	}
 
 	dot := 0.0
 	leftNorm := 0.0
 	rightNorm := 0.0
 	for index := range left {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
 		lv := float64(left[index])
 		rv := float64(right[index])
 		dot += lv * rv
@@ -499,23 +442,10 @@ func cosine(left, right []float32) float64 {
 	}
 
 	if leftNorm == 0 || rightNorm == 0 {
-		return 0
+		return 0, ragy.ErrProtocol
 	}
 
-	return dot / (sqrt(leftNorm) * sqrt(rightNorm))
-}
-
-func sqrt(value float64) float64 {
-	z := value
-	if z == 0 {
-		return 0
-	}
-
-	for range 8 {
-		z -= (z*z - value) / (2 * z)
-	}
-
-	return z
+	return math.Max(-1, math.Min(1, dot/(math.Sqrt(leftNorm)*math.Sqrt(rightNorm)))), nil
 }
 
 // Contextual augments chunks with derived context.
@@ -552,6 +482,12 @@ func NewContextual[TMeta any](
 
 // Split splits a source document and enriches chunk context in parallel.
 func (c *Contextual[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMeta]) ([]Chunk[TMeta], error) {
+	if c == nil || c.base == nil || c.generator == nil || c.concurrency <= 0 {
+		return nil, ragy.ErrInvalidArgument
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	chunks, err := c.base.Split(ctx, doc)
 	if err != nil {
 		return nil, err
@@ -562,11 +498,17 @@ func (c *Contextual[TMeta]) Split(ctx context.Context, doc retrieval.Document[TM
 		c.concurrency,
 		chunks,
 		func(ctx context.Context, chunk Chunk[TMeta]) (Chunk[TMeta], error) {
+			if gateErr := ctx.Err(); gateErr != nil {
+				return Chunk[TMeta]{}, gateErr
+			}
 			contextText, contextErr := c.generator.Context(ctx, doc, chunk)
 			if contextErr != nil {
 				return Chunk[TMeta]{}, contextErr
 			}
 
+			if gateErr := ctx.Err(); gateErr != nil {
+				return Chunk[TMeta]{}, gateErr
+			}
 			chunk.Context = contextText
 			return chunk, nil
 		},

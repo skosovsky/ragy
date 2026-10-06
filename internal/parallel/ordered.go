@@ -13,119 +13,105 @@ type task[T any] struct {
 	index int
 	item  T
 }
-
 type result[R any] struct {
 	index int
 	value R
 	err   error
 }
 
-// MapOrdered applies fn with bounded parallelism and preserves item order.
+// MapOrdered preserves order with bounded structured concurrency. Callback errors
+// cancel new dispatch and siblings; all started cooperative callbacks are joined.
+// Callbacks must honor context and own mutable state. Arbitrary uncooperative host
+// functions cannot be terminated. Ordinary failures return no partial result slice.
 func MapOrdered[T any, R any](
 	ctx context.Context,
 	concurrency int,
 	items []T,
 	fn func(context.Context, T) (R, error),
 ) ([]R, error) {
-	if concurrency <= 0 {
-		return nil, fmt.Errorf("%w: concurrency must be > 0", ragy.ErrInvalidArgument)
+	if concurrency <= 0 || fn == nil {
+		return nil, fmt.Errorf("%w: parallel map concurrency/callback", ragy.ErrInvalidArgument)
 	}
-
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if len(items) == 0 {
 		return nil, nil
 	}
-	taskCh := make(chan task[T])
-	resultCh := make(chan result[R], len(items))
-
-	var wg sync.WaitGroup
-	startWorkers(ctx, &wg, concurrency, taskCh, resultCh, fn)
-	go dispatchTasks(ctx, taskCh, items)
-	go closeResultsOnWait(&wg, resultCh)
-
-	out := make([]R, len(items))
-	got := make([]bool, len(items))
-	firstErr, fatalErr := collectOrderedResults(resultCh, out, got)
-	if fatalErr != nil {
-		return nil, fatalErr
-	}
-	return finalizeMapOrdered(ctx, out, got, firstErr)
+	child, cancel := context.WithCancel(ctx)
+	defer cancel()
+	tasks := make(chan task[T])
+	results := make(chan result[R], len(items))
+	var workers sync.WaitGroup
+	startMapWorkers(child, cancel, &workers, min(concurrency, len(items)), tasks, results, fn)
+	workers.Go(func() { dispatchMapTasks(child, tasks, items) })
+	go func() { workers.Wait(); close(results) }()
+	return collectMapResults(ctx, results, len(items))
 }
 
-func collectOrderedResults[R any](resultCh <-chan result[R], out []R, got []bool) (error, error) {
-	var firstErr error
-	for result := range resultCh {
-		if result.err != nil {
-			if !errors.Is(result.err, context.Canceled) && !errors.Is(result.err, context.DeadlineExceeded) {
-				return firstErr, result.err
+func startMapWorkers[T any, R any](
+	ctx context.Context,
+	cancel context.CancelFunc,
+	wg *sync.WaitGroup,
+	concurrency int,
+	tasks <-chan task[T],
+	results chan<- result[R],
+	fn func(context.Context, T) (R, error),
+) {
+	for range concurrency {
+		wg.Go(func() {
+			for task := range tasks {
+				if ctx.Err() != nil {
+					break
+				}
+				value, err := fn(ctx, task.item)
+				if err == nil {
+					err = ctx.Err()
+				}
+				if err != nil {
+					cancel()
+				}
+				results <- result[R]{index: task.index, value: value, err: err}
 			}
-			if firstErr == nil {
-				firstErr = result.err
-			}
-		}
-		out[result.index] = result.value
-		got[result.index] = true
+		})
 	}
-	return firstErr, nil
 }
-
-func finalizeMapOrdered[R any](ctx context.Context, out []R, got []bool, firstErr error) ([]R, error) {
-	for i := range got {
-		if got[i] {
-			continue
+func dispatchMapTasks[T any](ctx context.Context, tasks chan<- task[T], items []T) {
+	defer close(tasks)
+	for index, item := range items {
+		if ctx.Err() != nil {
+			return
 		}
-		if err := ctx.Err(); err != nil {
+		select {
+		case <-ctx.Done():
+			return
+		case tasks <- task[T]{index: index, item: item}:
+		}
+	}
+}
+func collectMapResults[R any](ctx context.Context, results <-chan result[R], size int) ([]R, error) {
+	out := make([]R, size)
+	var firstErr, errorFatal error
+	for item := range results {
+		out[item.index] = item.value
+		if item.err != nil {
 			if firstErr == nil {
-				firstErr = err
+				firstErr = item.err
 			}
-			return out, firstErr
+			if errorFatal == nil && !errors.Is(item.err, context.Canceled) &&
+				!errors.Is(item.err, context.DeadlineExceeded) {
+				errorFatal = item.err
+			}
 		}
-		return nil, fmt.Errorf("%w: parallel map missing result at index %d", ragy.ErrProtocol, i)
+	}
+	if errorFatal != nil {
+		return nil, errorFatal
+	}
+	if err := ctx.Err(); err != nil {
+		return out, err
 	}
 	if firstErr != nil {
 		return out, firstErr
 	}
 	return out, nil
-}
-
-func startWorkers[T any, R any](
-	ctx context.Context,
-	wg *sync.WaitGroup,
-	concurrency int,
-	taskCh <-chan task[T],
-	resultCh chan<- result[R],
-	fn func(context.Context, T) (R, error),
-) {
-	for range concurrency {
-		wg.Go(func() {
-			for task := range taskCh {
-				value, err := fn(ctx, task.item)
-				if ctxErr := ctx.Err(); ctxErr != nil {
-					if err != nil {
-						err = fmt.Errorf("%w: %w", ctxErr, err)
-					} else {
-						err = ctxErr
-					}
-				}
-				resultCh <- result[R]{index: task.index, value: value, err: err}
-			}
-		})
-	}
-}
-
-func dispatchTasks[T any](ctx context.Context, taskCh chan<- task[T], items []T) {
-	defer close(taskCh)
-
-	// Early return on cancel may leave unprocessed items; MapOrdered detects missing slots.
-	for index, item := range items {
-		select {
-		case <-ctx.Done():
-			return
-		case taskCh <- task[T]{index: index, item: item}:
-		}
-	}
-}
-
-func closeResultsOnWait[R any](wg *sync.WaitGroup, resultCh chan result[R]) {
-	wg.Wait()
-	close(resultCh)
 }

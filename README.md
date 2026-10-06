@@ -8,7 +8,7 @@ The core is domain-first and capability-specific:
 - `filter` for schema-bound filter builders and adapter-readable IR
 - `dense`, `lexical`, `tensor`, `graph`, `documents` for capability contracts
 - `ranking` for query-aware reranking and ranked-list merging
-- `chunking` and `graphingest` for ingestion stages
+- [`chunking`](chunking/README.md) for source-mapped fragments and explicit index text; [`graphingest`](graphingest/README.md) for typed extraction/resolution/materialization with host lifecycle handoff
 
 Provider and storage adapters live under `adapters/...`.
 

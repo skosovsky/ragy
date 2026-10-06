@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/source"
 )
 
 // Chunk is a typed document fragment produced by a splitter.
@@ -16,6 +17,10 @@ type Chunk[TMeta any] struct {
 	Content  string
 	Context  string
 	Meta     TMeta
+	// InputSpan addresses original input bytes, never a guessed retained offset.
+	InputSpan      source.ByteSpan
+	SourceMapping  source.MappedText
+	SourceSupports []source.Locator
 }
 
 // ValidateChunk checks chunk invariants.
@@ -37,6 +42,14 @@ func ValidateChunk[TMeta any](c Chunk[TMeta]) error {
 	}
 	if strings.TrimSpace(c.Content) == "" {
 		return fmt.Errorf("%w: chunk content", ragy.ErrEmptyText)
+	}
+	if c.SourceMapping.Text() != "" && (c.SourceMapping.Text() != c.Content || c.SourceMapping.Validate() != nil) {
+		return ragy.ErrInvalidArgument
+	}
+	for _, support := range c.SourceSupports {
+		if err := support.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

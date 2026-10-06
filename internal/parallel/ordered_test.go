@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestMapOrderedPreservesOrder(t *testing.T) {
@@ -84,9 +83,11 @@ func TestMapOrderedPropagatesContextErrorAfterPartialResults(t *testing.T) {
 
 	items := []int{0, 1}
 	done := make(chan struct{})
+	started := make(chan struct{})
 	go func() {
 		_, _ = MapOrdered(ctx, 2, items, func(c context.Context, item int) (int, error) {
 			if item == 1 {
+				close(started)
 				<-c.Done()
 				return 0, c.Err()
 			}
@@ -95,7 +96,7 @@ func TestMapOrderedPropagatesContextErrorAfterPartialResults(t *testing.T) {
 		close(done)
 	}()
 
-	time.Sleep(20 * time.Millisecond)
+	<-started
 	cancel()
 	<-done
 }
