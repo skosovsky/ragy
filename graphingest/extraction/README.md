@@ -37,3 +37,7 @@ materialization before lifecycle staging/publication. No model/source engine,
 provider credential store, background worker or universal ontology is introduced.
 
 Model and settlement causes remain inspectable when the post-call deadline/freshness gate also fails. Accounting settles once after expiry; no failed or protected model output is projected or retried.
+
+The child context composes the parent deadline with the remaining shared-ledger and local Duration intervals. Each injected clock evaluates only its own deadline, even when epochs differ. Shared and local gates run after host callbacks and before projection/cloning/delivery; equality expires. Real timers remain bounded if an injected clock moves backward. Late model usage settles once, including unknown usage, while all expired output is suppressed.
+
+`MaxInputBytes` caps the sum of snippet source-text bytes. Ontology/configuration identities, instructions and JSON/provider framing are outside that byte count. `CountInputTokens` must count the actual complete provider envelope from the supplied ModelInput, including reserved token limits and all host/provider instructions. The adapter checks this count against the quoted input reservation before dispatch. It has no separate envelope byte cap; hosts needing one must enforce it explicitly in their client contract.

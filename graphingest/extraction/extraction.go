@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"time"
 	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
@@ -51,31 +52,33 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) Extract(
 	if a == nil || ledger == nil {
 		return Result[TKind, TRel, TAttr]{}, ragy.ErrInvalidArgument
 	}
-	child, cancel := context.WithTimeout(ctx, a.config.Duration)
-	defer cancel()
 	deadline := a.config.Now().Add(a.config.Duration)
+	shared, cancelShared := ledger.Context(ctx)
+	defer cancelShared()
+	child, cancel := context.WithTimeout(shared, deadline.Sub(a.config.Now()))
+	defer cancel()
+	clockGate := func() error {
+		return checkExtractionClocks(child, ledger, a.config.Now, deadline)
+	}
 	gate := func() error {
-		if err := read.Check(child); err != nil {
+		if err := clockGate(); err != nil {
 			return err
 		}
-		if !a.config.Now().Before(deadline) {
-			return context.DeadlineExceeded
-		}
-		return nil
+		return errors.Join(read.Check(child), clockGate())
 	}
 	if err := gate(); err != nil {
 		return Result[TKind, TRel, TAttr]{}, err
 	}
-	owned, modelInput, err := a.admit(child, read, input, gate)
-	if err != nil {
+	owned, modelInput, err := a.admit(child, read, input, gate, clockGate)
+	if err = errors.Join(err, clockGate()); err != nil {
 		return Result[TKind, TRel, TAttr]{}, err
 	}
 	output, usage, err := a.call(child, ledger, modelInput, gate)
-	if err != nil {
+	if err = errors.Join(err, clockGate()); err != nil {
 		return Result[TKind, TRel, TAttr]{}, err
 	}
 	result, err := a.project(output, owned, gate)
-	if err != nil {
+	if err = errors.Join(err, clockGate()); err != nil {
 		return Result[TKind, TRel, TAttr]{}, err
 	}
 	if err = gate(); err != nil {
@@ -89,6 +92,7 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) admit(
 	read access.Binding,
 	input []Snippet[TAccess],
 	gate func() error,
+	clockGate func() error,
 ) ([]Snippet[TAccess], ModelInput, error) {
 	var empty ModelInput
 	if len(input) == 0 || len(input) > a.config.MaxSnippets {
@@ -100,7 +104,7 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) admit(
 		filter.Condition{},
 		access.Capabilities{ScopeProfile: true, PinnedPublication: true, RequirePinnedPublication: false},
 	)
-	if err != nil {
+	if err = errors.Join(err, clockGate()); err != nil {
 		return nil, empty, err
 	}
 	if err = a.validateInput(input); err != nil {
@@ -136,6 +140,7 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) call(
 		return empty, Usage{}, err
 	}
 	quote, err := a.config.Quote(ctx)
+	err = errors.Join(err, gate())
 	if err != nil {
 		return empty, Usage{}, err
 	}
@@ -149,6 +154,7 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) call(
 	counterInput := input
 	counterInput.Snippets = slices.Clone(input.Snippets)
 	tokens, err := a.config.CountInputTokens(counterInput)
+	err = errors.Join(err, gate())
 	if err != nil {
 		return empty, Usage{}, err
 	}
@@ -292,6 +298,7 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) admitSnippet(
 		return Snippet[TAccess]{}, err
 	}
 	snippet.Access, err = a.config.CloneAccess(snippet.Access)
+	err = errors.Join(err, gate())
 	if err != nil {
 		return Snippet[TAccess]{}, err
 	}
@@ -299,6 +306,7 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) admitSnippet(
 		return Snippet[TAccess]{}, err
 	}
 	attrs, attrErr := a.config.Attributes(snippet.Access)
+	attrErr = errors.Join(attrErr, gate())
 	if attrErr != nil {
 		return Snippet[TAccess]{}, attrErr
 	}
@@ -308,8 +316,12 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) admitSnippet(
 	if err = matchScope(a.config.Schema, attrs, mandatory); err != nil {
 		return Snippet[TAccess]{}, err
 	}
-	if err = a.config.AdmitSnippet(ctx, read, snippet); err != nil {
-		return Snippet[TAccess]{}, access.NonSkippable(err)
+	err = a.config.AdmitSnippet(ctx, read, snippet)
+	if err != nil {
+		err = access.NonSkippable(err)
+	}
+	if err = errors.Join(err, gate()); err != nil {
+		return Snippet[TAccess]{}, err
 	}
 	if err = gate(); err != nil {
 		return Snippet[TAccess]{}, err
@@ -395,19 +407,21 @@ func snapshotAttributes[TAttr any](
 		return zero, err
 	}
 	owned, err := clone(input)
+	err = errors.Join(err, gate())
 	if err != nil {
 		return zero, err
 	}
 	if err = gate(); err != nil {
 		return zero, err
 	}
-	if err = validate(owned); err != nil {
+	if err = errors.Join(validate(owned), gate()); err != nil {
 		return zero, err
 	}
 	if err = gate(); err != nil {
 		return zero, err
 	}
 	owned, err = clone(input)
+	err = errors.Join(err, gate())
 	if err != nil {
 		return zero, err
 	}
@@ -436,4 +450,17 @@ func matchScope(schema filter.Schema, attrs filter.RawAttributes, mandatory filt
 		}
 	}
 	return nil
+}
+
+func checkExtractionClocks(ctx context.Context, ledger *budget.Ledger, now func() time.Time, deadline time.Time) error {
+	sharedErr := ledger.Check(ctx)
+	var localErr error
+	if !now().Before(deadline) {
+		localErr = context.DeadlineExceeded
+	}
+	var contextErr error
+	if err := ctx.Err(); err != nil {
+		contextErr = access.Protect(err)
+	}
+	return errors.Join(sharedErr, localErr, contextErr)
 }

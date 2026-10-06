@@ -202,12 +202,12 @@
         "report": "acceptance/T04-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "f282696c8fdf15e13bcbba70fca8e6bb146e6b14"
   },
   {
     "id": "T05",
     "title": "extraction deadlines",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: extraction deadlines",
     "criteria": [
       {
@@ -228,8 +228,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "4/4",
+        "coverage_percent": 100,
+        "report": "acceptance/T05-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T05-correctness.md"
+      }
     },
     "commit_sha": null
   },

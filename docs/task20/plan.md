@@ -273,3 +273,8 @@ Regression tests используют AAA и утверждают исправл
 - T04 in_progress: persistent exact candidate, inspection states, retry and atomic partial completion; scope per accepted target contract.
 
 - T04 accepted: completeness 4/4 = 100%, F03/A-F02 coverage 2/2 = 100%, correctness PASS. Canonical manifest P2 fixed and both gates repeated on final tree; 12 recovery + 9 isolation methods, independent interruption/identity/canonical-tamper fixtures PASS. Reports: [completeness](acceptance/T04-completeness.md), [correctness](acceptance/T04-correctness.md). Commit SHA записывается следующим journal update.
+
+- T04 commit: `f282696c8fdf15e13bcbba70fca8e6bb146e6b14` — `fix: release recovery`.
+- T05 in_progress: local/ledger clock composition, boundary gates, source-text byte and actual-envelope token contracts.
+
+- T05 accepted: completeness 4/4 = 100%, F04/G-F01/D28/graph:12 coverage 4/4 = 100%, correctness PASS. Final authority clock leap and Prepare error+expiry findings resolved; both independent gates repeated, fresh six-package race/lint and adversarial timer/accounting checks PASS. Reports: [completeness](acceptance/T05-completeness.md), [correctness](acceptance/T05-correctness.md). Commit SHA записывается следующим journal update.

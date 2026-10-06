@@ -65,11 +65,14 @@ type Config[TAccess any, TKind, TRel comparable, TAttr any] struct {
 	Configuration    string
 	Schema           filter.Schema
 	MaxSnippets      int
-	MaxInputBytes    int
-	MaxEntities      int
-	MaxRelations     int
-	MaxSupports      int
-	Duration         time.Duration
+	// MaxInputBytes caps the sum of source snippet text bytes, not the provider envelope.
+	MaxInputBytes int
+	MaxEntities   int
+	MaxRelations  int
+	MaxSupports   int
+	// Duration bounds local work; its clock is independent from the supplied ledger clock.
+	Duration time.Duration
+	// Now must be stable and concurrency-safe. Equality with the local deadline expires.
 	Now              func() time.Time
 	CloneAccess      func(TAccess) (TAccess, error)
 	Attributes       func(TAccess) (filter.RawAttributes, error)
@@ -78,6 +81,8 @@ type Config[TAccess any, TKind, TRel comparable, TAttr any] struct {
 	ValidateEntity   func(TKind, TAttr) error
 	ValidateRelation func(TRel, TKind, TKind, TAttr) error
 	Quote            func(context.Context) (budget.Reservation, error)
+	// CountInputTokens must count the actual complete provider request, including
+	// ontology/configuration, instructions, framing and reserved token limits.
 	CountInputTokens func(ModelInput) (uint64, error)
 	Model            Model[TKind, TRel, TAttr]
 }

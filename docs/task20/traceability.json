@@ -221,9 +221,15 @@
       "id": "D28",
       "task": "T05",
       "requirement": "Extraction full-input budget: MaxInputBytes сейчас source-text only, не весь model envelope. Назвать точно или отдельный envelope cap; CountInputTokens должен учитывать реальный provider input.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "clarify",
+      "rationale": "Extraction composes independent local and ledger remaining durations, gates each clock at host callback/project/clone/delivery boundaries and settles once. MaxInputBytes is explicitly source-text only; CountInputTokens covers the actual complete provider envelope.",
+      "evidence": [
+        "T05.md",
+        "acceptance/T05-race.log",
+        "acceptance/T05-completeness.md",
+        "acceptance/T05-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "D29",
@@ -542,9 +548,15 @@
       "id": "F04",
       "task": "T05",
       "requirement": "P2: extraction не соблюдает более ранний deadline общего ledger",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Extraction composes independent local and ledger remaining durations, gates each clock at host callback/project/clone/delivery boundaries and settles once. MaxInputBytes is explicitly source-text only; CountInputTokens covers the actual complete provider envelope.",
+      "evidence": [
+        "T05.md",
+        "acceptance/T05-race.log",
+        "acceptance/T05-completeness.md",
+        "acceptance/T05-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "F05",
@@ -1080,9 +1092,15 @@
       "source": "reviews/graph.md",
       "line": 50,
       "requirement": "Extraction MaxInputBytes only counts source text.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "clarify",
+      "rationale": "Extraction composes independent local and ledger remaining durations, gates each clock at host callback/project/clone/delivery boundaries and settles once. MaxInputBytes is explicitly source-text only; CountInputTokens covers the actual complete provider envelope.",
+      "evidence": [
+        "T05.md",
+        "acceptance/T05-race.log",
+        "acceptance/T05-completeness.md",
+        "acceptance/T05-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "graph:13",
@@ -2232,7 +2250,14 @@
       "source": "reviews/graph.md",
       "id": "G-F01",
       "master": "F04",
-      "task": "T05"
+      "task": "T05",
+      "acceptance": "accepted",
+      "evidence": [
+        "T05.md",
+        "acceptance/T05-race.log",
+        "acceptance/T05-completeness.md",
+        "acceptance/T05-correctness.md"
+      ]
     },
     {
       "source": "reviews/graph.md",

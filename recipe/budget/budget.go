@@ -94,6 +94,24 @@ func (l *Ledger) Deadline() time.Time {
 	return l.config.Deadline
 }
 
+// Check checks context and the attempt deadline using the ledger's own clock.
+// It does not reserve, settle or inspect remaining call/token/cost capacity.
+// Call it at completion/delivery boundaries as well as dispatch admission;
+// injected clock leaps cannot be observed by the cooperative context timer.
+func (l *Ledger) Check(ctx context.Context) error {
+	if l == nil {
+		return ragy.ErrInvalidArgument
+	}
+	contextErr := ctx.Err()
+	if l.config.Now().Before(l.config.Deadline) {
+		return contextErr
+	}
+	if contextErr == nil || contextErr == context.DeadlineExceeded {
+		return context.DeadlineExceeded
+	}
+	return errors.Join(contextErr, context.DeadlineExceeded)
+}
+
 // Context bounds cooperative work by the remaining attempt time and parent deadline.
 // Remaining time uses the host clock; the context timer uses elapsed wall time.
 // The host clock must be concurrency-safe. Reserve also rechecks the host deadline.
@@ -114,11 +132,8 @@ func (l *Ledger) Reserve(ctx context.Context, request Reservation) (Lease, error
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if err := ctx.Err(); err != nil {
+	if err := l.Check(ctx); err != nil {
 		return Lease{}, err
-	}
-	if !l.config.Now().Before(l.config.Deadline) {
-		return Lease{}, context.DeadlineExceeded
 	}
 	if l.config.RequireKnownCost && !request.CostKnown {
 		return Lease{}, ErrUnknownPrice
