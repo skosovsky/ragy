@@ -78,3 +78,47 @@ local cancellation do not imply zero billing or confirmed remote cancellation.
 Diagnostic exporter failure never retries a summary or changes its result.
 
 Model, settlement and freshness errors are preserved together, including simultaneous usage overrun and expiry. Only direct pre-dispatch budget/price admission failures can produce bounded partial summaries; joined callback failures are not rescued by matching a budget sentinel. Protection always suppresses payload.
+
+## Selected citations and future reads
+
+The model sees every admitted snippet; Selected specifies user-facing citations,
+not all information that influenced its text. Supports retains only their union.
+Summary.Resolve verifies the original binding and current access to these retained
+supports. Revocation of an unselected input after successful construction, while
+the original binding remains valid, does not by itself revoke that Summary.
+This selected-citation policy is structural association, not information-flow
+taint, semantic truth or proof that other model inputs had no influence.
+
+A product requiring full derivation revocation must separately retain the complete
+map input inventory and reduction ancestry and authorize it externally before
+Resolve. Summary has no complete-dependency inventory; callers cannot recover it
+from Supports or Selected alone. If scope/publication freshness changes or a
+selected support is denied/deleted, Resolve fails closed. It grants no new binding.
+
+Summary hides its text until a fresh Resolve. The returned source.MappedText is
+owned admitted data: the host can retain its bytes after that delivery, just as
+with retrieval results. Future checks cannot claw back already delivered strings.
+Resolve returns derived support-only text, never an exact original quotation.
+
+## Coverage and cost
+
+CoversMembership checks declared member sets of selected snippets, not generated
+prose quality. MissingCoverage stops at the first incomplete community and skips
+later maps and reduce: reduction cannot claim complete declared membership when
+an input community is incomplete. Host may evaluate quality or explicitly start
+a new bounded attempt; core never silently repairs or retries.
+
+Stable-order support union/member subset scans can be quadratic within admitted
+counts. Finite capacities do not imply linear CPU, byte or peak-memory bounds.
+[Reference scaling measurements](../../graphingest/resolution/scaling.md) retain
+current algorithms and record actual workloads without a speedup claim.
+
+[Source/lifecycle integration](lifecycle_integration_unix_test.go) exercises retained
+source evidence, fresh Resolve and explicit pin/publication behavior.
+
+Complete input evidence is refreshed before/after each map and reduce, including
+immediately before reservation/dispatch. With C calls and S admitted support
+occurrences, repeated freshness checks cost O(C×S) callback work plus final selected
+Resolve checks. A positive observation is not an authorization lease; the host may
+implement a cheap captured-policy check only with an explicit freshness contract.
+Core does not memoize permission.

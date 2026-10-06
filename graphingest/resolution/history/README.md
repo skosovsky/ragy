@@ -66,3 +66,25 @@ serialize faithfully; core does not normalize or interpret host types. Existing 
 records retain their bytes/digests. Previously repaired malformed legacy identities
 cannot be reconstructed from replacement characters: quarantine or migrate them under
 host policy. Valid U+FFFD is preserved as a real identity character.
+
+## Capacity and platform
+
+The same `maxSupports` limit has several independent uses: each input entity/relation
+list and each result entity/relation/unresolved list must fit it; each group variant
+list must fit it; all input support occurrences together must fit it; and all result
+variant/unresolved support occurrences together must fit it. These two occurrence
+budgets are separate. Repeated locators consume capacity before inventory union.
+Per-mention decision counts must exactly match the corresponding input counts.
+This is not a set of independently configurable fact/variant quotas.
+
+`maxBytes` bounds accepted JSON after Marshal has allocated the payload, not peak
+heap, codec CPU or transient copies. Host must pre-bound BYOT values and supply
+pure, bounded, faithful, concurrency-safe JSON methods that own decoded state.
+Snapshot and Record code is portable; NewFileStore and filesystem operations are
+available only on darwin/linux. MkdirAll does not prove ancestor durability; host
+must provision the durable root. Unknown append requires inspection with the
+original Reference. No automatic retry, record expiry or deletion is performed.
+
+Stable-order inventory unions and subset validation can be quadratic in admitted
+support counts. [Scaling measurements](../scaling.md) document reference workloads;
+JSON cloning remains for ownership, without a performance claim.

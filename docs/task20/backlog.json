@@ -536,12 +536,12 @@
         "report": "acceptance/T13-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "45ef3d6ded230578e8f7572c91ad89c1c6dd39fc"
   },
   {
     "id": "T14",
     "title": "graph ingestion contracts",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "docs: graph contracts",
     "criteria": [
       {
@@ -566,8 +566,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "29/29",
+        "coverage_percent": 100,
+        "report": "acceptance/T14-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T14-correctness.md"
+      }
     },
     "commit_sha": null
   },

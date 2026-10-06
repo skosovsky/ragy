@@ -1,0 +1,8 @@
+ok  	github.com/skosovsky/ragy/graphingest	1.528s
+ok  	github.com/skosovsky/ragy/graphingest/extraction	1.220s
+ok  	github.com/skosovsky/ragy/graphingest/materialization	1.948s
+ok  	github.com/skosovsky/ragy/graphingest/resolution	1.198s
+ok  	github.com/skosovsky/ragy/graphingest/resolution/history	1.499s
+ok  	github.com/skosovsky/ragy/graph/managed	4.139s
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	2.192s
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	1.794s

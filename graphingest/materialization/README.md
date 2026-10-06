@@ -36,3 +36,22 @@ Pass the result to lifecycle Prepare/Stage/Publish. Its complete original suppor
 inventory enables shared-fact cleanup: removing one source drops only its support,
 and removing the last source removes the derived fact. Host scheduler, policy
 history storage, real model extractor and summary recipes remain separate.
+
+## Cross-document closure and normalization
+
+Suppose source A says “Billing depends on LedgerDB”, while only source B has an
+entity mention for LedgerDB. A globally resolved LedgerDB ID is insufficient:
+materializing A fails with ErrMissingEndpointSupport until both endpoint nodes
+have actual supports in A's namespace/source/revision/access tuple. Host must
+extract real endpoint mentions from A or explicitly change its source ingestion
+policy before materialization. Do not copy B's locator or invent A evidence to
+make the relation pass. Contradictory variants remain available in Decisions.
+
+Build projects and owns typed metadata, then validates a normalized graph view;
+it returns the original projected metadata and labels. It does not promise to
+rewrite them into normalized values. managed.Adapter.Stage sorts/deduplicates captured node labels and normalizes the
+codec-encoded filter attributes against its configured schema. It clones typed
+Meta separately; it does not rewrite the host typed value to the normalized
+attribute representation. Use matching schemas/codecs across both stages. CloneMeta/CloneAttributes must isolate BYOT values; normalization is not
+a substitute for ownership. [Complete composition](../composition.md) includes
+the explicit handoff and an interrupted stage that cannot publish.

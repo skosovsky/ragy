@@ -41,6 +41,8 @@ type ModelInput struct {
 	MaxInputTokens  uint64         `json:"max_input_tokens"`
 	MaxOutputTokens uint64         `json:"max_output_tokens"`
 }
+
+// ModelOutput contains generated text. Selected supplies citations, not a complete model dependency inventory.
 type ModelOutput struct {
 	Text     string `json:"text"`
 	Selected []int  `json:"selected"`

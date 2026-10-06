@@ -1,0 +1,12 @@
+=== RUN   TestGraphPipelineExplicitManagedLifecycleHandoff
+=== RUN   TestGraphPipelineExplicitManagedLifecycleHandoff/published
+=== RUN   TestGraphPipelineExplicitManagedLifecycleHandoff/interrupted-stage
+--- PASS: TestGraphPipelineExplicitManagedLifecycleHandoff (0.09s)
+    --- PASS: TestGraphPipelineExplicitManagedLifecycleHandoff/published (0.06s)
+    --- PASS: TestGraphPipelineExplicitManagedLifecycleHandoff/interrupted-stage (0.03s)
+PASS
+ok  	github.com/skosovsky/ragy/graphingest	1.284s
+=== RUN   TestSelectedCitationsAreNotCompleteDerivationDependencies
+--- PASS: TestSelectedCitationsAreNotCompleteDerivationDependencies (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	1.201s

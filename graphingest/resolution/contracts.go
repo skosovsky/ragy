@@ -41,6 +41,8 @@ const (
 )
 
 // Decision requires nonempty valid UTF-8 namespace/key/name when Resolved.
+// Name is canonical identity metadata, not a local mention label. Equal namespace/key
+// decisions must agree on Name; conflicting names fail with ErrProtocol.
 // Ambiguous requires all three fields empty. Malformed host decisions are ErrProtocol.
 type Decision struct {
 	State     State  `json:"state"`
@@ -66,6 +68,8 @@ type RelationGroup[TRel comparable, TAttr any] struct {
 	To       string                 `json:"to"`
 	Variants []Variant[TRel, TAttr] `json:"variants"`
 }
+
+// Unresolved retains an ambiguous mention. Kind is the fact-category literal "entity" or "relation", not an ontology kind.
 type Unresolved struct {
 	Mention  string           `json:"mention"`
 	Kind     string           `json:"kind"`

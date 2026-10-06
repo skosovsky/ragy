@@ -23,6 +23,9 @@ func (s Summary) CoversMembership() bool { return s.covered }
 // Resolve returns support-only derived text, never an exact original quotation.
 // A changed scope/publication, revoked source, deleted support or expiry fails
 // closed. Revalidation never grants a new binding or refreshes a cached summary.
+// Only selected citation supports are retained; later revocation of an unselected
+// model input alone does not invalidate this artifact under the same valid binding.
+// Returned MappedText is owned delivered data and cannot be revoked retrospectively.
 func (s Summary) Resolve(
 	ctx context.Context,
 	read access.Binding,

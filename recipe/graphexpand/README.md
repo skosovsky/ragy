@@ -52,3 +52,23 @@ contain no graph IDs, traversal seeds, supports or host basis, and diagnostic
 exporter failure cannot repeat or change traversal.
 
 Traversal, settlement and post-call freshness causes are preserved together. A simultaneous local deadline never erases a target protection/protocol failure; failed expansion delivers zero evidence and performs no retry.
+
+A valid seed-only graph with no edges is Insufficient under this recipe's evidence
+heuristic. The node text may still answer a host's question; semantic adequacy is
+a separate host decision. Complete describes this structural recipe outcome.
+
+MaxNodes and MaxEdges reject the entire result when exceeded; they do not truncate
+facts according to map order. To bound a broad neighborhood, explicitly request
+Depth: 1 instead of Depth: 2; alternatively raise both capacities after sizing
+admission and delivery. A smaller depth may still exceed limits on a high-degree
+seed. Retain the error and zero evidence; never treat it as a partial traversal.
+
+managed.Config.MaxAdmissionRecords counts selected version records before scope,
+conflict removal and deduplication: identical facts from two versions count twice.
+This pre-read cost differs from outbound result capacities and still scans selected
+source support inventories. See [managed graph](../../graph/managed/README.md).
+
+The managed reference adapter is volatile. Durable lifecycle manifests alone cannot
+rebuild its fact corpus after restart. Missing pinned inventory returns unavailable
+without fallback to current/raw graph. Host persists/reconstructs the actual corpus
+and explicitly stages or chooses a host basis under its own lifecycle policy.

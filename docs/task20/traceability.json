@@ -279,41 +279,58 @@
       "id": "D23",
       "task": "T14",
       "requirement": "Graph ingestion scope: Extraction/resolution/materialization/history — retrieval-domain facts/provenance. Ontology, aliases, semantic truth, model transport и lifecycle driving — host.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep independent source-bound retrieval facts/provenance ports; general orchestration and semantic policies stay host-owned.",
+      "evidence": [
+        "graphingest/README.md",
+        "graphingest/composition.md"
+      ]
     },
     {
       "id": "D24",
       "task": "T14",
       "requirement": "Relation closure/naming: Source-local endpoint support обязателен по контракту; пример cross-document relation. Name — canonical, не mention label; рассмотреть CanonicalName/MentionKind вместо перегруженного Kind.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep source-local endpoint closure and existing JSON names; Name is canonical and Unresolved.Kind has entity/relation literals. Cross-document example explains real evidence requirement.",
+      "evidence": [
+        "graphingest/materialization/README.md",
+        "graphingest/resolution/README.md",
+        "graphingest/materialization/materialization_test.go"
+      ]
     },
     {
       "id": "D25",
       "task": "T14",
       "requirement": "Graph generic kinds/history: Stable comparable enum/value и faithful bounded JSON callbacks — host contract. History capture не пересчитывает ontology и не доказывает policy truth; maxSupports также считает другие populations.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Stable reflexive comparable kinds and faithful bounded codecs are host requirements; actual resolver records are declared decisions, with explicit multidimensional occurrence accounting.",
+      "evidence": [
+        "graphingest/resolution/README.md",
+        "graphingest/resolution/history/README.md",
+        "graphingest/resolution/history/history.go"
+      ]
     },
     {
       "id": "D26",
       "task": "T14",
       "requirement": "Graph history bytes/platform: Marshal cap — accepted wire, не peak allocation. FileStore darwin/linux и host-prepared durable root описать явно; no automatic retention/retry после unknown append.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Accepted serialized-byte cap is post-Marshal, not peak-memory; portable snapshots versus darwin/linux local FileStore, durable root and unknown append inspection explicit.",
+      "evidence": [
+        "graphingest/resolution/history/README.md",
+        "graphingest/resolution/history/filestore.go"
+      ]
     },
     {
       "id": "D27",
       "task": "T14",
       "requirement": "Graph scaling: Support unions/variant grouping и summary admission могут быть quadratic. Сначала benchmark upper bounds; map[Locator] со stable order допустим, новая indexing framework не нужна.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "No speculative indexing/copy optimization. Actual declared-max resolver and isolated union/admission benchmarks recorded; stable ownership/order/freshness retained, before/after optimization N/A.",
+      "evidence": [
+        "graphingest/resolution/scaling.md",
+        "docs/task20/acceptance/T14-bench.log"
+      ]
     },
     {
       "id": "D28",
@@ -333,25 +350,36 @@
       "id": "D29",
       "task": "T14",
       "requirement": "Summary dependencies: Selected citations не равны всем model derivation inputs. Уточнить revocation policy для unselected input; при необходимости separate dependency inventory. Structural association не semantic truth.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain selected-citation future Resolve policy. Unselected inputs are not complete derivation dependencies; full revocation requires externally retained map/reduction ancestry, with boundary regression.",
+      "evidence": [
+        "recipe/graphsummary/README.md",
+        "recipe/graphsummary/citation_policy_test.go"
+      ]
     },
     {
       "id": "D30",
       "task": "T14",
       "requirement": "Summary delivery/coverage: Resolve проверяет текущий доступ; возвращённый MappedText уже owned и не отзывается задним числом. Coverage — declared set coverage, не качество prose, MissingCoverage не запускает hidden repair.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Fresh Resolve checks original binding and selected supports; delivered data is owned. Membership is declared set coverage; first incomplete community stops later maps/reduce without repair.",
+      "evidence": [
+        "recipe/graphsummary/README.md",
+        "recipe/graphsummary/negative_test.go",
+        "recipe/graphsummary/citation_policy_test.go"
+      ]
     },
     {
       "id": "D31",
       "task": "T14",
       "requirement": "Graph recipe heuristics: Seed-only graph как Insufficient и fail-zero при node/edge limit — explicit policies. Volatile managed graph не восстанавливается из одного manifest; не fallback на raw/current graph.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep seed-only Insufficient recipe heuristic, fail-zero capacities and volatile unavailable without fallback; explicit smaller depth versus capacity guidance.",
+      "evidence": [
+        "recipe/graphexpand/README.md",
+        "graph/managed/README.md",
+        "recipe/graphexpand/expand_test.go"
+      ]
     },
     {
       "id": "D32",
@@ -371,9 +399,13 @@
       "id": "D33",
       "task": "T14",
       "requirement": "Materialization/ergonomics: Build validation не обязательно возвращает normalized metadata. Определить normalization stage, дать минимальную композицию generics/callbacks; не добавлять DI builder framework.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Build returns original owned projected metadata after normalized-view validation; managed Stage sorts/compacts labels and captures normalized filter attributes, retaining separately cloned typed metadata. Full existing deterministic five-type example remains runnable with all callback and lifecycle handoff guidance.",
+      "evidence": [
+        "graphingest/materialization/README.md",
+        "graphingest/composition.md",
+        "graphingest/pipeline_integration_test.go"
+      ]
     },
     {
       "id": "D34",
@@ -1292,9 +1324,12 @@
       "source": "reviews/graph.md",
       "line": 39,
       "requirement": "Keep graph ingestion inside ragy.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep independent source-bound retrieval facts/provenance ports; general orchestration and semantic policies stay host-owned.",
+      "evidence": [
+        "graphingest/README.md",
+        "graphingest/composition.md"
+      ]
     },
     {
       "id": "graph:02",
@@ -1302,9 +1337,12 @@
       "source": "reviews/graph.md",
       "line": 40,
       "requirement": "Resolution README is stale.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Replace obsolete resolution roadmap with actual current extraction/materialization/history/summary package boundaries and runnable handoff link.",
+      "evidence": [
+        "graphingest/resolution/README.md",
+        "graphingest/composition.md"
+      ]
     },
     {
       "id": "graph:03",
@@ -1312,9 +1350,13 @@
       "source": "reviews/graph.md",
       "line": 41,
       "requirement": "Source-local relation closure is deliberate but restrictive.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep source-local endpoint closure and existing JSON names; Name is canonical and Unresolved.Kind has entity/relation literals. Cross-document example explains real evidence requirement.",
+      "evidence": [
+        "graphingest/materialization/README.md",
+        "graphingest/resolution/README.md",
+        "graphingest/materialization/materialization_test.go"
+      ]
     },
     {
       "id": "graph:04",
@@ -1322,9 +1364,13 @@
       "source": "reviews/graph.md",
       "line": 42,
       "requirement": "Same identity with different display name errors.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep source-local endpoint closure and existing JSON names; Name is canonical and Unresolved.Kind has entity/relation literals. Cross-document example explains real evidence requirement.",
+      "evidence": [
+        "graphingest/materialization/README.md",
+        "graphingest/resolution/README.md",
+        "graphingest/materialization/materialization_test.go"
+      ]
     },
     {
       "id": "graph:05",
@@ -1332,9 +1378,13 @@
       "source": "reviews/graph.md",
       "line": 43,
       "requirement": "Comparable generic kind permits semantically odd types.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Stable reflexive comparable kinds and faithful bounded codecs are host requirements; actual resolver records are declared decisions, with explicit multidimensional occurrence accounting.",
+      "evidence": [
+        "graphingest/resolution/README.md",
+        "graphingest/resolution/history/README.md",
+        "graphingest/resolution/history/history.go"
+      ]
     },
     {
       "id": "graph:06",
@@ -1342,9 +1392,13 @@
       "source": "reviews/graph.md",
       "line": 44,
       "requirement": "`Unresolved.Kind` is an untyped string while other states are named.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep source-local endpoint closure and existing JSON names; Name is canonical and Unresolved.Kind has entity/relation literals. Cross-document example explains real evidence requirement.",
+      "evidence": [
+        "graphingest/materialization/README.md",
+        "graphingest/resolution/README.md",
+        "graphingest/materialization/materialization_test.go"
+      ]
     },
     {
       "id": "graph:07",
@@ -1352,9 +1406,13 @@
       "source": "reviews/graph.md",
       "line": 45,
       "requirement": "Snapshot history is a declared record, not recomputation proof.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Stable reflexive comparable kinds and faithful bounded codecs are host requirements; actual resolver records are declared decisions, with explicit multidimensional occurrence accounting.",
+      "evidence": [
+        "graphingest/resolution/README.md",
+        "graphingest/resolution/history/README.md",
+        "graphingest/resolution/history/history.go"
+      ]
     },
     {
       "id": "graph:08",
@@ -1362,9 +1420,13 @@
       "source": "reviews/graph.md",
       "line": 46,
       "requirement": "History `maxSupports` also caps fact/variant populations.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Stable reflexive comparable kinds and faithful bounded codecs are host requirements; actual resolver records are declared decisions, with explicit multidimensional occurrence accounting.",
+      "evidence": [
+        "graphingest/resolution/README.md",
+        "graphingest/resolution/history/README.md",
+        "graphingest/resolution/history/history.go"
+      ]
     },
     {
       "id": "graph:09",
@@ -1372,9 +1434,12 @@
       "source": "reviews/graph.md",
       "line": 47,
       "requirement": "History JSON byte limit is post-serialization.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Accepted serialized-byte cap is post-Marshal, not peak-memory; portable snapshots versus darwin/linux local FileStore, durable root and unknown append inspection explicit.",
+      "evidence": [
+        "graphingest/resolution/history/README.md",
+        "graphingest/resolution/history/filestore.go"
+      ]
     },
     {
       "id": "graph:10",
@@ -1382,9 +1447,12 @@
       "source": "reviews/graph.md",
       "line": 48,
       "requirement": "History file store portability and durability.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Accepted serialized-byte cap is post-Marshal, not peak-memory; portable snapshots versus darwin/linux local FileStore, durable root and unknown append inspection explicit.",
+      "evidence": [
+        "graphingest/resolution/history/README.md",
+        "graphingest/resolution/history/filestore.go"
+      ]
     },
     {
       "id": "graph:11",
@@ -1392,9 +1460,12 @@
       "source": "reviews/graph.md",
       "line": 49,
       "requirement": "Quadratic support unions / variant grouping.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "No speculative indexing/copy optimization. Actual declared-max resolver and isolated union/admission benchmarks recorded; stable ownership/order/freshness retained, before/after optimization N/A.",
+      "evidence": [
+        "graphingest/resolution/scaling.md",
+        "docs/task20/acceptance/T14-bench.log"
+      ]
     },
     {
       "id": "graph:12",
@@ -1418,9 +1489,12 @@
       "source": "reviews/graph.md",
       "line": 51,
       "requirement": "Repeated original-source authorization in graphsummary is intentional but potentially expensive.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "No speculative indexing/copy optimization. Actual declared-max resolver and isolated union/admission benchmarks recorded; stable ownership/order/freshness retained, before/after optimization N/A.",
+      "evidence": [
+        "graphingest/resolution/scaling.md",
+        "docs/task20/acceptance/T14-bench.log"
+      ]
     },
     {
       "id": "graph:14",
@@ -1428,9 +1502,12 @@
       "source": "reviews/graph.md",
       "line": 52,
       "requirement": "Selected citations are not information-flow taint.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain selected-citation future Resolve policy. Unselected inputs are not complete derivation dependencies; full revocation requires externally retained map/reduction ancestry, with boundary regression.",
+      "evidence": [
+        "recipe/graphsummary/README.md",
+        "recipe/graphsummary/citation_policy_test.go"
+      ]
     },
     {
       "id": "graph:15",
@@ -1438,9 +1515,13 @@
       "source": "reviews/graph.md",
       "line": 53,
       "requirement": "Summary object authorization scope differs from returned results.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Fresh Resolve checks original binding and selected supports; delivered data is owned. Membership is declared set coverage; first incomplete community stops later maps/reduce without repair.",
+      "evidence": [
+        "recipe/graphsummary/README.md",
+        "recipe/graphsummary/negative_test.go",
+        "recipe/graphsummary/citation_policy_test.go"
+      ]
     },
     {
       "id": "graph:16",
@@ -1448,9 +1529,13 @@
       "source": "reviews/graph.md",
       "line": 54,
       "requirement": "Community coverage is set coverage only.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Fresh Resolve checks original binding and selected supports; delivered data is owned. Membership is declared set coverage; first incomplete community stops later maps/reduce without repair.",
+      "evidence": [
+        "recipe/graphsummary/README.md",
+        "recipe/graphsummary/negative_test.go",
+        "recipe/graphsummary/citation_policy_test.go"
+      ]
     },
     {
       "id": "graph:17",
@@ -1458,9 +1543,13 @@
       "source": "reviews/graph.md",
       "line": 55,
       "requirement": "Graph traversal result limit is rejection, not truncation.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep seed-only Insufficient recipe heuristic, fail-zero capacities and volatile unavailable without fallback; explicit smaller depth versus capacity guidance.",
+      "evidence": [
+        "recipe/graphexpand/README.md",
+        "graph/managed/README.md",
+        "recipe/graphexpand/expand_test.go"
+      ]
     },
     {
       "id": "graph:18",
@@ -1468,9 +1557,13 @@
       "source": "reviews/graph.md",
       "line": 56,
       "requirement": "Managed graph volatile storage is a reference profile.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep seed-only Insufficient recipe heuristic, fail-zero capacities and volatile unavailable without fallback; explicit smaller depth versus capacity guidance.",
+      "evidence": [
+        "recipe/graphexpand/README.md",
+        "graph/managed/README.md",
+        "recipe/graphexpand/expand_test.go"
+      ]
     },
     {
       "id": "graph:19",
@@ -1478,9 +1571,13 @@
       "source": "reviews/graph.md",
       "line": 57,
       "requirement": "graphexpand default outcome policy is hard-coded.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep seed-only Insufficient recipe heuristic, fail-zero capacities and volatile unavailable without fallback; explicit smaller depth versus capacity guidance.",
+      "evidence": [
+        "recipe/graphexpand/README.md",
+        "graph/managed/README.md",
+        "recipe/graphexpand/expand_test.go"
+      ]
     },
     {
       "id": "graph:20",
@@ -1504,9 +1601,13 @@
       "source": "reviews/graph.md",
       "line": 59,
       "requirement": "Materializer validates normalized graph but returns original typed metadata.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Build returns original owned projected metadata after normalized-view validation; managed Stage sorts/compacts labels and captures normalized filter attributes, retaining separately cloned typed metadata. Full existing deterministic five-type example remains runnable with all callback and lifecycle handoff guidance.",
+      "evidence": [
+        "graphingest/materialization/README.md",
+        "graphingest/composition.md",
+        "graphingest/pipeline_integration_test.go"
+      ]
     },
     {
       "id": "graph:22",
@@ -1514,9 +1615,13 @@
       "source": "reviews/graph.md",
       "line": 60,
       "requirement": "Config ergonomics need examples, not builder frameworks.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Build returns original owned projected metadata after normalized-view validation; managed Stage sorts/compacts labels and captures normalized filter attributes, retaining separately cloned typed metadata. Full existing deterministic five-type example remains runnable with all callback and lifecycle handoff guidance.",
+      "evidence": [
+        "graphingest/materialization/README.md",
+        "graphingest/composition.md",
+        "graphingest/pipeline_integration_test.go"
+      ]
     },
     {
       "id": "ingestion:01",

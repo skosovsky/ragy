@@ -20,3 +20,8 @@ The host explicitly calls lifecycle `Prepare`, `Stage` and `Publish` with that p
 [The executable integration example](pipeline_integration_test.go) runs mapped splitting, bounded extraction, resolution, materialization and actual managed graph/lifecycle handoff, including an interrupted staging scenario. [Stage failures](graphingest_test.go) also verify cancellation and suppression of partial plans.
 
 The former Stage/Provider/raw Upsert facade is removed. Independent raw graph storage ports remain available under `graph`; they do not claim managed lifecycle guarantees.
+
+[Composition guide](composition.md) identifies every mandatory callback and the
+complete deterministic runnable profile. Ontology/aliases and semantic truth are
+host policy; extraction, resolution, history and materialization remain independent
+retrieval-domain packages. General workflow/agent loops remain outside this pipeline.
