@@ -12,6 +12,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -512,10 +513,22 @@ func TestIndexChangeDuringMissDoesNotPopulateOldRevisionKey(t *testing.T) {
 func TestRequestCacheKeyPartitionsCoreAndHostProfiles(t *testing.T) {
 	// Arrange.
 	req := retrieval.Query[struct{}]{
-		Read:    retrieval.UnrestrictedRead(),
-		Text:    "raw policy",
-		Plan:    &retrieval.PlannedQuery[struct{}]{Text: "policy"},
-		Options: retrieval.RetrieveOptions{TopK: 10, FetchLimit: 100, Vector: []float32{1, 0}},
+		Read: retrieval.UnrestrictedRead(),
+		Text: "raw policy",
+		Plan: &retrieval.PlannedQuery[struct{}]{Text: "policy"},
+		Options: retrieval.RetrieveOptions{
+			TopK:       10,
+			FetchLimit: 100,
+			Vector:     []float32{1, 0},
+			Space: embedding.Space{
+				Model:         "m",
+				ModelRevision: "r",
+				Configuration: "c",
+				VectorSpace:   "v",
+				Dimension:     2,
+				Metric:        "dot",
+			},
+		},
 	}
 	identity := cacheIdentity()
 	base, err := retrieval.RequestCacheKey(req, identity, []byte("host1"))
@@ -536,6 +549,11 @@ func TestRequestCacheKeyPartitionsCoreAndHostProfiles(t *testing.T) {
 			name:   "fetch",
 			change: func(r *retrieval.Query[struct{}], _ *retrieval.CacheIdentity) { r.Options.FetchLimit = 101 },
 			host:   "host1",
+		},
+		{
+			name: "space", change: func(r *retrieval.Query[struct{}], _ *retrieval.CacheIdentity) {
+				r.Options.Space.Configuration = "other"
+			}, host: "host1",
 		},
 		{
 			name:   "vector",
@@ -650,8 +668,16 @@ func TestCopyRequestOptionsOwnsNestedCorePointers(t *testing.T) {
 	req := retrieval.Query[struct{}]{
 		Read: retrieval.UnrestrictedRead(),
 		Options: retrieval.RetrieveOptions{
-			TopK:      1,
-			Vector:    []float32{1},
+			TopK:   1,
+			Vector: []float32{1},
+			Space: embedding.Space{
+				Model:         "m",
+				ModelRevision: "r",
+				Configuration: "c",
+				VectorSpace:   "v",
+				Dimension:     1,
+				Metric:        "dot",
+			},
 			Threshold: &retrieval.ScoreThreshold{Value: 1},
 			Graph:     &retrieval.GraphOptions{Seeds: []string{"a"}, Page: &ragy.Page{Limit: 1}},
 		},

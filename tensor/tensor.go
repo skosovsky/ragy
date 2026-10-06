@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 )
 
@@ -37,5 +38,9 @@ type Index[TMeta any] interface {
 
 // Embedder produces tensor embeddings.
 type Embedder interface {
-	Embed(ctx context.Context, texts []string) ([]Tensor, error)
+	Space() Space
+	Embed(ctx context.Context, request Request) (Result, error)
 }
+
+type Request = embedding.Request[string]
+type Result = embedding.Result[Embedding]

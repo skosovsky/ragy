@@ -1,0 +1,11 @@
+=== RUN   TestLiveGemini
+    client_test.go:164: opt-in live request requires RAGY_LIVE_GEMINI=1 and GEMINI_API_KEY
+--- SKIP: TestLiveGemini (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/gemini/dense	0.524s
+?   	github.com/skosovsky/ragy/adapters/gemini/internal/wire	[no test files]
+=== RUN   TestLiveGeminiMultimodal
+    client_test.go:170: opt-in requires RAGY_LIVE_GEMINI=1, GEMINI_API_KEY and RAGY_GEMINI_IMAGE PNG path
+--- SKIP: TestLiveGeminiMultimodal (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/gemini/multimodal	0.512s

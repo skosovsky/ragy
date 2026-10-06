@@ -65,7 +65,7 @@ func integerTenants() []int64 {
 func TestExternalPersistentDenseIntegerMetadataRoundTrip(t *testing.T) {
 	// Arrange: exact BYOT integers cross actual JSON files, publication and fresh adapter.
 	state, tenant := integerScopeState(t)
-	space := dense.Space{
+	space := dense.Space{Metric: "normalized-dot",
 		Model:         "saved-fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",
@@ -99,8 +99,7 @@ func TestExternalPersistentDenseIntegerMetadataRoundTrip(t *testing.T) {
 			records,
 			densefs.Record[integerStorageMeta]{
 				Reference: ref,
-				Space:     space,
-				Value: dense.Record[integerStorageMeta]{
+				Value: dense.Record[integerStorageMeta]{Space: space,
 					ID:      ref.Artifact,
 					Content: "policy",
 					Meta:    integerStorageMeta{Tenant: value},
@@ -127,7 +126,7 @@ func TestExternalPersistentDenseIntegerMetadataRoundTrip(t *testing.T) {
 func TestExternalPersistentTensorIntegerMetadataRoundTrip(t *testing.T) {
 	// Arrange.
 	state, tenant := integerScopeState(t)
-	space := tensor.Space{
+	space := tensor.Space{Metric: "normalized-dot",
 		Model:         "saved-fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",

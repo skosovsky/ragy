@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 )
 
 // CacheIdentity declares host-owned index/recipe/configuration identities and
@@ -50,6 +51,7 @@ type requestCacheKey struct {
 	TopK            int               `json:"top_k"`
 	Threshold       *ScoreThreshold   `json:"threshold"`
 	Filters         string            `json:"filters"`
+	Space           embedding.Space   `json:"space"`
 	Vector          []float32         `json:"vector"`
 	Graph           *graphCacheKey    `json:"graph"`
 	Planned         bool              `json:"planned"`
@@ -95,6 +97,7 @@ func RequestCacheKey[TIntent, TRequestMeta any](
 		Threshold:       req.Options.Threshold,
 		Filters:         filters,
 		Vector:          req.Options.Vector,
+		Space:           req.Options.Space,
 		Graph:           nil,
 		Planned:         false,
 		PlannedText:     "",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -129,8 +130,18 @@ func TestCatalogVectorFallback_VectorBranchReturnsVectorHit(t *testing.T) {
 		Text:   "query",
 		Intent: searchIntent{AllowWeb: true},
 		Options: retrieval.RetrieveOptions{
-			TopK:   exampleTopK,
-			Vector: []float32{0.1},
+			TopK: exampleTopK,
+			Vector: []float32{
+				0.1,
+			},
+			Space: embedding.Space{
+				Model:         "example",
+				ModelRevision: "v1",
+				Configuration: "host",
+				VectorSpace:   "example",
+				Dimension:     1,
+				Metric:        embedding.Dot,
+			},
 		},
 	})
 	if err != nil {

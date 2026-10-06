@@ -133,7 +133,7 @@ func emptySchema(t *testing.T) filter.Schema {
 func newStore(t *testing.T, db DB, schema filter.Schema) *Store[contracttest.StructMeta] {
 	t.Helper()
 	codec := contracttest.JSONCodec[contracttest.StructMeta](t, schema)
-	store, err := New(db, Config[contracttest.StructMeta]{Table: "docs", Schema: schema}, codec)
+	store, err := New(db, Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "docs", Schema: schema}, codec)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -200,7 +200,7 @@ func TestRenderSearchUsesFetchLimit(t *testing.T) {
 
 	store := &Store[contracttest.StructMeta]{table: "docs", schema: emptySchema(t)}
 	sql, args, err := store.renderSearch(retrieval.RetrieveOptions{
-		Vector:     []float32{1},
+		Vector: []float32{1}, Space: fixtureSpace(),
 		FetchLimit: 50,
 		TopK:       10,
 	})
@@ -220,8 +220,8 @@ func TestRenderSearchFallsBackToTopKWhenFetchLimitZero(t *testing.T) {
 
 	store := &Store[contracttest.StructMeta]{table: "docs", schema: emptySchema(t)}
 	sql, args, err := store.renderSearch(retrieval.RetrieveOptions{
-		Vector: []float32{1},
-		TopK:   15,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 15,
 	})
 	if err != nil {
 		t.Fatalf("renderSearch(): %v", err)
@@ -239,7 +239,7 @@ func TestRetrieveRejectsZeroTopKAndFetchLimit(t *testing.T) {
 	store := newStoreEmptySchema(t, db)
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1, 0},
+		Vector: []float32{1}, Space: fixtureSpace(),
 	})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
@@ -252,8 +252,8 @@ func TestRetrieveReturnsEmptyWithValidTopK(t *testing.T) {
 	store := newStoreEmptySchema(t, db)
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1, 0},
-		TopK:   10,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 10,
 	})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
@@ -280,8 +280,8 @@ func TestDecodeStoredMetaWrapsCorruptJSON(t *testing.T) {
 	store := newStore(t, db, tenantSchema(t))
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1, 0},
-		TopK:   5,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 5,
 	})
 	if err == nil {
 		t.Fatal("Retrieve() error = nil, want projection error")
@@ -298,7 +298,7 @@ func TestDenseIndexConformance(t *testing.T) {
 	contracttest.RunDenseIndexSuite(t, func(t *testing.T) dense.Index[contracttest.StructMeta] {
 		t.Helper()
 		schema := contracttest.TenantAgeSchema(t)
-		store, err := New[contracttest.StructMeta](&fakeDB{}, Config[contracttest.StructMeta]{
+		store, err := New[contracttest.StructMeta](&fakeDB{}, Config[contracttest.StructMeta]{Space: fixtureSpace(),
 			Table:  "docs",
 			Schema: schema,
 		}, contracttest.JSONCodec[contracttest.StructMeta](t, schema))
@@ -342,8 +342,8 @@ func TestRetrieveProjectsCanonicalShape(t *testing.T) {
 	store := newStoreEmptySchema(t, db)
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1, 0},
-		TopK:   10,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 10,
 	})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
@@ -362,7 +362,7 @@ func TestRetrieveProjectsCanonicalShape(t *testing.T) {
 		t.Fatalf("docs[0].Meta = %#v, want empty", docs[0].Meta)
 	}
 
-	if !strings.Contains(db.query, "1 / (1 + (vector <=> $1)) AS relevance") {
+	if !strings.Contains(db.query, "1 - (vector <=> $1) AS relevance") {
 		t.Fatalf("query = %q, want similarity expression", db.query)
 	}
 }
@@ -370,7 +370,7 @@ func TestRetrieveProjectsCanonicalShape(t *testing.T) {
 func TestNewRejectsInvalidSQLIdentifier(t *testing.T) {
 	if _, err := New(
 		&fakeDB{},
-		Config[contracttest.StructMeta]{Table: "1bad", Schema: emptySchema(t)},
+		Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "1bad", Schema: emptySchema(t)},
 		contracttest.JSONCodec[contracttest.StructMeta](t, emptySchema(t)),
 	); err == nil {
 		t.Fatal("New() error = nil, want error")
@@ -392,7 +392,7 @@ func TestRetrieveRendersAttributeFilterAgainstAttributesJSON(t *testing.T) {
 	}
 	store, err := New[contracttest.StructMeta](
 		db,
-		Config[contracttest.StructMeta]{Table: "docs", Schema: schema},
+		Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "docs", Schema: schema},
 		retrieval.NewJSONCodec[contracttest.StructMeta](schema),
 	)
 	if err != nil {
@@ -409,7 +409,7 @@ func TestRetrieveRendersAttributeFilterAgainstAttributesJSON(t *testing.T) {
 	}
 
 	_, err = retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector:  []float32{1},
+		Vector: []float32{1}, Space: fixtureSpace(),
 		TopK:    10,
 		Filters: cond,
 	})
@@ -426,7 +426,7 @@ func TestUpsertRejectsWrongMetaTypeBeforeExec(t *testing.T) {
 	db := &fakeDB{}
 	store, err := New[contracttest.StructMeta](
 		db,
-		Config[contracttest.StructMeta]{Table: "docs", Schema: ageSchema(t)},
+		Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "docs", Schema: ageSchema(t)},
 		contracttest.JSONCodec[contracttest.StructMeta](t, ageSchema(t)),
 	)
 	if err != nil {
@@ -436,8 +436,8 @@ func TestUpsertRejectsWrongMetaTypeBeforeExec(t *testing.T) {
 	err = store.Upsert(context.Background(), []dense.Record[contracttest.StructMeta]{{
 		ID:      "doc-1",
 		Content: "hello",
-		Vector:  []float32{1},
-		Meta:    contracttest.StructMeta{Tenant: "acme"},
+		Vector:  []float32{1}, Space: fixtureSpace(),
+		Meta: contracttest.StructMeta{Tenant: "acme"},
 	}})
 	if err == nil {
 		t.Fatal("Upsert() error = nil, want error")
@@ -453,7 +453,7 @@ func TestUpsertCanonicalizesMetaBeforeExec(t *testing.T) {
 	db := &fakeDB{}
 	store, err := New[contracttest.StructMeta](
 		db,
-		Config[contracttest.StructMeta]{Table: "docs", Schema: ageScoreSchema(t)},
+		Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "docs", Schema: ageScoreSchema(t)},
 		contracttest.JSONCodec[contracttest.StructMeta](t, ageScoreSchema(t)),
 	)
 	if err != nil {
@@ -463,7 +463,7 @@ func TestUpsertCanonicalizesMetaBeforeExec(t *testing.T) {
 	err = store.Upsert(context.Background(), []dense.Record[contracttest.StructMeta]{{
 		ID:      "doc-1",
 		Content: "hello",
-		Vector:  []float32{1},
+		Vector:  []float32{1}, Space: fixtureSpace(),
 		Meta: contracttest.StructMeta{
 			Age:   7,
 			Score: 1.5,
@@ -502,7 +502,7 @@ func TestUpsertCanonicalizesEmptyMetaToNullJSON(t *testing.T) {
 	err := store.Upsert(context.Background(), []dense.Record[contracttest.StructMeta]{{
 		ID:      "doc-1",
 		Content: "hello",
-		Vector:  []float32{1},
+		Vector:  []float32{1}, Space: fixtureSpace(),
 	}})
 	if err != nil {
 		t.Fatalf("Upsert(): %v", err)
@@ -524,7 +524,7 @@ func TestUpsertFindByIDsRoundTrip(t *testing.T) {
 	schema := tenantSchema(t)
 	store, err := New[contracttest.TenantOnlyMeta](
 		db,
-		Config[contracttest.TenantOnlyMeta]{Table: "docs", Schema: schema},
+		Config[contracttest.TenantOnlyMeta]{Space: fixtureSpace(), Table: "docs", Schema: schema},
 		contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, schema),
 	)
 	if err != nil {
@@ -534,8 +534,8 @@ func TestUpsertFindByIDsRoundTrip(t *testing.T) {
 	err = store.Upsert(context.Background(), []dense.Record[contracttest.TenantOnlyMeta]{{
 		ID:      "doc-1",
 		Content: "hello",
-		Vector:  []float32{1},
-		Meta:    contracttest.TenantOnlyMeta{Tenant: "acme"},
+		Vector:  []float32{1}, Space: fixtureSpace(),
+		Meta: contracttest.TenantOnlyMeta{Tenant: "acme"},
 	}})
 	if err != nil {
 		t.Fatalf("Upsert(): %v", err)
@@ -596,7 +596,7 @@ func TestRetrieveRejectsUndeclaredFilterFieldBeforeQuery(t *testing.T) {
 	}
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector:  []float32{1},
+		Vector: []float32{1}, Space: fixtureSpace(),
 		TopK:    10,
 		Filters: cond,
 	})
@@ -688,7 +688,7 @@ func TestDocumentsStoreConformance(t *testing.T) {
 			schema := tenantSchema(t)
 			store, err := New[contracttest.StructMeta](
 				newDocumentsDB(docs),
-				Config[contracttest.StructMeta]{Table: "docs", Schema: schema},
+				Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "docs", Schema: schema},
 				contracttest.JSONCodec[contracttest.StructMeta](t, schema),
 			)
 			if err != nil {
@@ -746,7 +746,7 @@ func TestRetrievePartialProjectionConformance(t *testing.T) {
 			}
 			store, err := New[contracttest.StructMeta](
 				db,
-				Config[contracttest.StructMeta]{
+				Config[contracttest.StructMeta]{Space: fixtureSpace(),
 					Table:    "docs",
 					Schema:   tenantSchema(t),
 					Resolver: resolver,
@@ -778,7 +778,7 @@ func TestRetrieveUnmarshalsStructMeta(t *testing.T) {
 
 	store, err := New[contracttest.TenantOnlyMeta](
 		db,
-		Config[contracttest.TenantOnlyMeta]{Table: "docs", Schema: tenantSchema(t)},
+		Config[contracttest.TenantOnlyMeta]{Space: fixtureSpace(), Table: "docs", Schema: tenantSchema(t)},
 		contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, tenantSchema(t)),
 	)
 	if err != nil {
@@ -786,8 +786,8 @@ func TestRetrieveUnmarshalsStructMeta(t *testing.T) {
 	}
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1},
-		TopK:   10,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 10,
 	})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)
@@ -814,7 +814,7 @@ func TestRetrieveRejectsIncompatibleStructMeta(t *testing.T) {
 
 	store, err := New[contracttest.TenantOnlyMeta](
 		db,
-		Config[contracttest.TenantOnlyMeta]{Table: "docs", Schema: tenantSchema(t)},
+		Config[contracttest.TenantOnlyMeta]{Space: fixtureSpace(), Table: "docs", Schema: tenantSchema(t)},
 		contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, tenantSchema(t)),
 	)
 	if err != nil {
@@ -822,8 +822,8 @@ func TestRetrieveRejectsIncompatibleStructMeta(t *testing.T) {
 	}
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1},
-		TopK:   10,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 10,
 	})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrProtocol) {
@@ -846,7 +846,7 @@ func TestFindByIDsUnmarshalsStructMeta(t *testing.T) {
 
 	store, err := New[contracttest.TenantOnlyMeta](
 		db,
-		Config[contracttest.TenantOnlyMeta]{Table: "docs", Schema: tenantSchema(t)},
+		Config[contracttest.TenantOnlyMeta]{Space: fixtureSpace(), Table: "docs", Schema: tenantSchema(t)},
 		contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, tenantSchema(t)),
 	)
 	if err != nil {
@@ -877,7 +877,7 @@ func TestFindByIDsRejectsIncompatibleStructMeta(t *testing.T) {
 
 	store, err := New[contracttest.TenantOnlyMeta](
 		db,
-		Config[contracttest.TenantOnlyMeta]{Table: "docs", Schema: tenantSchema(t)},
+		Config[contracttest.TenantOnlyMeta]{Space: fixtureSpace(), Table: "docs", Schema: tenantSchema(t)},
 		contracttest.JSONCodec[contracttest.TenantOnlyMeta](t, tenantSchema(t)),
 	)
 	if err != nil {
@@ -919,7 +919,7 @@ func newDenseStructBackend(
 	db := &fakeDB{queryRows: &fakeRows{rows: rows}}
 	store, err := New[contracttest.StructMeta](
 		db,
-		Config[contracttest.StructMeta]{Table: "docs", Schema: schema},
+		Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "docs", Schema: schema},
 		codec,
 	)
 	if err != nil {
@@ -945,7 +945,7 @@ func TestRetrieveOptionsInvalidConformance(t *testing.T) {
 func TestNewRejectsNilCodec(t *testing.T) {
 	if _, err := New[contracttest.StructMeta](
 		&fakeDB{},
-		Config[contracttest.StructMeta]{Table: "docs", Schema: emptySchema(t)},
+		Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "docs", Schema: emptySchema(t)},
 		nil,
 	); err == nil {
 		t.Fatal("New() error = nil, want error")
@@ -968,8 +968,8 @@ func TestRetrievePreservesPartialScanError(t *testing.T) {
 	store := newStoreEmptySchema(t, db)
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1},
-		TopK:   5,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 5,
 	})
 	if !errors.Is(err, ragy.ErrMissingID) {
 		t.Fatalf("Retrieve() error = %v, want missing id", err)
@@ -989,8 +989,8 @@ func TestRetrieveQueryErrorReturnsEmptyResultSet(t *testing.T) {
 	store := newStoreEmptySchema(t, db)
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1},
-		TopK:   5,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 5,
 	})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
@@ -1006,8 +1006,8 @@ func TestRetrieveWrapsRawQueryError(t *testing.T) {
 	store := newStoreEmptySchema(t, db)
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1},
-		TopK:   5,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 5,
 	})
 	contracttest.RequireErrorResultSet(t, out, err)
 	if !errors.Is(err, ragy.ErrUnavailable) {
@@ -1032,8 +1032,8 @@ func TestRetrievePreservesPartialOnRowsError(t *testing.T) {
 	store := newStoreEmptySchema(t, db)
 
 	out, err := retrieveStore(context.Background(), store, "", retrieval.RetrieveOptions{
-		Vector: []float32{1},
-		TopK:   5,
+		Vector: []float32{1}, Space: fixtureSpace(),
+		TopK: 5,
 	})
 	if !errors.Is(err, ragy.ErrUnavailable) {
 		t.Fatalf("Retrieve() error = %v, want unavailable", err)
@@ -1160,7 +1160,7 @@ func TestUpsertWrapsRawQueryError(t *testing.T) {
 	err := store.Upsert(context.Background(), []dense.Record[contracttest.StructMeta]{{
 		ID:      "d1",
 		Content: "c",
-		Vector:  []float32{1},
+		Vector:  []float32{1}, Space: fixtureSpace(),
 	}})
 	if err == nil {
 		t.Fatal("Upsert() error = nil, want error")
@@ -1190,7 +1190,7 @@ func TestDeleteByFilterWrapsRawQueryError(t *testing.T) {
 	}
 	store, err := New[contracttest.StructMeta](
 		db,
-		Config[contracttest.StructMeta]{Table: "docs", Schema: schema},
+		Config[contracttest.StructMeta]{Space: fixtureSpace(), Table: "docs", Schema: schema},
 		retrieval.NewJSONCodec[contracttest.StructMeta](schema),
 	)
 	if err != nil {

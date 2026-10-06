@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -32,8 +33,20 @@ func TestRescueSearch_EmptySecondaryPropagatesPrimaryError(t *testing.T) {
 	result, err := pipeline.Execute(context.Background(), retrieval.Query[intent]{Read: retrieval.UnrestrictedRead(),
 		Text: "hello",
 		Options: retrieval.RetrieveOptions{
-			TopK:   defaultTopK,
-			Vector: []float32{1, 0, 0},
+			TopK: defaultTopK,
+			Vector: []float32{
+				1,
+				0,
+				0,
+			},
+			Space: embedding.Space{
+				Model:         "example",
+				ModelRevision: "v1",
+				Configuration: "host",
+				VectorSpace:   "example",
+				Dimension:     3,
+				Metric:        embedding.Dot,
+			},
 		},
 	})
 	if err == nil {

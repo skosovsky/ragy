@@ -11,6 +11,7 @@ import (
 	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
 	"github.com/skosovsky/ragy/multimodal"
@@ -34,16 +35,18 @@ func (i *captureDenseIndex) Schema() filter.Schema { return filter.EmptySchema()
 
 type captureDenseEmbedder struct{ valid bool }
 
-func (e *captureDenseEmbedder) Embed(ctx context.Context, _ []string) ([][]float32, error) {
+func (e *captureDenseEmbedder) Space() dense.Space { return tracedSpace() }
+func (e *captureDenseEmbedder) Embed(ctx context.Context, _ dense.Request) (dense.Result, error) {
 	e.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
-	return nil, nil
+	return dense.Result{}, nil
 }
 
 type captureTensorEmbedder struct{ valid bool }
 
-func (e *captureTensorEmbedder) Embed(ctx context.Context, _ []string) ([]tensor.Tensor, error) {
+func (e *captureTensorEmbedder) Space() tensor.Space { return tracedSpace() }
+func (e *captureTensorEmbedder) Embed(ctx context.Context, _ tensor.Request) (tensor.Result, error) {
 	e.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
-	return nil, nil
+	return tensor.Result{}, nil
 }
 
 type captureGraphStore struct{ valid bool }
@@ -74,9 +77,10 @@ func (i *captureTensorIndex) Schema() filter.Schema { return filter.EmptySchema(
 
 type captureMultimodalEmbedder struct{ valid bool }
 
-func (e *captureMultimodalEmbedder) Embed(ctx context.Context, _ []multimodal.Input) ([][]float32, error) {
+func (e *captureMultimodalEmbedder) Space() dense.Space { return tracedSpace() }
+func (e *captureMultimodalEmbedder) Embed(ctx context.Context, _ multimodal.Request) (multimodal.Result, error) {
 	e.valid = trace.SpanFromContext(ctx).SpanContext().IsValid()
-	return nil, nil
+	return multimodal.Result{}, nil
 }
 
 type captureDocumentStore struct{ valid bool }
@@ -147,7 +151,7 @@ func TestWrapDenseEmbedderPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Embed(ctx, []string{"hello"})
+		_, err = wrapped.Embed(ctx, dense.Request{Inputs: []string{"hello"}, Purpose: embedding.Query})
 		return next.valid, err
 	})
 }
@@ -159,7 +163,7 @@ func TestWrapTensorEmbedderPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Embed(ctx, []string{"hello"})
+		_, err = wrapped.Embed(ctx, tensor.Request{Inputs: []string{"hello"}, Purpose: embedding.Query})
 		return next.valid, err
 	})
 }
@@ -183,9 +187,9 @@ func TestWrapMultimodalEmbedderPassesDerivedContext(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
-		_, err = wrapped.Embed(ctx, []multimodal.Input{{
+		_, err = wrapped.Embed(ctx, multimodal.Request{Purpose: embedding.Query, Inputs: []multimodal.Input{{
 			Parts: []multimodal.Part{{Kind: multimodal.PartText, Text: "hello"}},
-		}})
+		}}})
 		return next.valid, err
 	})
 }
@@ -879,3 +883,14 @@ var (
 	_ ranking.Merger[contracttest.StructMeta]        = (*captureMerger)(nil)
 	_ documents.RawStore[contracttest.StructMeta]    = (*captureDocumentStore)(nil)
 )
+
+func tracedSpace() embedding.Space {
+	return embedding.Space{
+		Model:         "fixture",
+		ModelRevision: "v1",
+		Configuration: "fixture",
+		VectorSpace:   "fixture",
+		Dimension:     1,
+		Metric:        embedding.NormalizedDot,
+	}
+}

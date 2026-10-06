@@ -26,7 +26,7 @@ import (
 	"github.com/skosovsky/ragy/tensor"
 )
 
-const payloadSchema = "ragy.tensor-payload"
+const payloadSchema = "ragy.tensor-payload/v2"
 
 type Record[TMeta any] struct {
 	Reference     source.Reference
@@ -86,7 +86,7 @@ func New[TMeta any](config Config[TMeta]) (*Adapter[TMeta], error) {
 		!utf8.ValidString(config.Target) {
 		return nil, ragy.ErrInvalidArgument
 	}
-	if err := config.Space.Validate(); err != nil {
+	if err := tensor.ValidateSpace(config.Space); err != nil {
 		return nil, err
 	}
 	if _, err := filter.Intersect(config.Schema); err != nil {
@@ -205,7 +205,7 @@ func (a *Adapter[TMeta]) capture(
 		return catalog{}, nil, ragy.ErrProtocol
 	}
 	entry := catalog{
-		Schema:             "ragy.tensor-index/inventory",
+		Schema:             "ragy.tensor-index/inventory/v2",
 		Manifest:           request.Manifest.ID,
 		Identity:           request.Manifest.Identity,
 		PayloadFingerprint: request.Manifest.Payload,
@@ -265,7 +265,7 @@ func (a *Adapter[TMeta]) readCatalog(ctx context.Context, id string) (catalog, e
 	if err = decodeStrict(data, &entry); err != nil {
 		return catalog{}, err
 	}
-	if entry.Schema != "ragy.tensor-index/inventory" || entry.Manifest != id || entry.Target != a.config.Target ||
+	if entry.Schema != "ragy.tensor-index/inventory/v2" || entry.Manifest != id || entry.Target != a.config.Target ||
 		entry.Identity.Namespace != a.config.Namespace || entry.Space != a.config.Space || len(entry.Records) > a.config.MaxRecords {
 		return catalog{}, ragy.ErrProtocol
 	}

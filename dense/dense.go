@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -16,6 +17,7 @@ type Record[TMeta any] struct {
 	Content string
 	Meta    TMeta
 	Vector  []float32
+	Space   Space
 }
 
 // Validate checks record invariants.
@@ -24,9 +26,9 @@ func (r Record[TMeta]) Validate() error {
 		return fmt.Errorf("%w: dense record id", ragy.ErrMissingID)
 	}
 	if len(r.Vector) == 0 {
-		return fmt.Errorf("%w: dense record vector", ragy.ErrEmptyVector)
+		return ragy.ErrEmptyVector
 	}
-	return nil
+	return (Embedding{Space: r.Space, Vector: r.Vector}).Validate()
 }
 
 // NormalizeRecordMeta validates and canonicalizes record metadata against a schema.
@@ -58,5 +60,9 @@ type Index[TMeta any] interface {
 
 // Embedder produces dense embeddings.
 type Embedder interface {
-	Embed(ctx context.Context, texts []string) ([][]float32, error)
+	Space() Space
+	Embed(ctx context.Context, request Request) (Result, error)
 }
+
+type Request = embedding.Request[string]
+type Result = embedding.Result[Embedding]

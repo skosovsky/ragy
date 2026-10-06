@@ -67,7 +67,7 @@ func (t *targetStub) Query(
 	}, nil
 }
 func fixtureSpace() tensor.Space {
-	return tensor.Space{
+	return tensor.Space{Metric: "normalized-dot",
 		Model:         "fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",

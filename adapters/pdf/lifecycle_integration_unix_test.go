@@ -36,7 +36,7 @@ func layoutPayloadDigest(value any) string {
 	return hex.EncodeToString(sum[:])
 }
 func layoutDenseSpace() dense.Space {
-	return dense.Space{
+	return dense.Space{Metric: "normalized-dot",
 		Model:         "fixture",
 		ModelRevision: "fixed",
 		Configuration: "saved-vectors",
@@ -142,8 +142,7 @@ func layoutDenseRecords(projected []layout.Projected) []persistent.Record[source
 			persistent.Record[sourceMeta]{
 				Reference:     indexed,
 				SourceMapping: item.Text,
-				Space:         layoutDenseSpace(),
-				Value: dense.Record[sourceMeta]{
+				Value: dense.Record[sourceMeta]{Space: layoutDenseSpace(),
 					ID:      item.ID,
 					Content: item.Text.Text(),
 					Vector:  []float32{1, 0},

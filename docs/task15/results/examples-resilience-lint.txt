@@ -1,0 +1,5 @@
+/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/Загрузки/Projects/ai/ragy/examples/resilience/rescue_search/main.go:85:20: Magic number: 3, in <assign> detected (mnd)
+				Dimension:     3,
+				               ^
+1 issues:
+* mnd: 1

@@ -26,13 +26,12 @@ import (
 	"github.com/skosovsky/ragy/source"
 )
 
-const payloadSchema = "ragy.dense-payload"
+const payloadSchema = "ragy.dense-payload/v2"
 
 type Record[TMeta any] struct {
 	Reference     source.Reference
 	SourceMapping source.MappedText
 	Value         dense.Record[TMeta]
-	Space         dense.Space
 }
 type Config[TMeta any] struct {
 	Root            string
@@ -207,7 +206,7 @@ func (a *Adapter[TMeta]) capture(
 		return catalog{}, nil, ragy.ErrProtocol
 	}
 	entry := catalog{
-		Schema:             "ragy.dense-index/inventory",
+		Schema:             "ragy.dense-index/inventory/v2",
 		Manifest:           request.Manifest.ID,
 		Identity:           request.Manifest.Identity,
 		PayloadFingerprint: request.Manifest.Payload,
@@ -267,7 +266,7 @@ func (a *Adapter[TMeta]) readCatalog(ctx context.Context, id string) (catalog, e
 	if err = decodeStrict(data, &entry); err != nil {
 		return catalog{}, err
 	}
-	if entry.Schema != "ragy.dense-index/inventory" || entry.Manifest != id || entry.Target != a.config.Target ||
+	if entry.Schema != "ragy.dense-index/inventory/v2" || entry.Manifest != id || entry.Target != a.config.Target ||
 		entry.Identity.Namespace != a.config.Namespace || entry.Space != a.config.Space || len(entry.Records) > a.config.MaxRecords {
 		return catalog{}, ragy.ErrProtocol
 	}
@@ -467,11 +466,11 @@ func (a *Adapter[TMeta]) captureRecord(record Record[TMeta]) (descriptor, []byte
 	if err := validateRecordMapping(record.Reference, record.SourceMapping, record.Value.Content); err != nil {
 		return descriptor{}, nil, err
 	}
-	if record.Value.ID != record.Reference.Artifact || record.Space != a.config.Space {
+	if record.Value.ID != record.Reference.Artifact || record.Value.Space != a.config.Space {
 		return descriptor{}, nil, ragy.ErrInvalidArgument
 	}
 	record.Value.Vector = slices.Clone(record.Value.Vector)
-	if err := (dense.Embedding{Space: record.Space, Vector: record.Value.Vector}).Validate(); err != nil {
+	if err := (dense.Embedding{Space: record.Value.Space, Vector: record.Value.Vector}).Validate(); err != nil {
 		return descriptor{}, nil, err
 	}
 	attrs, err := a.config.Codec.Encode(record.Value.Meta)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
 )
@@ -44,11 +45,17 @@ type RetrieveOptions struct {
 	Threshold  *ScoreThreshold
 	Filters    filter.Condition
 	Vector     []float32
+	Space      embedding.Space
 	Graph      *GraphOptions
 }
 
 // Validate checks option invariants.
 func (o RetrieveOptions) Validate() error {
+	if len(o.Vector) > 0 {
+		if err := o.Space.ValidateVector(o.Vector); err != nil {
+			return err
+		}
+	}
 	if o.FetchLimit < 0 {
 		return fmt.Errorf("%w: fetch_limit must be >= 0", ragy.ErrInvalidArgument)
 	}

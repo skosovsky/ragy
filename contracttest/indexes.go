@@ -61,6 +61,7 @@ func RunDenseIndexSuite(t *testing.T, factory DenseIndexFactory) {
 			Content: fixtureText,
 			Meta:    StructMeta{Age: sampleCount},
 			Vector:  []float32{1},
+			Space:   DenseSpace(),
 		}})
 		if !errors.Is(err, ragy.ErrMissingID) {
 			t.Fatalf("Upsert(missing id) error = %v, want missing id", err)
@@ -112,7 +113,7 @@ func RunTensorIndexSuite(t *testing.T, factory TensorIndexFactory) {
 				Content: fixtureText,
 				Meta:    StructMeta{Tenant: "x"},
 				Tensor:  invalid.matrix,
-				Space: tensor.Space{
+				Space: tensor.Space{Metric: "normalized-dot",
 					Model: "fixture-model", ModelRevision: "fixture-revision",
 					Configuration: "normalized-tokens", VectorSpace: "fixture-dot", Dimension: 2,
 				},

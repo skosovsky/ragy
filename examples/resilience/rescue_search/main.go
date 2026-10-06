@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -14,8 +15,9 @@ import (
 type intent struct{}
 
 const (
-	rescueScore = 0.9
-	defaultTopK = 10
+	rescueScore      = 0.9
+	defaultTopK      = 10
+	exampleDimension = 3
 )
 
 type stubBackend struct {
@@ -70,8 +72,20 @@ func main() {
 	result, err := pipeline.Execute(context.Background(), retrieval.Query[intent]{Read: retrieval.UnrestrictedRead(),
 		Text: "hello",
 		Options: retrieval.RetrieveOptions{
-			TopK:   defaultTopK,
-			Vector: []float32{1, 0, 0},
+			TopK: defaultTopK,
+			Vector: []float32{
+				1,
+				0,
+				0,
+			},
+			Space: embedding.Space{
+				Model:         "example",
+				ModelRevision: "v1",
+				Configuration: "host",
+				VectorSpace:   "example",
+				Dimension:     exampleDimension,
+				Metric:        embedding.Dot,
+			},
 		},
 	})
 	if err != nil {

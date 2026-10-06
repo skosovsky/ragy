@@ -229,6 +229,7 @@ func TestDenseIndexCanonicalizesStoredAttributes(t *testing.T) {
 		Content: "hello",
 		Meta:    contracttest.StructMeta{Tenant: "acme", Age: 7},
 		Vector:  []float32{1},
+		Space:   contracttest.DenseSpace(),
 	}})
 	if err != nil {
 		t.Fatalf("Upsert(): %v", err)
@@ -296,6 +297,7 @@ func TestRetrievalBackendFilterValidationReturnsNonNilResultSet(t *testing.T) {
 	out, err := backend.Retrieve(context.Background(), retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 		Options: retrieval.RetrieveOptions{
 			Vector:  []float32{1},
+			Space:   contracttest.DenseSpace(),
 			Filters: cond,
 		},
 	})

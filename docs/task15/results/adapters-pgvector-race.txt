@@ -1,0 +1,1 @@
+ok  	github.com/skosovsky/ragy/adapters/pgvector	1.473s

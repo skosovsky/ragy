@@ -325,7 +325,7 @@ func persistentReadFixture[TIntent any](
 func newPersistentDenseFixture(t *testing.T) contracttest.ScopedReadFixture[densefs.Intent, requestMeta, sourceMeta] {
 	t.Helper()
 	state := newPersistentScope(t)
-	space := dense.Space{
+	space := dense.Space{Metric: "normalized-dot",
 		Model:         "saved-fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",
@@ -359,8 +359,7 @@ func newPersistentDenseFixture(t *testing.T) contracttest.ScopedReadFixture[dens
 			records,
 			densefs.Record[sourceMeta]{
 				Reference: ref,
-				Space:     space,
-				Value: dense.Record[sourceMeta]{
+				Value: dense.Record[sourceMeta]{Space: space,
 					ID:      id,
 					Content: "policy",
 					Meta:    scopeMetadata(id),
@@ -389,7 +388,7 @@ func newPersistentTensorFixture(
 ) contracttest.ScopedReadFixture[tensorquery.Intent, requestMeta, sourceMeta] {
 	t.Helper()
 	state := newPersistentScope(t)
-	space := tensor.Space{
+	space := tensor.Space{Metric: "normalized-dot",
 		Model:         "saved-fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",

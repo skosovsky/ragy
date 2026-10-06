@@ -48,7 +48,7 @@ type hybridBaseline struct {
 }
 
 func baselineSpace() dense.Space {
-	return dense.Space{
+	return dense.Space{Metric: "normalized-dot",
 		Model:         "saved-graph-fixture",
 		ModelRevision: "v1",
 		Configuration: "hand-defined-normalized",
@@ -169,8 +169,7 @@ func publishDenseSource(
 		{
 			Reference:     indexed,
 			SourceMapping: mapping,
-			Space:         baselineSpace(),
-			Value: dense.Record[baselineMetadata]{
+			Value: dense.Record[baselineMetadata]{Space: baselineSpace(),
 				ID:      row.ID,
 				Content: row.Text,
 				Meta:    baselineMetadata{Tenant: tenant, SourceID: row.ID},

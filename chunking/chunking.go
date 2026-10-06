@@ -12,6 +12,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/internal/parallel"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/source"
@@ -314,10 +315,18 @@ func (s *Semantic[TMeta]) Split(ctx context.Context, doc retrieval.Document[TMet
 		return nil, fmt.Errorf("%w: semantic sentence segmentation returned no sentences", ragy.ErrProtocol)
 	}
 
-	embeddings, err := s.embedder.Embed(ctx, sentences)
+	encoded, err := s.embedder.Embed(
+		ctx,
+		dense.Request{Inputs: sentences, Purpose: embedding.Similarity, RequireRemoteTokenBound: false},
+	)
 	if gateErr := ctx.Err(); gateErr != nil {
 		return nil, gateErr
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	embeddings, err := semanticVectors(ctx, s.embedder.Space(), encoded)
 	if err != nil {
 		return nil, err
 	}
@@ -522,4 +531,24 @@ func (c *Contextual[TMeta]) Split(ctx context.Context, doc retrieval.Document[TM
 	})
 
 	return enriched, nil
+}
+
+func semanticVectors(ctx context.Context, expected dense.Space, encoded dense.Result) ([][]float32, error) {
+	if err := encoded.Usage.Validate(); err != nil {
+		return nil, err
+	}
+	if err := expected.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: semantic encoder profile", ragy.ErrProtocol)
+	}
+	vectors := make([][]float32, len(encoded.Embeddings))
+	for i, value := range encoded.Embeddings {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if value.Space != expected || value.Validate() != nil {
+			return nil, fmt.Errorf("%w: semantic embedding profile/shape", ragy.ErrProtocol)
+		}
+		vectors[i] = value.Vector
+	}
+	return vectors, ctx.Err()
 }

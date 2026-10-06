@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/lexical"
 	"github.com/skosovsky/ragy/retrieval"
@@ -58,9 +59,21 @@ func TestVectorBM25Aggregate_FusesBothBranches(t *testing.T) {
 		t.Fatalf("buildPipeline(): %v", err)
 	}
 
-	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
-		Text:    "keyword",
-		Options: retrieval.RetrieveOptions{TopK: exampleTopK, Vector: []float32{0.1, 0.2}},
+	rs, err := pipeline.Execute(context.Background(), retrieval.Query[searchIntent]{
+		Read: retrieval.UnrestrictedRead(),
+		Text: "keyword",
+		Options: retrieval.RetrieveOptions{
+			TopK:   exampleTopK,
+			Vector: []float32{0.1, 0.2},
+			Space: embedding.Space{
+				Model:         "example",
+				ModelRevision: "v1",
+				Configuration: "host",
+				VectorSpace:   "example",
+				Dimension:     2,
+				Metric:        embedding.Dot,
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("Retrieve(): %v", err)

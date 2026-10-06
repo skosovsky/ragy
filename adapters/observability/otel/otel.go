@@ -38,8 +38,10 @@ func WrapDenseEmbedder(next dense.Embedder, tracer trace.Tracer) (*DenseEmbedder
 	return &DenseEmbedder{next: next, tracer: tracer}, nil
 }
 
-// Embed implements dense.Embedder.
-func (w *DenseEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+// Space forwards the configured encoding profile.
+func (w *DenseEmbedder) Space() dense.Space { return w.next.Space() }
+
+func (w *DenseEmbedder) Embed(ctx context.Context, texts dense.Request) (dense.Result, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.dense.embed")
 	defer span.End()
 	return w.next.Embed(ctx, texts)
@@ -185,8 +187,10 @@ func WrapTensorEmbedder(next tensor.Embedder, tracer trace.Tracer) (*TensorEmbed
 	return &TensorEmbedder{next: next, tracer: tracer}, nil
 }
 
-// Embed implements tensor.Embedder.
-func (w *TensorEmbedder) Embed(ctx context.Context, texts []string) ([]tensor.Tensor, error) {
+// Space forwards the configured encoding profile.
+func (w *TensorEmbedder) Space() tensor.Space { return w.next.Space() }
+
+func (w *TensorEmbedder) Embed(ctx context.Context, texts tensor.Request) (tensor.Result, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.tensor.embed")
 	defer span.End()
 	return w.next.Embed(ctx, texts)
@@ -242,8 +246,10 @@ func WrapMultimodalEmbedder(next multimodal.Embedder, tracer trace.Tracer) (*Mul
 	return &MultimodalEmbedder{next: next, tracer: tracer}, nil
 }
 
-// Embed implements multimodal.Embedder.
-func (w *MultimodalEmbedder) Embed(ctx context.Context, inputs []multimodal.Input) ([][]float32, error) {
+// Space forwards the configured encoding profile.
+func (w *MultimodalEmbedder) Space() dense.Space { return w.next.Space() }
+
+func (w *MultimodalEmbedder) Embed(ctx context.Context, inputs multimodal.Request) (multimodal.Result, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.multimodal.embed")
 	defer span.End()
 	return w.next.Embed(ctx, inputs)

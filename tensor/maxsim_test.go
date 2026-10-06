@@ -14,7 +14,7 @@ import (
 )
 
 func fixtureSpace() tensor.Space {
-	return tensor.Space{
+	return tensor.Space{Metric: "normalized-dot",
 		Model:         "fixture-model",
 		ModelRevision: "fixture-revision",
 		Configuration: "normalized-tokens",

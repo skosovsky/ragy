@@ -5,36 +5,28 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 )
 
 // MaxSimSemantics identifies sum-of-query-token maximum dot-product scores.
 // Scores are native: they may be negative or greater than one.
 const MaxSimSemantics = "tensor.maxsim.normalized-dot.sum"
 
-const unitNormTolerance = 1e-5
+type Space = embedding.Space
 
-// Space identifies compatible embeddings. Configuration includes preprocessing
-// and tokenization identity; equal dimensions alone do not establish compatibility.
-type Space struct {
-	Model         string `json:"model"`
-	ModelRevision string `json:"model_revision"`
-	Configuration string `json:"configuration"`
-	VectorSpace   string `json:"vector_space"`
-	Dimension     int    `json:"dimension"`
+func MaxSimSemanticsFor(metric embedding.Metric) string {
+	return "tensor.maxsim." + string(metric) + ".sum"
 }
 
-// Validate requires an explicit embedding identity.
-func (s Space) Validate() error {
-	if s.Model == "" || s.ModelRevision == "" || s.Configuration == "" || s.VectorSpace == "" || s.Dimension <= 0 {
-		return fmt.Errorf("%w: incomplete tensor space", ragy.ErrInvalidArgument)
+// ValidateSpace rejects metrics whose MaxSim interpretation is not implemented.
+func ValidateSpace(space Space) error {
+	if err := space.Validate(); err != nil {
+		return err
 	}
-	for _, value := range []string{s.Model, s.ModelRevision, s.Configuration, s.VectorSpace} {
-		if !utf8.ValidString(value) {
-			return ragy.ErrInvalidArgument
-		}
+	if space.Metric != embedding.Dot && space.Metric != embedding.NormalizedDot {
+		return ragy.ErrUnsupported
 	}
 	return nil
 }
@@ -51,25 +43,18 @@ func (e Embedding) Validate() error {
 	if len(e.Tokens) == 0 {
 		return fmt.Errorf("%w: tensor tokens", ragy.ErrEmptyVector)
 	}
-	if err := e.Space.Validate(); err != nil {
+	if err := ValidateSpace(e.Space); err != nil {
 		return err
 	}
-	for i, token := range e.Tokens {
+	for _, token := range e.Tokens {
 		if len(token) != e.Space.Dimension {
-			return fmt.Errorf("%w: tensor token %d dimension", ragy.ErrInvalidArgument, i)
+			return ragy.ErrInvalidArgument
 		}
-		var norm float64
-		for _, component := range token {
-			value := float64(component)
-			if math.IsNaN(value) || math.IsInf(value, 0) {
-				return fmt.Errorf("%w: non-finite tensor token %d", ragy.ErrInvalidArgument, i)
-			}
-			norm += value * value
-		}
-		if math.Abs(norm-1) > unitNormTolerance {
-			return fmt.Errorf("%w: tensor token %d must have unit norm", ragy.ErrInvalidArgument, i)
+		if err := e.Space.ValidateVector(token); err != nil {
+			return err
 		}
 	}
+
 	return nil
 }
 
@@ -180,7 +165,7 @@ func Rerank(ctx context.Context, query Embedding, candidates []Candidate, option
 		result.CandidateIDs = append(result.CandidateIDs, candidate.ID)
 		result.Ranking = append(
 			result.Ranking,
-			ScoredCandidate{ID: candidate.ID, Score: score, Semantics: MaxSimSemantics, Rank: 0},
+			ScoredCandidate{ID: candidate.ID, Score: score, Semantics: MaxSimSemanticsFor(query.Space.Metric), Rank: 0},
 		)
 	}
 	sort.SliceStable(result.Ranking, func(i, j int) bool {

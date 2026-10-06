@@ -1,153 +1,135 @@
+// Package multimodal implements Gemini Embedding 2 text and inline image inputs.
 package multimodal
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"strings"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
-	rootmultimodal "github.com/skosovsky/ragy/multimodal"
+	"github.com/skosovsky/ragy/adapters/gemini/internal/wire"
+	"github.com/skosovsky/ragy/embedding"
+	"github.com/skosovsky/ragy/internal/providerhttp"
+	root "github.com/skosovsky/ragy/multimodal"
 )
 
-// DefaultBaseURL is the default Gemini API endpoint.
-const DefaultBaseURL = "https://generativelanguage.googleapis.com/v1beta"
-const maxErrorBodyBytes = 4 << 10
+const DefaultBaseURL = wire.DefaultBaseURL
+const maxImages = 6
 
-// Doer executes HTTP requests.
-type Doer interface {
-	Do(req *http.Request) (*http.Response, error)
-}
+type Doer = providerhttp.Doer
+type Config = wire.Config
+type Client struct{ wire *wire.Client }
 
-// Config configures the Gemini multimodal adapter.
-type Config struct {
-	APIKey     string
-	Model      string
-	BaseURL    string
-	HTTPClient Doer
-}
-
-// Client is a Gemini multimodal embedder.
-type Client struct {
-	apiKey  string
-	model   string
-	baseURL string
-	client  Doer
-}
-
-// New constructs a multimodal embedder.
 func New(cfg Config) (*Client, error) {
-	if strings.TrimSpace(cfg.APIKey) == "" {
-		return nil, fmt.Errorf("%w: gemini api key", ragy.ErrInvalidArgument)
+	if cfg.Space.Model != "gemini-embedding-2" {
+		return nil, ragy.ErrUnsupported
 	}
-
-	if strings.TrimSpace(cfg.Model) == "" {
-		return nil, fmt.Errorf("%w: gemini model", ragy.ErrInvalidArgument)
+	client, err := wire.New(cfg)
+	if err != nil {
+		return nil, err
 	}
-
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		baseURL = DefaultBaseURL
-	}
-
-	client := cfg.HTTPClient
-	if client == nil {
-		client = http.DefaultClient
-	}
-
-	return &Client{
-		apiKey:  cfg.APIKey,
-		model:   cfg.Model,
-		baseURL: strings.TrimRight(baseURL, "/"),
-		client:  client,
-	}, nil
+	return &Client{wire: client}, nil
 }
-
-type embedRequest struct {
-	Inputs []rootmultimodal.Input `json:"inputs"`
-}
-
-type embedResponse struct {
-	Embeddings []struct {
-		Index  int       `json:"index"`
-		Vector []float32 `json:"vector"`
-	} `json:"embeddings"`
-}
-
-// Embed implements multimodal.Embedder.
-func (c *Client) Embed(ctx context.Context, inputs []rootmultimodal.Input) ([][]float32, error) {
-	if len(inputs) == 0 {
-		return nil, fmt.Errorf("%w: gemini multimodal inputs", ragy.ErrInvalidArgument)
+func (c *Client) Space() embedding.Space { return c.wire.Space() }
+func (c *Client) Embed(ctx context.Context, request root.Request) (root.Result, error) {
+	if err := ctx.Err(); err != nil {
+		return root.Result{}, err
 	}
-
+	if request.RequireRemoteTokenBound {
+		return root.Result{}, ragy.ErrUnsupported
+	}
+	if err := request.Validate(); err != nil {
+		return root.Result{}, err
+	}
+	if err := c.validateInputs(ctx, request.Inputs); err != nil {
+		return root.Result{}, err
+	}
+	items := make([]wire.Item, len(request.Inputs))
+	for i, input := range request.Inputs {
+		parts := make([]wire.Part, len(input.Parts))
+		for j, part := range input.Parts {
+			if err := ctx.Err(); err != nil {
+				return root.Result{}, err
+			}
+			if part.Kind == root.PartText {
+				parts[j] = wire.Part{Text: part.Text, InlineData: nil}
+			} else {
+				parts[j] = wire.Part{Text: "", InlineData: &wire.InlineData{MIME: part.MIME, Data: part.Bytes}}
+			}
+		}
+		items[i] = c.wire.Item(parts, request.Purpose)
+	}
+	return c.wire.Embed(ctx, items)
+}
+func (c *Client) validateInputs(ctx context.Context, inputs []root.Input) error {
+	limits := c.wire.Limits()
+	if len(inputs) > limits.MaxInputs {
+		return ragy.ErrInvalidArgument
+	}
+	total := 0
 	for _, input := range inputs {
-		if err := input.Validate(); err != nil {
-			return nil, err
+		if len(input.Parts) == 0 || len(input.Parts) > limits.MaxInputBytes {
+			return ragy.ErrInvalidArgument
+		}
+		images := 0
+		for _, part := range input.Parts {
+			size, err := validateBoundedPart(ctx, part, limits.MaxInputBytes-total)
+			if err != nil {
+				return err
+			}
+			total += size
+			if part.Kind == root.PartBytes {
+				images++
+			}
+			if images > maxImages {
+				return ragy.ErrUnsupported
+			}
 		}
 	}
-
-	body, err := json.Marshal(embedRequest{Inputs: inputs})
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		fmt.Sprintf("%s/models/%s:embedMultimodal?key=%s", c.baseURL, c.model, c.apiKey),
-		bytes.NewReader(body),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, ragy.WrapTransportError(err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= http.StatusBadRequest {
-		payload, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
-		return nil, ragy.ErrorFromHTTPResponse(
-			resp.StatusCode,
-			"gemini multimodal",
-			strings.TrimSpace(string(payload)),
-		)
-	}
-
-	var decoded embedResponse
-	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		return nil, fmt.Errorf("%w: gemini multimodal decode: %w", ragy.ErrProtocol, err)
-	}
-
-	if len(decoded.Embeddings) != len(inputs) {
-		return nil, fmt.Errorf("%w: gemini multimodal cardinality mismatch", ragy.ErrProtocol)
-	}
-
-	out := make([][]float32, len(inputs))
-	seen := make([]bool, len(inputs))
-	for _, item := range decoded.Embeddings {
-		if item.Index < 0 || item.Index >= len(inputs) || seen[item.Index] {
-			return nil, fmt.Errorf("%w: gemini multimodal index %d", ragy.ErrProtocol, item.Index)
-		}
-
-		out[item.Index] = append([]float32(nil), item.Vector...)
-		seen[item.Index] = true
-	}
-
-	for _, ok := range seen {
-		if !ok {
-			return nil, fmt.Errorf("%w: gemini multimodal missing index", ragy.ErrProtocol)
-		}
-	}
-
-	return out, nil
+	return ctx.Err()
 }
 
-var _ rootmultimodal.Embedder = (*Client)(nil)
+var _ root.Embedder = (*Client)(nil)
+
+func validatePart(part root.Part) error {
+	// Reject untrusted kind before core validation can format its arbitrary value.
+	switch part.Kind {
+	case root.PartText, root.PartBytes, root.PartURL:
+	default:
+		return ragy.ErrInvalidArgument
+	}
+	if err := part.Validate(); err != nil {
+		return ragy.ErrInvalidArgument
+	}
+	switch part.Kind {
+	case root.PartText:
+		if !utf8.ValidString(part.Text) {
+			return ragy.ErrInvalidArgument
+		}
+	case root.PartBytes:
+		if part.MIME != "image/png" && part.MIME != "image/jpeg" {
+			return ragy.ErrUnsupported
+		}
+	case root.PartURL:
+		return ragy.ErrUnsupported
+	default:
+		return ragy.ErrUnsupported
+	}
+	return nil
+}
+
+func validateBoundedPart(ctx context.Context, part root.Part, remaining int) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	total := 0
+	for _, size := range []int{len(part.Text), len(part.Bytes), len(part.MIME), len(part.URL)} {
+		if size > remaining-total {
+			return 0, ragy.ErrInvalidArgument
+		}
+		total += size
+	}
+	if err := validatePart(part); err != nil {
+		return 0, err
+	}
+	return total, nil
+}

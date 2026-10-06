@@ -10,6 +10,7 @@ import (
 	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
 	"github.com/skosovsky/ragy/retrieval"
@@ -18,23 +19,50 @@ import (
 
 // DenseEmbedder is a fake dense embedder.
 type DenseEmbedder struct {
+	Profile  dense.Space
 	Vectors  [][]float32
 	Err      error
 	Requests [][]string
 }
 
-// Embed implements dense.Embedder.
-func (e *DenseEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
-	e.Requests = append(e.Requests, append([]string(nil), texts...))
-	if e.Err != nil {
-		return nil, e.Err
+// Space returns a test profile; invalid embeddings deliberately remain unvalidated
+// so consumers can exercise defensive output checks.
+func (e *DenseEmbedder) Space() dense.Space {
+	var zero dense.Space
+	if e.Profile != zero {
+		return e.Profile
 	}
+	dimension := 1
+	for _, v := range e.Vectors {
+		if len(v) > 0 {
+			dimension = len(v)
+			break
+		}
+	}
+	return dense.Space{
+		Model:         "fake",
+		ModelRevision: "v1",
+		Configuration: "test",
+		VectorSpace:   "fake",
+		Dimension:     dimension,
+		Metric:        embedding.Cosine,
+	}
+}
 
-	out := make([][]float32, len(e.Vectors))
-	for i := range e.Vectors {
-		out[i] = append([]float32(nil), e.Vectors[i]...)
+// Embed implements dense.Embedder.
+func (e *DenseEmbedder) Embed(_ context.Context, request dense.Request) (dense.Result, error) {
+	e.Requests = append(e.Requests, append([]string(nil), request.Inputs...))
+	if e.Err != nil {
+		return dense.Result{}, e.Err
 	}
-	return out, nil
+	out := make([]dense.Embedding, len(e.Vectors))
+	for i := range e.Vectors {
+		out[i] = dense.Embedding{Space: e.Space(), Vector: append([]float32(nil), e.Vectors[i]...)}
+	}
+	return dense.Result{
+		Embeddings: out,
+		Usage:      embedding.Usage{InputTokens: 0, InputTokensKnown: false, BilledUnits: 0, BilledUnitsKnown: false},
+	}, nil
 }
 
 // RetrievalBackend is an alias for StructRetrievalBackend.
@@ -80,6 +108,7 @@ func (i *DenseIndex) Upsert(_ context.Context, records []dense.Record[contractte
 			Content: record.Content,
 			Meta:    meta,
 			Vector:  append([]float32(nil), record.Vector...),
+			Space:   record.Space,
 		}
 	}
 	i.Records = append(i.Records, copied)

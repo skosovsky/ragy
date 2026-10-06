@@ -3,70 +3,28 @@ package dense
 import (
 	"context"
 	"math"
-	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 )
 
-// Space declares a compatible dense embedding profile. Equal dimensions alone
-// do not establish compatibility; configuration includes preprocessing identity.
-type Space struct {
-	Model         string `json:"model"`
-	ModelRevision string `json:"model_revision"`
-	Configuration string `json:"configuration"`
-	VectorSpace   string `json:"vector_space"`
-	Dimension     int    `json:"dimension"`
-}
+// Space identifies compatible vectors including their implemented metric.
+type Space = embedding.Space
 
-func (s Space) Validate() error {
-	if s.Dimension <= 0 {
-		return ragy.ErrInvalidArgument
-	}
-	for _, value := range []string{s.Model, s.ModelRevision, s.Configuration, s.VectorSpace} {
-		if value == "" || !utf8.ValidString(value) {
-			return ragy.ErrInvalidArgument
-		}
-	}
-	return nil
-}
-
-// Embedding is a normalized dense vector with explicit model/configuration identity.
-// It is separate from a token matrix and is never silently normalized.
-const unitNormTolerance = 1e-5
-
+// Embedding is a vector with explicit identity; it is never normalized implicitly.
 type Embedding struct {
 	Space  Space
 	Vector []float32
 }
 
-func (e Embedding) Validate() error {
-	if err := e.Space.Validate(); err != nil {
-		return err
-	}
-	if len(e.Vector) == 0 {
-		return ragy.ErrEmptyVector
-	}
-	if len(e.Vector) != e.Space.Dimension {
-		return ragy.ErrInvalidArgument
-	}
-	var norm float64
-	for _, component := range e.Vector {
-		value := float64(component)
-		if math.IsNaN(value) || math.IsInf(value, 0) {
-			return ragy.ErrInvalidArgument
-		}
-		norm += value * value
-	}
-	if math.Abs(norm-1) > unitNormTolerance {
-		return ragy.ErrInvalidArgument
-	}
-	return nil
-}
+func (e Embedding) Validate() error { return e.Space.ValidateVector(e.Vector) }
 
 const NormalizedDotSemantics = "dense.normalized-dot"
 
-// NormalizedDot computes native similarity within one compatible normalized profile.
-func NormalizedDot(ctx context.Context, query, document Embedding) (float64, error) {
+func ScoreSemantics(metric embedding.Metric) string { return "dense." + string(metric) }
+
+// Similarity computes the space's declared metric. Larger scores are better.
+func Similarity(ctx context.Context, query, document Embedding) (float64, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
@@ -79,12 +37,34 @@ func NormalizedDot(ctx context.Context, query, document Embedding) (float64, err
 	if query.Space != document.Space {
 		return 0, ragy.ErrInvalidArgument
 	}
-	var score float64
-	for i, value := range query.Vector {
+	var dot, left, right, distance float64
+	for i, v := range query.Vector {
 		if err := ctx.Err(); err != nil {
 			return 0, err
 		}
-		score += float64(value) * float64(document.Vector[i])
+		a, b := float64(v), float64(document.Vector[i])
+		dot += a * b
+		left += a * a
+		right += b * b
+		delta := a - b
+		distance += delta * delta
 	}
-	return score, ctx.Err()
+	switch query.Space.Metric {
+	case embedding.SquaredL2:
+		return -distance, ctx.Err()
+	case embedding.Cosine:
+		return math.Max(-1, math.Min(1, dot/math.Sqrt(left*right))), ctx.Err()
+	case embedding.NormalizedDot, embedding.Dot:
+		return dot, ctx.Err()
+	default:
+		return 0, ragy.ErrUnsupported
+	}
+}
+
+// NormalizedDot requires the explicit normalized-dot profile.
+func NormalizedDot(ctx context.Context, query, document Embedding) (float64, error) {
+	if query.Space.Metric != embedding.NormalizedDot {
+		return 0, ragy.ErrUnsupported
+	}
+	return Similarity(ctx, query, document)
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/lexical"
 	"github.com/skosovsky/ragy/retrieval"
@@ -118,9 +119,21 @@ func main() {
 
 	result, err := pipeline.Execute(
 		context.Background(),
-		retrieval.Query[searchIntent]{Read: retrieval.UnrestrictedRead(),
-			Text:    exampleQueryText,
-			Options: retrieval.RetrieveOptions{TopK: exampleTopK, Vector: []float32{0.1, 0.2}},
+		retrieval.Query[searchIntent]{
+			Read: retrieval.UnrestrictedRead(),
+			Text: exampleQueryText,
+			Options: retrieval.RetrieveOptions{
+				TopK:   exampleTopK,
+				Vector: []float32{0.1, 0.2},
+				Space: embedding.Space{
+					Model:         "example",
+					ModelRevision: "v1",
+					Configuration: "host",
+					VectorSpace:   "example",
+					Dimension:     2,
+					Metric:        embedding.Dot,
+				},
+			},
 		},
 	)
 	if err != nil {

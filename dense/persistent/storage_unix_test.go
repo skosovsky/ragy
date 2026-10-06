@@ -27,7 +27,7 @@ type metadata struct {
 }
 
 func space() dense.Space {
-	return dense.Space{
+	return dense.Space{Metric: "normalized-dot",
 		Model:         "fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",
@@ -58,8 +58,7 @@ func records() []persistent.Record[metadata] {
 			out,
 			persistent.Record[metadata]{
 				Reference: ref,
-				Space:     space(),
-				Value: dense.Record[metadata]{
+				Value: dense.Record[metadata]{Space: space(),
 					ID:      row.id,
 					Content: row.id,
 					Meta:    metadata{Tenant: "a"},
@@ -85,7 +84,7 @@ func fingerprint(records []persistent.Record[metadata]) string {
 			entry{
 				Reference: record.Reference,
 				Vector:    record.Value.Vector,
-				Space:     record.Space,
+				Space:     record.Value.Space,
 				Meta:      record.Value.Meta,
 				Content:   record.Value.Content,
 			},
@@ -242,7 +241,7 @@ func TestPersistentDenseInvalidMatrixFailsBeforeTargetWrites(t *testing.T) {
 	manifest := plan(input)
 	// Act/Assert: direct target contract validates every matrix before any write/lock.
 	for _, embedding := range malformedEmbeddings() {
-		input[0].Value.Vector, input[0].Space = embedding.Vector, embedding.Space
+		input[0].Value.Vector, input[0].Value.Space = embedding.Vector, embedding.Space
 		if _, err = adapter.Stage(
 			context.Background(),
 			lifecycle.StageRequest{Manifest: manifest, Target: "dense"},

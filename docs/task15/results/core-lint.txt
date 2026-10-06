@@ -1,0 +1,5 @@
+testutil/testutil.go:62:46: embedding.Usage is missing fields InputTokens, InputTokensKnown, BilledUnits, BilledUnitsKnown (exhaustruct)
+	return dense.Result{Embeddings: out, Usage: embedding.Usage{}}, nil
+	                                            ^
+1 issues:
+* exhaustruct: 1

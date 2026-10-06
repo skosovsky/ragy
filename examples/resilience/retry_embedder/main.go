@@ -12,6 +12,7 @@ import (
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/adapters/openai/dense"
 	rootdense "github.com/skosovsky/ragy/dense"
+	"github.com/skosovsky/ragy/embedding"
 )
 
 const (
@@ -35,8 +36,16 @@ func main() {
 	defer server.Close()
 
 	emb, err := dense.New(dense.Config{
-		APIKey:     "example",
-		Model:      "text-embedding-3-small",
+		APIKey: "example",
+		Model:  "text-embedding-3-small",
+		Space: embedding.Space{
+			Model:         "text-embedding-3-small",
+			ModelRevision: "host-v1",
+			Configuration: "no-preprocessing",
+			VectorSpace:   "example",
+			Dimension:     2,
+			Metric:        embedding.Dot,
+		},
 		BaseURL:    server.URL,
 		HTTPClient: nil,
 	})
@@ -47,14 +56,14 @@ func main() {
 	wrapped := retryEmbedder{inner: emb, max: maxRetryAttempts, backoff: retryBackoff}
 
 	ctx := context.Background()
-	vectors, err := wrapped.Embed(ctx, []string{"hello"})
+	encoded, err := wrapped.Embed(ctx, rootdense.Request{Inputs: []string{"hello"}, Purpose: embedding.Query})
 	if err != nil {
 		panic(err)
 	}
-	if len(vectors) != 1 || len(vectors[0]) != 2 {
+	if len(encoded.Embeddings) != 1 || len(encoded.Embeddings[0].Vector) != 2 {
 		panic("unexpected embedding shape")
 	}
-	fmt.Printf("ok after %d server hits: dim=%d\n", attempts, len(vectors[0]))
+	fmt.Printf("ok after %d server hits: dim=%d\n", attempts, len(encoded.Embeddings[0].Vector))
 }
 
 type retryEmbedder struct {
@@ -63,7 +72,9 @@ type retryEmbedder struct {
 	backoff time.Duration
 }
 
-func (r retryEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+func (r retryEmbedder) Space() rootdense.Space { return r.inner.Space() }
+
+func (r retryEmbedder) Embed(ctx context.Context, texts rootdense.Request) (rootdense.Result, error) {
 	var last error
 	for range r.max {
 		out, err := r.inner.Embed(ctx, texts)
@@ -71,14 +82,14 @@ func (r retryEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, 
 			return out, nil
 		}
 		if !errors.Is(err, ragy.ErrUnavailable) {
-			return nil, err
+			return rootdense.Result{}, err
 		}
 		last = err
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return rootdense.Result{}, ctx.Err()
 		case <-time.After(r.backoff):
 		}
 	}
-	return nil, last
+	return rootdense.Result{}, last
 }

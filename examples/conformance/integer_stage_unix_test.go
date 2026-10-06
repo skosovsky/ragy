@@ -79,7 +79,7 @@ func TestExternalPersistentDenseRejectsInvalidIntegerBeforeWrite(t *testing.T) {
 	for _, number := range invalidStoredIntegers() {
 		t.Run(number, func(t *testing.T) {
 			state, _ := integerScopeState(t)
-			space := dense.Space{
+			space := dense.Space{Metric: "normalized-dot",
 				Model:         "saved-fixture",
 				ModelRevision: "r1",
 				Configuration: "normalized",
@@ -110,8 +110,7 @@ func TestExternalPersistentDenseRejectsInvalidIntegerBeforeWrite(t *testing.T) {
 			input := []densefs.Record[integerStorageMeta]{
 				{
 					Reference: ref,
-					Space:     space,
-					Value: dense.Record[integerStorageMeta]{
+					Value: dense.Record[integerStorageMeta]{Space: space,
 						ID:      ref.Artifact,
 						Content: "policy",
 						Meta:    integerStorageMeta{Tenant: integerTenantB},
@@ -127,7 +126,7 @@ func TestExternalPersistentTensorRejectsInvalidIntegerBeforeWrite(t *testing.T) 
 	for _, number := range invalidStoredIntegers() {
 		t.Run(number, func(t *testing.T) {
 			state, _ := integerScopeState(t)
-			space := tensor.Space{
+			space := tensor.Space{Metric: "normalized-dot",
 				Model:         "saved-fixture",
 				ModelRevision: "r1",
 				Configuration: "normalized",

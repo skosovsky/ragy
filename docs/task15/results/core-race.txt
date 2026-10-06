@@ -1,0 +1,46 @@
+ok  	github.com/skosovsky/ragy	1.595s
+ok  	github.com/skosovsky/ragy/access	(cached)
+ok  	github.com/skosovsky/ragy/chunking	(cached)
+ok  	github.com/skosovsky/ragy/contracttest	1.528s
+ok  	github.com/skosovsky/ragy/dense	(cached)
+ok  	github.com/skosovsky/ragy/dense/persistent	29.583s
+ok  	github.com/skosovsky/ragy/documents	1.545s
+ok  	github.com/skosovsky/ragy/embedding	(cached)
+ok  	github.com/skosovsky/ragy/evidence	1.729s
+ok  	github.com/skosovsky/ragy/filter	(cached)
+ok  	github.com/skosovsky/ragy/graph	(cached)
+ok  	github.com/skosovsky/ragy/graph/managed	14.376s
+ok  	github.com/skosovsky/ragy/graphingest	2.155s
+ok  	github.com/skosovsky/ragy/graphingest/extraction	(cached)
+ok  	github.com/skosovsky/ragy/graphingest/materialization	(cached)
+ok  	github.com/skosovsky/ragy/graphingest/resolution	(cached)
+ok  	github.com/skosovsky/ragy/graphingest/resolution/history	(cached)
+ok  	github.com/skosovsky/ragy/internal/durablefs	(cached)
+?   	github.com/skosovsky/ragy/internal/ident	[no test files]
+?   	github.com/skosovsky/ragy/internal/mathutil	[no test files]
+?   	github.com/skosovsky/ragy/internal/metaattrs	[no test files]
+ok  	github.com/skosovsky/ragy/internal/parallel	(cached)
+ok  	github.com/skosovsky/ragy/internal/providerhttp	1.606s
+ok  	github.com/skosovsky/ragy/layout	(cached)
+ok  	github.com/skosovsky/ragy/lexical	1.495s
+ok  	github.com/skosovsky/ragy/lexical/managed	9.083s
+ok  	github.com/skosovsky/ragy/lifecycle	(cached)
+ok  	github.com/skosovsky/ragy/lifecycle/filestore	(cached)
+ok  	github.com/skosovsky/ragy/lifecycle/integration	209.633s
+ok  	github.com/skosovsky/ragy/multimodal	1.531s
+ok  	github.com/skosovsky/ragy/ranking	(cached)
+--- FAIL: TestParentDeadlineAndUnsafePrecomputedVectorProfile (0.02s)
+    negative_test.go:265: text rewrite silently reused original vector invalid argument
+FAIL
+FAIL	github.com/skosovsky/ragy/recipe	0.826s
+ok  	github.com/skosovsky/ragy/recipe/budget	(cached)
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	(cached)
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	(cached)
+ok  	github.com/skosovsky/ragy/recipe/recording	(cached)
+ok  	github.com/skosovsky/ragy/retrieval	1.597s
+ok  	github.com/skosovsky/ragy/source	(cached)
+ok  	github.com/skosovsky/ragy/tensor	(cached)
+ok  	github.com/skosovsky/ragy/tensor/persistent	(cached)
+ok  	github.com/skosovsky/ragy/tensor/query	(cached)
+ok  	github.com/skosovsky/ragy/testutil	(cached)
+FAIL

@@ -9,6 +9,7 @@ import (
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -80,7 +81,9 @@ type Point struct {
 	Score      float64
 }
 
-// Client executes qdrant operations.
+// Client executes qdrant operations against the host-provisioned collection.
+// Search returns native similarity scores unchanged, with larger values better.
+// Cosine collections use Cosine; dot and normalized-dot profiles use Dot.
 type Client interface {
 	Upsert(ctx context.Context, collection string, points []Point) error
 	Search(ctx context.Context, collection string, vector []float32, cond Condition, limit int) ([]Point, error)
@@ -91,6 +94,9 @@ type Client interface {
 
 // Config configures the store.
 type Config[TMeta any] struct {
+	// Space is the host-declared profile of every vector in this table/collection.
+	// It does not attest the remote service configuration.
+	Space      embedding.Space
 	Collection string
 	Schema     filter.Schema
 	Resolver   retrieval.IdentityResolver[TMeta]
@@ -98,6 +104,7 @@ type Config[TMeta any] struct {
 
 // Store is a dense qdrant-backed store.
 type Store[TMeta any] struct {
+	space      embedding.Space
 	client     Client
 	collection string
 	schema     filter.Schema
@@ -121,7 +128,15 @@ func New[TMeta any](client Client, cfg Config[TMeta], codec retrieval.MetadataCo
 		return nil, fmt.Errorf("%w: qdrant schema", ragy.ErrInvalidArgument)
 	}
 
+	if err := cfg.Space.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.Space.Metric == embedding.SquaredL2 {
+		return nil, fmt.Errorf("%w: qdrant distance score requires explicit conversion", ragy.ErrUnsupported)
+	}
+
 	return &Store[TMeta]{
+		space:      cfg.Space,
 		client:     client,
 		collection: cfg.Collection,
 		schema:     cfg.Schema,
@@ -155,6 +170,15 @@ func (s *Store[TMeta]) retrieve(
 	if len(opts.Vector) == 0 {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver),
 			fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
+	}
+	if opts.Space != s.space {
+		return retrieval.NewResultSet[TMeta](
+				nil,
+				s.resolver,
+			), fmt.Errorf(
+				"%w: incompatible vector space",
+				ragy.ErrInvalidArgument,
+			)
 	}
 	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
@@ -198,6 +222,9 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]
 	for _, record := range records {
 		if err := record.Validate(); err != nil {
 			return err
+		}
+		if record.Space != s.space {
+			return fmt.Errorf("%w: incompatible vector space", ragy.ErrInvalidArgument)
 		}
 		attrs, err := s.codec.Encode(record.Meta)
 		if err != nil {
@@ -312,7 +339,7 @@ func (s *Store[TMeta]) projectPoint(point Point, relevance float64) (retrieval.D
 		Content:        point.Content,
 		Score:          relevance,
 		ScoreState:     retrieval.ScorePresent,
-		ScoreSemantics: "dense.store-native",
+		ScoreSemantics: retrieval.ScoreSemantics(dense.ScoreSemantics(s.space.Metric)),
 		Meta:           meta,
 	}
 	if err := retrieval.ValidateDocument(doc); err != nil {
@@ -454,3 +481,6 @@ var (
 func (s *Store[TMeta]) ReadCapabilities() access.Capabilities {
 	return access.Capabilities{RequirePinnedPublication: false, ScopeProfile: true, PinnedPublication: false}
 }
+
+// Space returns the configured host-declared profile; no service attestation is made.
+func (s *Store[TMeta]) Space() embedding.Space { return s.space }

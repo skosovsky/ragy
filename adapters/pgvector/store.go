@@ -11,6 +11,7 @@ import (
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -38,6 +39,9 @@ type DB interface {
 
 // Config configures the store.
 type Config[TMeta any] struct {
+	// Space is the host-declared profile of every vector in this table/collection.
+	// It does not attest the remote service configuration.
+	Space    embedding.Space
 	Table    string
 	Schema   filter.Schema
 	Resolver retrieval.IdentityResolver[TMeta]
@@ -45,6 +49,7 @@ type Config[TMeta any] struct {
 
 // Store is a dense pgvector-backed retrieval backend.
 type Store[TMeta any] struct {
+	space    embedding.Space
 	db       DB
 	table    string
 	schema   filter.Schema
@@ -68,7 +73,15 @@ func New[TMeta any](db DB, cfg Config[TMeta], codec retrieval.MetadataCodec[TMet
 		return nil, fmt.Errorf("%w: pgvector schema", ragy.ErrInvalidArgument)
 	}
 
+	if err := cfg.Space.Validate(); err != nil {
+		return nil, err
+	}
+	if cfg.Space.Metric != embedding.Cosine {
+		return nil, fmt.Errorf("%w: pgvector requires cosine metric", ragy.ErrUnsupported)
+	}
+
 	return &Store[TMeta]{
+		space:    cfg.Space,
 		db:       db,
 		table:    cfg.Table,
 		schema:   cfg.Schema,
@@ -102,6 +115,15 @@ func (s *Store[TMeta]) retrieve(
 	if len(opts.Vector) == 0 {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver),
 			fmt.Errorf("%w: retrieve vector", ragy.ErrEmptyVector)
+	}
+	if opts.Space != s.space {
+		return retrieval.NewResultSet[TMeta](
+				nil,
+				s.resolver,
+			), fmt.Errorf(
+				"%w: incompatible vector space",
+				ragy.ErrInvalidArgument,
+			)
 	}
 	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
@@ -155,7 +177,7 @@ func (s *Store[TMeta]) renderSearch(opts retrieval.RetrieveOptions) (string, []a
 	}
 
 	var builder strings.Builder
-	builder.WriteString("SELECT id, content, attributes, 1 / (1 + (vector <=> $1)) AS relevance FROM ")
+	builder.WriteString("SELECT id, content, attributes, 1 - (vector <=> $1) AS relevance FROM ")
 	builder.WriteString(s.table)
 	builder.WriteString(where)
 	builder.WriteString(" ORDER BY vector <=> $1")
@@ -212,6 +234,9 @@ func (s *Store[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]
 			return err
 		}
 
+		if record.Space != s.space {
+			return fmt.Errorf("%w: incompatible vector space", ragy.ErrInvalidArgument)
+		}
 		attrs, err := s.codec.Encode(record.Meta)
 		if err != nil {
 			return err
@@ -601,3 +626,6 @@ var (
 func (s *Store[TMeta]) ReadCapabilities() access.Capabilities {
 	return access.Capabilities{RequirePinnedPublication: false, ScopeProfile: true, PinnedPublication: false}
 }
+
+// Space returns the configured host-declared profile; no service attestation is made.
+func (s *Store[TMeta]) Space() embedding.Space { return s.space }

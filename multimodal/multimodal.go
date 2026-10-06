@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/dense"
+	"github.com/skosovsky/ragy/embedding"
 )
 
 // PartKind identifies a multimodal input part.
@@ -103,7 +105,11 @@ func validateURLPart(text, rawURL, mime string, bytesLen int) error {
 	return nil
 }
 
-// Embedder produces multimodal embeddings.
+type Request = embedding.Request[Input]
+type Result = embedding.Result[dense.Embedding]
+
+// Embedder produces ordered multimodal embeddings with explicit space and usage.
 type Embedder interface {
-	Embed(ctx context.Context, inputs []Input) ([][]float32, error)
+	Space() embedding.Space
+	Embed(ctx context.Context, request Request) (Result, error)
 }

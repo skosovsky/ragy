@@ -111,7 +111,7 @@ type fixture struct {
 }
 
 func denseSpace() dense.Space {
-	return dense.Space{
+	return dense.Space{Metric: "normalized-dot",
 		Model:         "dense-fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",
@@ -120,7 +120,7 @@ func denseSpace() dense.Space {
 	}
 }
 func tensorSpace() tensor.Space {
-	return tensor.Space{
+	return tensor.Space{Metric: "normalized-dot",
 		Model:         "tensor-fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",
@@ -283,7 +283,7 @@ func fingerprint(input batch) string {
 	}{References: nil, DenseSpaces: nil, TensorSpaces: nil, Vectors: nil, Tokens: nil, Metadata: nil, Contents: nil, IDs: nil}
 	for _, record := range input.Dense {
 		wire.References = append(wire.References, record.Reference)
-		wire.DenseSpaces = append(wire.DenseSpaces, record.Space)
+		wire.DenseSpaces = append(wire.DenseSpaces, record.Value.Space)
 		wire.Vectors = append(wire.Vectors, record.Value.Vector)
 		wire.Metadata = append(wire.Metadata, record.Value.Meta)
 		wire.Contents = append(wire.Contents, record.Value.Content)
@@ -373,8 +373,13 @@ func sourceBatch(sourceID, revision string, artifacts []string) batch {
 			out.Dense,
 			densefs.Record[meta]{
 				Reference: reference,
-				Space:     denseSpace(),
-				Value:     dense.Record[meta]{ID: artifact, Content: content, Meta: metadata, Vector: vector},
+				Value: dense.Record[meta]{
+					Space:   denseSpace(),
+					ID:      artifact,
+					Content: content,
+					Meta:    metadata,
+					Vector:  vector,
+				},
 			},
 		)
 		reference.Representation = "token-matrix"

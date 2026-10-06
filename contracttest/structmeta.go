@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/documents"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/graph"
@@ -200,8 +201,8 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 	t.Run("valid docs pass through", func(t *testing.T) {
 		backend := factory(t, []retrieval.Document[StructMeta]{{ID: wantedDocID, Content: fixtureText}})
 		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
-			Vector: []float32{1},
-			TopK:   retrieveOptionsInvalidTopK,
+			Vector: []float32{1}, Space: DenseSpace(),
+			TopK: retrieveOptionsInvalidTopK,
 		})
 		if err != nil {
 			t.Fatalf("Retrieve(): %v", err)
@@ -217,7 +218,7 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 		}})
 		schema := schemaFromTypedBackend(t, backend)
 		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
-			Vector:  []float32{1},
+			Vector: []float32{1}, Space: DenseSpace(),
 			TopK:    retrieveOptionsInvalidTopK,
 			Filters: tenantStructCondition(t, schema, tenantAcme),
 		})
@@ -233,8 +234,8 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 	t.Run("invalid docs reject", func(t *testing.T) {
 		backend := factory(t, []retrieval.Document[StructMeta]{{Content: "broken"}})
 		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
-			Vector: []float32{1},
-			TopK:   retrieveOptionsInvalidTopK,
+			Vector: []float32{1}, Space: DenseSpace(),
+			TopK: retrieveOptionsInvalidTopK,
 		})
 		RequireErrorResultSet(t, out, err)
 		if !errors.Is(err, ragy.ErrProtocol) {
@@ -245,8 +246,8 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 	t.Run("no results returns empty set", func(t *testing.T) {
 		backend := factory(t, nil)
 		out, err := retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
-			Vector: []float32{1},
-			TopK:   retrieveOptionsInvalidTopK,
+			Vector: []float32{1}, Space: DenseSpace(),
+			TopK: retrieveOptionsInvalidTopK,
 		})
 		if err != nil {
 			t.Fatalf("Retrieve(): %v", err)
@@ -258,7 +259,7 @@ func RunDenseStructBackendSuite(t *testing.T, factory DenseStructBackendFactory)
 		backend := factory(t, []retrieval.Document[StructMeta]{{ID: wantedDocID, Content: fixtureText}})
 		requireUndeclaredFilterRetrieveRejects(t, func(cond filter.Condition) (retrieval.ResultSet[StructMeta], error) {
 			return retrieveStruct(context.Background(), backend, "", retrieval.RetrieveOptions{
-				Vector:  []float32{1},
+				Vector: []float32{1}, Space: DenseSpace(),
 				TopK:    retrieveOptionsInvalidTopK,
 				Filters: cond,
 			})
@@ -442,7 +443,7 @@ func RunRetrievePartialProjectionSuite(
 		backend := factory(t)
 		out, err := retrieveStruct(context.Background(), backend, "q", retrieval.RetrieveOptions{
 			TopK:   partialProjectionTopK,
-			Vector: []float32{1},
+			Vector: []float32{1}, Space: DenseSpace(),
 		})
 		if err == nil {
 			t.Fatal("Retrieve() error = nil, want error")
@@ -463,7 +464,7 @@ func RunRetrievePartialProjectionSuite(
 		backend := resolverFactories[0](t)
 		out, err := retrieveStruct(context.Background(), backend, "q", retrieval.RetrieveOptions{
 			TopK:   partialProjectionTopK,
-			Vector: []float32{1},
+			Vector: []float32{1}, Space: DenseSpace(),
 		})
 		if err == nil {
 			t.Fatal("Retrieve() error = nil, want error")
@@ -544,7 +545,7 @@ func RunRetrieveOptionsInvalidSuite(
 	t.Run("fetch limit less than top k rejects", func(t *testing.T) {
 		backend := factory(t)
 		assertRetrieveOptionsReject(t, backend, query, retrieval.RetrieveOptions{
-			Vector:     vector,
+			Vector: vector, Space: DenseSpace(),
 			FetchLimit: 1,
 			TopK:       retrieveOptionsInvalidTopK,
 		})
@@ -553,15 +554,15 @@ func RunRetrieveOptionsInvalidSuite(
 	t.Run("negative top k rejects", func(t *testing.T) {
 		backend := factory(t)
 		assertRetrieveOptionsReject(t, backend, query, retrieval.RetrieveOptions{
-			Vector: vector,
-			TopK:   -1,
+			Vector: vector, Space: DenseSpace(),
+			TopK: -1,
 		})
 	})
 
 	t.Run("negative fetch limit rejects", func(t *testing.T) {
 		backend := factory(t)
 		assertRetrieveOptionsReject(t, backend, query, retrieval.RetrieveOptions{
-			Vector:     vector,
+			Vector: vector, Space: DenseSpace(),
 			FetchLimit: -1,
 			TopK:       retrieveOptionsInvalidTopK,
 		})
@@ -570,8 +571,8 @@ func RunRetrieveOptionsInvalidSuite(
 	t.Run("min similarity out of range rejects", func(t *testing.T) {
 		backend := factory(t)
 		assertRetrieveOptionsReject(t, backend, query, retrieval.RetrieveOptions{
-			Vector: vector,
-			TopK:   retrieveOptionsInvalidTopK,
+			Vector: vector, Space: DenseSpace(),
+			TopK: retrieveOptionsInvalidTopK,
 			Threshold: &retrieval.ScoreThreshold{
 				Value:     retrieveOptionsInvalidNormalizedThreshold,
 				State:     retrieval.ScoreNormalized,
@@ -582,7 +583,7 @@ func RunRetrieveOptionsInvalidSuite(
 
 	t.Run("zero top k and zero fetch limit rejects", func(t *testing.T) {
 		backend := factory(t)
-		assertRetrieveOptionsReject(t, backend, query, retrieval.RetrieveOptions{Vector: vector})
+		assertRetrieveOptionsReject(t, backend, query, retrieval.RetrieveOptions{Vector: vector, Space: DenseSpace()})
 	})
 }
 
@@ -689,4 +690,16 @@ func RunGraphRetrieveOptionsInvalidSuite(t *testing.T, factory GraphRetrieveOpti
 			t.Fatalf("Retrieve() error = %v, want invalid argument", err)
 		}
 	})
+}
+
+// DenseSpace is the explicit host-configured profile used by shared dense suites.
+func DenseSpace() dense.Space {
+	return dense.Space{
+		Model:         "fixture",
+		ModelRevision: "r1",
+		Configuration: "c",
+		VectorSpace:   "v",
+		Dimension:     1,
+		Metric:        "cosine",
+	}
 }

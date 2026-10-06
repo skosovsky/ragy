@@ -27,7 +27,7 @@ type metadata struct {
 }
 
 func space() tensor.Space {
-	return tensor.Space{
+	return tensor.Space{Metric: "normalized-dot",
 		Model:         "fixture",
 		ModelRevision: "r1",
 		Configuration: "normalized",

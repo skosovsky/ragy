@@ -337,7 +337,7 @@ func (a *Adapter[TMeta]) loadCandidate(
 
 func (a *Adapter[TMeta]) scoreSemantics() retrieval.ScoreSemantics {
 	data, _ := json.Marshal(a.config.Space)
-	return retrieval.ScoreSemantics(tensor.MaxSimSemantics + ":" + digest(data))
+	return retrieval.ScoreSemantics(tensor.MaxSimSemanticsFor(a.config.Space.Metric) + ":" + digest(data))
 }
 
 // AdmitPublication enforces partial branch exclusion before target reads.

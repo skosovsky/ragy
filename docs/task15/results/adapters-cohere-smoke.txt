@@ -1,0 +1,5 @@
+=== RUN   TestProviderSmoke
+    bounds_test.go:197: set RAGY_PROVIDER_SMOKE=1, COHERE_API_KEY and COHERE_RERANK_MODEL for a paid live call
+--- SKIP: TestProviderSmoke (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/cohere/rerank	0.488s

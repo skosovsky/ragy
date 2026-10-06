@@ -187,7 +187,7 @@ func (a *Adapter[TMeta]) loadDocument(
 		stored.Reference != record.Reference {
 		return retrieval.Document[TMeta]{}, ragy.ErrProtocol
 	}
-	score, err := dense.NormalizedDot(
+	score, err := dense.Similarity(
 		ctx,
 		request.Intent.Embedding,
 		dense.Embedding{Space: entry.Space, Vector: stored.Vector},
@@ -235,7 +235,7 @@ func (a *Adapter[TMeta]) loadDocument(
 
 func (a *Adapter[TMeta]) scoreSemantics() retrieval.ScoreSemantics {
 	data, _ := json.Marshal(a.config.Space)
-	return retrieval.ScoreSemantics(dense.NormalizedDotSemantics + ":" + digest(data))
+	return retrieval.ScoreSemantics(dense.ScoreSemantics(a.config.Space.Metric) + ":" + digest(data))
 }
 
 func (a *Adapter[TMeta]) selectCatalogs(ctx context.Context, read access.Binding) ([]catalog, error) {

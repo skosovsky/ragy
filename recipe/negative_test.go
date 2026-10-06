@@ -8,6 +8,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/recipe"
 	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/retrieval"
@@ -259,7 +260,22 @@ func TestParentDeadlineAndUnsafePrecomputedVectorProfile(t *testing.T) {
 	f.retrieved = nil
 	result, err = r.Run(
 		context.Background(),
-		request{Read: f.read, Text: "original", Options: retrieval.RetrieveOptions{TopK: 3, Vector: []float32{1, 0}}},
+		request{
+			Read: f.read,
+			Text: "original",
+			Options: retrieval.RetrieveOptions{
+				TopK:   3,
+				Vector: []float32{1, 0},
+				Space: embedding.Space{
+					Model:         "fixture",
+					ModelRevision: "v1",
+					Configuration: "host",
+					VectorSpace:   "fixture",
+					Dimension:     2,
+					Metric:        embedding.Dot,
+				},
+			},
+		},
 	)
 	if !errors.Is(err, ragy.ErrUnsupported) || len(result.Queries) != 0 || len(f.retrieved) != 0 {
 		t.Fatal("text rewrite silently reused original vector", err)

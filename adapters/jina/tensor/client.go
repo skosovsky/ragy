@@ -1,144 +1,174 @@
 package tensor
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/embedding"
+	"github.com/skosovsky/ragy/internal/providerhttp"
 	roottensor "github.com/skosovsky/ragy/tensor"
 )
 
-// DefaultBaseURL is the default Jina API endpoint.
 const DefaultBaseURL = "https://api.jina.ai/v1"
-const maxErrorBodyBytes = 4 << 10
 
-// Doer executes HTTP requests.
-type Doer interface {
-	Do(req *http.Request) (*http.Response, error)
-}
+// Doer must honor context and perform no hidden retries or redirects.
+type Doer = providerhttp.Doer
 
-// Config configures the Jina tensor adapter.
+// Config declares the host-owned space and finite local work limits. Model, when
+// supplied, must equal Space.Model. No normalization or remote token cap is inferred.
 type Config struct {
 	APIKey     string
 	Model      string
+	Space      embedding.Space
+	Limits     embedding.Limits
 	BaseURL    string
 	HTTPClient Doer
 }
-
-// Client is a Jina tensor embedder.
 type Client struct {
-	apiKey  string
-	model   string
-	baseURL string
-	client  Doer
+	apiKey string
+	space  embedding.Space
+	http   *providerhttp.Client
 }
 
-// New constructs a tensor embedder.
 func New(cfg Config) (*Client, error) {
-	if strings.TrimSpace(cfg.APIKey) == "" {
-		return nil, fmt.Errorf("%w: jina api key", ragy.ErrInvalidArgument)
+	if strings.TrimSpace(cfg.APIKey) == "" || (cfg.Model != "" && cfg.Model != cfg.Space.Model) {
+		return nil, ragy.ErrInvalidArgument
 	}
-
-	if strings.TrimSpace(cfg.Model) == "" {
-		return nil, fmt.Errorf("%w: jina model", ragy.ErrInvalidArgument)
+	if err := cfg.Space.Validate(); err != nil {
+		return nil, err
 	}
-
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		baseURL = DefaultBaseURL
+	if cfg.Space.Model != "jina-colbert-v2" || (cfg.Space.Dimension != 64 && cfg.Space.Dimension != 128) {
+		return nil, ragy.ErrUnsupported
 	}
-
-	client := cfg.HTTPClient
-	if client == nil {
-		client = http.DefaultClient
+	if err := roottensor.ValidateSpace(cfg.Space); err != nil {
+		return nil, err
 	}
-
-	return &Client{
-		apiKey:  cfg.APIKey,
-		model:   cfg.Model,
-		baseURL: strings.TrimRight(baseURL, "/"),
-		client:  client,
-	}, nil
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = DefaultBaseURL
+	}
+	client, err := providerhttp.New(
+		providerhttp.Config{BaseURL: cfg.BaseURL, HTTPClient: cfg.HTTPClient, Limits: cfg.Limits},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{apiKey: cfg.APIKey, space: cfg.Space, http: client}, nil
 }
+func (c *Client) Space() embedding.Space { return c.space }
 
 type embedRequest struct {
-	Model string   `json:"model"`
-	Input []string `json:"input"`
+	Model         string   `json:"model"`
+	Input         []string `json:"input"`
+	Dimensions    int      `json:"dimensions,omitempty"`
+	InputType     string   `json:"input_type"`
+	EmbeddingType string   `json:"embedding_type"`
 }
-
+type embedItem struct {
+	Index      *int        `json:"index"`
+	Embeddings [][]float32 `json:"embeddings"`
+}
 type embedResponse struct {
-	Data []struct {
-		Index  int         `json:"index"`
-		Tensor [][]float32 `json:"tensor"`
-	} `json:"data"`
+	Model *string     `json:"model"`
+	Data  []embedItem `json:"data"`
+	Usage *struct {
+		TotalTokens      *int64 `json:"total_tokens"`
+		TotalTokensCheck *int64 `json:"prompt_tokens"`
+	} `json:"usage"`
 }
 
-// Embed implements tensor.Embedder.
-func (c *Client) Embed(ctx context.Context, texts []string) ([]roottensor.Tensor, error) {
-	if len(texts) == 0 {
-		return nil, fmt.Errorf("%w: jina texts", ragy.ErrEmptyText)
+func (c *Client) Embed(ctx context.Context, request roottensor.Request) (roottensor.Result, error) {
+	if err := ctx.Err(); err != nil {
+		return roottensor.Result{}, err
 	}
-
-	body, err := json.Marshal(embedRequest{Model: c.model, Input: texts})
-	if err != nil {
-		return nil, err
+	if request.RequireRemoteTokenBound {
+		return roottensor.Result{}, ragy.ErrUnsupported
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/tensor", bytes.NewReader(body))
-	if err != nil {
-		return nil, err
+	if err := request.Validate(); err != nil {
+		return roottensor.Result{}, err
 	}
-
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, ragy.WrapTransportError(err)
+	if err := c.http.ValidateTexts(ctx, request.Inputs); err != nil {
+		return roottensor.Result{}, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= http.StatusBadRequest {
-		payload, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
-		return nil, ragy.ErrorFromHTTPResponse(
-			resp.StatusCode,
-			"jina tensor",
-			strings.TrimSpace(string(payload)),
-		)
+	body := embedRequest{
+		Model:         c.space.Model,
+		Input:         request.Inputs,
+		Dimensions:    c.space.Dimension,
+		InputType:     "",
+		EmbeddingType: "",
 	}
-
+	if request.Purpose == embedding.Similarity {
+		return roottensor.Result{}, ragy.ErrUnsupported
+	}
+	body.InputType = string(request.Purpose)
+	body.EmbeddingType = "float"
 	var decoded embedResponse
-	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
-		return nil, fmt.Errorf("%w: jina tensor decode: %w", ragy.ErrProtocol, err)
+	if err := c.http.Post(
+		ctx,
+		"/multi-vector",
+		http.Header{"Authorization": {"Bearer " + c.apiKey}},
+		body,
+		&decoded,
+	); err != nil {
+		return roottensor.Result{}, err
 	}
+	return c.materialize(ctx, len(request.Inputs), decoded)
+}
 
-	if len(decoded.Data) != len(texts) {
-		return nil, fmt.Errorf("%w: jina tensor cardinality mismatch", ragy.ErrProtocol)
+func (c *Client) materialize(ctx context.Context, inputCount int, decoded embedResponse) (roottensor.Result, error) {
+	if decoded.Model != nil && *decoded.Model != c.space.Model {
+		return roottensor.Result{}, ragy.ErrProtocol
 	}
-
-	out := make([]roottensor.Tensor, len(texts))
-	seen := make([]bool, len(texts))
+	if len(decoded.Data) != inputCount {
+		return roottensor.Result{}, ragy.ErrProtocol
+	}
+	out := roottensor.Result{Embeddings: make([]roottensor.Embedding, inputCount), Usage: unknownUsage()}
+	seen := make([]bool, inputCount)
 	for _, item := range decoded.Data {
-		if item.Index < 0 || item.Index >= len(texts) || seen[item.Index] {
-			return nil, fmt.Errorf("%w: jina tensor index %d", ragy.ErrProtocol, item.Index)
+		if err := ctx.Err(); err != nil {
+			return roottensor.Result{}, err
 		}
-
-		out[item.Index] = append(roottensor.Tensor(nil), item.Tensor...)
-		seen[item.Index] = true
-	}
-
-	for _, ok := range seen {
-		if !ok {
-			return nil, fmt.Errorf("%w: jina tensor missing index", ragy.ErrProtocol)
+		if item.Index == nil || *item.Index < 0 || *item.Index >= len(seen) || seen[*item.Index] {
+			return roottensor.Result{}, ragy.ErrProtocol
 		}
+		if len(item.Embeddings) > c.http.Limits().MaxOutputTokens {
+			return roottensor.Result{}, ragy.ErrProtocol
+		}
+		value := roottensor.Embedding{Space: c.space, Tokens: item.Embeddings}
+		if err := value.Validate(); err != nil {
+			return roottensor.Result{}, ragy.ErrProtocol
+		}
+		out.Embeddings[*item.Index] = value
+		seen[*item.Index] = true
 	}
-
-	return out, nil
+	usage, err := readUsage(decoded)
+	if err != nil {
+		return roottensor.Result{}, err
+	}
+	out.Usage = usage
+	return out, ctx.Err()
 }
 
 var _ roottensor.Embedder = (*Client)(nil)
+
+func readUsage(decoded embedResponse) (embedding.Usage, error) {
+	usage := unknownUsage()
+	if decoded.Usage != nil {
+		if decoded.Usage.TotalTokensCheck != nil && *decoded.Usage.TotalTokensCheck < 0 {
+			return embedding.Usage{}, ragy.ErrProtocol
+		}
+		if decoded.Usage.TotalTokens != nil {
+			usage.InputTokens = *decoded.Usage.TotalTokens
+			usage.InputTokensKnown = true
+		}
+	}
+	if err := usage.Validate(); err != nil {
+		return embedding.Usage{}, err
+	}
+	return usage, nil
+}
+
+func unknownUsage() embedding.Usage {
+	return embedding.Usage{InputTokens: 0, InputTokensKnown: false, BilledUnits: 0, BilledUnitsKnown: false}
+}

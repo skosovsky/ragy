@@ -180,14 +180,14 @@ func build(ctx context.Context, root string, input fixture) (profiles, error) {
 	if err != nil {
 		return profiles{}, err
 	}
-	denseSpace := dense.Space{
+	denseSpace := dense.Space{Metric: "normalized-dot",
 		Model:         savedModel,
 		ModelRevision: "r1",
 		Configuration: "normalized",
 		VectorSpace:   "dot",
 		Dimension:     2,
 	}
-	tensorSpace := tensor.Space{
+	tensorSpace := tensor.Space{Metric: "normalized-dot",
 		Model:         savedModel,
 		ModelRevision: "r1",
 		Configuration: "normalized",
@@ -270,8 +270,13 @@ func records(
 			dr,
 			densefs.Record[meta]{
 				Reference: dref,
-				Space:     ds,
-				Value:     dense.Record[meta]{ID: doc.ID, Content: doc.ID, Meta: meta{Tenant: "a"}, Vector: doc.Dense},
+				Value: dense.Record[meta]{
+					Space:   ds,
+					ID:      doc.ID,
+					Content: doc.ID,
+					Meta:    meta{Tenant: "a"},
+					Vector:  doc.Dense,
+				},
 			},
 		)
 		tr = append(

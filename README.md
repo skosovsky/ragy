@@ -45,6 +45,7 @@ import (
 	"context"
 
 	"github.com/skosovsky/ragy/dense"
+ "github.com/skosovsky/ragy/embedding"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -79,7 +80,7 @@ func search(
 		return empty(err)
 	}
 
-	vectors, err := embedder.Embed(ctx, []string{"reset password"})
+	encoded, err := embedder.Embed(ctx, dense.Request{Inputs: []string{"reset password"}, Purpose: embedding.Query})
 	if err != nil {
 		return empty(err)
 	}
@@ -99,7 +100,8 @@ func search(
 		Text: "reset password",
 		Options: retrieval.RetrieveOptions{
 			TopK:    10,
-			Vector:  vectors[0],
+			Vector: encoded.Embeddings[0].Vector,
+ Space: encoded.Embeddings[0].Space,
 			Filters: cond,
 		},
 	})
@@ -176,6 +178,7 @@ result, err := pipeline.Execute(ctx, retrieval.Query[Intent]{
 	Options: retrieval.RetrieveOptions{
 		TopK:   10,
 		Vector: vector,
+ Space: space, // host-declared embedding.Space matching the encoder and index
 	},
 })
 if err != nil {
@@ -267,6 +270,7 @@ result, err := pipeline.Execute(ctx, retrieval.Query[Intent]{
 	Options: retrieval.RetrieveOptions{
 		TopK:   10,
 		Vector: vector,
+ Space: space, // host-declared embedding.Space matching the encoder and index
 	},
 })
 if err != nil {

@@ -15,7 +15,7 @@ import (
 )
 
 func TestPersistentSupportInventoryAndOldSchemaCannotAttestReady(t *testing.T) {
-	for _, damage := range []string{"supports", "old-schema", "missing-inventory"} {
+	for _, damage := range []string{"supports", "old-schema", "previous-envelope", "missing-inventory"} {
 		t.Run(damage, func(t *testing.T) { supportCatalogCase(t, damage) })
 	}
 }
@@ -66,6 +66,8 @@ func supportCatalogCase(t *testing.T, damage string) {
 		envelope["artifacts"], err = json.Marshal(artifacts)
 	case "missing-inventory":
 		delete(envelope, "artifacts")
+	case "previous-envelope":
+		envelope["schema"], err = json.Marshal("ragy.dense-index/inventory")
 	case "old-schema":
 		envelope["schema"], err = json.Marshal("ragy.dense-index")
 		delete(envelope, "artifacts")

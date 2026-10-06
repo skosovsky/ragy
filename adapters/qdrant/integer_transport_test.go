@@ -46,7 +46,7 @@ func integerWireStore(t *testing.T, number string) (*Store[integerWireMeta], *fa
 	schema := integerWireSchema(t)
 	store, err := New[integerWireMeta](
 		client,
-		Config[integerWireMeta]{Collection: "docs", Schema: schema},
+		Config[integerWireMeta]{Space: fixtureSpace(), Collection: "docs", Schema: schema},
 		retrieval.NewJSONCodec[integerWireMeta](schema),
 	)
 	if err != nil {
@@ -64,7 +64,7 @@ func TestIntegerWireProjectionPreservesBoundsAndAdjacentIDs(t *testing.T) {
 				t.Context(),
 				store,
 				"policy",
-				retrieval.RetrieveOptions{TopK: 1, Vector: []float32{1, 0}},
+				retrieval.RetrieveOptions{TopK: 1, Vector: []float32{1}, Space: fixtureSpace()},
 			)
 			// Assert.
 			if err != nil || result.Len() != 1 || result.Documents()[0].Meta.Tenant != value {
@@ -83,7 +83,7 @@ func TestIntegerWireProjectionRejectsInvalidIntegers(t *testing.T) {
 				t.Context(),
 				store,
 				"policy",
-				retrieval.RetrieveOptions{TopK: 1, Vector: []float32{1, 0}},
+				retrieval.RetrieveOptions{TopK: 1, Vector: []float32{1}, Space: fixtureSpace()},
 			)
 			// Assert.
 			if !errors.Is(err, ragy.ErrInvalidArgument) || result.Len() != 0 {
@@ -102,7 +102,13 @@ func TestIntegerWireUpsertPreservesExactStoredNumbers(t *testing.T) {
 			err := store.Upsert(
 				t.Context(),
 				[]dense.Record[integerWireMeta]{
-					{ID: "doc", Content: "policy", Meta: integerWireMeta{Tenant: value}, Vector: []float32{1, 0}},
+					{
+						ID:      "doc",
+						Content: "policy",
+						Meta:    integerWireMeta{Tenant: value},
+						Vector:  []float32{1},
+						Space:   fixtureSpace(),
+					},
 				},
 			)
 			// Assert.
@@ -162,7 +168,7 @@ func TestIntegerWireUpsertRejectsMalformedHostCodecBeforeIO(t *testing.T) {
 						ID:      "doc",
 						Content: "policy",
 						Meta:    integerWireMeta{Tenant: 9007199254740993},
-						Vector:  []float32{1, 0},
+						Vector:  []float32{1}, Space: fixtureSpace(),
 					},
 				},
 			)
@@ -194,7 +200,8 @@ func TestIntegerWireMembershipRetainsExactValues(t *testing.T) {
 	// Arrange: membership includes adjacent values and both signed integer bounds.
 	store, port := integerWireStore(t, "9007199254740993")
 	options := retrieval.RetrieveOptions{TopK: 1, Filters: integerMembership(t, store.Schema())}
-	options.Vector = []float32{1, 0}
+	options.Vector = []float32{1}
+	options.Space = fixtureSpace()
 	// Act.
 	_, err := retrieveStore(t.Context(), store, "policy", options)
 	// Assert: transport values remain distinct integers; no float64 intermediary.
