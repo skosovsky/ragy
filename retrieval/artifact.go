@@ -182,19 +182,43 @@ func (r DefaultArtifactRenderer[TMeta]) Render(
 	opts ArtifactRenderOptions[TMeta],
 ) (RetrievalContextArtifact[TMeta], error) {
 	if err := read.Check(ctx); err != nil {
-		return RetrievalContextArtifact[TMeta]{}, access.NonSkippable(&ArtifactError{Stage: "read", Cause: err})
+		return RetrievalContextArtifact[TMeta]{}, protectArtifactFailure(&ArtifactError{Stage: "read", Cause: err})
 	}
 	artifact, err := r.render(ctx, read, rs, opts)
 	if gateErr := read.Check(ctx); gateErr != nil {
-		return RetrievalContextArtifact[TMeta]{}, access.NonSkippable(&ArtifactError{Stage: "read", Cause: gateErr})
+		return RetrievalContextArtifact[TMeta]{}, protectArtifactFailure(
+			&ArtifactError{Stage: "read", Cause: errors.Join(gateErr, err)},
+		)
 	}
 	if err != nil {
 		if _, typed := errors.AsType[*ArtifactError](err); !typed {
 			err = &ArtifactError{Stage: "projection", Cause: err}
 		}
-		return RetrievalContextArtifact[TMeta]{}, access.NonSkippable(err)
+		return RetrievalContextArtifact[TMeta]{}, protectArtifactFailure(err)
 	}
 	return artifact, nil
+}
+
+// protectArtifactFailure retains public cause classes while ProtectionError drops
+// unrelated joined errors that may carry private callback payloads.
+func protectArtifactFailure(err error) error {
+	protected := access.NonSkippable(err)
+	classes := []error{
+		context.Canceled, context.DeadlineExceeded,
+		ragy.ErrInvalidArgument, ragy.ErrUnsupported, ragy.ErrProtocol, ragy.ErrUnavailable,
+		ragy.ErrMissingID, ragy.ErrMissingSourceID, ragy.ErrEmptyText, ragy.ErrEmptyVector,
+		ragy.ErrInvalidPage, ragy.ErrInvalidGraph, ErrArtifactLimit,
+	}
+	var retained []error
+	for _, class := range classes {
+		if errors.Is(err, class) && !errors.Is(protected, class) {
+			retained = append(retained, class)
+		}
+	}
+	if len(retained) == 0 {
+		return protected
+	}
+	return errors.Join(protected, access.NonSkippable(errors.Join(retained...)))
 }
 
 func (DefaultArtifactRenderer[TMeta]) render(
@@ -331,7 +355,7 @@ func measureArtifact(ctx context.Context, read access.Binding, text string, r Ar
 	}
 	n, err := r.Measure(ctx, text)
 	if gateErr := read.Check(ctx); gateErr != nil {
-		return 0, gateErr
+		return 0, errors.Join(gateErr, err)
 	}
 	if err != nil {
 		return 0, &ArtifactError{Stage: "measurement", Cause: err}
@@ -459,7 +483,7 @@ func mappedArtifactCandidate[TMeta any](
 ) (artifactCandidate[TMeta], error) {
 	mapped, err := mapping(candidate.document)
 	if gateErr := read.Check(ctx); gateErr != nil {
-		return candidate, gateErr
+		return candidate, errors.Join(gateErr, err)
 	}
 	if err != nil {
 		return candidate, err
@@ -484,7 +508,7 @@ func artifactSnippet[TMeta any](
 	}
 	meta, err := opts.CloneMeta(candidate.document.Meta)
 	if gateErr := read.Check(ctx); gateErr != nil {
-		return ContextSnippet[TMeta]{}, gateErr
+		return ContextSnippet[TMeta]{}, errors.Join(gateErr, err)
 	}
 	if err != nil {
 		return ContextSnippet[TMeta]{}, err
@@ -497,11 +521,11 @@ func artifactSnippet[TMeta any](
 		}
 	}
 	if gateErr := read.Check(ctx); gateErr != nil {
-		return ContextSnippet[TMeta]{}, gateErr
+		return ContextSnippet[TMeta]{}, errors.Join(gateErr, err)
 	}
 	provenance := provenanceFor(candidate.document, opts.Provenance)
 	if gateErr := read.Check(ctx); gateErr != nil {
-		return ContextSnippet[TMeta]{}, gateErr
+		return ContextSnippet[TMeta]{}, errors.Join(gateErr, err)
 	}
 	return ContextSnippet[TMeta]{
 		Contributors:      append([]ArtifactContribution(nil), candidate.contributors...),
@@ -588,7 +612,7 @@ func renderArtifactSnippet[T any](
 	}
 	formatted, err := formatContextSnippet(input, opts.FormatSnippet)
 	if gateErr := read.Check(ctx); gateErr != nil {
-		return FormattedSnippet{}, gateErr
+		return FormattedSnippet{}, errors.Join(gateErr, err)
 	}
 	if err != nil {
 		return FormattedSnippet{}, &ArtifactError{Stage: "format", Cause: err}
@@ -612,7 +636,7 @@ func cloneArtifactSnippet[TMeta any](
 ) (ContextSnippet[TMeta], error) {
 	meta, err := clone(snippet.Meta)
 	if gateErr := read.Check(ctx); gateErr != nil {
-		return ContextSnippet[TMeta]{}, gateErr
+		return ContextSnippet[TMeta]{}, errors.Join(gateErr, err)
 	}
 	if err != nil {
 		return ContextSnippet[TMeta]{}, err

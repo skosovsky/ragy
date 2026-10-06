@@ -126,10 +126,7 @@ func (r *Recipe[TMeta]) Run(
 	}
 	evidence, callErr := r.observedTraverse(child, call)
 	settleErr := lease.Settle(quote.Usage, quote.CostKnown)
-	if err = gate(); err != nil {
-		return Result[TMeta]{}, err
-	}
-	if err = errors.Join(callErr, settleErr); err != nil {
+	if err = errors.Join(callErr, settleErr, gate()); err != nil {
 		return Result[TMeta]{}, err
 	}
 	owned, err := r.snapshot(evidence, gate)

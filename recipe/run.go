@@ -93,7 +93,8 @@ type attempt[TIntent, TRequestMeta, TMeta any] struct {
 
 // Run performs a single bounded attempt. Parent cancellation/protection failure
 // suppresses all payloads. An attempt-local deadline or budget exhaustion returns
-// a typed partial/insufficient result without further dispatch or automatic retry.
+// a typed partial/insufficient result only without independent callback or settlement
+// failures. Mixed errors retain their causes and never become bounded success.
 func (r *Recipe[TIntent, TRequestMeta, TMeta]) Run(
 	ctx context.Context,
 	request retrieval.Request[TIntent, TRequestMeta],
@@ -217,9 +218,15 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) failedResult(err error) (Result[
 	return a.result, err
 }
 
+// stageFailureError retains an independent callback or accounting failure. Its
+// provenance prevents a joined local deadline from changing failure into success.
+type stageFailureError struct{ cause error }
+
+func (*stageFailureError) Error() string   { return "recipe stage failed" }
+func (e *stageFailureError) Unwrap() error { return e.cause }
+
 func boundedStop(err error) (StopReason, bool) {
-	if errors.Is(err, budget.ErrUsageExceeded) || errors.Is(err, ragy.ErrProtocol) ||
-		(access.IsProtectionFailure(err) && !errors.Is(err, context.DeadlineExceeded)) {
+	if !onlyBoundedCauses(err) {
 		return "", false
 	}
 	switch {
@@ -232,6 +239,32 @@ func boundedStop(err error) (StopReason, bool) {
 	default:
 		return "", false
 	}
+}
+
+func onlyBoundedCauses(err error) bool {
+	if err == nil || access.IsProtectionFailure(err) {
+		return false
+	}
+	if _, failed := errors.AsType[*stageFailureError](err); failed {
+		return false
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		causes := joined.Unwrap()
+		if len(causes) == 0 {
+			return false
+		}
+		for _, cause := range causes {
+			if !onlyBoundedCauses(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if cause := errors.Unwrap(err); cause != nil {
+		return onlyBoundedCauses(cause)
+	}
+	//nolint:errorlint // Only the exact known terminal causes prove bounded provenance.
+	return err == context.DeadlineExceeded || err == budget.ErrExhausted || err == budget.ErrUnknownPrice
 }
 
 func (a *attempt[TIntent, TRequestMeta, TMeta]) execute() ([]int, bool, error) {
@@ -317,10 +350,27 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) settle(
 		(usage.Value.InputTokens > quote.Usage.InputTokens || usage.Value.OutputTokens > quote.Usage.OutputTokens) {
 		settleErr = errors.Join(settleErr, budget.ErrUsageExceeded)
 	}
-	if gateErr := a.gate(a.ctx); gateErr != nil {
-		return errors.Join(gateErr, settleErr)
+	if settleErr != nil {
+		settleErr = &stageFailureError{cause: settleErr}
 	}
-	return errors.Join(callErr, settleErr)
+	callErr = a.callbackError(callErr)
+	return errors.Join(callErr, settleErr, a.gate(a.ctx))
+}
+
+func (a *attempt[TIntent, TRequestMeta, TMeta]) localCallbackDeadline(err error) bool {
+	//nolint:errorlint // A wrapped or joined callback failure has independent provenance.
+	return err == context.DeadlineExceeded && a.localExpired()
+}
+
+func (a *attempt[TIntent, TRequestMeta, TMeta]) localExpired() bool {
+	return errors.Is(a.ctx.Err(), context.DeadlineExceeded) || !a.recipe.config.Now().Before(a.deadline)
+}
+
+func (a *attempt[TIntent, TRequestMeta, TMeta]) callbackError(err error) error {
+	if err == nil || a.localCallbackDeadline(err) {
+		return err
+	}
+	return &stageFailureError{cause: err}
 }
 
 //nolint:nonamedreturns // Deferred diagnostics require the validated output on every return.
@@ -349,20 +399,13 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) plan() (output Planning, stageEr
 		ModelLimits{InputTokens: quote.Usage.InputTokens, OutputTokens: quote.Usage.OutputTokens},
 	)
 	modelSpan.End(modelCompletion(errors.Join(callErr, modelCtx.Err()), planning.Usage))
+	if callErr == nil {
+		callErr = a.validatePlanning(planning)
+	}
 	if err = a.settle(Plan, lease, quote, planning.Usage, callErr); err != nil {
 		return Planning{}, err
 	}
 	planning.Queries = slices.Clone(planning.Queries)
-	if len(planning.Queries) > a.recipe.config.MaxQueries {
-		return Planning{}, ragy.ErrProtocol
-	}
-	seen := make(map[string]bool, len(planning.Queries))
-	for _, text := range planning.Queries {
-		if strings.TrimSpace(text) == "" || !utf8.ValidString(text) || seen[text] {
-			return Planning{}, ragy.ErrProtocol
-		}
-		seen[text] = true
-	}
 	a.result.Stages[len(a.result.Stages)-1].Completed = true
 	return planning, nil
 }
@@ -397,19 +440,40 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) assess() (output Assessment, sta
 		ModelLimits{InputTokens: quote.Usage.InputTokens, OutputTokens: quote.Usage.OutputTokens},
 	)
 	modelSpan.End(modelCompletion(errors.Join(callErr, modelCtx.Err()), assessment.Usage))
+	if callErr == nil {
+		callErr = a.validateAssessment(assessment)
+	}
 	if err = a.settle(Assess, lease, quote, assessment.Usage, callErr); err != nil {
 		return Assessment{}, err
 	}
 	assessment.Selected = slices.Clone(assessment.Selected)
+	a.result.Stages[len(a.result.Stages)-1].Completed = true
+	return assessment, nil
+}
+
+func (a *attempt[TIntent, TRequestMeta, TMeta]) validatePlanning(planning Planning) error {
+	if len(planning.Queries) > a.recipe.config.MaxQueries {
+		return ragy.ErrProtocol
+	}
+	seen := make(map[string]bool, len(planning.Queries))
+	for _, text := range planning.Queries {
+		if strings.TrimSpace(text) == "" || !utf8.ValidString(text) || seen[text] {
+			return ragy.ErrProtocol
+		}
+		seen[text] = true
+	}
+	return nil
+}
+
+func (a *attempt[TIntent, TRequestMeta, TMeta]) validateAssessment(assessment Assessment) error {
 	seen := make(map[int]bool, len(assessment.Selected))
 	for _, index := range assessment.Selected {
 		if index < 0 || index >= len(a.result.Queries) || seen[index] {
-			return Assessment{}, ragy.ErrProtocol
+			return ragy.ErrProtocol
 		}
 		seen[index] = true
 	}
-	a.result.Stages[len(a.result.Stages)-1].Completed = true
-	return assessment, nil
+	return nil
 }
 
 func (a *attempt[TIntent, TRequestMeta, TMeta]) stop(err error, deadline time.Time) error {
@@ -417,7 +481,7 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) stop(err error, deadline time.Ti
 		return nil
 	}
 	if gateErr := a.request.Read.Check(a.parent); gateErr != nil {
-		return gateErr
+		return errors.Join(gateErr, err)
 	}
 	reason, bounded := boundedStop(err)
 	if !bounded {
@@ -431,6 +495,16 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) stop(err error, deadline time.Ti
 }
 
 func (a *attempt[TIntent, TRequestMeta, TMeta]) gate(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		// An expired child timer alone cannot establish parent/authority failure.
+		if parentErr := a.request.Read.Check(a.parent); parentErr != nil {
+			return errors.Join(parentErr, err)
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
+		}
+		return access.NonSkippable(err)
+	}
 	if err := a.request.Read.Check(ctx); err != nil {
 		return err
 	}

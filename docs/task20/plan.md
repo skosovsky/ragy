@@ -258,3 +258,8 @@ Regression tests используют AAA и утверждают исправл
 - T01: [target contracts](../contracts/remediation.md) подготовлены; implementation не менялся, приёмка pending.
 
 - T01 accepted: completeness 6/6 = 100%, coverage 16/16 = 100%; correctness PASS. Initial F11/empty-map/optional-namespace findings исправлены, обе приёмки повторены. Contract SHA256 `65d31729d0f80ef8b85ca548fce419ff1019400bbd640592a013bb9a837b45df`; commit SHA фиксируется следующим update.
+
+- T01 commit: `4776e89` — `docs: remediation contracts`.
+- T02 in_progress: F01/D32 по принятому контракту. Acceptance matrix: planner/backend/assessor/encoder × ordinary/protocol/protection/joined deadline/usage overrun; Run/RunOwn/RunObserved, pure local/parent cancellation, exact dispatch/settlement; graph callbacks preserve simultaneous causes.
+
+- T02 accepted: completeness 4/4 = 100%, correctness PASS after standalone renderer P2 fix. Independent race eight packages PASS, lint 0 issues, adversarial privacy/cause repros PASS; [completeness](acceptance/T02-completeness.md), [correctness](acceptance/T02-correctness.md). Commit SHA записывается следующим journal update.

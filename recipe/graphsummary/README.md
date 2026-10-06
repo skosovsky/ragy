@@ -76,3 +76,5 @@ no question, summary text, community ID or source support enters diagnostics.
 Token usage is observed only from the dispatched model port; unknown usage and
 local cancellation do not imply zero billing or confirmed remote cancellation.
 Diagnostic exporter failure never retries a summary or changes its result.
+
+Model, settlement and freshness errors are preserved together, including simultaneous usage overrun and expiry. Only direct pre-dispatch budget/price admission failures can produce bounded partial summaries; joined callback failures are not rescued by matching a budget sentinel. Protection always suppresses payload.

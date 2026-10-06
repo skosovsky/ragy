@@ -253,9 +253,15 @@
       "id": "D32",
       "task": "T02",
       "requirement": "Error precedence в graph recipes: Graphsummary/graphexpand/extraction также могут скрыть callback/settle causes за gate. Расширить F01 acceptance на эти пути; отдельный payload-release defect там не доказан.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Extraction/graphexpand/graphsummary join callback/settlement/gate causes. Summary accepts only direct pre-dispatch budget stops, never joined callback failure.",
+      "evidence": [
+        "T02.md",
+        "acceptance/T02-race.log",
+        "acceptance/T02-completeness.md",
+        "acceptance/T02-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "D33",
@@ -493,9 +499,15 @@
       "id": "F01",
       "task": "T02",
       "requirement": "P1: deadline превращает protection failure в успешный partial result",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Settlement preserves callback/accounting/gate causes. Independent stage failure provenance prevents mixed deadline from becoming bounded success; pure local timeout still permits captured core evidence.",
+      "evidence": [
+        "T02.md",
+        "acceptance/T02-race.log",
+        "acceptance/T02-completeness.md",
+        "acceptance/T02-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "F02",
@@ -1135,9 +1147,15 @@
       "source": "reviews/graph.md",
       "line": 58,
       "requirement": "Error precedence consistency.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Preserve all post-dispatch causes at graph recipe boundaries with zero payload and exact-once accounting; targeted graph expiry regressions exercise protocol/protection/usage classes.",
+      "evidence": [
+        "T02.md",
+        "acceptance/T02-race.log",
+        "acceptance/T02-completeness.md",
+        "acceptance/T02-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "graph:21",

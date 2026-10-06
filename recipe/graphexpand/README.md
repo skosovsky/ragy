@@ -50,3 +50,5 @@ traversal. Counts are available only after the observed traversal returns;
 provider/model accounting remains unavailable for this model-free port. Events
 contain no graph IDs, traversal seeds, supports or host basis, and diagnostic
 exporter failure cannot repeat or change traversal.
+
+Traversal, settlement and post-call freshness causes are preserved together. A simultaneous local deadline never erases a target protection/protocol failure; failed expansion delivers zero evidence and performs no retry.

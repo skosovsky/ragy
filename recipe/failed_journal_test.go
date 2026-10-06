@@ -125,7 +125,8 @@ func TestRunObservedProtectionSuppressesJournal(t *testing.T) {
 	// Act.
 	result, err := r.RunOwnObserved(context.Background(), recordedRequest(f))
 	// Assert.
-	if !access.IsProtectionFailure(err) || len(result.Queries) != 0 || len(result.Stages) != 0 ||
+	if !access.IsProtectionFailure(err) || !errors.Is(err, ragy.ErrProtocol) || len(result.Queries) != 0 ||
+		len(result.Stages) != 0 ||
 		result.Publication != "" {
 		t.Fatal("revocation retained journal", err)
 	}

@@ -246,10 +246,7 @@ func (r *Recipe[TAccess]) call(
 		(usage.Value.InputTokens > quote.Usage.InputTokens || usage.Value.OutputTokens > quote.Usage.OutputTokens) {
 		settleErr = errors.Join(settleErr, budget.ErrUsageExceeded)
 	}
-	if err = gate(); err != nil {
-		return empty, err
-	}
-	if err = errors.Join(callErr, settleErr); err != nil {
+	if err = errors.Join(callErr, settleErr, gate()); err != nil {
 		return empty, err
 	}
 	if err = r.validateOutput(output, len(input.Snippets)); err != nil {
@@ -336,12 +333,18 @@ func (r *Recipe[TAccess]) stopped(
 	gate func() error,
 ) (Result, error) {
 	if check := read.Check(ctx); check != nil {
-		return Result{}, check
+		return Result{}, errors.Join(check, err)
+	}
+	if access.IsProtectionFailure(err) || errors.Is(err, budget.ErrUsageExceeded) || errors.Is(err, ragy.ErrProtocol) {
+		return Result{}, err
 	}
 	stop := BudgetExhausted
-	if errors.Is(err, budget.ErrUnknownPrice) {
+	//nolint:errorlint // Only direct pre-dispatch admission causes may stop successfully.
+	switch err {
+	case budget.ErrUnknownPrice:
 		stop = PriceUnavailable
-	} else if !errors.Is(err, budget.ErrExhausted) {
+	case budget.ErrExhausted:
+	default:
 		return Result{}, err
 	}
 	result.Outcome = recipe.Insufficient

@@ -90,12 +90,12 @@
       },
       "contract_sha256": "65d31729d0f80ef8b85ca548fce419ff1019400bbd640592a013bb9a837b45df"
     },
-    "commit_sha": null
+    "commit_sha": "4776e89c12b83d1db41385426d982f25f5a51145"
   },
   {
     "id": "T02",
     "title": "deadline precedence",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: deadline precedence",
     "criteria": [
       {
@@ -116,8 +116,15 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "report": "acceptance/T02-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T02-correctness.md"
+      }
     },
     "commit_sha": null
   },

@@ -292,13 +292,21 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) renderDelivery() (stageErr error
 	for i, s := range a.result.Selected {
 		docs[i] = s.Document
 	}
+	options, callbackFailure := a.artifactOptions(*a.recipe.config.Artifact)
 	artifact, err := (retrieval.DefaultArtifactRenderer[TMeta]{}).Render(
 		ctx,
 		a.request.Read,
 		retrieval.NewResultSet(docs, a.recipe.config.Identity),
-		*a.recipe.config.Artifact,
+		options,
 	)
+	err = errors.Join(err, callbackFailure())
 	if err != nil {
+		if a.localExpired() && onlyDeadlineCauses(err) {
+			if gateErr := a.request.Read.Check(a.parent); gateErr != nil {
+				return errors.Join(gateErr, err)
+			}
+			return context.DeadlineExceeded
+		}
 		return err
 	}
 	a.result.Artifact = &artifact
@@ -367,29 +375,14 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) observedEncoding(
 		ModelLimits{InputTokens: quote.Usage.InputTokens, OutputTokens: quote.Usage.OutputTokens},
 	)
 	modelSpan.End(modelCompletion(errors.Join(callErr, modelCtx.Err()), usage))
+	if callErr == nil {
+		callErr = validateEncoding(result, usage, request.Options.Space)
+	}
 	err = a.settle(Encode, lease, quote, usage, callErr)
 	if err != nil {
 		return request, err
 	}
-	if err = result.Usage.Validate(); err != nil {
-		return request, err
-	}
-	// Usage.Validate above rejects negative counters, so the conversion cannot wrap.
-	//nolint:gosec // Validated nonnegative provider counter.
-	if result.Usage.InputTokensKnown && usage.Known && uint64(result.Usage.InputTokens) != usage.Value.InputTokens {
-		return request, ragy.ErrProtocol
-	}
-	if len(result.Embeddings) != 1 {
-		return request, ragy.ErrProtocol
-	}
 	value := result.Embeddings[0]
-	if err = value.Validate(); err != nil {
-		return request, ragy.ErrProtocol
-	}
-	var zeroSpace dense.Space
-	if request.Options.Space != zeroSpace && request.Options.Space != value.Space {
-		return request, ragy.ErrProtocol
-	}
 	value.Vector = slices.Clone(value.Vector)
 	result.Embeddings = []dense.Embedding{value}
 	a.result.Encoding = append(a.result.Encoding, result)
@@ -531,4 +524,27 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) observedFusion(indices []int) (e
 		a.ctx = oldContext
 	}()
 	return a.selectEvidence(indices)
+}
+
+func validateEncoding(result dense.Result, usage Usage, configured dense.Space) error {
+	if err := result.Usage.Validate(); err != nil {
+		return err
+	}
+	// Usage.Validate rejects negative counters, so this conversion cannot wrap.
+	//nolint:gosec // Validated nonnegative provider counter.
+	if result.Usage.InputTokensKnown && usage.Known && uint64(result.Usage.InputTokens) != usage.Value.InputTokens {
+		return ragy.ErrProtocol
+	}
+	if len(result.Embeddings) != 1 {
+		return ragy.ErrProtocol
+	}
+	value := result.Embeddings[0]
+	if err := value.Validate(); err != nil {
+		return ragy.ErrProtocol
+	}
+	var zeroSpace dense.Space
+	if configured != zeroSpace && configured != value.Space {
+		return ragy.ErrProtocol
+	}
+	return nil
 }

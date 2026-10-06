@@ -174,3 +174,5 @@ whose output is missing or rejected; actual usage may still be known on failure.
 selected documents are delivered directly. If true with a nil artifact, rendering
 was requested but its output was not retained; export must keep delivery uncertain.
 This fact is independent of document IDs and query coverage and survives snapshots.
+
+Local deadline never erases callback or settlement failures. Joined protection, protocol, ordinary callback failure or usage overrun remains failure, even when it also matches DeadlineExceeded. Only a proven attempt-local timer/clock stop without independent failure can return bounded evidence. Parent/read failure suppresses the complete journal; all already observed causes remain inspectable through errors.Is/As. Callback output shape is checked before timing can hide protocol failures. Known overrun stays visible in the failed stage observation while the ledger conservatively retains its reservation.

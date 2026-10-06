@@ -174,10 +174,7 @@ func (a *Adapter[TAccess, TKind, TRel, TAttr]) call(
 		(usage.Value.InputTokens > quote.Usage.InputTokens || usage.Value.OutputTokens > quote.Usage.OutputTokens) {
 		settleErr = errors.Join(settleErr, budget.ErrUsageExceeded)
 	}
-	if err = gate(); err != nil {
-		return empty, Usage{}, err
-	}
-	if err = errors.Join(callErr, settleErr); err != nil {
+	if err = errors.Join(callErr, settleErr, gate()); err != nil {
 		return empty, Usage{}, err
 	}
 	if !quote.CostKnown {

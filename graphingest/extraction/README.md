@@ -35,3 +35,5 @@ The host-owned ledger retains accounting even when the result is suppressed.
 Pass returned typed mentions through namespace/alias resolution and explicit graph
 materialization before lifecycle staging/publication. No model/source engine,
 provider credential store, background worker or universal ontology is introduced.
+
+Model and settlement causes remain inspectable when the post-call deadline/freshness gate also fails. Accounting settles once after expiry; no failed or protected model output is projected or retried.
