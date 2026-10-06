@@ -61,9 +61,7 @@ cover:
 	done
 
 release-patch: lint test ## v0.5.0 -> v0.5.1
-	@chmod +x ./scripts/release.sh
-	@./scripts/release.sh patch "$(MODULES)"
+	@./scripts/release.sh patch "$(RELEASE_SOURCE)"
 
 release-break: lint test ## v0.5.1 -> v0.6.0
-	@chmod +x ./scripts/release.sh
-	@./scripts/release.sh break "$(MODULES)"
+	@./scripts/release.sh break "$(RELEASE_SOURCE)"

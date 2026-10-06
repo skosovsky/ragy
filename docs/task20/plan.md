@@ -263,3 +263,8 @@ Regression tests используют AAA и утверждают исправл
 - T02 in_progress: F01/D32 по принятому контракту. Acceptance matrix: planner/backend/assessor/encoder × ordinary/protocol/protection/joined deadline/usage overrun; Run/RunOwn/RunObserved, pure local/parent cancellation, exact dispatch/settlement; graph callbacks preserve simultaneous causes.
 
 - T02 accepted: completeness 4/4 = 100%, correctness PASS after standalone renderer P2 fix. Independent race eight packages PASS, lint 0 issues, adversarial privacy/cause repros PASS; [completeness](acceptance/T02-completeness.md), [correctness](acceptance/T02-correctness.md). Commit SHA записывается следующим journal update.
+
+- T02 commit: `6d18bca7403386643bc4b7a0e6be3039785a86e5` — `fix: deadline precedence`.
+- T03 in_progress: reviewed SHA / isolated checkout / publishable-module and file/ref allowlists. Persistent candidate recovery остаётся T04.
+
+- T03 accepted: completeness 4/4 = 100%, coverage F02/A-F01 2/2 = 100%, correctness PASS. Relative-origin/colon P2 resolved and both independent gates repeated; nine fixture methods and independent adversarial cases PASS. Reports: [completeness](acceptance/T03-completeness.md), [correctness](acceptance/T03-correctness.md). Commit SHA записывается следующим journal update.

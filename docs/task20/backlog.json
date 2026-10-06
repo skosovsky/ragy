@@ -126,12 +126,12 @@
         "report": "acceptance/T02-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "6d18bca7403386643bc4b7a0e6be3039785a86e5"
   },
   {
     "id": "T03",
     "title": "release isolation",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: release isolation",
     "criteria": [
       {
@@ -152,8 +152,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T03-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T03-correctness.md"
+      }
     },
     "commit_sha": null
   },

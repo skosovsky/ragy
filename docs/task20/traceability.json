@@ -513,9 +513,15 @@
       "id": "F02",
       "task": "T03",
       "requirement": "P1: release публикует посторонние файлы и теги",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Reviewed source is fetched into isolated checkout; tracked publishable-module manifest and exact staged file/ref allowlists exclude caller private files/unrelated tags. Dirty index and tag collisions fail before candidate preparation.",
+      "evidence": [
+        "T03.md",
+        "acceptance/T03-fixtures.log",
+        "acceptance/T03-completeness.md",
+        "acceptance/T03-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "F03",
