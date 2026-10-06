@@ -8,6 +8,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/internal/readfailure"
 	"github.com/skosovsky/ragy/lexical"
 	"github.com/skosovsky/ragy/lifecycle"
 	"github.com/skosovsky/ragy/retrieval"
@@ -31,10 +32,11 @@ func (a *Adapter[TMeta]) Retrieve(
 	}
 	empty := retrieval.NewResultSet[TMeta](nil, a.config.BM25.Resolver)
 	result, err := a.retrieve(ctx, request)
+	err = readfailure.Check(ctx, request.Read, err)
 	if err != nil {
-		return retrieval.DeliverRead(ctx, request.Read, empty, access.NonSkippable(err), a.config.BM25.Resolver)
+		return empty, access.NonSkippable(err)
 	}
-	return retrieval.DeliverRead(ctx, request.Read, result, nil, a.config.BM25.Resolver)
+	return result, nil
 }
 
 func (a *Adapter[TMeta]) retrieve(
@@ -104,6 +106,9 @@ func (a *Adapter[TMeta]) buildSnapshot(
 			return nil, err
 		}
 		allowed, matchErr := retrieval.MatchDocument(a.config.BM25.Codec, record.Document, prepared.Options.Filters)
+		if gateErr := prepared.Read.Check(ctx); gateErr != nil {
+			return nil, readfailure.Join(gateErr, matchErr)
+		}
 		if matchErr != nil {
 			return nil, matchErr
 		}
@@ -114,11 +119,11 @@ func (a *Adapter[TMeta]) buildSnapshot(
 			return nil, err
 		}
 		cloned, cloneErr := a.cloneRecord(record)
+		if err = prepared.Read.Check(ctx); err != nil {
+			return nil, readfailure.Join(err, cloneErr)
+		}
 		if cloneErr != nil {
 			return nil, cloneErr
-		}
-		if err = prepared.Read.Check(ctx); err != nil {
-			return nil, err
 		}
 		docs = append(docs, cloned.Document)
 	}

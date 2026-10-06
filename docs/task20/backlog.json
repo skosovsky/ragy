@@ -308,12 +308,12 @@
         "report": "acceptance/T07-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "dd81b21abe6e49f1f52b4c03c09c5496a6f25c83"
   },
   {
     "id": "T08",
     "title": "lexical callback gates",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: lexical callback gates",
     "criteria": [
       {
@@ -330,8 +330,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "3/3",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T08-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T08-correctness.md"
+      }
     },
     "commit_sha": null
   },

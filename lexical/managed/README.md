@@ -49,3 +49,19 @@ but retain ledger/inventory validation scans. This is an entry bound, not a byte
 full-request memory bound: admitted document sizes, concurrent misses and retained
 versions are host workload limits. Eviction discards derived indexes only, never
 retained records or lifecycle history. Volatile records still need explicit cleanup.
+
+Read paths check context and binding freshness immediately before and after every
+metadata codec/clone callback, including failed callbacks and denied metadata.
+Cancellation/revocation stops before the next codec/clone and suppresses all output;
+protection takes precedence over simultaneous ordinary codec errors. Snapshot
+construction also gates metadata search-field encoding and discards its temporary
+construction context before publishing the index. Cache hit/miss paths never cache
+authority decisions. These are cooperative boundaries, with no retries or forced
+interruption of host code. Raw BM25 metadata remains borrowed under the host's
+stability/concurrency contract; snapshot/managed CloneMeta retains owned output.
+
+Protected lexical errors retain callback identities/public classifications through
+`errors.Is` along with cancellation/authority causes. Callback text and arbitrary
+payload-bearing callback error objects are excluded from error text/`errors.As`
+traversal. Protection/gate errors remain inspectable; this scoped boundary does not
+change global `access.Protect` sanitization or raw metadata ownership.

@@ -37,10 +37,16 @@ type fixture struct {
 	copies       []string
 	epoch        int64
 	revokeOnCopy bool
+	copyErr      error
 	now          time.Time
 }
 
 func newFixture(t *testing.T) *fixture {
+	t.Helper()
+	return newFixtureWithCodec(t, nil)
+}
+
+func newFixtureWithCodec(t *testing.T, codec retrieval.MetadataCodec[metadata]) *fixture {
 	t.Helper()
 	fields := filter.NewSchema()
 	for _, name := range []string{"tenant", "artifact"} {
@@ -60,14 +66,14 @@ func newFixture(t *testing.T) *fixture {
 	adapter, err := managed.New(managed.Config[metadata]{
 		MaxCachedSnapshots: 32,
 		Namespace:          "n", Target: "lexical", Store: store, Schema: schema,
-		BM25: lexical.Config[metadata]{SearchFields: []string{"content"}},
+		BM25: lexical.Config[metadata]{SearchFields: []string{"content"}, Codec: codec},
 		CloneMeta: func(meta metadata) (metadata, error) {
 			f.copies = append(f.copies, meta.Artifact)
 			if f.revokeOnCopy {
 				f.epoch = 8
 			}
 			meta.Tags = slices.Clone(meta.Tags)
-			return meta, nil
+			return meta, f.copyErr
 		},
 	})
 	if err != nil {

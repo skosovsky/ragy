@@ -288,3 +288,8 @@ Regression tests используют AAA и утверждают исправл
 - T07 in_progress: unique normalized page text references at document admission; selector-addressed cell/image sharing remains explicit host retention contract.
 
 - T07 accepted: completeness 3/3 = 100%, F06/ING-F01 coverage 2/2 = 100%, correctness PASS. Fresh four-package race/lint and independent nonadjacent duplicate/representation controls PASS. Reports: [completeness](acceptance/T07-completeness.md), [correctness](acceptance/T07-correctness.md). Commit SHA записывается следующим journal update.
+
+- T07 commit: `dd81b21abe6e49f1f52b4c03c09c5496a6f25c83` — `fix: layout references`.
+- T08 in_progress: per-codec/clone context/read gates across snapshot capture, scoring, managed cache miss/hit and delivery; raw metadata remains borrowed.
+
+- T08 accepted: completeness 3/3 = 100%, F07/T-F01 coverage 2/2 = 100%, correctness PASS after cause-retention P2 fix. Scoped readfailure preserves errors.Is without payload/text unwrap leakage; both independent gates repeated. Fresh four-package race/lint and callback/cause/privacy probes PASS. Reports: [completeness](acceptance/T08-completeness.md), [correctness](acceptance/T08-correctness.md). Commit SHA записывается следующим journal update.

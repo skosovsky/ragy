@@ -15,6 +15,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/internal/readfailure"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -301,7 +302,11 @@ func (idx *BM25Index[TMeta]) Retrieve(
 	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
 	rs, err := idx.retrieve(ctx, req)
-	return retrieval.DeliverRead(ctx, req.Read, rs, err, idx.resolver)
+	err = readfailure.Check(ctx, req.Read, err)
+	if access.IsProtectionFailure(err) {
+		return retrieval.NewResultSet[TMeta](nil, idx.resolver), err
+	}
+	return rs, err
 }
 
 func (idx *BM25Index[TMeta]) retrieve(
@@ -360,7 +365,10 @@ func (idx *BM25Index[TMeta]) retrieve(
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), nil
 	}
 
-	filteredScores, err := idx.filterScoredDocs(snapshot, scores, opts.Filters, idx.codec)
+	filteredScores, err := idx.filterScoredDocs(ctx, req.Read, snapshot, scores, opts.Filters, idx.codec)
+	if access.IsProtectionFailure(err) {
+		return retrieval.NewResultSet[TMeta](nil, idx.resolver), access.Protect(err)
+	}
 	docs := idx.rankScoredDocs(snapshot, filteredScores, opts.BackendFetchLimit())
 	rs := retrieval.NewResultSet(docs, idx.resolver)
 	return retrieval.PreserveResultOnError(rs, err, idx.resolver)
@@ -391,6 +399,8 @@ func (idx *BM25Index[TMeta]) scoreQuery(snapshot bm25Snapshot[TMeta], queryToken
 }
 
 func (idx *BM25Index[TMeta]) filterScoredDocs(
+	ctx context.Context,
+	read access.Binding,
 	snapshot bm25Snapshot[TMeta],
 	scores map[string]float64,
 	cond filter.Condition,
@@ -409,7 +419,13 @@ func (idx *BM25Index[TMeta]) filterScoredDocs(
 	for _, docID := range docIDs {
 		score := scores[docID]
 		doc := snapshot.docs[docID]
+		if err := read.Check(ctx); err != nil {
+			return nil, err
+		}
 		matched, err := retrieval.MatchDocument(codec, doc, cond)
+		if gateErr := read.Check(ctx); gateErr != nil {
+			return nil, readfailure.Join(gateErr, err)
+		}
 		if err != nil {
 			return filtered, ragy.WrapProjectionError(err, "bm25 filter match")
 		}

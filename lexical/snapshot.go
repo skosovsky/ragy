@@ -2,11 +2,13 @@ package lexical
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/internal/readfailure"
 	"github.com/skosovsky/ragy/retrieval"
 )
 
@@ -56,7 +58,15 @@ func NewBM25Snapshot[TMeta any](
 	if err != nil {
 		return nil, err
 	}
-	if err = index.Index(captured); err != nil {
+	// The builder can encode metadata search fields. Its temporary codec carries
+	// this capture's gates, then is removed before publishing the readonly index.
+	index.codec = snapshotCodec[TMeta]{ctx: ctx, read: read, codec: config.Codec}
+	err = index.Index(captured)
+	index.codec = config.Codec
+	if gateErr := read.Check(ctx); gateErr != nil {
+		return nil, readfailure.Join(gateErr, err)
+	}
+	if err != nil {
 		return nil, err
 	}
 	if err = read.Check(ctx); err != nil {
@@ -74,14 +84,23 @@ func (s *BM25Snapshot[TMeta]) Retrieve(
 		return retrieval.NewResultSet[TMeta](nil, nil), access.Protect(ragy.ErrInvalidArgument)
 	}
 	result, err := s.index.retrieve(ctx, request)
+	if access.IsProtectionFailure(err) {
+		return retrieval.NewResultSet[TMeta](nil, s.index.resolver), access.Protect(err)
+	}
 	documents := result.Documents()
 	for i := range documents {
 		if gateErr := request.Read.Check(ctx); gateErr != nil {
-			return retrieval.NewResultSet[TMeta](nil, s.index.resolver), gateErr
+			return retrieval.NewResultSet[TMeta](nil, s.index.resolver), readfailure.Join(gateErr, err)
 		}
 		meta, cloneErr := s.cloneMeta(documents[i].Meta)
 		if gateErr := request.Read.Check(ctx); gateErr != nil {
-			return retrieval.NewResultSet[TMeta](nil, s.index.resolver), gateErr
+			return retrieval.NewResultSet[TMeta](
+					nil,
+					s.index.resolver,
+				), readfailure.Join(
+					gateErr,
+					errors.Join(err, cloneErr),
+				)
 		}
 		if cloneErr != nil {
 			return retrieval.NewResultSet[TMeta](nil, s.index.resolver), cloneErr
@@ -89,7 +108,11 @@ func (s *BM25Snapshot[TMeta]) Retrieve(
 		documents[i].Meta = meta
 	}
 	owned := retrieval.NewResultSet(documents, s.index.resolver)
-	return retrieval.DeliverRead(ctx, request.Read, owned, err, s.index.resolver)
+	err = readfailure.Check(ctx, request.Read, err)
+	if access.IsProtectionFailure(err) {
+		return retrieval.NewResultSet[TMeta](nil, s.index.resolver), err
+	}
+	return owned, err
 }
 func (s *BM25Snapshot[TMeta]) Schema() filter.Schema {
 	if s == nil || s.index == nil {
@@ -115,6 +138,9 @@ func captureSnapshotDocuments[TMeta any](
 			return nil, err
 		}
 		allowed, matchErr := retrieval.MatchDocument(codec, document, mandatory)
+		if gateErr := read.Check(ctx); gateErr != nil {
+			return nil, readfailure.Join(gateErr, matchErr)
+		}
 		if matchErr != nil {
 			return nil, matchErr
 		}
@@ -126,7 +152,7 @@ func captureSnapshotDocuments[TMeta any](
 		}
 		meta, cloneErr := cloneMeta(document.Meta)
 		if err := read.Check(ctx); err != nil {
-			return nil, err
+			return nil, readfailure.Join(err, cloneErr)
 		}
 		if cloneErr != nil {
 			return nil, cloneErr

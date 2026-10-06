@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/contracttest"
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/retrieval"
@@ -696,7 +697,7 @@ func TestBM25FilterPreservesPartialScoresOnMatchError(t *testing.T) {
 		t.Fatalf("Build(): %v", err)
 	}
 
-	filtered, err := idx.filterScoredDocs(snapshot, scores, cond, codec)
+	filtered, err := idx.filterScoredDocs(context.Background(), access.Unrestricted(), snapshot, scores, cond, codec)
 	if !errors.Is(err, ragy.ErrProtocol) {
 		t.Fatalf("filterScoredDocs() error = %v, want protocol", err)
 	}

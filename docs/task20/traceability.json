@@ -590,9 +590,15 @@
       "id": "F07",
       "task": "T08",
       "requirement": "P2: BM25Snapshot вызывает следующий codec после отмены чтения",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Per-codec pre/post read gates across scoring, snapshot capture/build and managed misses; post-clone gates precede ordinary errors. Protection discards all candidates before next callback/output clone, retains raw borrowed metadata and existing ranking/ordinary partial policy. Scoped protected cause boundary retains callback errors.Is identity/classification while hiding private text and payload-bearing error siblings, including final delivery.",
+      "evidence": [
+        "T08.md",
+        "acceptance/T08-race.log",
+        "acceptance/T08-completeness.md",
+        "acceptance/T08-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "id": "F08",
@@ -2305,7 +2311,16 @@
       "source": "reviews/tensor.md",
       "id": "T-F01",
       "master": "F07",
-      "task": "T08"
+      "task": "T08",
+      "disposition": "fix",
+      "rationale": "Per-codec pre/post read gates across scoring, snapshot capture/build and managed misses; post-clone gates precede ordinary errors. Protection discards all candidates before next callback/output clone, retains raw borrowed metadata and existing ranking/ordinary partial policy. Scoped protected cause boundary retains callback errors.Is identity/classification while hiding private text and payload-bearing error siblings, including final delivery.",
+      "evidence": [
+        "T08.md",
+        "acceptance/T08-race.log",
+        "acceptance/T08-completeness.md",
+        "acceptance/T08-correctness.md"
+      ],
+      "acceptance": "accepted"
     },
     {
       "source": "reviews/storage.md",
