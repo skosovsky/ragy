@@ -26,6 +26,10 @@ func SnapshotResult[TMeta any](
 		return Result[TMeta]{}, err
 	}
 	out := input
+	if input.Sufficiency != nil {
+		value := *input.Sufficiency
+		out.Sufficiency = &value
+	}
 	out.Stages = slices.Clone(input.Stages)
 	out.Coverage = slices.Clone(input.Coverage)
 	var err error

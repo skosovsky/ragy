@@ -579,7 +579,9 @@ func TestHTTPFailedAssessmentRetainsRecipeJournal(t *testing.T) {
 			stages[*stage.Name.Value] = stage
 		}
 	}
-	if len(stages["retrieve/1"].Hits) == 0 || stages["assess"].Status != evidence.StageObserved ||
+	if len(stages["retrieve/1"].Hits) == 0 || stages["assess"].Status != evidence.MissingObservation ||
+		stages["assess"].HitsState != evidence.Unavailable || len(stages["assess"].Hits) != 0 ||
+		execution.Result.Stages[len(execution.Result.Stages)-1].Completed ||
 		stages["fusion"].Status != evidence.NotRun {
 		t.Fatal("failed assessment lost actual stage evidence")
 	}

@@ -1,0 +1,19 @@
+unavailable accept
+lost-delivery accept
+opt-in accept
+old reject
+unknown reject
+missing-decision reject
+rationale reject
+fabricated-sufficiency reject
+unselected-delivery reject
+oversized-text reject
+negative-rank reject
+invalid-reference reject
+nonsequential-query reject
+nonsequential-selected reject
+duplicate-contributor reject
+missing-flag reject
+null-flag reject
+unicode-limit accept
+JSON Schema + independent relational validator agreement corpus passed. Relational constraints require executable validation; pure JSON Schema cannot express index/reference equality. Neither authenticates provenance; raw byte/depth limits are transport constraints.

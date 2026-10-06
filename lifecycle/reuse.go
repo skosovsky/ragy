@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/observation"
 )
 
 type ReuseReason string
@@ -29,7 +30,20 @@ func (d ReuseDecision) CanSkip() bool { return d.Reason == ReuseConfirmed }
 // Any concurrent lifecycle generation change invalidates the decision; retry policy
 // remains with the host. A changed ACL or missing volatile target cannot be skipped.
 func (e *Executor[TPayload]) CheckReuse(
-	ctx context.Context, desired Identity, targets []string,
+	ctx context.Context,
+	desired Identity,
+	targets []string,
+) (ReuseDecision, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecycleReuse)
+	result, err := e.checkReuse(ctx, desired, targets)
+	span.End(reuseCompletion(result, err))
+	return result, err
+}
+
+func (e *Executor[TPayload]) checkReuse(
+	ctx context.Context,
+	desired Identity,
+	targets []string,
 ) (ReuseDecision, error) {
 	if err := desired.Validate(); err != nil {
 		return ReuseDecision{}, err
@@ -94,7 +108,9 @@ func (e *Executor[TPayload]) inspectReuse(ctx context.Context, manifest Manifest
 		if port == nil {
 			return false, ragy.ErrUnsupported
 		}
-		result, err := port.Inspect(ctx, StageRequest{Manifest: cloneManifest(manifest), Target: target.Name})
+		inspectCtx, inspectSpan := observation.Begin(ctx, observation.StageLifecycleInspect)
+		result, err := port.Inspect(inspectCtx, StageRequest{Manifest: cloneManifest(manifest), Target: target.Name})
+		inspectSpan.End(stageCompletion(result, err))
 		if err != nil {
 			return false, errors.Join(ErrOutcomeUnknown, err)
 		}

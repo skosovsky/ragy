@@ -11,7 +11,7 @@ import (
 	"github.com/skosovsky/ragy/source"
 )
 
-const SchemaIdentity = "ragy.retrieval-evidence"
+const SchemaIdentity = "ragy.retrieval-evidence/v2"
 
 const (
 	ScoreAbsent     = "absent"
@@ -79,6 +79,9 @@ const (
 type IdentifierKind string
 
 const (
+	ModelIdentifier          IdentifierKind = "model_revision"
+	PromptIdentifier         IdentifierKind = "prompt_revision"
+	ConfigIdentifier         IdentifierKind = "config_revision"
 	RetrievalIdentifier      IdentifierKind = "retrieval"
 	ScopeIdentifier          IdentifierKind = "scope"
 	PublicationIdentifier    IdentifierKind = "publication"
@@ -111,6 +114,8 @@ const (
 // metadata/auth/error/diagnostic strings for serialization. Callbacks are pure
 // policy decisions and must not mutate inputs or call a model.
 type Policy struct {
+	// AllowDecisions permits bounded ordinal associations and execution decisions.
+	AllowDecisions  bool
 	AllowIdentifier func(IdentifierKind, string) bool
 	AllowQuery      bool
 	AllowSnippet    func(string) bool
@@ -168,6 +173,7 @@ type Input[TMeta any] struct {
 	Required        []Field
 	Stages          []Stage[TMeta]
 	Diagnostics     []Diagnostic
+	Decision        *DecisionInput
 }
 
 // Text is an explicit observed/omitted/unavailable/unsupported value.
@@ -251,6 +257,7 @@ type Snapshot struct {
 	Coverage    retrieval.ReadCoverage `json:"coverage"`
 	Stages      []WireStage            `json:"stages"`
 	Diagnostics []Diagnostic           `json:"diagnostics"`
+	Decision    Decision               `json:"decision"`
 }
 
 type Sink interface {

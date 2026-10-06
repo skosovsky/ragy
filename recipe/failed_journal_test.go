@@ -86,8 +86,12 @@ func assertFailedJournal(t *testing.T, record evidence.Record, operation recipe.
 			stages[*stage.Name.Value] = stage
 		}
 	}
+	planStatus := evidence.StageObserved
+	if operation == recipe.Plan {
+		planStatus = evidence.MissingObservation
+	}
 	if stages["retrieve/0"].Status != evidence.StageObserved || len(stages["retrieve/0"].Hits) != 1 ||
-		stages["plan"].Status != evidence.StageObserved ||
+		stages["plan"].Status != planStatus ||
 		stages["fusion"].Status != evidence.NotRun {
 		t.Fatal("actual stage association lost")
 	}
@@ -95,7 +99,7 @@ func assertFailedJournal(t *testing.T, record evidence.Record, operation recipe.
 		t.Fatal("unstarted assessor marked observed")
 	}
 	if operation == recipe.Assess &&
-		(stages["assess"].Status != evidence.StageObserved || len(stages["retrieve/1"].Hits) != 1) {
+		(stages["assess"].Status != evidence.MissingObservation || len(stages["retrieve/1"].Hits) != 1) {
 		t.Fatal("failed assessor lost previous retrieval")
 	}
 	for _, diag := range snapshot.Diagnostics {

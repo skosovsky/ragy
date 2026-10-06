@@ -9,6 +9,7 @@ import (
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/observation"
 )
 
 // MetadataCloner snapshots host-owned BYOT metadata. It must return an independent
@@ -219,10 +220,22 @@ func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) AdmitPublication(publicati
 }
 
 // Retrieve gates both hits and misses and never reuses data across binding identities.
+//
+//nolint:nonamedreturns // Both cache spans finish after the final trusted delivery gate.
 func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
-) (ResultSet[TMeta], error) {
+) (out ResultSet[TMeta], returnErr error) {
+	ctx, span := observation.Begin(ctx, observation.StageCache)
+	var lookupSpan *observation.Span
+	defer func() {
+		if span == nil && lookupSpan == nil {
+			return
+		}
+		completion := observationCompletion(returnErr, out)
+		lookupSpan.End(completion)
+		span.End(completion)
+	}()
 	if err := req.Read.Check(ctx); err != nil {
 		return NewResultSet[TMeta](nil, b.config.Resolver), err
 	}
@@ -232,13 +245,14 @@ func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) Retrieve(
 	}
 	captured.Read = req.Read
 	captured = CopyRequestOptions(captured)
-	rs, err := b.retrieve(ctx, captured)
+	rs, err := b.retrieve(ctx, captured, &lookupSpan)
 	return DeliverRead(ctx, req.Read, rs, err, b.config.Resolver)
 }
 
 func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) retrieve(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
+	lookupSpan **observation.Span,
 ) (ResultSet[TMeta], error) {
 	empty := NewResultSet[TMeta](nil, b.config.Resolver)
 	// Retained pins bypass storage: a cache entry cannot prove physical retention.
@@ -264,13 +278,15 @@ func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) retrieve(
 	if hit {
 		cached, usable, hitErr := b.checkedHit(ctx, req, key, host, entry)
 		if hitErr != nil || usable {
+			_, *lookupSpan = observation.Begin(ctx, observation.StageCacheHit)
 			return cached, hitErr
 		}
 	}
+	ctx, *lookupSpan = observation.Begin(ctx, observation.StageCacheMiss)
 	if gateErr := req.Read.Check(ctx); gateErr != nil {
 		return empty, gateErr
 	}
-	rs, err := b.config.Next.Retrieve(ctx, req)
+	rs, err := b.config.Next.Retrieve(observation.WithBranch(ctx, 0), req)
 	rs, err = DeliverRead(ctx, req.Read, rs, err, b.config.Resolver)
 	if err != nil {
 		return rs, err

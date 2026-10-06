@@ -1,11 +1,11 @@
 # Explicit evidence export
 
 `Capture(ctx, read, Input[TMeta], Policy)` snapshots observations into an immutable
-Record with schema identity `ragy.retrieval-evidence`. Record owns canonical bytes;
+Record with schema identity `ragy.retrieval-evidence/v2`. Record owns canonical bytes;
 MarshalJSON and Snapshot return detached data. Decode rejects unknown/missing fields,
 duplicate keys, incompatible schema, malformed scores, ranks, labels and coverage.
 Wire shape validation does not certify a producer's authorization or export policy.
-Transport byte limits, sink durability and retention are host responsibilities.
+Decode/canonical capture have a 4 MiB wire bound, 32-level JSON depth bound, 1024-item collection bounds and 65536 Unicode code-point text bound. Sink durability and retention remain host responsibilities.
 
 Stages are supplied from actual execution observations. Not-run, unsupported,
 missing-observation and unavailable are explicit statuses. This package does not
@@ -57,10 +57,7 @@ to the record. Protection failure during capture/sink always fails closed in eve
 mode and clears result/receipt. A completed authorized sink write cannot be undone
 if revocation occurs afterward; final delivery is still suppressed.
 
-Schema and fixtures live in docs/task12. The independent verifier checks wire
-structure; Go tests additionally exercise ownership, freshness, source authorization
-and runtime invariants. Automatic execution/recipe stage observation adapters and
-complete cross-capability evidence acceptance remain required integration work.
+Current schema, fixtures and independent verifier live in docs/task17; task12 records remain historical and are rejected as incompatible. The verifier combines JSON Schema with explicit relational checks for sequential ordinals and query references, which standard JSON Schema cannot express. Go validates the same adversarial corpus and additionally exercises ownership, freshness and source authorization. Raw transport byte/depth limits remain separate from the declarative schema.
 
 ## Original location export
 
@@ -104,3 +101,9 @@ Recipe recording additionally matches every selected contributor to the actual
 captured query document/rank/support tuple before export. Query-index association
 remains intact through dedup. The strict shape requires contributions_state and
 contributions; update stored-record consumers explicitly.
+
+## Structured decisions
+
+`Policy.AllowDecisions` explicitly permits attempt-local query and selected-input ordinals, contributor ranks, fusion observation, per-query selection/delivery/uncertainty, actual sufficiency signal and fixed stop reason. These associations are omitted by default. They contain no domain document IDs, metadata, hashes or rationale. Retrieved means a captured retrieval completed, including an empty response; it does not claim evidence existed. Selected delivery means the contributor was directly returned when artifact rendering was disabled, or appeared in actual packed output when rendering was requested; uncertainty retains partial/derived source delivery. Recipe Result.ArtifactRequested distinguishes disabled rendering from a requested render that returned no artifact. The latter remains undelivered and uncertain.
+
+Variant text independently requires AllowQuery. Recording Config.Revisions contains separately host-supplied model/prompt/config/recipe revisions, each independently gated by AllowIdentifier; missing values remain unavailable. A nil sufficiency signal means assessment output was not captured, distinct from a captured false signal. Captured decisions support audit of available input, not deterministic model replay.

@@ -16,7 +16,10 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/tensor"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/skosovsky/ragy/observation"
 )
 
 // DenseEmbedder wraps a dense embedder with tracing.
@@ -44,7 +47,9 @@ func (w *DenseEmbedder) Space() dense.Space { return w.next.Space() }
 func (w *DenseEmbedder) Embed(ctx context.Context, texts dense.Request) (dense.Result, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.dense.embed")
 	defer span.End()
-	return w.next.Embed(ctx, texts)
+	result, err := w.next.Embed(ctx, texts)
+	recordEncoding(span, len(result.Embeddings), result.Usage, err)
+	return result, err
 }
 
 // RequestBackend wraps a typed retrieval backend with tracing.
@@ -123,16 +128,24 @@ func (w *RequestBackend[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req retrieval.Request[TIntent, TRequestMeta],
 ) (retrieval.ResultSet[TMeta], error) {
-	if err := req.Read.Check(ctx); err != nil {
-		return retrieval.NewResultSet[TMeta](nil, nil), err
-	}
-	if _, err := w.AdmitRead(ctx, req); err != nil {
-		return retrieval.NewResultSet[TMeta](nil, nil), err
-	}
 	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.backend")
 	defer span.End()
+	if err := req.Read.Check(ctx); err != nil {
+		recordOutcome(span, err, 0)
+		return retrieval.NewResultSet[TMeta](nil, nil), err
+	}
+	coverage, err := w.AdmitRead(ctx, req)
+	if err != nil {
+		recordOutcome(span, err, 0)
+		return retrieval.NewResultSet[TMeta](nil, nil), err
+	}
 	rs, err := w.next.Retrieve(ctx, req)
-	return retrieval.DeliverRead(ctx, req.Read, rs, err, nil)
+	result, err := retrieval.DeliverRead(ctx, req.Read, rs, err, nil)
+	recordOutcome(span, err, resultCount(result))
+	if err == nil && coverage.IsPartial() {
+		span.SetAttributes(attribute.Int("ragy.outcome", int(observation.OutcomePartial)))
+	}
+	return result, err
 }
 
 var _ retrieval.RequestBackend[struct{}, struct{}, any] = (*RequestBackend[struct{}, struct{}, any])(nil)
@@ -160,7 +173,10 @@ func WrapDenseIndex[TMeta any](next dense.Index[TMeta], tracer trace.Tracer) (*D
 func (w *DenseIndex[TMeta]) Upsert(ctx context.Context, records []dense.Record[TMeta]) error {
 	ctx, span := w.tracer.Start(ctx, "ragy.dense.upsert")
 	defer span.End()
-	return w.next.Upsert(ctx, records)
+	err := w.next.Upsert(ctx, records)
+	span.SetAttributes(attribute.Int("ragy.input.count", len(records)))
+	recordOutcome(span, err, -1)
+	return err
 }
 
 // Schema returns the wrapped dense index schema.
@@ -193,7 +209,9 @@ func (w *TensorEmbedder) Space() tensor.Space { return w.next.Space() }
 func (w *TensorEmbedder) Embed(ctx context.Context, texts tensor.Request) (tensor.Result, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.tensor.embed")
 	defer span.End()
-	return w.next.Embed(ctx, texts)
+	result, err := w.next.Embed(ctx, texts)
+	recordEncoding(span, len(result.Embeddings), result.Usage, err)
+	return result, err
 }
 
 // TensorIndex wraps a tensor index with tracing.
@@ -219,7 +237,10 @@ func WrapTensorIndex[TMeta any](next tensor.Index[TMeta], tracer trace.Tracer) (
 func (w *TensorIndex[TMeta]) Upsert(ctx context.Context, records []tensor.Record[TMeta]) error {
 	ctx, span := w.tracer.Start(ctx, "ragy.tensor.upsert")
 	defer span.End()
-	return w.next.Upsert(ctx, records)
+	err := w.next.Upsert(ctx, records)
+	span.SetAttributes(attribute.Int("ragy.input.count", len(records)))
+	recordOutcome(span, err, -1)
+	return err
 }
 
 // Schema returns the wrapped tensor index schema.
@@ -252,7 +273,9 @@ func (w *MultimodalEmbedder) Space() dense.Space { return w.next.Space() }
 func (w *MultimodalEmbedder) Embed(ctx context.Context, inputs multimodal.Request) (multimodal.Result, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.multimodal.embed")
 	defer span.End()
-	return w.next.Embed(ctx, inputs)
+	result, err := w.next.Embed(ctx, inputs)
+	recordEncoding(span, len(result.Embeddings), result.Usage, err)
+	return result, err
 }
 
 // GraphStore wraps a graph store with tracing.
@@ -277,14 +300,19 @@ func WrapGraphStore[TMeta any](next graph.Store[TMeta], tracer trace.Tracer) (*G
 func (w *GraphStore[TMeta]) Traverse(ctx context.Context, req graph.TraversalRequest) (graph.Snapshot[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.graph.traverse")
 	defer span.End()
-	return w.next.Traverse(ctx, req)
+	result, err := w.next.Traverse(ctx, req)
+	recordOutcome(span, err, len(result.Nodes)+len(result.Edges))
+	return result, err
 }
 
 // Upsert implements graph.Store.
 func (w *GraphStore[TMeta]) Upsert(ctx context.Context, snapshot graph.Snapshot[TMeta]) error {
 	ctx, span := w.tracer.Start(ctx, "ragy.graph.upsert")
 	defer span.End()
-	return w.next.Upsert(ctx, snapshot)
+	err := w.next.Upsert(ctx, snapshot)
+	span.SetAttributes(attribute.Int("ragy.input.count", len(snapshot.Nodes)+len(snapshot.Edges)))
+	recordOutcome(span, err, -1)
+	return err
 }
 
 // Schema returns the wrapped graph schema.
@@ -315,14 +343,18 @@ func WrapDocumentStore[TMeta any](next documents.RawStore[TMeta], tracer trace.T
 func (w *DocumentStore[TMeta]) FindByIDs(ctx context.Context, ids []string) ([]retrieval.Document[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.documents.find")
 	defer span.End()
-	return w.next.FindByIDs(ctx, ids)
+	result, err := w.next.FindByIDs(ctx, ids)
+	recordOutcome(span, err, len(result))
+	return result, err
 }
 
 // DeleteByIDs implements documents.RawStore.
 func (w *DocumentStore[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents.DeleteResult, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.documents.delete_ids")
 	defer span.End()
-	return w.next.DeleteByIDs(ctx, ids)
+	result, err := w.next.DeleteByIDs(ctx, ids)
+	recordOutcome(span, err, result.Deleted)
+	return result, err
 }
 
 // DeleteByFilter implements documents.RawStore.
@@ -332,7 +364,9 @@ func (w *DocumentStore[TMeta]) DeleteByFilter(
 ) (documents.DeleteResult, error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.documents.delete_filter")
 	defer span.End()
-	return w.next.DeleteByFilter(ctx, cond)
+	result, err := w.next.DeleteByFilter(ctx, cond)
+	recordOutcome(span, err, result.Deleted)
+	return result, err
 }
 
 // Schema returns the wrapped document-store schema.
@@ -371,10 +405,13 @@ func (w *QueryReranker[TMeta]) Rerank(
 	ctx, span := w.tracer.Start(ctx, "ragy.ranking.rerank")
 	defer span.End()
 	if err := read.Check(ctx); err != nil {
+		recordOutcome(span, err, 0)
 		return retrieval.NewResultSet[TMeta](nil, retrieval.ResolverFor(rs)), err
 	}
 	result, err := w.next.Rerank(ctx, read, query, rs)
-	return retrieval.DeliverRead(ctx, read, result, err, retrieval.ResolverFor(rs))
+	result, err = retrieval.DeliverRead(ctx, read, result, err, retrieval.ResolverFor(rs))
+	recordOutcome(span, err, resultCount(result))
+	return result, err
 }
 
 // RequestExecutionPipeline wraps an execution-aware retrieval orchestrator with tracing.
@@ -423,7 +460,12 @@ func (w *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) Exec
 ) (retrieval.RetrievalResult[TMeta, TExecMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.pipeline")
 	defer span.End()
-	return w.next.Execute(ctx, query)
+	result, err := w.next.Execute(ctx, query)
+	recordOutcome(span, err, resultCount(result.ResultSet))
+	if err == nil && result.Coverage.IsPartial() {
+		span.SetAttributes(attribute.Int("ragy.outcome", int(observation.OutcomePartial)))
+	}
+	return result, err
 }
 
 // Merger wraps a ranked-list merger with tracing.
@@ -452,7 +494,9 @@ func (w *Merger[TMeta]) Merge(
 ) (retrieval.ResultSet[TMeta], error) {
 	ctx, span := w.tracer.Start(ctx, "ragy.ranking.merge")
 	defer span.End()
-	return w.next.Merge(ctx, sets...)
+	result, err := w.next.Merge(ctx, sets...)
+	recordOutcome(span, err, resultCount(result))
+	return result, err
 }
 
 var (

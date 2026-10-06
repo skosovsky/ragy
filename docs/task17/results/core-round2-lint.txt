@@ -1,0 +1,6 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+recipe/recording_decision_integration_test.go:14:1: cognitive complexity 33 of func `TestRecordingDecisionDistinguishesDirectAndMissingPackedDelivery` is high (> 20) (gocognit)
+func TestRecordingDecisionDistinguishesDirectAndMissingPackedDelivery(t *testing.T) {
+^
+1 issues:
+* gocognit: 1

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/skosovsky/ragy/observation"
+
 	ragy "github.com/skosovsky/ragy"
 )
 
@@ -231,17 +233,30 @@ func (b *RequestRouteSwitchBuilder[TIntent, TRequestMeta, TRoute, TSignal, TMeta
 }
 
 // Execute implements RequestExecutionNode.
+//
+//nolint:nonamedreturns // Deferred diagnostics observe the final delivery-gated result.
 func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StageRoute)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if err == nil && result.Coverage.IsPartial() {
+			completion.Outcome = observation.OutcomePartial
+		}
+		span.End(completion)
+	}()
 	coverage, admissionErr := InspectRead(ctx, req, n)
 	if admissionErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
-	result, err := n.execute(ctx, req, exec)
+	result, err = n.execute(ctx, req, exec)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
@@ -285,7 +300,9 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 			},
 			fmt.Errorf("%w: route switch planner", ragy.ErrInvalidArgument)
 	}
-	decision, err := n.Planner.PlanRoute(ctx, req)
+	planCtx, planSpan := observation.Begin(ctx, observation.StagePlan)
+	decision, err := n.Planner.PlanRoute(planCtx, req)
+	planSpan.End(observation.Finish(err, observation.Count{Known: false, Value: 0}))
 	if gateErr := req.Read.Check(ctx); gateErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(resolver, zero), decision, gateErr
@@ -359,7 +376,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	result RetrievalResult[TMeta, TExecMeta],
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	for steps := 0; result.ResultSet.IsEmpty() && steps <= len(n.Fallbacks); steps++ {
-		next, nextRoute, nextResult, ok, err := n.selectFallback(req, decision, currentRoute, result)
+		next, nextRoute, nextResult, ok, err := n.selectFallback(ctx, req, decision, currentRoute, result)
 		if err != nil || !ok {
 			return nextResult, err
 		}
@@ -384,6 +401,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 }
 
 func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta]) selectFallback(
+	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	decision RouteDecision[TRoute, TSignal],
 	currentRoute TRoute,
@@ -401,22 +419,34 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 			continue
 		}
 		matched = true
+		_, edgeSpan := observation.Begin(
+			observation.WithBranch(ctx, n.branchOrdinal(edge.To)),
+			observation.StageFallback,
+		)
 		if !edge.allows(routeExecutionContext(req, decision, currentRoute, result, nil)) {
+			edgeSpan.End(routeDecisionCompletion(observation.OutcomeSkipped))
 			result.BranchTrace = append(result.BranchTrace, skippedEdgeTrace(BranchKindFallback, edge.To))
 			continue
 		}
 		nextCase, ok := n.caseFor(edge.To)
 		if !ok {
+			edgeSpan.End(observation.Finish(ragy.ErrInvalidArgument, observation.Count{Known: false, Value: 0}))
 			return emptyRouteSwitchCase[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta](),
 				currentRoute,
 				result,
 				false,
 				fmt.Errorf("%w: route switch fallback target %q", ragy.ErrInvalidArgument, fmt.Sprint(edge.To))
 		}
+		edgeSpan.End(routeDecisionCompletion(observation.OutcomeSuccess))
 		result.BranchTrace = append(result.BranchTrace, selectedEdgeTrace(BranchKindFallback, nextCase.Name, edge.To))
 		return nextCase, edge.To, result, true, nil
 	}
 	if !matched {
+		_, edgeSpan := observation.Begin(
+			observation.WithBranch(ctx, n.branchOrdinal(currentRoute)),
+			observation.StageFallback,
+		)
+		edgeSpan.End(routeDecisionCompletion(observation.OutcomeSkipped))
 		result.BranchTrace = append(result.BranchTrace, BranchStep{
 			Node:  n.traceName(),
 			Kind:  BranchKindFallback,
@@ -470,8 +500,13 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	if resolver == nil {
 		resolver = DocumentIDResolver[TMeta]{}
 	}
-	child, err := c.Node.Execute(ctx, req, result.Executed)
+	childCtx, childSpan := observation.Begin(
+		observation.WithBranch(ctx, n.branchOrdinal(c.Route)),
+		observation.StageRetrieval,
+	)
+	child, err := c.Node.Execute(childCtx, req, result.Executed)
 	child, err = finishReadResult(ctx, req.Read, child, err, resolver)
+	childSpan.End(observationCompletion(err, child.ResultSet))
 	child.ResultSet = ensureResultSet(child.ResultSet, resolver)
 	caseStep := BranchStep{
 		Node:  c.Name,
@@ -498,7 +533,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	result RetrievalResult[TMeta, TExecMeta],
 	primaryErr error,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
-	nextCase, nextResult, ok, selectErr := n.selectRescue(req, decision, current, result, primaryErr)
+	nextCase, nextResult, ok, selectErr := n.selectRescue(ctx, req, decision, current, result, primaryErr)
 	if selectErr != nil {
 		return nextResult, selectErr
 	}
@@ -516,6 +551,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 }
 
 func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta]) selectRescue(
+	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	decision RouteDecision[TRoute, TSignal],
 	current TRoute,
@@ -533,21 +569,27 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 			continue
 		}
 		matched = true
+		_, edgeSpan := observation.Begin(observation.WithBranch(ctx, n.branchOrdinal(edge.To)), observation.StageRescue)
 		if !edge.allows(routeExecutionContext(req, decision, current, result, err)) {
+			edgeSpan.End(routeDecisionCompletion(observation.OutcomeSkipped))
 			result.BranchTrace = append(result.BranchTrace, skippedEdgeTrace(BranchKindRescue, edge.To))
 			continue
 		}
 		nextCase, ok := n.caseFor(edge.To)
 		if !ok {
+			edgeSpan.End(observation.Finish(ragy.ErrInvalidArgument, observation.Count{Known: false, Value: 0}))
 			return emptyRouteSwitchCase[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta](),
 				result,
 				false,
 				fmt.Errorf("%w: route switch rescue target %q", ragy.ErrInvalidArgument, fmt.Sprint(edge.To))
 		}
+		edgeSpan.End(routeDecisionCompletion(observation.OutcomeSuccess))
 		result.BranchTrace = append(result.BranchTrace, selectedEdgeTrace(BranchKindRescue, nextCase.Name, edge.To))
 		return nextCase, result, true, nil
 	}
 	if !matched {
+		_, edgeSpan := observation.Begin(observation.WithBranch(ctx, n.branchOrdinal(current)), observation.StageRescue)
+		edgeSpan.End(routeDecisionCompletion(observation.OutcomeSkipped))
 		result.BranchTrace = append(result.BranchTrace, BranchStep{
 			Node:  n.traceName(),
 			Kind:  BranchKindRescue,
@@ -568,6 +610,24 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 		}
 	}
 	return emptyRouteSwitchCase[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta](), false
+}
+
+func routeDecisionCompletion(outcome observation.Outcome) observation.Completion {
+	var completion observation.Completion
+	completion.Outcome = outcome
+	return completion
+}
+
+// branchOrdinal exposes only the configured case position, never the route value.
+func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TExecMeta]) branchOrdinal(
+	route TRoute,
+) uint64 {
+	for i, c := range n.Cases {
+		if c.Route == route {
+			return uint64(i) + 1
+		}
+	}
+	return uint64(len(n.Cases)) + 1
 }
 
 func emptyRouteSwitchCase[TIntent, TRequestMeta, TRoute comparable, TSignal, TMeta, TExecMeta any]() RequestRouteSwitchCase[

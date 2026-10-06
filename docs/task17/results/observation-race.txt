@@ -1,0 +1,1 @@
+ok  	github.com/skosovsky/ragy/observation	1.436s

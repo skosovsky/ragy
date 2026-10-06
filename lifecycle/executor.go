@@ -9,6 +9,7 @@ import (
 	"time"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/observation"
 	"github.com/skosovsky/ragy/source"
 )
 
@@ -77,6 +78,13 @@ func NewExecutor[TPayload any](config ExecutorConfig[TPayload]) (*Executor[TPayl
 
 // Prepare is idempotent for the entire unchanged operation plan. It never stages.
 func (e *Executor[TPayload]) Prepare(ctx context.Context, plan Manifest) (Manifest, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecyclePrepare)
+	result, err := e.prepare(ctx, plan)
+	span.End(manifestCompletion(result, err))
+	return result, err
+}
+
+func (e *Executor[TPayload]) prepare(ctx context.Context, plan Manifest) (Manifest, error) {
 	if e == nil {
 		return Manifest{}, ragy.ErrInvalidArgument
 	}
@@ -114,7 +122,20 @@ func (e *Executor[TPayload]) Prepare(ctx context.Context, plan Manifest) (Manife
 
 // Stage marks dispatch unknown durably first; retries of unknown require Reconcile.
 func (e *Executor[TPayload]) Stage(
-	ctx context.Context, namespace, id, targetName string, payload TPayload,
+	ctx context.Context,
+	namespace, id, targetName string,
+	payload TPayload,
+) (Manifest, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecycle)
+	result, err := e.stage(ctx, namespace, id, targetName, payload)
+	span.End(manifestCompletion(result, err))
+	return result, err
+}
+
+func (e *Executor[TPayload]) stage(
+	ctx context.Context,
+	namespace, id, targetName string,
+	payload TPayload,
 ) (Manifest, error) {
 	snapshot, index, targetIndex, port, err := e.operation(ctx, namespace, id, targetName)
 	if err != nil {
@@ -151,11 +172,13 @@ func (e *Executor[TPayload]) Stage(
 	if err = ctx.Err(); err != nil {
 		return cloneManifest(manifest), errors.Join(ErrOutcomeUnknown, err)
 	}
+	dispatchCtx, dispatchSpan := observation.Begin(ctx, observation.StageLifecycleStage)
 	result, dispatchErr := port.Stage(
-		ctx,
+		dispatchCtx,
 		StageRequest{Manifest: cloneManifest(manifest), Target: targetName},
 		captured,
 	)
+	dispatchSpan.End(stageCompletion(result, dispatchErr))
 	if dispatchErr != nil {
 		return cloneManifest(manifest), errors.Join(ErrOutcomeUnknown, dispatchErr)
 	}
@@ -164,6 +187,13 @@ func (e *Executor[TPayload]) Stage(
 
 // Reconcile observes a previously uncertain target exactly once, without Stage.
 func (e *Executor[TPayload]) Reconcile(ctx context.Context, namespace, id, targetName string) (Manifest, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecycleReconcile)
+	result, err := e.reconcile(ctx, namespace, id, targetName)
+	span.End(manifestCompletion(result, err))
+	return result, err
+}
+
+func (e *Executor[TPayload]) reconcile(ctx context.Context, namespace, id, targetName string) (Manifest, error) {
 	snapshot, index, targetIndex, port, err := e.operation(ctx, namespace, id, targetName)
 	if err != nil {
 		return Manifest{}, err
@@ -172,7 +202,9 @@ func (e *Executor[TPayload]) Reconcile(ctx context.Context, namespace, id, targe
 	if manifest.Targets[targetIndex].State != TargetUnknown {
 		return cloneManifest(manifest), nil
 	}
-	result, inspectErr := port.Inspect(ctx, StageRequest{Manifest: cloneManifest(manifest), Target: targetName})
+	inspectCtx, inspectSpan := observation.Begin(ctx, observation.StageLifecycleInspect)
+	result, inspectErr := port.Inspect(inspectCtx, StageRequest{Manifest: cloneManifest(manifest), Target: targetName})
+	inspectSpan.End(stageCompletion(result, inspectErr))
 	if inspectErr != nil {
 		return cloneManifest(manifest), errors.Join(ErrOutcomeUnknown, inspectErr)
 	}
@@ -182,6 +214,13 @@ func (e *Executor[TPayload]) Reconcile(ctx context.Context, namespace, id, targe
 // Publish performs source expected-publication and namespace generation CAS together.
 // Cancellation/commit error requires Load reconciliation, never rollback inference.
 func (e *Executor[TPayload]) Publish(ctx context.Context, namespace, id string) (Manifest, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecyclePublish)
+	result, err := e.publish(ctx, namespace, id)
+	span.End(manifestCompletion(result, err))
+	return result, err
+}
+
+func (e *Executor[TPayload]) publish(ctx context.Context, namespace, id string) (Manifest, error) {
 	snapshot, err := e.load(ctx, namespace)
 	if err != nil {
 		return Manifest{}, err

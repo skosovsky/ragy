@@ -13,6 +13,7 @@ import (
 	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/graph"
 	"github.com/skosovsky/ragy/graph/managed"
+	"github.com/skosovsky/ragy/observation"
 	"github.com/skosovsky/ragy/recipe"
 	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/source"
@@ -64,11 +65,18 @@ func New[TMeta any](cfg Config[TMeta]) (*Recipe[TMeta], error) {
 // Run executes one bounded breadth-first expansion, with the target's visited set
 // cutting cycles. It reserves the shared ledger before dispatch and has no retry,
 // planner, model call, answer generation or implicit source/identity decisions.
-func (r *Recipe[TMeta]) Run(ctx context.Context, request Request, ledger *budget.Ledger) (Result[TMeta], error) {
-	var empty Result[TMeta]
+//
+//nolint:nonamedreturns // Deferred diagnostics observe the final trusted graph delivery.
+func (r *Recipe[TMeta]) Run(
+	ctx context.Context,
+	request Request,
+	ledger *budget.Ledger,
+) (output Result[TMeta], runErr error) {
+	ctx, span := observation.Begin(ctx, observation.StagePipeline)
+	defer func() { span.End(expansionCompletion(output, runErr)) }()
 	if r == nil || ledger == nil || request.Traversal.Depth > r.config.MaxDepth ||
 		len(request.Traversal.Seeds) > r.config.MaxNodes {
-		return empty, ragy.ErrInvalidArgument
+		return Result[TMeta]{}, ragy.ErrInvalidArgument
 	}
 	child, recipeCancel := context.WithTimeout(ctx, r.config.Duration)
 	defer recipeCancel()
@@ -85,7 +93,7 @@ func (r *Recipe[TMeta]) Run(ctx context.Context, request Request, ledger *budget
 		return nil
 	}
 	if err := gate(); err != nil {
-		return empty, err
+		return Result[TMeta]{}, err
 	}
 	request.Traversal.Seeds = slices.Clone(request.Traversal.Seeds)
 	call := managed.Request{
@@ -96,17 +104,17 @@ func (r *Recipe[TMeta]) Run(ctx context.Context, request Request, ledger *budget
 		MaxEdges:  r.config.MaxEdges,
 	}
 	if err := r.config.Adapter.AdmitTraversal(child, call); err != nil {
-		return empty, err
+		return Result[TMeta]{}, err
 	}
 	quote, err := r.config.Quote(child)
 	if err != nil {
-		return empty, err
+		return Result[TMeta]{}, err
 	}
 	if err = gate(); err != nil {
-		return empty, err
+		return Result[TMeta]{}, err
 	}
 	if quote.Kind != budget.Retrieval || quote.Usage.InputTokens != 0 || quote.Usage.OutputTokens != 0 {
-		return empty, ragy.ErrInvalidArgument
+		return Result[TMeta]{}, ragy.ErrInvalidArgument
 	}
 	lease, err := ledger.Reserve(child, quote)
 	if err != nil {
@@ -114,22 +122,22 @@ func (r *Recipe[TMeta]) Run(ctx context.Context, request Request, ledger *budget
 	}
 	if err = gate(); err != nil {
 		_ = lease.Settle(budget.Usage{InputTokens: 0, OutputTokens: 0, Cost: 0}, false)
-		return empty, err
+		return Result[TMeta]{}, err
 	}
-	evidence, callErr := r.config.Adapter.Traverse(child, call)
+	evidence, callErr := r.observedTraverse(child, call)
 	settleErr := lease.Settle(quote.Usage, quote.CostKnown)
 	if err = gate(); err != nil {
-		return empty, err
+		return Result[TMeta]{}, err
 	}
 	if err = errors.Join(callErr, settleErr); err != nil {
-		return empty, err
+		return Result[TMeta]{}, err
 	}
 	owned, err := r.snapshot(evidence, gate)
 	if err != nil {
-		return empty, err
+		return Result[TMeta]{}, err
 	}
 	if err = gate(); err != nil {
-		return empty, err
+		return Result[TMeta]{}, err
 	}
 	outcome := recipe.Complete
 	if len(owned.Snapshot.Edges) == 0 {
@@ -215,4 +223,27 @@ func (r Result[TMeta]) SourceReferences() []source.Reference {
 		}
 	}
 	return result
+}
+
+func expansionCompletion[TMeta any](output Result[TMeta], err error) observation.Completion {
+	completion := observation.Finish(
+		err,
+		observation.Count{Known: err == nil, Value: uint64(len(output.Evidence.Snapshot.Nodes))},
+	)
+	if err == nil && (output.Stop == BudgetExhausted || output.Stop == PriceUnavailable) {
+		completion.Outcome, completion.Error = observation.OutcomeExhausted, observation.ErrorResource
+	}
+	return completion
+}
+
+func (r *Recipe[TMeta]) observedTraverse(ctx context.Context, request managed.Request) (managed.Result[TMeta], error) {
+	child, span := observation.Begin(ctx, observation.StageRetrieval)
+	result, err := r.config.Adapter.Traverse(child, request)
+	span.End(
+		observation.Finish(
+			errors.Join(err, child.Err()),
+			observation.Count{Known: err == nil, Value: uint64(len(result.Snapshot.Nodes))},
+		),
+	)
+	return result, err
 }

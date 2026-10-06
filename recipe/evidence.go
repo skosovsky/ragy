@@ -2,12 +2,14 @@ package recipe
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/embedding"
+	"github.com/skosovsky/ragy/observation"
 	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/source"
@@ -62,7 +64,15 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) copyDocument(
 	return doc, a.gate(ctx)
 }
 
-func (a *attempt[TIntent, TRequestMeta, TMeta]) retrieve(request retrieval.Request[TIntent, TRequestMeta]) error {
+func (a *attempt[TIntent, TRequestMeta, TMeta]) retrieve(
+	request retrieval.Request[TIntent, TRequestMeta],
+) (stageErr error) {
+	oldContext := a.ctx
+	a.ctx = observation.WithQuery(a.ctx, uint64(len(a.result.Queries)))
+	ctx, span := observation.Begin(a.ctx, observation.StageRetrieval)
+	a.ctx = ctx
+	count := observation.Count{Known: false, Value: 0}
+	defer func() { span.End(diagnosticCompletion(stageErr, count)); a.ctx = oldContext }()
 	if err := a.gate(a.ctx); err != nil {
 		return err
 	}
@@ -99,6 +109,8 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) retrieve(request retrieval.Reque
 		return err
 	}
 	a.result.Queries = append(a.result.Queries, query)
+	count = observation.Count{Known: true, Value: uint64(len(docs))}
+	a.result.Stages[len(a.result.Stages)-1].Completed = true
 	return nil
 }
 
@@ -263,16 +275,25 @@ func allQueries[TMeta any](queries []QueryEvidence[TMeta]) []int {
 	return out
 }
 
-func (a *attempt[TIntent, TRequestMeta, TMeta]) renderDelivery() error {
+func (a *attempt[TIntent, TRequestMeta, TMeta]) renderDelivery() (stageErr error) {
 	if a.recipe.config.Artifact == nil {
 		return nil
 	}
+	ctx, span := observation.Begin(a.ctx, observation.StageDelivery)
+	count := observation.Count{Known: false, Value: 0}
+	defer func() {
+		completion := diagnosticCompletion(stageErr, count)
+		if stageErr == nil && a.result.Artifact.Resource.Packing != retrieval.ArtifactPackingComplete {
+			completion.Outcome = observation.OutcomePartial
+		}
+		span.End(completion)
+	}()
 	docs := make([]retrieval.Document[TMeta], len(a.result.Selected))
 	for i, s := range a.result.Selected {
 		docs[i] = s.Document
 	}
 	artifact, err := (retrieval.DefaultArtifactRenderer[TMeta]{}).Render(
-		a.ctx,
+		ctx,
 		a.request.Read,
 		retrieval.NewResultSet(docs, a.recipe.config.Identity),
 		*a.recipe.config.Artifact,
@@ -281,6 +302,7 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) renderDelivery() error {
 		return err
 	}
 	a.result.Artifact = &artifact
+	count = observation.Count{Known: true, Value: uint64(len(artifact.Snippets))}
 	return nil
 }
 func (a *attempt[TIntent, TRequestMeta, TMeta]) finishOutcome(selectedQueries []int, sufficient bool) {
@@ -313,6 +335,16 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) encodeQuery(
 	if nilPort(a.recipe.config.QueryEncoder) {
 		return request, nil
 	}
+	return a.observedEncoding(request)
+}
+
+//nolint:nonamedreturns // Deferred diagnostics record each preflight and validated completion.
+func (a *attempt[TIntent, TRequestMeta, TMeta]) observedEncoding(
+	request retrieval.Request[TIntent, TRequestMeta],
+) (out retrieval.Request[TIntent, TRequestMeta], stageErr error) {
+	ctx, span := observation.Begin(a.ctx, observation.StageEncoding)
+	count := observation.Count{Known: false, Value: 0}
+	defer func() { span.End(diagnosticCompletion(stageErr, count)) }()
 	input := dense.Request{
 		Inputs:                  []string{request.EffectiveText()},
 		Purpose:                 embedding.Query,
@@ -321,18 +353,20 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) encodeQuery(
 	if err := a.gate(a.ctx); err != nil {
 		return request, err
 	}
-	if err := a.recipe.config.QueryEncoder.Admit(a.ctx, input); err != nil {
+	if err := a.recipe.config.QueryEncoder.Admit(ctx, input); err != nil {
 		return request, err
 	}
 	lease, quote, err := a.reserve(Encode)
 	if err != nil {
 		return request, err
 	}
+	modelCtx, modelSpan := observation.Begin(ctx, observation.StageModel)
 	result, usage, callErr := a.recipe.config.QueryEncoder.Encode(
-		a.ctx,
+		modelCtx,
 		input,
 		ModelLimits{InputTokens: quote.Usage.InputTokens, OutputTokens: quote.Usage.OutputTokens},
 	)
+	modelSpan.End(modelCompletion(errors.Join(callErr, modelCtx.Err()), usage))
 	err = a.settle(Encode, lease, quote, usage, callErr)
 	if err != nil {
 		return request, err
@@ -359,9 +393,14 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) encodeQuery(
 	value.Vector = slices.Clone(value.Vector)
 	result.Embeddings = []dense.Embedding{value}
 	a.result.Encoding = append(a.result.Encoding, result)
+	count = observation.Count{Known: true, Value: 1}
 	request.Options.Space = value.Space
 	request.Options.Vector = slices.Clone(value.Vector)
-	return request, a.gate(a.ctx)
+	if err = a.gate(a.ctx); err != nil {
+		return request, err
+	}
+	a.result.Stages[len(a.result.Stages)-1].Completed = true
+	return request, nil
 }
 
 type capturedDocument[TMeta any] struct {
@@ -481,4 +520,15 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) documentDelivery(inputIndex int)
 	}
 
 	return delivered, uncertain
+}
+
+func (a *attempt[TIntent, TRequestMeta, TMeta]) observedFusion(indices []int) (err error) {
+	oldContext := a.ctx
+	ctx, span := observation.Begin(a.ctx, observation.StageFusion)
+	a.ctx = ctx
+	defer func() {
+		span.End(diagnosticCompletion(err, observation.Count{Known: err == nil, Value: uint64(len(a.result.Selected))}))
+		a.ctx = oldContext
+	}()
+	return a.selectEvidence(indices)
 }

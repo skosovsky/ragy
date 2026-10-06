@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/observation"
 )
 
 type InventoryKind string
@@ -132,6 +133,13 @@ func (i Inventory) Fingerprint() (string, error) {
 // Import persists verified ownership only. Missing complete-inventory sources stay
 // published until an explicit expected-publication tombstone succeeds.
 func (b *Bootstrapper) Import(ctx context.Context, input Inventory) (InventoryReceipt, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecycleBootstrap)
+	result, err := b.importInventory(ctx, input)
+	span.End(inventoryCompletion(result, err))
+	return result, err
+}
+
+func (b *Bootstrapper) importInventory(ctx context.Context, input Inventory) (InventoryReceipt, error) {
 	if b == nil {
 		return InventoryReceipt{}, ragy.ErrInvalidArgument
 	}

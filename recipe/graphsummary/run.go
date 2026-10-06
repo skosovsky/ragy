@@ -9,6 +9,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/observation"
 	"github.com/skosovsky/ragy/recipe"
 	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/source"
@@ -42,12 +43,15 @@ func (r *Recipe[TAccess]) Global(ctx context.Context, request Request[TAccess], 
 	return r.run(ctx, request, ledger, true)
 }
 
+//nolint:nonamedreturns // Diagnostics observe the final trusted delivery and bounded partial result.
 func (r *Recipe[TAccess]) run(
 	ctx context.Context,
 	request Request[TAccess],
 	ledger *budget.Ledger,
 	global bool,
-) (Result, error) {
+) (output Result, runErr error) {
+	ctx, span := observation.Begin(ctx, observation.StagePipeline)
+	defer func() { span.End(summaryRunCompletion(output, runErr)) }()
 	if r == nil || ledger == nil {
 		return Result{}, ragy.ErrInvalidArgument
 	}
@@ -76,12 +80,12 @@ func (r *Recipe[TAccess]) run(
 		return Result{}, err
 	}
 	result := Result{Communities: nil, Global: nil, Outcome: recipe.Complete, Stop: Summarized, ModelCalls: 0}
-	for _, community := range communities {
+	for index, community := range communities {
 		if err = r.refresh(child, request.Read, communities, gate); err != nil {
 			return Result{}, err
 		}
 		output, callErr := r.call(
-			child,
+			observation.WithBranch(child, uint64(index)),
 			ledger,
 			ModelInput{
 				Stage:           Map,
@@ -178,6 +182,7 @@ func (r *Recipe[TAccess]) reduce(
 	return r.deliver(ctx, request.Read, result, gate)
 }
 
+//nolint:nonamedreturns // Diagnostics observe every preflight and validated model output.
 func (r *Recipe[TAccess]) call(
 	ctx context.Context,
 	ledger *budget.Ledger,
@@ -185,7 +190,20 @@ func (r *Recipe[TAccess]) call(
 	calls *uint64,
 	gate func() error,
 	ready func() error,
-) (ModelOutput, error) {
+) (observedOutput ModelOutput, stageErr error) {
+	stage := observation.StageSummaryMap
+	if input.Stage == Reduce {
+		stage = observation.StageSummaryReduce
+	}
+	ctx, stageSpan := observation.Begin(ctx, stage)
+	defer func() {
+		stageSpan.End(
+			summaryCompletion(
+				stageErr,
+				observation.Count{Known: stageErr == nil, Value: uint64(len(observedOutput.Selected))},
+			),
+		)
+	}()
 	var empty ModelOutput
 	if err := gate(); err != nil {
 		return empty, err
@@ -214,7 +232,15 @@ func (r *Recipe[TAccess]) call(
 	}
 	input.Snippets = slices.Clone(input.Snippets)
 	*calls++
-	output, usage, callErr := r.config.Model(ctx, input)
+	modelCtx, modelSpan := observation.Begin(ctx, observation.StageModel)
+	output, usage, callErr := r.config.Model(modelCtx, input)
+	completion := summaryCompletion(errors.Join(callErr, modelCtx.Err()), observation.Count{Known: false, Value: 0})
+	completion.Usage = observation.Usage{
+		BilledUnits:  observation.Count{Known: false, Value: 0},
+		InputTokens:  observation.Count{Known: usage.Known, Value: usage.Value.InputTokens},
+		OutputTokens: observation.Count{Known: usage.Known, Value: usage.Value.OutputTokens},
+	}
+	modelSpan.End(completion)
 	settleErr := lease.Settle(usage.Value, usage.Known && quote.CostKnown)
 	if usage.Known &&
 		(usage.Value.InputTokens > quote.Usage.InputTokens || usage.Value.OutputTokens > quote.Usage.OutputTokens) {
@@ -377,4 +403,26 @@ func validPorts[TAccess any](cfg Config[TAccess]) bool {
 		cfg.Quote != nil &&
 		cfg.CountInputTokens != nil &&
 		cfg.Model != nil
+}
+
+func summaryCompletion(err error, count observation.Count) observation.Completion {
+	completion := observation.Finish(err, count)
+	if errors.Is(err, budget.ErrExhausted) || errors.Is(err, budget.ErrUnknownPrice) {
+		completion.Outcome, completion.Error = observation.OutcomeExhausted, observation.ErrorResource
+	}
+	return completion
+}
+
+func summaryRunCompletion(output Result, err error) observation.Completion {
+	completion := summaryCompletion(err, observation.Count{Known: err == nil, Value: uint64(len(output.Communities))})
+	if err != nil {
+		return completion
+	}
+	if output.Outcome == recipe.Partial || output.Outcome == recipe.Insufficient && len(output.Communities) > 0 {
+		completion.Outcome = observation.OutcomePartial
+	}
+	if output.Stop == BudgetExhausted || output.Stop == PriceUnavailable {
+		completion.Outcome, completion.Error = observation.OutcomeExhausted, observation.ErrorResource
+	}
+	return completion
 }

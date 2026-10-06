@@ -169,11 +169,16 @@ type Subquestion struct {
 }
 
 type Stage struct {
+	// Completed means returned output was validated and retained after settlement.
+	// A dispatched failure or missing observation keeps this false.
+	Completed bool
 	Operation Operation
 	Usage     Usage
 }
 
 type Result[TMeta any] struct {
+	// Sufficiency is unavailable until a validated assessor response is observed.
+	Sufficiency    *bool
 	Outcome        Outcome
 	Stop           StopReason
 	Strategy       Strategy
@@ -186,6 +191,9 @@ type Result[TMeta any] struct {
 	Stages         []Stage
 	Budget         budget.Snapshot
 	Fusion         FusionObservation
-	Artifact       *retrieval.RetrievalContextArtifact[TMeta]
-	Encoding       []dense.Result
+	// ArtifactRequested distinguishes direct document delivery from a requested
+	// render whose artifact was not retained (for example a local deadline).
+	ArtifactRequested bool
+	Artifact          *retrieval.RetrievalContextArtifact[TMeta]
+	Encoding          []dense.Result
 }

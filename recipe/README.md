@@ -155,3 +155,22 @@ IDs are display/storage identities and cannot prove which independently keyed
 fragment survived packing. Equal packed text can retain several input contributors
 with individual full/uncertain flags; discarded different text contributes nothing.
 Recording and snapshots preserve those actual input contributors.
+
+Optional diagnostics use a bounded `observation.Session` on the caller context.
+Recipe, encoding, model, fusion and requested artifact delivery report actual local
+starts and completions. Query ordinals match `Result.Queries` indices; events
+contain no query text, document IDs, metadata, provider messages or host revision
+labels. Model token counts come from the dispatched port; host-priced cost is not
+reported as provider billed units. Unknown accounting remains unknown. A local
+cancellation does not confirm remote cancellation or billing.
+
+Diagnostic callback errors and panics cannot change or repeat an attempt. Required
+recording remains a separate contract. `Result.Sufficiency` is unavailable until a
+validated assessor response supplies the signal, and is not a truth guarantee.
+`Stage.Completed` distinguishes validated retained output from a dispatched call
+whose output is missing or rejected; actual usage may still be known on failure.
+
+`Result.ArtifactRequested` retains the actual configured delivery mode. If false,
+selected documents are delivered directly. If true with a nil artifact, rendering
+was requested but its output was not retained; export must keep delivery uncertain.
+This fact is independent of document IDs and query coverage and survives snapshots.

@@ -224,7 +224,7 @@ func TestArtifactMeasurementRespectsAttemptDeadline(t *testing.T) {
 	result, err := f.run(context.Background(), t)
 	// Assert.
 	if err != nil || result.Stop != recipe.DeadlineReached || result.Outcome == recipe.Complete ||
-		result.Artifact != nil ||
+		result.Artifact != nil || !result.ArtifactRequested ||
 		result.Coverage[0].DeliveredEvidence ||
 		!result.Coverage[0].DeliveryUncertain {
 		t.Fatal(result, err)
@@ -347,5 +347,50 @@ func TestSamePackedTextPreservesPerContributorUncertainty(t *testing.T) {
 		result.Coverage[1].DeliveredEvidence ||
 		!result.Coverage[1].DeliveryUncertain {
 		t.Fatal(result, err)
+	}
+}
+
+func TestDisabledArtifactDeliversSelectedDocumentsExplicitly(t *testing.T) {
+	// Arrange.
+	f := newFixture(t, recipe.SingleRewrite)
+	f.results["original"] = []retrieval.Document[meta]{document("one")}
+	f.selected = []int{0}
+	// Act.
+	result, err := f.run(context.Background(), t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := recipe.SnapshotResult(context.Background(), f.read, result, f.config.CloneMeta)
+	// Assert.
+	if err != nil || result.ArtifactRequested || snapshot.ArtifactRequested || result.Artifact != nil ||
+		result.Outcome != recipe.Complete ||
+		!result.Coverage[0].DeliveredEvidence ||
+		result.Coverage[0].DeliveryUncertain {
+		t.Fatal(result, snapshot, err)
+	}
+}
+
+func TestRequestedArtifactProtectionFailureSuppressesJournal(t *testing.T) {
+	// Arrange.
+	f := newFixture(t, recipe.SingleRewrite)
+	f.results["original"] = []retrieval.Document[meta]{document("one")}
+	f.selected = []int{0}
+	resource := retrieval.RuneResource(100)
+	resource.Measure = func(context.Context, string) (int64, error) { return 0, errors.New("measurement failed") }
+	f.config.Artifact = &retrieval.ArtifactRenderOptions[meta]{Resource: resource, CloneMeta: f.config.CloneMeta}
+	r, err := recipe.New(f.config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Act.
+	result, err := r.RunOwnObserved(context.Background(), recordedRequest(f))
+	// Assert.
+	if err == nil || result.ArtifactRequested || result.Artifact != nil || result.Outcome != "" ||
+		len(result.Queries) != 0 {
+		t.Fatal(result, err)
+	}
+	snapshot, snapshotErr := recipe.SnapshotResult(context.Background(), f.read, result, f.config.CloneMeta)
+	if snapshotErr != nil || snapshot.ArtifactRequested || snapshot.Artifact != nil {
+		t.Fatal(snapshot, snapshotErr)
 	}
 }

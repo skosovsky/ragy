@@ -25,6 +25,9 @@ type capture struct {
 }
 
 func Capture[TMeta any](ctx context.Context, read access.Binding, input Input[TMeta], policy Policy) (Record, error) {
+	if !boundedInput(input) {
+		return Record{}, ragy.ErrProtocol
+	}
 	if err := read.Check(ctx); err != nil {
 		return Record{}, err
 	}
@@ -65,6 +68,7 @@ func Capture[TMeta any](ctx context.Context, read access.Binding, input Input[TM
 		Coverage:    input.Coverage,
 		Stages:      make([]WireStage, 0, len(input.Stages)),
 		Diagnostics: slices.Clone(input.Diagnostics),
+		Decision:    captureDecision(&c, input.Decision),
 	}
 	for i := range snapshot.Diagnostics {
 		if snapshot.Diagnostics[i].Number.State == Observed && !policy.AllowNumbers {

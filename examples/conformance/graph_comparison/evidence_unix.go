@@ -42,8 +42,9 @@ func (s summarySources) evidenceInput(q query, sample observation) evidence.Inpu
 	stages = append(stages, evidence.Stage[baselineMetadata]{Name: supportStage, Status: evidence.StageObserved,
 		Scores: evidence.Observed, Sources: evidence.Observed, Judgments: evidence.Unavailable, Hits: hits})
 	return evidence.Input[baselineMetadata]{
-		Schema: s.schema,
-		Codec:  retrieval.NewJSONCodec[baselineMetadata](s.schema),
+		Decision: nil,
+		Schema:   s.schema,
+		Codec:    retrieval.NewJSONCodec[baselineMetadata](s.schema),
 		SourceAdmission: func(ctx context.Context, read access.Binding, ref source.Reference) error {
 			values, err := s.reader.Lookup(ctx, source.LookupRequest{Read: read, References: []source.Reference{ref}})
 			if err != nil {
@@ -128,6 +129,7 @@ func supportPolicy(read access.Binding, q query, sample observation) evidence.Po
 		}
 	}
 	return evidence.Policy{
+		AllowDecisions:  false,
 		AllowIdentifier: func(_ evidence.IdentifierKind, id string) bool { return allowed[id] },
 		AllowNumbers:    true,
 	}

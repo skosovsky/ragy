@@ -1,0 +1,3 @@
+ok  	github.com/skosovsky/ragy/observation	(cached)
+ok  	github.com/skosovsky/ragy/lifecycle	(cached)
+ok  	github.com/skosovsky/ragy/retrieval	(cached)

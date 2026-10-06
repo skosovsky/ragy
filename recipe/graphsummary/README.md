@@ -69,3 +69,10 @@ support retention, derived precision, snapshot ownership, source-reader batch
 admission, model privacy, invalid selections, usage overruns, deletion/revocation/
 expiry and publication invalidation. HTTP protocol fixtures and scripted prose do
 not establish live model quality or exact provider token counts.
+
+A caller `observation.Session` observes the attempt, each summary map/reduce stage
+and each actual model dispatch. Numeric community ordinals identify map branches;
+no question, summary text, community ID or source support enters diagnostics.
+Token usage is observed only from the dispatched model port; unknown usage and
+local cancellation do not imply zero billing or confirmed remote cancellation.
+Diagnostic exporter failure never retries a summary or changes its result.

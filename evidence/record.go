@@ -26,10 +26,16 @@ func fromSnapshot(snapshot Snapshot) (Record, error) {
 	if err != nil {
 		return Record{}, ragy.ErrInvalidArgument
 	}
+	if len(data) > MaxRecordBytes {
+		return Record{}, ragy.ErrProtocol
+	}
 	return Record{data: data}, nil
 }
 func Decode(data []byte) (Record, error) {
-	if err := uniqueFields(json.NewDecoder(bytes.NewReader(data))); err != nil {
+	if len(data) > MaxRecordBytes || !utf8.Valid(data) {
+		return Record{}, ragy.ErrProtocol
+	}
+	if err := uniqueFieldsDepth(json.NewDecoder(bytes.NewReader(data)), 0); err != nil {
 		return Record{}, ragy.ErrProtocol
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
@@ -57,7 +63,10 @@ func Decode(data []byte) (Record, error) {
 	return record, nil
 }
 
-func uniqueFields(decoder *json.Decoder) error {
+func uniqueFieldsDepth(decoder *json.Decoder, depth int) error {
+	if depth > MaxRecordDepth {
+		return ragy.ErrProtocol
+	}
 	token, err := decoder.Token()
 	if err != nil {
 		return err
@@ -68,12 +77,12 @@ func uniqueFields(decoder *json.Decoder) error {
 	}
 	switch delimiter {
 	case '{':
-		if objectErr := uniqueObjectFields(decoder); objectErr != nil {
+		if objectErr := uniqueObjectFields(decoder, depth); objectErr != nil {
 			return objectErr
 		}
 	case '[':
 		for decoder.More() {
-			if valueErr := uniqueFields(decoder); valueErr != nil {
+			if valueErr := uniqueFieldsDepth(decoder, depth+1); valueErr != nil {
 				return valueErr
 			}
 		}
@@ -140,7 +149,8 @@ func sameShape(a, b any) bool {
 func validText(value Text) bool {
 	switch value.State {
 	case Observed:
-		return value.Value != nil && *value.Value != "" && utf8.ValidString(*value.Value)
+		return value.Value != nil && *value.Value != "" && utf8.ValidString(*value.Value) &&
+			utf8.RuneCountInString(*value.Value) <= MaxTextRunes
 	case Omitted, Unavailable, Unsupported:
 		return value.Value == nil
 	default:
@@ -188,7 +198,7 @@ func validScore(score Score) bool {
 		return score.State != ScoreNormalized || (*score.Value >= 0 && *score.Value <= 1)
 	case ScoreAbsent:
 		return score.Value == nil && score.Semantics.State == Unavailable
-	case "omitted", "unavailable", "unsupported":
+	case string(Omitted), string(Unavailable), string(Unsupported):
 		return score.Value == nil
 	default:
 		return false
@@ -268,6 +278,9 @@ func validateSnapshot(snapshot Snapshot) error {
 	if snapshot.Schema != SchemaIdentity {
 		return ragy.ErrUnsupported
 	}
+	if !validDecision(snapshot.Decision) || !boundedSnapshot(snapshot) {
+		return ragy.ErrProtocol
+	}
 	for _, field := range []Text{snapshot.RetrievalID, snapshot.Scope, snapshot.Publication, snapshot.Recipe, snapshot.Query} {
 		if !validText(field) {
 			return ragy.ErrProtocol
@@ -298,8 +311,7 @@ func validateSnapshot(snapshot Snapshot) error {
 		}
 	}
 	for index, stage := range snapshot.Stages {
-		if !validStage(stage, index, snapshot.RetrievalID) ||
-			(snapshot.Outcome == CompleteEmpty && len(stage.Hits) != 0) {
+		if !validSnapshotStage(snapshot, stage, index) {
 			return ragy.ErrProtocol
 		}
 	}
@@ -349,7 +361,7 @@ func validDiagnostic(diagnostic Diagnostic) bool {
 	return diagnostic.Kind == LatencyMillis || math.Trunc(*diagnostic.Number.Value) == *diagnostic.Number.Value
 }
 
-func uniqueObjectFields(decoder *json.Decoder) error {
+func uniqueObjectFields(decoder *json.Decoder, depth int) error {
 	seen := make(map[string]bool)
 	for decoder.More() {
 		keyToken, keyErr := decoder.Token()
@@ -361,9 +373,13 @@ func uniqueObjectFields(decoder *json.Decoder) error {
 			return ragy.ErrProtocol
 		}
 		seen[key] = true
-		if valueErr := uniqueFields(decoder); valueErr != nil {
+		if valueErr := uniqueFieldsDepth(decoder, depth+1); valueErr != nil {
 			return valueErr
 		}
 	}
 	return nil
+}
+
+func validSnapshotStage(snapshot Snapshot, stage WireStage, index int) bool {
+	return validStage(stage, index, snapshot.RetrievalID) && (snapshot.Outcome != CompleteEmpty || len(stage.Hits) == 0)
 }

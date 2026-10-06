@@ -7,6 +7,7 @@ import (
 	"time"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/observation"
 )
 
 type CleanupState string
@@ -99,6 +100,13 @@ func NewCleaner(config CleanerConfig) (*Cleaner, error) {
 
 // Begin captures only the owner's exact previously published ancestry.
 func (c *Cleaner) Begin(ctx context.Context, namespace, ownerID string) (CleanupJob, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecycleCleanupBegin)
+	result, err := c.begin(ctx, namespace, ownerID)
+	span.End(cleanupCompletion(result, err))
+	return result, err
+}
+
+func (c *Cleaner) begin(ctx context.Context, namespace, ownerID string) (CleanupJob, error) {
 	snapshot, err := c.load(ctx, namespace)
 	if err != nil {
 		return CleanupJob{}, err
@@ -149,6 +157,17 @@ func (c *Cleaner) Attempt(
 	namespace, owner, retired, target string,
 	recovery bool,
 ) (CleanupJob, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecycle)
+	result, err := c.attempt(ctx, namespace, owner, retired, target, recovery)
+	span.End(cleanupCompletion(result, err))
+	return result, err
+}
+
+func (c *Cleaner) attempt(
+	ctx context.Context,
+	namespace, owner, retired, target string,
+	recovery bool,
+) (CleanupJob, error) {
 	snapshot, jobAt, itemAt, request, port, err := c.operation(ctx, namespace, owner, retired, target)
 	if err != nil {
 		return CleanupJob{}, err
@@ -187,7 +206,9 @@ func (c *Cleaner) Attempt(
 	if err = ctx.Err(); err != nil {
 		return cloneJob(job), errors.Join(ErrOutcomeUnknown, err)
 	}
-	result, dispatchErr := port.Cleanup(ctx, request)
+	dispatchCtx, dispatchSpan := observation.Begin(ctx, observation.StageLifecycleCleanup)
+	result, dispatchErr := port.Cleanup(dispatchCtx, request)
+	dispatchSpan.End(cleanupStateCompletion(result, dispatchErr))
 	if dispatchErr != nil {
 		return cloneJob(job), errors.Join(ErrOutcomeUnknown, dispatchErr)
 	}
@@ -196,6 +217,13 @@ func (c *Cleaner) Attempt(
 
 // Reconcile inspects uncertainty once and never issues another destructive call.
 func (c *Cleaner) Reconcile(ctx context.Context, namespace, owner, retired, target string) (CleanupJob, error) {
+	ctx, span := observation.Begin(ctx, observation.StageLifecycleCleanupReconcile)
+	result, err := c.reconcile(ctx, namespace, owner, retired, target)
+	span.End(cleanupCompletion(result, err))
+	return result, err
+}
+
+func (c *Cleaner) reconcile(ctx context.Context, namespace, owner, retired, target string) (CleanupJob, error) {
 	snapshot, jobAt, itemAt, request, port, err := c.operation(ctx, namespace, owner, retired, target)
 	if err != nil {
 		return CleanupJob{}, err
@@ -204,7 +232,9 @@ func (c *Cleaner) Reconcile(ctx context.Context, namespace, owner, retired, targ
 	if job.Items[itemAt].State != CleanupUnknown {
 		return cloneJob(job), nil
 	}
-	result, inspectErr := port.InspectCleanup(ctx, request)
+	inspectCtx, inspectSpan := observation.Begin(ctx, observation.StageLifecycleCleanupInspect)
+	result, inspectErr := port.InspectCleanup(inspectCtx, request)
+	inspectSpan.End(cleanupStateCompletion(result, inspectErr))
 	if inspectErr != nil {
 		return cloneJob(job), errors.Join(ErrOutcomeUnknown, inspectErr)
 	}

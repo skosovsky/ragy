@@ -23,6 +23,7 @@ type Config[TIntent, TRequestMeta, TMeta any] struct {
 	Mode            evidence.Mode
 	Sink            evidence.Sink
 	RetrievalID     string
+	Revisions       evidence.HostRevisions
 	Schema          filter.Schema
 	Codec           retrieval.MetadataCodec[TMeta]
 	SourceAdmission func(context.Context, access.Binding, source.Reference) error
@@ -147,7 +148,7 @@ func observations[TIntent, TRequestMeta, TMeta any](
 	input := evidence.Input[TMeta]{Schema: config.Schema, Codec: config.Codec, SourceAdmission: config.SourceAdmission,
 		RetrievalID: config.RetrievalID, RecipeRevision: result.RecipeRevision, Query: query,
 		Outcome: evidence.Failed, Reason: evidence.TargetFailure, Coverage: result.Admission,
-		Required: config.Required, Stages: nil, Diagnostics: nil}
+		Required: config.Required, Stages: nil, Diagnostics: nil, Decision: nil}
 	if executionErr != nil && result.Publication == "" {
 		// Pre-attempt failure has no journal; no earlier hits/counts are invented.
 		input.Stages = []evidence.Stage[TMeta]{unobservedStage[TMeta]("recipe", evidence.MissingObservation)}
@@ -168,6 +169,7 @@ func observations[TIntent, TRequestMeta, TMeta any](
 		return evidence.Input[TMeta]{}, err
 	}
 	input.Diagnostics = diagnostics(result)
+	input.Decision = decisions(result, config.Revisions)
 	return input, nil
 }
 
@@ -232,17 +234,17 @@ func stages[TMeta any](result recipe.Result[TMeta]) ([]evidence.Stage[TMeta], er
 	for _, stage := range result.Stages {
 		switch stage.Operation {
 		case recipe.Encode:
-			out = append(out, observedStage[TMeta]("encode"))
+			out = append(out, modelStage[TMeta]("encode", stage.Completed))
 		case recipe.Plan:
 			planned = true
-			out = append(out, observedStage[TMeta]("plan"))
+			out = append(out, modelStage[TMeta]("plan", stage.Completed))
 		case recipe.Assess:
 			assessed = true
-			out = append(out, observedStage[TMeta]("assess"))
+			out = append(out, modelStage[TMeta]("assess", stage.Completed))
 		case recipe.Retrieve:
 			name := "retrieve/" + strconv.Itoa(retrievalOrdinal)
 			retrievalOrdinal++
-			if nextQuery >= len(result.Queries) {
+			if !stage.Completed || nextQuery >= len(result.Queries) {
 				out = append(out, unobservedStage[TMeta](name, evidence.MissingObservation))
 				continue
 			}
@@ -421,11 +423,13 @@ func deliveryStage[TMeta any](result recipe.Result[TMeta]) (evidence.Stage[TMeta
 			SourceSupports: slices.Clone(snippet.Supports),
 		}
 		var contributions []evidence.Contribution
+		refs := references(snippet.Supports)
 		for _, packed := range snippet.Contributors {
 			if packed.InputIndex < 0 || packed.InputIndex >= len(result.Selected) {
 				return evidence.Stage[TMeta]{}, ragy.ErrProtocol
 			}
 			for _, original := range result.Selected[packed.InputIndex].Contributors {
+				refs = append(refs, references(original.Supports)...)
 				contributions = append(
 					contributions,
 					evidence.Contribution{
@@ -441,7 +445,7 @@ func deliveryStage[TMeta any](result recipe.Result[TMeta]) (evidence.Stage[TMeta
 			stage.Hits,
 			evidence.Hit[TMeta]{
 				Document:  doc,
-				Sources:   references(snippet.Supports),
+				Sources:   unique(refs),
 				Locations: slices.Clone(snippet.Supports), Judgment: nil, Contributions: contributions,
 			},
 		)
@@ -461,4 +465,11 @@ func appendDelivery[TMeta any](
 		return nil, err
 	}
 	return append(out, delivery), nil
+}
+
+func modelStage[TMeta any](name string, completed bool) evidence.Stage[TMeta] {
+	if !completed {
+		return unobservedStage[TMeta](name, evidence.MissingObservation)
+	}
+	return observedStage[TMeta](name)
 }

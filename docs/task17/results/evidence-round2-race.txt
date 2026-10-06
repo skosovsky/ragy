@@ -1,0 +1,6 @@
+ok  	github.com/skosovsky/ragy/evidence	(cached)
+ok  	github.com/skosovsky/ragy/recipe	2.217s
+ok  	github.com/skosovsky/ragy/recipe/budget	(cached)
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	(cached)
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	(cached)
+ok  	github.com/skosovsky/ragy/recipe/recording	1.515s

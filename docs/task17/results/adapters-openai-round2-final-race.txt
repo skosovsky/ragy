@@ -1,0 +1,6 @@
+ok  	github.com/skosovsky/ragy/adapters/openai/dense	(cached)
+--- FAIL: TestHTTPFailedAssessmentRetainsRecipeJournal (0.01s)
+    recipe_integration_test.go:584: failed assessment lost actual stage evidence
+FAIL
+FAIL	github.com/skosovsky/ragy/adapters/openai/structured	0.965s
+FAIL

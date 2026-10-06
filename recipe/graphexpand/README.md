@@ -44,3 +44,9 @@ Integration tests exercise actual managed traversal, scoped cycle/private-bridge
 admission, shared ledger stops, depth/node/edge limits, cancellation/revocation and
 the durable lifecycle stage/publication path with original-source support export.
 The comparative hybrid baseline experiment is a separate acceptance requirement.
+
+A caller `observation.Session` observes the bounded attempt and its actual managed
+traversal. Counts are available only after the observed traversal returns;
+provider/model accounting remains unavailable for this model-free port. Events
+contain no graph IDs, traversal seeds, supports or host basis, and diagnostic
+exporter failure cannot repeat or change traversal.

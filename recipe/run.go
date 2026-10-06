@@ -11,6 +11,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/observation"
 	"github.com/skosovsky/ragy/recipe/budget"
 	"github.com/skosovsky/ragy/retrieval"
 )
@@ -108,11 +109,15 @@ func (r *Recipe[TIntent, TRequestMeta, TMeta]) Run(
 // RunObserved retains owned observations and settled usage on ordinary attempt
 // errors for explicit recording. An error is never a successful retrieval result.
 // Protection failure and parent cancellation suppress the complete journal.
+//
+//nolint:nonamedreturns // Deferred diagnostics observe the final trusted delivery and failure result.
 func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunObserved(
 	ctx context.Context,
 	request retrieval.Request[TIntent, TRequestMeta],
 	ledger *budget.Ledger,
-) (Result[TMeta], error) {
+) (output Result[TMeta], runErr error) {
+	ctx, span := observation.Begin(ctx, observation.StagePipeline)
+	defer func() { span.End(attemptCompletion(output, runErr)) }()
 	if r == nil || ledger == nil {
 		return Result[TMeta]{}, ragy.ErrInvalidArgument
 	}
@@ -146,7 +151,8 @@ func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunObserved(
 			RecipeRevision: r.config.Revision,
 			Publication:    request.Read.Publication().Reference(),
 			Fusion:         FusionNotRun,
-			Artifact:       nil, Encoding: nil,
+			Artifact:       nil, Encoding: nil, Sufficiency: nil,
+			ArtifactRequested: r.config.Artifact != nil,
 		},
 		planned:  0,
 		deadline: deadline,
@@ -181,7 +187,7 @@ func (r *Recipe[TIntent, TRequestMeta, TMeta]) RunObserved(
 		selected = allQueries(a.result.Queries)
 	}
 	a.result.Fusion = FusionMissing
-	if err = a.selectEvidence(selected); err != nil {
+	if err = a.observedFusion(selected); err != nil {
 		return a.failedResult(err)
 	}
 	a.result.Fusion = FusionObserved
@@ -257,6 +263,8 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) execute() ([]int, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+	signal := assessment.Sufficient
+	a.result.Sufficiency = &signal
 	a.result.Stop = Assessed
 	return assessment.Selected, assessment.Sufficient, nil
 }
@@ -303,7 +311,7 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) settle(
 ) error {
 	observed := usage
 	observed.Known = usage.Known && quote.CostKnown
-	a.result.Stages = append(a.result.Stages, Stage{Operation: operation, Usage: observed})
+	a.result.Stages = append(a.result.Stages, Stage{Operation: operation, Usage: observed, Completed: false})
 	settleErr := lease.Settle(usage.Value, observed.Known)
 	if usage.Known &&
 		(usage.Value.InputTokens > quote.Usage.InputTokens || usage.Value.OutputTokens > quote.Usage.OutputTokens) {
@@ -315,7 +323,17 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) settle(
 	return errors.Join(callErr, settleErr)
 }
 
-func (a *attempt[TIntent, TRequestMeta, TMeta]) plan() (Planning, error) {
+//nolint:nonamedreturns // Deferred diagnostics require the validated output on every return.
+func (a *attempt[TIntent, TRequestMeta, TMeta]) plan() (output Planning, stageErr error) {
+	ctx, span := observation.Begin(a.ctx, observation.StagePlan)
+	defer func() {
+		span.End(
+			diagnosticCompletion(
+				stageErr,
+				observation.Count{Known: stageErr == nil, Value: uint64(len(output.Queries))},
+			),
+		)
+	}()
 	request, err := a.copyRequest(a.request)
 	if err != nil {
 		return Planning{}, err
@@ -324,11 +342,13 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) plan() (Planning, error) {
 	if err != nil {
 		return Planning{}, err
 	}
+	modelCtx, modelSpan := observation.Begin(ctx, observation.StageModel)
 	planning, callErr := a.recipe.config.Planner(
-		a.ctx,
+		modelCtx,
 		request,
 		ModelLimits{InputTokens: quote.Usage.InputTokens, OutputTokens: quote.Usage.OutputTokens},
 	)
+	modelSpan.End(modelCompletion(errors.Join(callErr, modelCtx.Err()), planning.Usage))
 	if err = a.settle(Plan, lease, quote, planning.Usage, callErr); err != nil {
 		return Planning{}, err
 	}
@@ -343,10 +363,21 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) plan() (Planning, error) {
 		}
 		seen[text] = true
 	}
+	a.result.Stages[len(a.result.Stages)-1].Completed = true
 	return planning, nil
 }
 
-func (a *attempt[TIntent, TRequestMeta, TMeta]) assess() (Assessment, error) {
+//nolint:nonamedreturns // Deferred diagnostics require the validated output on every return.
+func (a *attempt[TIntent, TRequestMeta, TMeta]) assess() (output Assessment, stageErr error) {
+	ctx, span := observation.Begin(a.ctx, observation.StageAssess)
+	defer func() {
+		span.End(
+			diagnosticCompletion(
+				stageErr,
+				observation.Count{Known: stageErr == nil, Value: uint64(len(output.Selected))},
+			),
+		)
+	}()
 	request, err := a.copyRequest(a.request)
 	if err != nil {
 		return Assessment{}, err
@@ -359,11 +390,13 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) assess() (Assessment, error) {
 	if err != nil {
 		return Assessment{}, err
 	}
+	modelCtx, modelSpan := observation.Begin(ctx, observation.StageModel)
 	assessment, callErr := a.recipe.config.Assessor(
-		a.ctx,
+		modelCtx,
 		AssessmentInput[TIntent, TRequestMeta, TMeta]{Original: request, Queries: queries},
 		ModelLimits{InputTokens: quote.Usage.InputTokens, OutputTokens: quote.Usage.OutputTokens},
 	)
+	modelSpan.End(modelCompletion(errors.Join(callErr, modelCtx.Err()), assessment.Usage))
 	if err = a.settle(Assess, lease, quote, assessment.Usage, callErr); err != nil {
 		return Assessment{}, err
 	}
@@ -375,6 +408,7 @@ func (a *attempt[TIntent, TRequestMeta, TMeta]) assess() (Assessment, error) {
 		}
 		seen[index] = true
 	}
+	a.result.Stages[len(a.result.Stages)-1].Completed = true
 	return assessment, nil
 }
 

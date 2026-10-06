@@ -1,0 +1,1 @@
+PASS core dependencies exclude OTel/provider adapter modules

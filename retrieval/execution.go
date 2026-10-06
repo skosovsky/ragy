@@ -10,6 +10,7 @@ import (
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/internal/parallel"
+	"github.com/skosovsky/ragy/observation"
 )
 
 // NoExecutionMeta is the default execution metadata type for pipelines that
@@ -176,17 +177,31 @@ type BackendNode[TIntent, TMeta, TExecMeta any] = RequestBackendNode[
 ]
 
 // Execute implements RequestExecutionNode.
+//
+//nolint:dupl,nonamedreturns // Each typed admission gateway observes its final gated result on every return.
 func (n RequestBackendNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StageRetrieval)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if result.Coverage.IsPartial() && err == nil {
+			completion.Outcome = observation.OutcomePartial
+		}
+		span.End(completion)
+	}()
+
 	coverage, admissionErr := InspectRead(ctx, req, n)
 	if admissionErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
-	result, err := n.execute(ctx, req, exec)
+	result, err = n.execute(ctx, req, exec)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
@@ -269,17 +284,37 @@ type FallbackNode[TIntent, TMeta, TExecMeta any] = RequestFallbackNode[
 ]
 
 // Execute implements RequestExecutionNode.
+//
+//nolint:dupl,nonamedreturns // Each typed admission gateway observes its final gated result on every return.
 func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StageFallback)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if result.Coverage.IsPartial() && err == nil {
+			completion.Outcome = observation.OutcomePartial
+		}
+		if err == nil && len(result.BranchTrace) > 0 {
+			step := result.BranchTrace[len(result.BranchTrace)-1]
+			if step.Kind == BranchKindFallback && step.State == BranchStateSkipped {
+				completion.Outcome = observation.OutcomeSkipped
+			}
+		}
+		span.End(completion)
+	}()
+
 	coverage, admissionErr := InspectRead(ctx, req, n)
 	if admissionErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
-	result, err := n.execute(ctx, req, exec)
+	result, err = n.execute(ctx, req, exec)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
@@ -294,7 +329,7 @@ func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 		return emptyRetrievalResult(resolver, exec),
 			fmt.Errorf("%w: fallback primary node", ragy.ErrInvalidArgument)
 	}
-	primary, err := n.Primary.Execute(ctx, req, exec)
+	primary, err := n.Primary.Execute(observation.WithBranch(ctx, 1), req, exec)
 	primary.ResultSet = ensureResultSet(primary.ResultSet, resolver)
 	if err != nil {
 		if access.IsProtectionFailure(err) {
@@ -310,7 +345,7 @@ func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 		primary.BranchTrace = append(primary.BranchTrace, fallbackBranchStep(n.Name, BranchStateSkipped, nil))
 		return primary, nil
 	}
-	secondary, secErr := n.Secondary.Execute(ctx, req, primary.Executed)
+	secondary, secErr := n.Secondary.Execute(observation.WithBranch(ctx, 2), req, primary.Executed)
 	return mergeExecutionBranchResult(
 		primary,
 		secondary,
@@ -368,17 +403,37 @@ type RescueNode[TIntent, TMeta, TExecMeta any] = RequestRescueNode[
 ]
 
 // Execute implements RequestExecutionNode.
+//
+//nolint:dupl,nonamedreturns // Each typed admission gateway observes its final gated result on every return.
 func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StageRescue)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if result.Coverage.IsPartial() && err == nil {
+			completion.Outcome = observation.OutcomePartial
+		}
+		if err == nil && len(result.BranchTrace) > 0 {
+			step := result.BranchTrace[len(result.BranchTrace)-1]
+			if step.Kind == BranchKindRescue && step.State == BranchStateSkipped {
+				completion.Outcome = observation.OutcomeSkipped
+			}
+		}
+		span.End(completion)
+	}()
+
 	coverage, admissionErr := InspectRead(ctx, req, n)
 	if admissionErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
-	result, err := n.execute(ctx, req, exec)
+	result, err = n.execute(ctx, req, exec)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
@@ -393,7 +448,7 @@ func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 		return emptyRetrievalResult(resolver, exec),
 			fmt.Errorf("%w: rescue primary node", ragy.ErrInvalidArgument)
 	}
-	primary, err := n.Primary.Execute(ctx, req, exec)
+	primary, err := n.Primary.Execute(observation.WithBranch(ctx, 1), req, exec)
 	primary.ResultSet = ensureResultSet(primary.ResultSet, resolver)
 	if err == nil {
 		primary.BranchTrace = append(primary.BranchTrace, rescueBranchStep(n.Name, BranchStateSkipped, nil))
@@ -411,7 +466,7 @@ func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 		primary.BranchTrace = append(primary.BranchTrace, rescueBranchStep(n.Name, BranchStateSkipped, err))
 		return primary, err
 	}
-	secondary, secErr := n.Secondary.Execute(ctx, req, primary.Executed)
+	secondary, secErr := n.Secondary.Execute(observation.WithBranch(ctx, 2), req, primary.Executed)
 	merged, mergeErr := mergeExecutionBranchResult(
 		primary,
 		secondary,
@@ -476,17 +531,37 @@ type ConditionalNode[TIntent, TMeta, TExecMeta any] = RequestConditionalNode[
 ]
 
 // Execute implements RequestExecutionNode.
+//
+//nolint:nonamedreturns // Completion observes the final gated result on every return.
 func (n RequestConditionalNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StageConditional)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if result.Coverage.IsPartial() && err == nil {
+			completion.Outcome = observation.OutcomePartial
+		}
+		if err == nil && len(result.BranchTrace) > 0 {
+			step := result.BranchTrace[0]
+			if step.Kind == BranchKindNode && step.State == BranchStateSkipped {
+				completion.Outcome = observation.OutcomeSkipped
+			}
+		}
+		span.End(completion)
+	}()
+
 	coverage, admissionErr := InspectRead(ctx, req, n)
 	if admissionErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
-	result, err := n.execute(ctx, req, exec)
+	result, err = n.execute(ctx, req, exec)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
@@ -508,7 +583,7 @@ func (n RequestConditionalNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute
 		result.BranchTrace = []BranchStep{nodeBranchStep(n.Name, BranchStateErrored, err)}
 		return result, err
 	}
-	result, err := n.Child.Execute(ctx, req, exec)
+	result, err := n.Child.Execute(observation.WithBranch(ctx, 1), req, exec)
 	result.BranchTrace = append(
 		[]BranchStep{nodeBranchStep(n.Name, BranchStateSelected, err)},
 		result.BranchTrace...,
@@ -557,17 +632,30 @@ type requestNodeExecutionAdapter[TIntent, TRequestMeta, TMeta, TExecMeta any] st
 	Name     string
 }
 
+//nolint:dupl,nonamedreturns // Each typed admission gateway observes its final gated result on every return.
 func (n requestNodeExecutionAdapter[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StageRetrieval)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if result.Coverage.IsPartial() && err == nil {
+			completion.Outcome = observation.OutcomePartial
+		}
+		span.End(completion)
+	}()
+
 	coverage, admissionErr := InspectRead(ctx, req, n)
 	if admissionErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
-	result, err := n.execute(ctx, req, exec)
+	result, err = n.execute(ctx, req, exec)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
@@ -646,17 +734,31 @@ type executionAggregateChildResult[TMeta, TExecMeta any] struct {
 }
 
 // Execute implements RequestExecutionNode.
+//
+//nolint:dupl,nonamedreturns // Each typed admission gateway observes its final gated result on every return.
 func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StageAggregate)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if result.Coverage.IsPartial() && err == nil {
+			completion.Outcome = observation.OutcomePartial
+		}
+		span.End(completion)
+	}()
+
 	coverage, admissionErr := InspectRead(ctx, req, n)
 	if admissionErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
-	result, err := n.execute(ctx, req, exec)
+	result, err = n.execute(ctx, req, exec)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
@@ -681,12 +783,17 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 	children, err := parallel.MapOrdered(
 		ctx,
 		concurrency,
-		nodes,
-		func(ctx context.Context, node RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta]) (
+		branchOrdinals(len(nodes)),
+		func(ctx context.Context, index int) (
 			executionAggregateChildResult[TMeta, TExecMeta],
 			error,
 		) {
-			return n.runExecutionAggregateChild(ctx, node, req, exec), nil
+			return n.runExecutionAggregateChild(
+				observation.WithBranch(ctx, observationOrdinal(index)),
+				nodes[index],
+				req,
+				exec,
+			), nil
 		},
 	)
 	if err != nil {
@@ -792,17 +899,31 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 }
 
 // Execute implements RequestExecutionNode.
+//
+//nolint:dupl,nonamedreturns // Each typed admission gateway observes its final gated result on every return.
 func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 	exec TExecMeta,
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StageRetrieval)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if result.Coverage.IsPartial() && err == nil {
+			completion.Outcome = observation.OutcomePartial
+		}
+		span.End(completion)
+	}()
+
 	coverage, admissionErr := InspectRead(ctx, req, n)
 	if admissionErr != nil {
 		var zero TExecMeta
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
-	result, err := n.execute(ctx, req, exec)
+	result, err = n.execute(ctx, req, exec)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
@@ -1029,10 +1150,24 @@ type ExecutionPipeline[TIntent, TMeta, TExecMeta any] = RequestExecutionPipeline
 ]
 
 // Execute runs planner, binder, retrieval graph, and post-processors.
+//
+//nolint:nonamedreturns // Completion observes the final gated result on every return.
 func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
-) (RetrievalResult[TMeta, TExecMeta], error) {
+) (result RetrievalResult[TMeta, TExecMeta], err error) {
+	ctx, span := observation.Begin(ctx, observation.StagePipeline)
+	defer func() {
+		if span == nil {
+			return
+		}
+		completion := observationCompletion(err, result.ResultSet)
+		if result.Coverage.IsPartial() && err == nil {
+			completion.Outcome = observation.OutcomePartial
+		}
+		span.End(completion)
+	}()
+
 	var coverage ReadCoverage
 	if p != nil && p.root != nil {
 		var admissionErr error
@@ -1042,7 +1177,7 @@ func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) Exec
 			return emptyRetrievalResult(executionResolver(p.resolver), zero), admissionErr
 		}
 	}
-	result, err := p.execute(ctx, req)
+	result, err = p.execute(ctx, req)
 	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	var resolver IdentityResolver[TMeta]
 	if p != nil {
@@ -1164,7 +1299,9 @@ func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) plan
 	if p.planner == nil {
 		return req, nil, nil
 	}
-	plan, err := p.planner.Plan(ctx, req)
+	planCtx, planSpan := observation.Begin(ctx, observation.StagePlan)
+	plan, err := p.planner.Plan(planCtx, req)
+	planSpan.End(observation.Finish(err, observation.Count{Known: false, Value: 0}))
 	if err != nil {
 		return req, plannerDiagnostics(plan.Diagnostics), err
 	}

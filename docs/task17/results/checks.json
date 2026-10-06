@@ -1,0 +1,93 @@
+[
+  {
+    "profile": "core-race-initial",
+    "log": "core-race.txt",
+    "exit_code": 0,
+    "mode": "race, partly cached; focused final checks cover later recipe/evidence edits"
+  },
+  {
+    "profile": "core-lint-final",
+    "log": "core-final-lint.txt",
+    "exit_code": 0
+  },
+  {
+    "profile": "external-conformance-race",
+    "log": "conformance-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off"
+  },
+  {
+    "profile": "external-conformance-lint-final",
+    "log": "conformance-final-lint.txt",
+    "exit_code": 0
+  },
+  {
+    "profile": "adapters-openai-race",
+    "log": "adapters-openai-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off"
+  },
+  {
+    "profile": "adapters-pdf-race",
+    "log": "adapters-pdf-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off; actual bundled PDF parser configured"
+  },
+  {
+    "profile": "adapters-observability-otel-race",
+    "log": "adapters-observability-otel-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off"
+  },
+  {
+    "profile": "examples-planner-race",
+    "log": "examples-planner-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off"
+  },
+  {
+    "profile": "examples-resilience-race",
+    "log": "examples-resilience-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off"
+  },
+  {
+    "profile": "core-round2-final-race",
+    "log": "core-round2-final-race.txt",
+    "exit_code": 0,
+    "mode": "race, unchanged packages cached"
+  },
+  {
+    "profile": "core-round2-final-lint",
+    "log": "core-round2-final-lint.txt",
+    "exit_code": 0
+  },
+  {
+    "profile": "examples-conformance-round2-final-race",
+    "log": "examples-conformance-round2-final-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off"
+  },
+  {
+    "profile": "conformance-round2-final-lint",
+    "log": "conformance-round2-final-lint.txt",
+    "exit_code": 0
+  },
+  {
+    "profile": "adapters-openai-final-race",
+    "log": "adapters-openai-final-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off"
+  },
+  {
+    "profile": "adapters-openai-final-lint",
+    "log": "adapters-openai-final-lint.txt",
+    "exit_code": 0
+  },
+  {
+    "profile": "adapters-observability-otel-round2-final-race",
+    "log": "adapters-observability-otel-round2-final-race.txt",
+    "exit_code": 0,
+    "mode": "GOWORK=off"
+  }
+]

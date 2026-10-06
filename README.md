@@ -353,6 +353,16 @@ Wrap `dense.Embedder` in a struct that implements `Embed` and forwards to the in
 
 [`adapters/neo4j`](adapters/neo4j) implements typed `Retrieve` (graph projection), `Traverse`, and `Upsert`; Cypher execution is delegated to your `Runner`. Transport and RPC failures from `Retrieve`, `Traverse`, and `Upsert` are wrapped with `ragy.WrapBackendError` — classify and retry in your runner layer if needed.
 
+Optional `observation` sessions attach to a context with an explicit finite event capacity.
+Events carry fixed stage/outcome/error enums, attempt-local numeric correlation,
+counts and observed usage; query, content, metadata, IDs and raw errors are excluded.
+Callbacks are serialized, synchronous and cooperative. Diagnostic exporter errors or
+panics are counted without retrying or changing retrieval. Disabled sessions invoke
+no observer. This diagnostic policy is separate from required evidence recording;
+local cancellation does not attest remote cancellation or billing. The independent
+[observation consumer](examples/conformance/observation_contract) exercises actual
+BM25, typed composition and cache boundaries with `GOWORK=off`.
+
 [`adapters/observability/otel`](adapters/observability/otel) wraps capabilities for tracing; it forwards errors from the inner implementation and does not remap `ragy.Err*`. **Retrieval minimum:** `WrapBackend`, `WrapRequestBackend`, `WrapExecutionPipeline`, `WrapRequestExecutionPipeline`. Other `Wrap*` helpers cover dense/tensor/graph/documents/rerank paths.
 
 ### Examples
