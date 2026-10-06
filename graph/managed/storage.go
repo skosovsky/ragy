@@ -52,14 +52,16 @@ type storedEdge[TMeta any] struct {
 type version[TMeta any] struct {
 	manifest  lifecycle.Manifest
 	hostBasis string
+	target    string
 	nodes     []storedNode[TMeta]
 	edges     []storedEdge[TMeta]
 }
 type Adapter[TMeta any] struct {
-	mu       sync.RWMutex
-	config   Config[TMeta]
-	versions map[string]version[TMeta]
-	bases    map[string]version[TMeta]
+	mu           sync.RWMutex
+	config       Config[TMeta]
+	versions     map[string]version[TMeta]
+	bases        map[string]version[TMeta]
+	retiredBases map[string]struct{}
 }
 
 func New[TMeta any](config Config[TMeta]) (*Adapter[TMeta], error) {
@@ -77,10 +79,11 @@ func New[TMeta any](config Config[TMeta]) (*Adapter[TMeta], error) {
 		config.EdgeCodec = retrieval.NewJSONCodec[TMeta](config.Schema.EdgeAttributes)
 	}
 	return &Adapter[TMeta]{
-		mu:       sync.RWMutex{},
-		config:   config,
-		versions: make(map[string]version[TMeta]),
-		bases:    make(map[string]version[TMeta]),
+		mu:           sync.RWMutex{},
+		config:       config,
+		versions:     make(map[string]version[TMeta]),
+		bases:        make(map[string]version[TMeta]),
+		retiredBases: make(map[string]struct{}),
 	}, nil
 }
 
@@ -163,7 +166,7 @@ func (a *Adapter[TMeta]) capture(
 	if err := validateSupports(request); err != nil {
 		return version[TMeta]{}, err
 	}
-	out := version[TMeta]{manifest: request.Manifest, hostBasis: "", nodes: nil, edges: nil}
+	out := version[TMeta]{manifest: request.Manifest, hostBasis: "", target: request.Target, nodes: nil, edges: nil}
 	snapshot := graph.Snapshot[TMeta]{Nodes: nil, Edges: nil}
 	for _, node := range input.Nodes {
 		if err := ctx.Err(); err != nil {

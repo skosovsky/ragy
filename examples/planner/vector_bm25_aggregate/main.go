@@ -50,6 +50,13 @@ func buildPipeline(
 ) (*retrieval.ExecutionPipeline[searchIntent, struct{}, retrieval.NoExecutionMeta], error) {
 	bm25Branch := retrieval.ProjectedBackend[searchIntent, retrieval.NoRequestMeta, struct{}, retrieval.NoRequestMeta, struct{}]{
 		Next: bm25,
+		AdmissionProject: func(req retrieval.Query[searchIntent]) retrieval.Query[struct{}] {
+			return retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
+				Text:    req.Text,
+				Options: req.Options,
+				Plan:    retrieval.ProjectPlannedQuery(req.Plan, struct{}{}),
+			}
+		},
 		Project: func(req retrieval.Query[searchIntent]) retrieval.Query[struct{}] {
 			return retrieval.Query[struct{}]{Read: retrieval.UnrestrictedRead(),
 				Text:    req.Text,

@@ -74,7 +74,7 @@ func (n RequestPartialReadNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute
 		return finishReadResult(ctx, req.Read, result, nil, resolver)
 	}
 	result, err = n.Child.Execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, resolver)
 }
 

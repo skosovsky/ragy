@@ -106,6 +106,16 @@ func search(
 }
 ```
 
+### Composition contracts
+
+Backend decorators preserve `ReadCapabilityProvider`, `PublicationAdmission` and request-aware `RequestReadAdmission`. Unsupported guarantees remain unsupported; tracing and caching do not grant scope or publication support. `ProjectedBackend` never invokes its payload `Project` during preflight. For a request-aware backend with a different request type, supply a pure `AdmissionProject`; it must preserve binding, perform no payload/model I/O and not mutate inputs. Same-type admission forwards the original request.
+
+Request intent/metadata, plan intent and incoming execution metadata are immutable host inputs for the duration of execution, including parallel branches. Passing a struct by value does not clone its maps, slices or pointers. Custom nodes needing mutable state must create branch-owned values through host clone policies. Cache and artifact snapshot ports have their separate explicit ownership contracts.
+
+RRF counts each merge key once per input list at its best original position, retaining duplicate supports and score observations. Other lists contribute independent votes; conflicting payloads remain errors. Managed graph host basis IDs cannot be re-registered after release during that adapter's lifetime. Released IDs retain no payload and old readers fail unavailable; this in-process identity guarantee does not provide persistence across restart.
+
+Cross-type scoped/pinned projection requires a pure `AdmissionProject` in every wrapper order. Cache storage applies to current complete reads; pinned and partial reads pass through to the leaf to validate retention.
+
 ### Filters
 
 Build domain filters with the typed builder only (`filter.NewBuilder` → `filter.Eq` / `In` / `NotEq` → `Build()`). An empty filter is `builder.Build()` with no predicates; zero-value `filter.Condition` in option structs means no filter. Low-level filter DSL nodes are internal to the `filter` package; adapters translate `filter.Condition.IR()` to native queries:

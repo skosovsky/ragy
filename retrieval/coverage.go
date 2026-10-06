@@ -153,7 +153,8 @@ func (c ReadCoverage) validate() error {
 	return fmt.Errorf("%w: read coverage", ragy.ErrInvalidArgument)
 }
 
-func mergeReadCoverage(a, b ReadCoverage) ReadCoverage {
+// MergeReadCoverage combines admitted leaf coverage, retaining every static skip label.
+func MergeReadCoverage(a, b ReadCoverage) ReadCoverage {
 	if a.State() == CoverageUnobserved {
 		return ReadCoverage{state: b.state, skipped: b.SkippedBranches()}
 	}
@@ -179,5 +180,5 @@ func BindPublicationCoverage(read access.Binding, coverage ReadCoverage) ReadCov
 	if len(names) == 0 {
 		return coverage
 	}
-	return mergeReadCoverage(coverage, ReadCoverage{state: CoveragePartial, skipped: names})
+	return MergeReadCoverage(coverage, ReadCoverage{state: CoveragePartial, skipped: names})
 }

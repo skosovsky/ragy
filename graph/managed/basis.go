@@ -11,7 +11,8 @@ import (
 )
 
 // SetHostBasis owns an immutable explicitly identified host foundation. The same
-// ID cannot be reused for changed facts. It does not create managed source refs or
+// ID cannot be reused for changed facts or re-registered after release, for the
+// lifetime of this in-process adapter. It does not create managed source refs or
 // participate in source cleanup; readers select the exact basis ID explicitly.
 func (a *Adapter[TMeta]) SetHostBasis(ctx context.Context, id string, snapshot graph.Snapshot[TMeta]) error {
 	if a == nil || id == "" || !utf8.ValidString(id) || len(snapshot.Nodes)+len(snapshot.Edges) > a.config.MaxRecords {
@@ -25,7 +26,7 @@ func (a *Adapter[TMeta]) SetHostBasis(ctx context.Context, id string, snapshot g
 	}
 	var noManifest lifecycle.Manifest
 	var noReference source.Reference
-	basis := version[TMeta]{manifest: noManifest, hostBasis: id, nodes: nil, edges: nil}
+	basis := version[TMeta]{manifest: noManifest, target: "", hostBasis: id, nodes: nil, edges: nil}
 	for _, node := range snapshot.Nodes {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -51,6 +52,9 @@ func (a *Adapter[TMeta]) SetHostBasis(ctx context.Context, id string, snapshot g
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if _, retired := a.retiredBases[id]; retired {
+		return lifecycle.ErrConflict
+	}
 	if previous, exists := a.bases[id]; exists {
 		if !sameVersion(previous, basis) {
 			return lifecycle.ErrConflict
@@ -72,6 +76,12 @@ func (a *Adapter[TMeta]) ReleaseHostBasis(ctx context.Context, id string) error 
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	delete(a.bases, id)
+	if _, exists := a.bases[id]; exists {
+		if a.retiredBases == nil {
+			a.retiredBases = make(map[string]struct{})
+		}
+		a.retiredBases[id] = struct{}{}
+		delete(a.bases, id)
+	}
 	return ctx.Err()
 }

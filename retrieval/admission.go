@@ -71,7 +71,7 @@ func admitChildren[TIntent, TRequestMeta any](
 		if err != nil {
 			return UnobservedReadCoverage(), err
 		}
-		coverage = mergeReadCoverage(coverage, current)
+		coverage = MergeReadCoverage(coverage, current)
 	}
 	return coverage, nil
 }
@@ -81,10 +81,7 @@ func (n RequestBackendNode[TIntent, TRequestMeta, TMeta, TExecMeta]) AdmitRead(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 ) (ReadCoverage, error) {
-	if err := admitBackendRead(ctx, req, n.Backend); err != nil {
-		return UnobservedReadCoverage(), err
-	}
-	return CompleteReadCoverage(), nil
+	return inspectBackendRead(ctx, req, n.Backend)
 }
 
 // AdmitRead negotiates the target before payload I/O.
@@ -92,10 +89,7 @@ func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 ) (ReadCoverage, error) {
-	if err := admitBackendRead(ctx, req, n.Backend); err != nil {
-		return UnobservedReadCoverage(), err
-	}
-	return CompleteReadCoverage(), nil
+	return inspectBackendRead(ctx, req, n.Backend)
 }
 
 // AdmitRead negotiates the target before payload I/O.
@@ -103,10 +97,7 @@ func (n resultRetrieverNode[TIntent, TRequestMeta, TMeta]) AdmitRead(
 	ctx context.Context,
 	req Request[TIntent, TRequestMeta],
 ) (ReadCoverage, error) {
-	if err := admitBackendRead(ctx, req, n.Backend); err != nil {
-		return UnobservedReadCoverage(), err
-	}
-	return CompleteReadCoverage(), nil
+	return inspectBackendRead(ctx, req, n.Backend)
 }
 
 // AdmitRead negotiates every reachable branch without executing callbacks.
@@ -176,7 +167,7 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 		if err != nil {
 			return UnobservedReadCoverage(), err
 		}
-		coverage = mergeReadCoverage(coverage, current)
+		coverage = MergeReadCoverage(coverage, current)
 	}
 	return coverage, nil
 }
@@ -192,7 +183,7 @@ func (n resultAggregateNode[TIntent, TRequestMeta, TMeta]) AdmitRead(
 		if err != nil {
 			return UnobservedReadCoverage(), err
 		}
-		coverage = mergeReadCoverage(coverage, current)
+		coverage = MergeReadCoverage(coverage, current)
 	}
 	return coverage, nil
 }
@@ -208,10 +199,10 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 		if err != nil {
 			return UnobservedReadCoverage(), err
 		}
-		coverage = mergeReadCoverage(coverage, current)
+		coverage = MergeReadCoverage(coverage, current)
 	}
 	other, err := admitChildren(ctx, req, n.Default)
-	return mergeReadCoverage(coverage, other), err
+	return MergeReadCoverage(coverage, other), err
 }
 
 func validateReadRequest[TIntent, TRequestMeta any](

@@ -242,7 +242,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
 	result, err := n.execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
 
@@ -485,7 +485,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	}
 	child.BranchTrace = append([]BranchStep{caseStep}, child.BranchTrace...)
 	child.Diagnostics = append(result.Diagnostics, child.Diagnostics...)
-	child.Coverage = mergeReadCoverage(result.Coverage, child.Coverage)
+	child.Coverage = MergeReadCoverage(result.Coverage, child.Coverage)
 	child.BranchTrace = append(result.BranchTrace, child.BranchTrace...)
 	return child, err
 }

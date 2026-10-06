@@ -228,7 +228,7 @@ func admitted[TMeta any](ctx context.Context, versions []version[TMeta], request
 			ctx,
 			request.Read,
 			request.Traversal.NodeFilter,
-			supportOrigin{manifest: version.manifest, basis: version.hostBasis},
+			supportOrigin{manifest: version.manifest, basis: version.hostBasis, target: version.target},
 			version.nodes,
 			out.nodes,
 			out.nodeSupports,
@@ -241,7 +241,7 @@ func admitted[TMeta any](ctx context.Context, versions []version[TMeta], request
 			ctx,
 			request.Read,
 			request.Traversal.EdgeFilter,
-			supportOrigin{manifest: version.manifest, basis: version.hostBasis},
+			supportOrigin{manifest: version.manifest, basis: version.hostBasis, target: version.target},
 			version.edges,
 			out.edges,
 			out.edgeSupports,
@@ -284,8 +284,11 @@ func match(condition filter.Condition, attrs filter.RawAttributes) (bool, error)
 		func(field string) (any, bool) { value, exists := attrs[field]; return value, exists },
 	)
 }
-func supports(manifest lifecycle.Manifest, ref source.Reference) []source.Reference {
+func supports(manifest lifecycle.Manifest, targetName string, ref source.Reference) []source.Reference {
 	for _, target := range manifest.Targets {
+		if target.Name != targetName {
+			continue
+		}
 		for _, artifact := range target.Artifacts {
 			if artifact.Reference == ref {
 				return artifact.Supports
@@ -437,7 +440,7 @@ func admitFacts[T fact](
 		if origin.basis != "" {
 			bases[id] = append(bases[id], origin.basis)
 		}
-		refs[id] = append(refs[id], supports(origin.manifest, record.factRef())...)
+		refs[id] = append(refs[id], supports(origin.manifest, origin.target, record.factRef())...)
 		if previous, exists := output[id]; exists &&
 			!bytes.Equal(previous.factFingerprint(), record.factFingerprint()) {
 			bad[id] = true
@@ -526,6 +529,7 @@ func selectedVersion[TMeta any](
 }
 
 type supportOrigin struct {
+	target   string
 	manifest lifecycle.Manifest
 	basis    string
 }

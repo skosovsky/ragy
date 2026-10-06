@@ -66,6 +66,16 @@ func configureActualBM25(t *testing.T, f *fixture) {
 	}
 	projected := retrieval.ProjectedBackend[[]string, []string, struct{}, retrieval.NoRequestMeta, meta]{
 		Next: index,
+		AdmissionProject: func(req request) retrieval.Query[struct{}] {
+			return retrieval.Query[struct{}]{
+				Read:    req.Read,
+				Text:    req.Text,
+				Intent:  struct{}{},
+				Meta:    retrieval.NoRequestMeta{},
+				Options: req.Options,
+				Plan:    retrieval.ProjectPlannedQuery(req.Plan, struct{}{}),
+			}
+		},
 		Project: func(req request) retrieval.Query[struct{}] {
 			f.retrieved = append(f.retrieved, req.EffectiveText())
 			return retrieval.Query[struct{}]{

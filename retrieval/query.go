@@ -18,6 +18,9 @@ type Query[TIntent any] = Request[TIntent, NoRequestMeta]
 
 // Request carries retrieval text, host intent, request metadata, tuning options,
 // and an optional planned query produced by QueryPlanner.
+// Intent, Meta and Plan.Intent (including referenced maps/slices/pointers) are
+// host-owned immutable inputs during execution. Passing Request by value is not a
+// deep copy; parallel nodes must not mutate those inputs.
 type Request[TIntent, TRequestMeta any] struct {
 	Read    access.Binding
 	Text    string

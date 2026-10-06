@@ -187,7 +187,7 @@ func (n RequestBackendNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
 	result, err := n.execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
 
@@ -280,7 +280,7 @@ func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
 	result, err := n.execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
 
@@ -379,7 +379,7 @@ func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute(
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
 	result, err := n.execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
 
@@ -487,7 +487,7 @@ func (n RequestConditionalNode[TIntent, TRequestMeta, TMeta, TExecMeta]) Execute
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
 	result, err := n.execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
 
@@ -568,7 +568,7 @@ func (n requestNodeExecutionAdapter[TIntent, TRequestMeta, TMeta, TExecMeta]) Ex
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
 	result, err := n.execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
 
@@ -628,6 +628,9 @@ type ExecutionReducer[TExecMeta any] func(current TExecMeta, child TExecMeta) TE
 
 // RequestExecutionAggregateNode runs execution-aware child nodes and merges their
 // ResultSets while preserving diagnostics, branch trace, and typed execution metadata.
+// Request and incoming execution metadata are immutable shared inputs. Nodes that
+// need mutable state must construct branch-owned values using host clone policies;
+// the aggregate never performs reflection-based or implicit deep copying.
 type RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta any] struct {
 	Nodes          []RequestExecutionNode[TIntent, TRequestMeta, TMeta, TExecMeta]
 	Concurrency    int
@@ -654,7 +657,7 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
 	result, err := n.execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
 
@@ -728,7 +731,7 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 		sets = append(sets, aggregateChildResult[TMeta]{rs: child.result.ResultSet, err: child.err})
 		result.Diagnostics = append(result.Diagnostics, child.result.Diagnostics...)
 		result.BranchTrace = append(result.BranchTrace, aggregateChildTrace(i, child)...)
-		result.Coverage = mergeReadCoverage(result.Coverage, child.result.Coverage)
+		result.Coverage = MergeReadCoverage(result.Coverage, child.result.Coverage)
 		if n.MergeExecution != nil {
 			result.Executed = n.MergeExecution(result.Executed, child.result.Executed)
 		}
@@ -800,7 +803,7 @@ func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 		return emptyRetrievalResult(executionResolver(n.Resolver), zero), admissionErr
 	}
 	result, err := n.execute(ctx, req, exec)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	return finishReadResult(ctx, req.Read, result, err, executionResolver(n.Resolver))
 }
 
@@ -1040,7 +1043,7 @@ func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) Exec
 		}
 	}
 	result, err := p.execute(ctx, req)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	var resolver IdentityResolver[TMeta]
 	if p != nil {
 		resolver = p.resolver
@@ -1231,7 +1234,7 @@ func mergeExecutionBranchResult[TMeta, TExecMeta any](
 	trace = append(trace, step)
 	trace = append(trace, afterTrace...)
 	after.BranchTrace = trace
-	after.Coverage = mergeReadCoverage(before.Coverage, after.Coverage)
+	after.Coverage = MergeReadCoverage(before.Coverage, after.Coverage)
 	if err != nil {
 		after.ResultSet, _ = preserveResultOnError(after.ResultSet, err, resolver)
 	}

@@ -68,21 +68,35 @@ func admitBackendRead[TIntent, TRequestMeta any](
 	req Request[TIntent, TRequestMeta],
 	backend any,
 ) error {
+	_, err := inspectBackendRead(ctx, req, backend)
+	return err
+}
+
+func inspectBackendRead[TIntent, TRequestMeta any](
+	ctx context.Context,
+	req Request[TIntent, TRequestMeta],
+	backend any,
+) (ReadCoverage, error) {
 	if err := req.Read.Check(ctx); err != nil {
-		return err
+		return UnobservedReadCoverage(), err
 	}
 	if isNilReadTarget(backend) {
-		return access.Protect(ragy.ErrInvalidArgument)
+		return UnobservedReadCoverage(), access.Protect(ragy.ErrInvalidArgument)
 	}
 	if req.Read.IsScoped() || !req.Read.Publication().IsCurrent() {
 		provider, ok := backend.(ReadCapabilityProvider)
 		if !ok {
-			return access.UnsupportedCapability(ragy.ErrUnsupported)
+			return UnobservedReadCoverage(), access.UnsupportedCapability(ragy.ErrUnsupported)
 		}
-		_, err := PrepareRead(ctx, req, provider)
-		return err
+		if _, err := PrepareRead(ctx, req, provider); err != nil {
+			return UnobservedReadCoverage(), err
+		}
+		if admission, ok := backend.(RequestReadAdmission[TIntent, TRequestMeta]); ok {
+			return InspectRead(ctx, req, admission)
+		}
+		return BindPublicationCoverage(req.Read, CompleteReadCoverage()), nil
 	}
-	return nil
+	return ReadCoverage{state: CoverageUnrestricted, skipped: nil}, nil
 }
 
 func isNilReadTarget(target any) bool {

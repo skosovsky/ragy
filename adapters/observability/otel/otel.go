@@ -76,14 +76,61 @@ func WrapBackend[TIntent, TMeta any](
 	return WrapRequestBackend[TIntent, retrieval.NoRequestMeta, TMeta](next, tracer)
 }
 
+// Schema forwards the wrapped target's admission schema.
+func (w *RequestBackend[TIntent, TRequestMeta, TMeta]) Schema() filter.Schema {
+	if provider, ok := w.next.(retrieval.ReadCapabilityProvider); ok {
+		return provider.Schema()
+	}
+	return filter.Schema{}
+}
+
+// ReadCapabilities forwards only the wrapped target's declared guarantees.
+func (w *RequestBackend[TIntent, TRequestMeta, TMeta]) ReadCapabilities() access.Capabilities {
+	if provider, ok := w.next.(retrieval.ReadCapabilityProvider); ok {
+		return provider.ReadCapabilities()
+	}
+	return access.Capabilities{}
+}
+
+// AdmitRead preserves request-aware target negotiation without target payload I/O.
+func (w *RequestBackend[TIntent, TRequestMeta, TMeta]) AdmitRead(
+	ctx context.Context,
+	req retrieval.Request[TIntent, TRequestMeta],
+) (retrieval.ReadCoverage, error) {
+	return retrieval.InspectRead(
+		ctx,
+		req,
+		retrieval.RequestBackendNode[TIntent, TRequestMeta, TMeta, retrieval.NoExecutionMeta]{
+			Backend:  w.next,
+			Resolver: nil,
+			Name:     "",
+		},
+	)
+}
+
+// AdmitPublication forwards partial publication admission.
+func (w *RequestBackend[TIntent, TRequestMeta, TMeta]) AdmitPublication(publication access.Publication) error {
+	if admission, ok := w.next.(retrieval.PublicationAdmission); ok {
+		return admission.AdmitPublication(publication)
+	}
+	return access.UnsupportedCapability(ragy.ErrUnsupported)
+}
+
 // Retrieve implements retrieval.RequestBackend.
 func (w *RequestBackend[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
 	req retrieval.Request[TIntent, TRequestMeta],
 ) (retrieval.ResultSet[TMeta], error) {
+	if err := req.Read.Check(ctx); err != nil {
+		return retrieval.NewResultSet[TMeta](nil, nil), err
+	}
+	if _, err := w.AdmitRead(ctx, req); err != nil {
+		return retrieval.NewResultSet[TMeta](nil, nil), err
+	}
 	ctx, span := w.tracer.Start(ctx, "ragy.retrieval.backend")
 	defer span.End()
-	return w.next.Retrieve(ctx, req)
+	rs, err := w.next.Retrieve(ctx, req)
+	return retrieval.DeliverRead(ctx, req.Read, rs, err, nil)
 }
 
 var _ retrieval.RequestBackend[struct{}, struct{}, any] = (*RequestBackend[struct{}, struct{}, any])(nil)

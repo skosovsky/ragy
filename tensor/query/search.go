@@ -57,6 +57,23 @@ func (s *Search[TCandidateMeta, TMeta]) ReadCapabilities() access.Capabilities {
 	}
 }
 
+// AdmitPublication negotiates both candidate and tensor targets before I/O.
+func (s *Search[TCandidateMeta, TMeta]) AdmitPublication(publication access.Publication) error {
+	if s == nil || nilPort(s.config.Candidates) || nilPort(s.config.Target) {
+		return access.Protect(ragy.ErrInvalidArgument)
+	}
+	for _, target := range []any{s.config.Candidates, s.config.Target} {
+		admission, ok := target.(retrieval.PublicationAdmission)
+		if !ok {
+			return access.UnsupportedCapability(ragy.ErrUnsupported)
+		}
+		if err := admission.AdmitPublication(publication); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Search[TCandidateMeta, TMeta]) AdmitRead(
 	ctx context.Context,
 	request retrieval.Query[Intent],
@@ -69,13 +86,18 @@ func (s *Search[TCandidateMeta, TMeta]) AdmitRead(
 		return retrieval.UnobservedReadCoverage(), err
 	}
 	request = prepared
-	if _, err := retrieval.PrepareRead(ctx, request, s.candidateProvider); err != nil {
+	candidateRequest := s.candidateRequest(request)
+	candidateCoverage, err := admitTarget(ctx, candidateRequest, s.candidateProvider)
+	if err != nil {
 		return retrieval.UnobservedReadCoverage(), err
 	}
-	if _, err := retrieval.PrepareRead(ctx, request, s.config.Target); err != nil {
+	targetRequest := CopyRequest(request)
+	targetRequest.Options.Vector = nil
+	targetCoverage, err := admitTarget(ctx, targetRequest, s.config.Target)
+	if err != nil {
 		return retrieval.UnobservedReadCoverage(), err
 	}
-	return retrieval.CompleteReadCoverage(), nil
+	return retrieval.MergeReadCoverage(candidateCoverage, targetCoverage), nil
 }
 
 func (s *Search[TCandidateMeta, TMeta]) Retrieve(
@@ -127,8 +149,7 @@ func (s *Search[TCandidateMeta, TMeta]) query(
 	if _, err = s.AdmitRead(ctx, request); err != nil {
 		return Result[TMeta]{}, err
 	}
-	candidatesRequest := CopyRequest(request)
-	candidatesRequest.Options.TopK, candidatesRequest.Options.FetchLimit = request.Intent.CandidateBudget, request.Intent.CandidateBudget
+	candidatesRequest := s.candidateRequest(request)
 	candidates, err := s.config.Candidates.Retrieve(ctx, candidatesRequest)
 	if err != nil {
 		return Result[TMeta]{}, err
@@ -232,4 +253,24 @@ func (s *Search[TCandidateMeta, TMeta]) plannedFilters(
 	request retrieval.Query[Intent],
 ) (retrieval.Query[Intent], error) {
 	return retrieval.PrepareRead(ctx, request, s)
+}
+
+func (s *Search[TCandidateMeta, TMeta]) candidateRequest(request retrieval.Query[Intent]) retrieval.Query[Intent] {
+	candidate := CopyRequest(request)
+	candidate.Options.TopK, candidate.Options.FetchLimit = request.Intent.CandidateBudget, request.Intent.CandidateBudget
+	return candidate
+}
+
+func admitTarget(
+	ctx context.Context,
+	request retrieval.Query[Intent],
+	provider retrieval.ReadCapabilityProvider,
+) (retrieval.ReadCoverage, error) {
+	if _, err := retrieval.PrepareRead(ctx, request, provider); err != nil {
+		return retrieval.UnobservedReadCoverage(), err
+	}
+	if admission, ok := provider.(retrieval.RequestReadAdmission[Intent, retrieval.NoRequestMeta]); ok {
+		return retrieval.InspectRead(ctx, request, admission)
+	}
+	return retrieval.BindPublicationCoverage(request.Read, retrieval.CompleteReadCoverage()), nil
 }

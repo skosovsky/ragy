@@ -809,7 +809,7 @@ func (p *resultPipeline[TIntent, TRequestMeta, TMeta]) Execute(
 		}
 	}
 	result, err := p.execute(ctx, req)
-	result.Coverage = mergeReadCoverage(coverage, result.Coverage)
+	result.Coverage = MergeReadCoverage(coverage, result.Coverage)
 	var resolver IdentityResolver[TMeta]
 	if p != nil {
 		resolver = p.resolver

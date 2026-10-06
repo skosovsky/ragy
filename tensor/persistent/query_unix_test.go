@@ -403,6 +403,9 @@ func sparseCase(t *testing.T, omitBest bool) {
 	}
 	projected := retrieval.ProjectedBackend[tensorquery.Intent, retrieval.NoRequestMeta, struct{}, retrieval.NoRequestMeta, metadata]{
 		Next: sparse,
+		AdmissionProject: func(req retrieval.Query[tensorquery.Intent]) retrieval.Query[struct{}] {
+			return retrieval.Query[struct{}]{Read: req.Read, Text: req.Text, Options: req.Options}
+		},
 		Project: func(req retrieval.Query[tensorquery.Intent]) retrieval.Query[struct{}] {
 			return retrieval.Query[struct{}]{Read: req.Read, Text: req.Text, Options: req.Options}
 		},

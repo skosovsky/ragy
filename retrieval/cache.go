@@ -202,6 +202,22 @@ func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) ReadCapabilities() access.
 	return access.Capabilities{RequirePinnedPublication: false, ScopeProfile: false, PinnedPublication: false}
 }
 
+// AdmitRead preserves request-aware leaf admission without executing retrieval.
+func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) AdmitRead(
+	ctx context.Context,
+	req Request[TIntent, TRequestMeta],
+) (ReadCoverage, error) {
+	return inspectBackendRead(ctx, req, b.config.Next)
+}
+
+// AdmitPublication forwards partial pin admission without widening the target profile.
+func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) AdmitPublication(publication access.Publication) error {
+	if admission, ok := b.config.Next.(PublicationAdmission); ok {
+		return admission.AdmitPublication(publication)
+	}
+	return access.UnsupportedCapability(ragy.ErrUnsupported)
+}
+
 // Retrieve gates both hits and misses and never reuses data across binding identities.
 func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) Retrieve(
 	ctx context.Context,
@@ -225,18 +241,16 @@ func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) retrieve(
 	req Request[TIntent, TRequestMeta],
 ) (ResultSet[TMeta], error) {
 	empty := NewResultSet[TMeta](nil, b.config.Resolver)
-	if err := admitBackendRead(ctx, req, b.config.Next); err != nil {
-		return empty, err
+	// Retained pins bypass storage: a cache entry cannot prove physical retention.
+	coverage, admissionErr := inspectBackendRead(ctx, req, b.config.Next)
+	if admissionErr != nil {
+		return empty, admissionErr
 	}
-	identity, err := b.config.Identity(ctx, req)
-	if err != nil {
-		return empty, err
+	if coverage.IsPartial() || !req.Read.Publication().IsCurrent() {
+		rs, err := b.config.Next.Retrieve(ctx, req)
+		return DeliverRead(ctx, req.Read, rs, err, b.config.Resolver)
 	}
-	host, err := b.config.HostIdentity(req)
-	if err != nil {
-		return empty, err
-	}
-	key, err := RequestCacheKey(req, identity, host)
+	key, host, err := b.cacheKey(ctx, req)
 	if err != nil {
 		return empty, err
 	}
@@ -321,4 +335,20 @@ func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) checkedHit(
 		return empty, false, err
 	}
 	return NewResultSet(docs, b.config.Resolver), true, nil
+}
+
+func (b *CachedBackend[TIntent, TRequestMeta, TMeta]) cacheKey(
+	ctx context.Context,
+	req Request[TIntent, TRequestMeta],
+) (string, []byte, error) {
+	identity, err := b.config.Identity(ctx, req)
+	if err != nil {
+		return "", nil, err
+	}
+	host, err := b.config.HostIdentity(req)
+	if err != nil {
+		return "", nil, err
+	}
+	key, err := RequestCacheKey(req, identity, host)
+	return key, host, err
 }

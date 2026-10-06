@@ -50,6 +50,17 @@ func secondaryBackend(t *testing.T, f *fixture, input batch) retrieval.Backend[s
 	case "tensor":
 		return retrieval.ProjectedBackend[struct{}, retrieval.NoRequestMeta, tensorquery.Intent, retrieval.NoRequestMeta, meta]{
 			Next: f.secondary.tensor,
+			AdmissionProject: func(req retrieval.Query[struct{}]) retrieval.Query[tensorquery.Intent] {
+				return retrieval.Query[tensorquery.Intent]{
+					Read:    req.Read,
+					Options: req.Options,
+					Intent: tensorquery.Intent{
+						Embedding:       tensor.Embedding{Space: tensorSpace(), Tokens: tensor.Tensor{{1, 0}}},
+						Candidates:      []source.Reference{input.Tensor[0].Reference},
+						CandidateBudget: 100,
+					},
+				}
+			},
 			Project: func(req retrieval.Query[struct{}]) retrieval.Query[tensorquery.Intent] {
 				return retrieval.Query[tensorquery.Intent]{
 					Read:    req.Read,
@@ -91,6 +102,10 @@ func assertPartialCaptureFanout(t *testing.T, f *fixture, input batch) {
 	secondary := &countedPartialBackend{next: secondaryBackend(t, f, input)}
 	denseBackend := retrieval.ProjectedBackend[struct{}, retrieval.NoRequestMeta, densefs.Intent, retrieval.NoRequestMeta, meta]{
 		Next: f.dense,
+		AdmissionProject: func(req retrieval.Query[struct{}]) retrieval.Query[densefs.Intent] {
+			return retrieval.Query[densefs.Intent]{Read: req.Read, Options: req.Options,
+				Intent: densefs.Intent{Embedding: dense.Embedding{Space: denseSpace(), Vector: []float32{1, 0}}}}
+		},
 		Project: func(req retrieval.Query[struct{}]) retrieval.Query[densefs.Intent] {
 			return retrieval.Query[densefs.Intent]{Read: req.Read, Options: req.Options,
 				Intent: densefs.Intent{Embedding: dense.Embedding{Space: denseSpace(), Vector: []float32{1, 0}}}}

@@ -102,6 +102,20 @@ func (*adapter) ReadCapabilities() access.Capabilities {
 	return access.Capabilities{RequirePinnedPublication: false, ScopeProfile: true}
 }
 
+// AdmitRead is a pure host request check, exercised through all decorators.
+func (a *adapter) AdmitRead(
+	ctx context.Context,
+	request retrieval.Request[searchIntent, requestMeta],
+) (retrieval.ReadCoverage, error) {
+	if request.Intent.Collection != "contracts" || request.Meta.Correlation != "qa" {
+		return retrieval.UnobservedReadCoverage(), access.Protect(ragy.ErrInvalidArgument)
+	}
+	if _, err := retrieval.PrepareRead(ctx, request, a); err != nil {
+		return retrieval.UnobservedReadCoverage(), err
+	}
+	return retrieval.CompleteReadCoverage(), nil
+}
+
 func (a *adapter) Retrieve(
 	ctx context.Context,
 	request retrieval.Request[searchIntent, requestMeta],

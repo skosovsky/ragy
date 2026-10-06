@@ -147,6 +147,16 @@ func integrationBackend(
 	}
 	return retrieval.ProjectedBackend[string, string, struct{}, retrieval.NoRequestMeta, corpusMeta]{
 		Next: index,
+		AdmissionProject: func(req corpusRequest) retrieval.Query[struct{}] {
+			return retrieval.Query[struct{}]{
+				Read:    req.Read,
+				Text:    req.Text,
+				Intent:  struct{}{},
+				Meta:    retrieval.NoRequestMeta{},
+				Options: req.Options,
+				Plan:    retrieval.ProjectPlannedQuery(req.Plan, struct{}{}),
+			}
+		},
 		Project: func(req corpusRequest) retrieval.Query[struct{}] {
 			return retrieval.Query[struct{}]{
 				Read:    req.Read,

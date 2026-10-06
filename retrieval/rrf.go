@@ -146,6 +146,7 @@ func (r *ReciprocalRankFusion[TMeta]) mergeList(
 	seen map[string]fusedState[TMeta],
 	list []Document[TMeta],
 ) error {
+	contributed := make(map[string]bool, len(list))
 	for rank, doc := range list {
 		if err := ValidateDocument(doc); err != nil {
 			return ragy.WrapProjectionError(err, "rrf validate")
@@ -168,7 +169,10 @@ func (r *ReciprocalRankFusion[TMeta]) mergeList(
 			current.doc.ScoreHistory = append(current.doc.ScoreHistory, doc.ObservedScores()...)
 		}
 		// Convert operands before addition: a valid positive k may be MaxInt.
-		current.score += 1.0 / (float64(r.k) + float64(rank) + 1)
+		if !contributed[mergeKey] {
+			current.score += 1.0 / (float64(r.k) + float64(rank) + 1)
+			contributed[mergeKey] = true
+		}
 		seen[mergeKey] = current
 		if err := ctx.Err(); err != nil {
 			return err

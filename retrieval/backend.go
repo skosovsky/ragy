@@ -29,6 +29,11 @@ type RequestProjector[TIntent, TRequestMeta, TBackendIntent, TBackendMeta any] f
 type ProjectedBackend[TIntent, TRequestMeta, TBackendIntent, TBackendMeta, TMeta any] struct {
 	Next    RequestBackend[TBackendIntent, TBackendMeta, TMeta]
 	Project RequestProjector[TIntent, TRequestMeta, TBackendIntent, TBackendMeta]
+	// AdmissionProject is a pure metadata/options projection for request-aware
+	// admission across different request types. It is required for every cross-type
+	// scoped/pinned projection, regardless of target or decorator capabilities. It must not perform payload/model
+	// I/O, mutate inputs or grant access. Same-type admission needs no callback.
+	AdmissionProject RequestProjector[TIntent, TRequestMeta, TBackendIntent, TBackendMeta]
 }
 
 // Retrieve implements RequestBackend.
@@ -44,7 +49,7 @@ func (b ProjectedBackend[TIntent, TRequestMeta, TBackendIntent, TBackendMeta, TM
 		return NewResultSet[TMeta](nil, DocumentIDResolver[TMeta]{}),
 			fmt.Errorf("%w: projected backend request projector", ragy.ErrInvalidArgument)
 	}
-	if err := admitBackendRead(ctx, req, b.Next); err != nil {
+	if _, err := b.AdmitRead(ctx, req); err != nil {
 		return NewResultSet[TMeta](nil, nil), err
 	}
 	projected := b.Project(req)
@@ -53,10 +58,35 @@ func (b ProjectedBackend[TIntent, TRequestMeta, TBackendIntent, TBackendMeta, TM
 		projected.Plan = ProjectPlannedQuery(req.Plan, projected.Intent)
 	}
 	rs, err := b.Next.Retrieve(ctx, projected)
-	if gateErr := req.Read.Check(ctx); gateErr != nil {
-		return NewResultSet[TMeta](nil, nil), gateErr
+	return DeliverRead(ctx, req.Read, rs, err, nil)
+}
+
+// AdmitRead preserves target admission without invoking the payload projector.
+func (b ProjectedBackend[TIntent, TRequestMeta, TBackendIntent, TBackendMeta, TMeta]) AdmitRead(
+	ctx context.Context,
+	req Request[TIntent, TRequestMeta],
+) (ReadCoverage, error) {
+	if err := req.Read.Check(ctx); err != nil {
+		return UnobservedReadCoverage(), err
 	}
-	return rs, err
+	if isNilReadTarget(b.Next) {
+		return UnobservedReadCoverage(), access.Protect(ragy.ErrInvalidArgument)
+	}
+	if !req.Read.IsScoped() && req.Read.Publication().IsCurrent() {
+		return ReadCoverage{state: CoverageUnrestricted, skipped: nil}, nil
+	}
+	if same, ok := any(b.Next).(RequestBackend[TIntent, TRequestMeta, TMeta]); ok && b.AdmissionProject == nil {
+		return inspectBackendRead(ctx, req, same)
+	}
+	if b.AdmissionProject == nil {
+		return UnobservedReadCoverage(), access.UnsupportedCapability(ragy.ErrUnsupported)
+	}
+	projected := b.AdmissionProject(CopyRequestOptions(req))
+	projected.Read = req.Read
+	if projected.Plan == nil {
+		projected.Plan = ProjectPlannedQuery(req.Plan, projected.Intent)
+	}
+	return inspectBackendRead(ctx, projected, b.Next)
 }
 
 // PostProcessor transforms a ranked result set.
