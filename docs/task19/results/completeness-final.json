@@ -1,0 +1,109 @@
+{
+  "schema": "task19-completeness-review/v1",
+  "round": 2,
+  "decision": "ACCEPT",
+  "candidate_identity": "ca9655eb4ad4418f003d31984c519b4a3227284d38af4aac101a772c4d631281",
+  "baseline": "13c37b67689be736bb05d575b41f2446d2b90c50",
+  "mandatory_total": 12,
+  "confirmed": 12,
+  "percentage": 100,
+  "scope": "Original task19/common conditions and E01-E12 retained; 100% mandatory requirement evidence completeness, not production readiness. No skipped live result counted as passed.",
+  "requirements": [
+    {
+      "id": "E01",
+      "status": "confirmed",
+      "evidence": "One documented runner completed all 14 modules, GOWORK=off race count=1, uncached test-result mode with recorded compiler caches; 14 lint checks, actual PDF pinned profile, independent wire audit and three required holdout evaluations passed. Final matrix preserves raw commands, outcomes, versions, elapsed, skips and live/DB unavailable states."
+    },
+    {
+      "id": "E02",
+      "status": "confirmed",
+      "evidence": "Actual external GOWORK=off BYOT final_contract/joint_read/observation_contract composition passes race; space, scope, fusion, source files, packing, v2 privacy, budgets and lifecycle are actual implementations."
+    },
+    {
+      "id": "E03",
+      "status": "confirmed",
+      "evidence": "40 authored documents, independently authored development 18 / holdout 18, nine categories each, graded qrels/provenance; independent JSONSchema validation and sealed digest publication proof present."
+    },
+    {
+      "id": "E04",
+      "status": "confirmed",
+      "evidence": "Three existing consumers executed actual baseline/hybrid-rerank/three text recipes/managed graph/candidate-only native tensor under shared declared corpus/resource policy; raw 270 / 108 / 108 holdout rows."
+    },
+    {
+      "id": "E05",
+      "status": "confirmed",
+      "evidence": "Independent recomputation agrees with every published Recall/MRR/nDCG/coverage/no-answer/failure denominator; 45 answerable + 9 no-answer per strategy. Failed abstention fixed; candidate per dispatch 12 / global 36 bounds and serialized resources audited. Unknown provider billing retained."
+    },
+    {
+      "id": "E06",
+      "status": "confirmed",
+      "evidence": "All 42 final candidate hashes and 536 evaluation freeze hashes independently matched after terminal final execution; captures embed frozen manifest, corpus/split digests, configuration/model/encoder/seed/tokenizer/usage identities, with explicit setup/query separation."
+    },
+    {
+      "id": "E07",
+      "status": "confirmed",
+      "evidence": "Freeze precedes sealed holdout publication; exact 06eef67 digest and author-only pre-result correction preserved. Numeric thresholds predeclared; three deterministic repeats and raw elapsed, no stochastic confidence or percentiles."
+    },
+    {
+      "id": "E08",
+      "status": "confirmed",
+      "evidence": "Independent provider wire audit passed all six pinned official contracts; request source-audit limits explicit; mock transport not counted as live service/DB verification."
+    },
+    {
+      "id": "E09",
+      "status": "confirmed",
+      "evidence": "Actual adversarial composition checks scope, revocation, hydration/provenance, shared budgets, metadata pins/retirement and v2 privacy; malicious retrieved instructions stay source data; no agent-immunity claim."
+    },
+    {
+      "id": "E10",
+      "status": "confirmed",
+      "evidence": "README and capability matrix describe implemented contracts and local/wire/live limits; historical TASK12 evidence retained; no readiness percentage claim."
+    },
+    {
+      "id": "E11",
+      "status": "confirmed",
+      "evidence": "Terminal round2 all-module matrix passed; 14/14 modules and 14/14 lint checks, actual PDF and evaluation gates passed on unchanged candidate. Meaningful AAA/adversarial/freeze/race checks pass. Independent focused race passed all four shared/comparison packages; no experiment/domain/provider/OTel dependency leaked into core."
+    },
+    {
+      "id": "E12",
+      "status": "confirmed",
+      "evidence": "Every complex profile fails predeclared numeric qualification; baseline retained. Local fixtures never promote universal default; Recall improvements, ranking losses and no-answer errors visible."
+    }
+  ],
+  "independent_checks": {
+    "candidate_hashes": "42/42 unchanged after terminal round2 gate",
+    "evaluation_freeze_hashes": "536/536 unchanged after terminal round2 gate",
+    "metric_recomputation": "all text/graph/tensor holdout metrics match",
+    "runner_evaluation_gate": {
+      "text": "passed",
+      "graph": "passed",
+      "tensor": "passed"
+    },
+    "race": {
+      "internal/task19": "passed 1.224s",
+      "recipe_comparison": "passed 44.829s",
+      "graph_comparison": "passed 63.945s",
+      "tensor_comparison": "passed 17.935s"
+    },
+    "runner_selftests": "6 passed in 6.537s",
+    "final_capture_comparison": "All text/graph/tensor raw rankings and metrics match initial frozen captures",
+    "terminal_matrix": {
+      "modules": 14,
+      "lint": 14,
+      "race": true,
+      "cache_mode": "uncached-tests",
+      "status": "passed",
+      "required_pdf": "passed",
+      "required_evaluation_profiles": [
+        "text",
+        "graph",
+        "tensor"
+      ],
+      "live_provider_profiles": "skipped; not counted as success",
+      "external_database_services": "skipped; not counted as success"
+    }
+  },
+  "reviewed_final_matrix": "round2-final/matrix.json",
+  "finished_at": "2026-10-06T12:50:15.608465+00:00",
+  "prior_rejection": "Round1 candidate b9f26fd0398f4d5fa35ed91bd884cce69fb298ac7499a8b0ee54d3e3c9c20917 rejected 10/12 (83.33%); preserved completeness-round1.{md,json} and failed first matrix. Repairs changed runner expectation and documentation prose only; evaluation freeze and qrels unchanged."
+}

@@ -122,7 +122,13 @@ func main() {
 func command() error {
 	fixturePath := flag.String("fixture", "tensor_comparison/fixture.json", "saved synthetic vectors/tensors/qrels")
 	outputPath := flag.String("output", "", "JSON report file; empty prints to stdout")
+	task19Corpus := flag.String("task19-corpus", "", "TASK19 versioned corpus JSON")
+	task19Split := flag.String("task19-split", "", "TASK19 query/qrels split JSON")
+	task19Output := flag.String("task19-output", "", "TASK19 JSON report path")
 	flag.Parse()
+	if *task19Corpus != "" || *task19Split != "" || *task19Output != "" {
+		return task19Command(*task19Corpus, *task19Split, *task19Output)
+	}
 	input, err := loadFixture(*fixturePath)
 	if err != nil {
 		return err

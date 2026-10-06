@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ragy.example/datasets/task19/schema-1.0.0.json",
+  "$defs": {
+    "corpus": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "dataset_id": {
+          "const": "ragy-fictional-ops-v1"
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "revision": {
+                "type": "string",
+                "minLength": 1
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "blue",
+                  "red"
+                ]
+              },
+              "current": {
+                "type": "boolean"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "relations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "target_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "depends_on",
+                        "owned_by"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "target_id",
+                    "type"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "source_id",
+              "revision",
+              "scope",
+              "current",
+              "text",
+              "relations"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "dataset_id",
+        "documents"
+      ],
+      "additionalProperties": false
+    },
+    "split": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "dataset_id": {
+          "const": "ragy-fictional-ops-v1"
+        },
+        "split": {
+          "type": "string",
+          "enum": [
+            "dev",
+            "holdout"
+          ]
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "case_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "lookup",
+                  "multihop",
+                  "no_answer",
+                  "harmful_rewrite",
+                  "duplicates",
+                  "conflicting_stale",
+                  "limited_scope",
+                  "multilingual",
+                  "malicious_instructions"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "blue",
+                  "red"
+                ]
+              },
+              "answerable": {
+                "type": "boolean"
+              },
+              "qrels": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "document_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "grade": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 3
+                    }
+                  },
+                  "required": [
+                    "document_id",
+                    "grade"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "case_id",
+              "category",
+              "text",
+              "scope",
+              "answerable",
+              "qrels",
+              "notes"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "dataset_id",
+        "split",
+        "queries"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/corpus"
+    },
+    {
+      "$ref": "#/$defs/split"
+    }
+  ]
+}

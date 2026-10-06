@@ -1,0 +1,242 @@
+{
+  "candidate_identity": "ca9655eb4ad4418f003d31984c519b4a3227284d38af4aac101a772c4d631281",
+  "disposition": "accepted-explicit-local-profile",
+  "open_confirmed_defects": [],
+  "all_candidate_hashes_matched": 42,
+  "evaluation_freeze_files_matched": 536,
+  "evaluation_freeze_sha256": "2dd3a05970eac8999a17140dc8a5911e644c0a63308aa6fa3c102af24b8a8fb6",
+  "terminal_matrix": "docs/task19/results/round2-final/matrix.json",
+  "terminal_matrix_sha256": "69b9cb31a7b641a351300cad709f5ca8110aa237fcdb963c18bbe6e7bc6c831f",
+  "matrix_status": "passed",
+  "modules_passed": 14,
+  "race": true,
+  "cache_mode": "uncached-tests",
+  "cached_packages": 0,
+  "checks_passed": 29,
+  "live_profiles": "skipped, not counted as real-service passes",
+  "actual_pdf": "all required actual tests passed",
+  "runner_selftests": "6 passed",
+  "dataset_schema": "corpus40/dev18/holdout18 passed",
+  "focused_race": {
+    "internal/task19": "1.480s passed",
+    "recipe_comparison": "44.398s passed",
+    "final_contract": "2.764s passed"
+  },
+  "metric_recomputation": {
+    "findings": [],
+    "independent_metrics": {
+      "baseline": {
+        "recall_at_3": 0.9666666666666667,
+        "mrr_at_3": 1.0,
+        "ndcg_at_3": 0.991850812632858,
+        "retrieved_coverage": 1.0,
+        "delivered_coverage": 0.9666666666666667,
+        "answerable_denominator": 45,
+        "no_answer_denominator": 9,
+        "no_answer_errors": 9,
+        "no_answer_abstentions": 0,
+        "failures": 0
+      },
+      "decomposition": {
+        "recall_at_3": 0.9666666666666667,
+        "mrr_at_3": 1.0,
+        "ndcg_at_3": 0.991850812632858,
+        "retrieved_coverage": 1.0,
+        "delivered_coverage": 0.9666666666666667,
+        "answerable_denominator": 45,
+        "no_answer_denominator": 9,
+        "no_answer_errors": 6,
+        "no_answer_abstentions": 3,
+        "failures": 0
+      },
+      "hybrid-rerank": {
+        "recall_at_3": 0.9833333333333333,
+        "mrr_at_3": 0.9666666666666667,
+        "ndcg_at_3": 0.9766171328642301,
+        "retrieved_coverage": 1.0,
+        "delivered_coverage": 0.9833333333333333,
+        "answerable_denominator": 45,
+        "no_answer_denominator": 9,
+        "no_answer_errors": 9,
+        "no_answer_abstentions": 0,
+        "failures": 0
+      },
+      "multi-query": {
+        "recall_at_3": 0.9833333333333333,
+        "mrr_at_3": 1.0,
+        "ndcg_at_3": 0.9946480526098791,
+        "retrieved_coverage": 1.0,
+        "delivered_coverage": 0.9833333333333333,
+        "answerable_denominator": 45,
+        "no_answer_denominator": 9,
+        "no_answer_errors": 6,
+        "no_answer_abstentions": 3,
+        "failures": 0
+      },
+      "single-rewrite": {
+        "recall_at_3": 0.8833333333333333,
+        "mrr_at_3": 0.9333333333333333,
+        "ndcg_at_3": 0.8992465714173217,
+        "retrieved_coverage": 1.0,
+        "delivered_coverage": 0.8833333333333333,
+        "answerable_denominator": 45,
+        "no_answer_denominator": 9,
+        "no_answer_errors": 6,
+        "no_answer_abstentions": 3,
+        "failures": 0
+      },
+      "graph-expansion": {
+        "recall_at_3": 0.9833333333333333,
+        "mrr_at_3": 0.9333333333333333,
+        "ndcg_at_3": 0.9144893895845927,
+        "retrieved_coverage": 1.0,
+        "delivered_coverage": 0.9833333333333333,
+        "answerable_denominator": 45,
+        "no_answer_denominator": 9,
+        "no_answer_errors": 9,
+        "no_answer_abstentions": 0,
+        "failures": 0
+      },
+      "tensor-candidate-maxsim": {
+        "recall_at_3": 0.8833333333333333,
+        "mrr_at_3": 0.9333333333333333,
+        "ndcg_at_3": 0.885923029427691,
+        "retrieved_coverage": 0.95,
+        "delivered_coverage": 0.8833333333333333,
+        "answerable_denominator": 45,
+        "no_answer_denominator": 9,
+        "no_answer_errors": 9,
+        "no_answer_abstentions": 0,
+        "failures": 0
+      }
+    }
+  },
+  "mechanical_adversarial_mutations": {
+    "scope": {
+      "rejected": true,
+      "errors": [
+        "row 0: scope_violations"
+      ]
+    },
+    "citation": {
+      "rejected": true,
+      "errors": [
+        "row 0: invalid original citation",
+        "row 0: delivered originals lack citations"
+      ]
+    },
+    "context_budget": {
+      "rejected": true,
+      "errors": [
+        "row 0: unknown/overbudget full_context_utf8_bytes"
+      ]
+    },
+    "candidate_dispatch": {
+      "rejected": true,
+      "errors": [
+        "row 0: candidate dispatch bounds/accounting"
+      ]
+    },
+    "unknown_usage": {
+      "rejected": true,
+      "errors": [
+        "row 0: local usage/compliance unknown"
+      ]
+    }
+  },
+  "raw_module_evidence": [
+    {
+      "module": ".",
+      "terminal_events": 1596,
+      "skipped_tests": 2,
+      "sha256": "fd97a3088ad7ab724176c072f57d2248ea0eeedeb6080993dafcda2eafc0f7aa"
+    },
+    {
+      "module": "adapters/cohere",
+      "terminal_events": 41,
+      "skipped_tests": 1,
+      "sha256": "afcd338e697135bdb931a054680a808a47d1015f9f50760f20a7f91c9e460e97"
+    },
+    {
+      "module": "adapters/elasticsearch",
+      "terminal_events": 59,
+      "skipped_tests": 0,
+      "sha256": "3679cf27567932b79f35af9c182cac323f63dec56634f2c198ee07a351a156a7"
+    },
+    {
+      "module": "adapters/gemini",
+      "terminal_events": 35,
+      "skipped_tests": 2,
+      "sha256": "e59ba7477f420215f92602e46fe0ab96e1e7dfd7f02a9f6ecef68cbcbfa0a02a"
+    },
+    {
+      "module": "adapters/jina",
+      "terminal_events": 60,
+      "skipped_tests": 2,
+      "sha256": "1615f5c72b571758afcbd179d070a54fa52796ed5898b02a3e5684a3e6bc6502"
+    },
+    {
+      "module": "adapters/neo4j",
+      "terminal_events": 31,
+      "skipped_tests": 0,
+      "sha256": "1bcba0c07ea2c8d0149abaa562f716391ebef2bc13a09efacb5a0503cd3d1ec3"
+    },
+    {
+      "module": "adapters/observability/otel",
+      "terminal_events": 36,
+      "skipped_tests": 0,
+      "sha256": "99d17b24e4e3da9ff81c1303d42941d601a224a1cd6cde25742b8b975c2acecf"
+    },
+    {
+      "module": "adapters/openai",
+      "terminal_events": 89,
+      "skipped_tests": 1,
+      "sha256": "b2d8e062e43da6a18cb3c97fe1f03415934a2b5efd3287900d348b5f86018306"
+    },
+    {
+      "module": "adapters/pdf",
+      "terminal_events": 24,
+      "skipped_tests": 0,
+      "sha256": "36f1498b10ffe0b9054ab30d49fb33daebf4b7021a636b4446f2ad905cf0ec9a"
+    },
+    {
+      "module": "adapters/pgvector",
+      "terminal_events": 97,
+      "skipped_tests": 0,
+      "sha256": "70e2da503434cebbdfddf431234e67b23b35cc8ba74d21a0c1abd1673e16f6ab"
+    },
+    {
+      "module": "adapters/qdrant",
+      "terminal_events": 88,
+      "skipped_tests": 0,
+      "sha256": "73acf77b89e8337dafd20e887517dc2d5d57551efed2c78de63071ac3886c1a9"
+    },
+    {
+      "module": "examples/conformance",
+      "terminal_events": 488,
+      "skipped_tests": 0,
+      "sha256": "39286a11a9396570bfc0b18d9ff51cf85fe30356500ed321dfd8308b5ca50009"
+    },
+    {
+      "module": "examples/planner",
+      "terminal_events": 13,
+      "skipped_tests": 0,
+      "sha256": "9e83daa34930f481dc18be435934f93ed898b5f22894bf03ee10dd6104a7dd14"
+    },
+    {
+      "module": "examples/resilience",
+      "terminal_events": 3,
+      "skipped_tests": 0,
+      "sha256": "fbea03d48ac8591fa2b74c49aaad69212439395f1d63935be5a12487a09e397d"
+    }
+  ],
+  "limitations": [
+    "Local deterministic scripts/hash encoders/authored graph facts do not establish LLM quality",
+    "No live provider or external database verified",
+    "No final-answer judge or external-agent injection immunity",
+    "Baseline stays default; no profile passed predeclared gain threshold",
+    "Local usage known; monetary provider price remains unavailable",
+    "Delivered coverage is source/document ID recall, not semantic grounding"
+  ],
+  "prior_rejections": "correctness-round1.{md,json} retained; round2 repaired runner tensor expectation and prose gate without changing536-file evaluation freeze"
+}

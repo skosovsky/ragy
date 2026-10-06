@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "ragy-fictional-ops-v1",
+  "authored_at_utc": "2026-10-06T12:11:52.523100+00:00",
+  "author_scope": "Independent consumer-domain dataset subagent; no strategy implementation, ranking or execution output inspected. Holdout authored and sealed before evaluation freeze.",
+  "publication_protocol": "Holdout withheld outside repository until strategy/configuration digest freeze and root publication authorization; immutable after observed results.",
+  "source_provenance": "All documents and qrels authored fictional engineering facts; no external/provider-generated sources.",
+  "documents": 40,
+  "splits": {
+    "dev": {
+      "queries": 18,
+      "answerable": 15,
+      "no_answer": 3
+    },
+    "holdout": {
+      "queries": 18,
+      "answerable": 15,
+      "no_answer": 3
+    }
+  },
+  "category_counts_per_split": {
+    "lookup": 2,
+    "multihop": 2,
+    "no_answer": 2,
+    "harmful_rewrite": 2,
+    "duplicates": 2,
+    "conflicting_stale": 2,
+    "limited_scope": 2,
+    "multilingual": 2,
+    "malicious_instructions": 2
+  },
+  "sha256": {
+    "corpus.json": "0d2d66ea73e6aaa76c4ccfc6b8d132e5643746fee0209a04b838111bc6d295fa",
+    "dev.json": "b91349406bd152fafbccde11901703c4ca7e98aabcf3c90803c6ef5707005bd8",
+    "schema.json": "5704595bfbafa4a9fe8aff04adc26183815d22b25d13d819e880e4a8f46fd182",
+    "verify.py": "89b12d8d35ba379cb14dcc654be02eeb35efa1b60007ad5a4c3c3a2598f53a8d",
+    "holdout.json": "06eef67ae1b61a647bd40cf7984f54175f8a8454e5d37131baba6582d0c6cbcc"
+  },
+  "authoring_revisions": [
+    {
+      "prior_holdout_sha256": "52dff712d7e7ca05292bcd7479a266f7c1e0a0aca545a87de0819bb680422560",
+      "reason": "Pre-execution independent author review added missing original mirror procedure support to multihop qrels. No strategy or execution outputs inspected."
+    }
+  ]
+}

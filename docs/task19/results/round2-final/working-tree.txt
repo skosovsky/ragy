@@ -1,0 +1,20 @@
+ M README.md
+ M examples/conformance/graph_comparison/main.go
+ M examples/conformance/recipe_comparison/main.go
+ M examples/conformance/tensor_comparison/main.go
+?? docs/task19/
+?? examples/conformance/datasets/
+?? examples/conformance/final_contract/
+?? examples/conformance/graph_comparison/task19_graph_unix.go
+?? examples/conformance/graph_comparison/task19_unix.go
+?? examples/conformance/graph_comparison/task19_unix_test.go
+?? examples/conformance/internal/task19/
+?? examples/conformance/recipe_comparison/task19.go
+?? examples/conformance/recipe_comparison/task19_test.go
+?? examples/conformance/tensor_comparison/task19.go
+?? examples/conformance/tensor_comparison/task19_dev_test.go
+?? examples/conformance/tensor_comparison/task19_test.go
+?? scripts/__pycache__/
+?? scripts/task19_runner_test.py
+?? scripts/task19_verify.py
+?? scripts/task19_wire.py

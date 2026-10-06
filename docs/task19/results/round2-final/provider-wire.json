@@ -1,0 +1,75 @@
+{
+  "schema": "ragy.task19.provider-wire.v1",
+  "checked_at": "2026-10-06",
+  "evidence": "independent local fixture schema audit; no live provider request",
+  "contract_sha256": "c33b0e573695d93b9ef60cf7d80f8c304261d82ad378b809febb6c69c4e6ef67",
+  "outcomes": [
+    {
+      "profile": "openai-dense",
+      "status": "passed",
+      "errors": [],
+      "negative_fixtures": 10,
+      "fixture_sha256": "9f84e9cd7ba96ae2ea1df430b405f0a81636cc0fc52b3ccf9f570e020c7ce88c",
+      "negative_source_sha256": "9f84e9cd7ba96ae2ea1df430b405f0a81636cc0fc52b3ccf9f570e020c7ce88c",
+      "sources": [
+        "https://developers.openai.com/api/reference/resources/embeddings/methods/create"
+      ]
+    },
+    {
+      "profile": "jina-dense",
+      "status": "passed",
+      "errors": [],
+      "negative_fixtures": 10,
+      "fixture_sha256": "dfc08fced4f796a16d79168321d4454543c2e6a697123552c9dbe3b791d684c5",
+      "negative_source_sha256": "dfc08fced4f796a16d79168321d4454543c2e6a697123552c9dbe3b791d684c5",
+      "sources": [
+        "https://jina.ai/news/jina-embeddings-v3-a-frontier-multilingual-embedding-model/"
+      ]
+    },
+    {
+      "profile": "jina-tensor",
+      "status": "passed",
+      "errors": [],
+      "negative_fixtures": 10,
+      "fixture_sha256": "d54543fd9cbb174b8df72b13eb0b32edf9aab90893322f1fe2636a8a51d07133",
+      "negative_source_sha256": "d54543fd9cbb174b8df72b13eb0b32edf9aab90893322f1fe2636a8a51d07133",
+      "sources": [
+        "https://jina.ai/news/jina-colbert-v2-multilingual-late-interaction-retriever-for-embedding-and-reranking/"
+      ]
+    },
+    {
+      "profile": "gemini-dense",
+      "status": "passed",
+      "errors": [],
+      "negative_fixtures": 10,
+      "fixture_sha256": "3f4c1ea277e405edfc508633f7cc8fe59eae40d9245e706e294bbe9da58d5ac0",
+      "negative_source_sha256": "3f4c1ea277e405edfc508633f7cc8fe59eae40d9245e706e294bbe9da58d5ac0",
+      "sources": [
+        "https://ai.google.dev/api/embeddings"
+      ]
+    },
+    {
+      "profile": "gemini-multimodal",
+      "status": "passed",
+      "errors": [],
+      "negative_fixtures": 10,
+      "fixture_sha256": "04c2621efb455986b4141123964caf1195d14e7a23ca22b5b72d3b6d3d810afe",
+      "negative_source_sha256": "3f4c1ea277e405edfc508633f7cc8fe59eae40d9245e706e294bbe9da58d5ac0",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/embeddings"
+      ]
+    },
+    {
+      "profile": "cohere-rerank",
+      "status": "passed",
+      "errors": [],
+      "negative_fixtures": 8,
+      "fixture_sha256": "e9f18efcb4c87a53d7c3fc5ca1181aa1b7a46d6d47a6906096941c5c227d410d",
+      "negative_source_sha256": "e9f18efcb4c87a53d7c3fc5ca1181aa1b7a46d6d47a6906096941c5c227d410d",
+      "sources": [
+        "https://docs.cohere.com/v2/reference/rerank"
+      ]
+    }
+  ],
+  "status": "passed"
+}

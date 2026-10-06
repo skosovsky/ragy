@@ -159,6 +159,9 @@ type report struct {
 }
 
 func main() {
+	task19Corpus := flag.String("task19-corpus", "", "TASK19 versioned corpus JSON")
+	task19Split := flag.String("task19-split", "", "TASK19 explicit query split JSON")
+	task19Output := flag.String("task19-output", "", "TASK19 report JSON")
 	input := flag.String("input", "", "complete external execution capture")
 	output := flag.String("output", "", "output report; empty uses stdout")
 	capturePath := flag.String("capture", "", "execute provider extraction and all graph recipes; save raw capture")
@@ -178,6 +181,13 @@ func main() {
 	calibration := flag.String("calibration", "", "successful graph calibration artifact")
 	calibrate := flag.String("calibrate-codex", "", "save calibration-only CLI responses")
 	flag.Parse()
+	if *task19Corpus != "" {
+		if err := executeTask19Graph(*task19Corpus, *task19Split, *task19Output); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if *calibrate != "" {
 		if *input != "" || *output != "" || *capturePath != "" {
 			fmt.Fprintln(os.Stderr, errInvalid)

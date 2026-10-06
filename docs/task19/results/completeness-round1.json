@@ -1,0 +1,90 @@
+{
+  "schema": "task19-completeness-review/v1",
+  "round": 1,
+  "decision": "REJECT",
+  "candidate_identity": "b9f26fd0398f4d5fa35ed91bd884cce69fb298ac7499a8b0ee54d3e3c9c20917",
+  "baseline": "13c37b67689be736bb05d575b41f2446d2b90c50",
+  "mandatory_total": 12,
+  "confirmed": 10,
+  "percentage": 83.33333333333333,
+  "scope": "Original task19/common conditions and E01-E12 retained; local evidence completeness, not production readiness. No live skipped result counted as passed.",
+  "requirements": [
+    {
+      "id": "E01",
+      "status": "unconfirmed",
+      "evidence": "Single runner covers 14 modules, but final matrix remains incomplete and current tensor required-profile gate rejects baseline+tensor108rows."
+    },
+    {
+      "id": "E02",
+      "status": "confirmed",
+      "evidence": "Actual external GOWORK=off BYOT final_contract/joint_read/observation_contract composition passes race; space, scope, fusion, source files, packing, v2 privacy, budgets and lifecycle are actual implementations."
+    },
+    {
+      "id": "E03",
+      "status": "confirmed",
+      "evidence": "40 authored documents, independently authored development 18 / holdout 18, nine categories each, graded qrels/provenance; independent JSONSchema validation and sealed digest publication proof present."
+    },
+    {
+      "id": "E04",
+      "status": "confirmed",
+      "evidence": "Three existing consumers executed actual baseline/hybrid-rerank/three text recipes/managed graph/candidate-only native tensor under shared declared corpus/resource policy; raw 270 / 108 / 108 holdout rows."
+    },
+    {
+      "id": "E05",
+      "status": "confirmed",
+      "evidence": "Independent recomputation agrees with every published Recall/MRR/nDCG/coverage/no-answer/failure denominator; 45 answerable + 9 no-answer per strategy. Failed abstention fixed; candidate per dispatch 12 / global 36 bounds and serialized resources audited. Unknown provider billing retained."
+    },
+    {
+      "id": "E06",
+      "status": "confirmed",
+      "evidence": "42 candidate hashes and536 evaluation freeze hashes independently matched before subsequent root repairs; raw captures embed frozen manifest, corpus/split digests, configuration/model/encoder/seed/tokenizer/usage identities. Explicit setup/query separation."
+    },
+    {
+      "id": "E07",
+      "status": "confirmed",
+      "evidence": "Freeze precedes sealed holdout publication; exact 06eef67 digest and author-only pre-result correction preserved. Numeric thresholds predeclared; three deterministic repeats and raw elapsed, no stochastic confidence or percentiles."
+    },
+    {
+      "id": "E08",
+      "status": "confirmed",
+      "evidence": "Independent provider wire audit passed all six pinned official contracts; request source-audit limits explicit; mock transport not counted as live service/DB verification."
+    },
+    {
+      "id": "E09",
+      "status": "confirmed",
+      "evidence": "Actual adversarial composition checks scope, revocation, hydration/provenance, shared budgets, metadata pins/retirement and v2 privacy; malicious retrieved instructions stay source data; no agent-immunity claim."
+    },
+    {
+      "id": "E10",
+      "status": "confirmed",
+      "evidence": "README and capability matrix describe implemented contracts and local/wire/live limits; historical TASK12 evidence retained; no readiness percentage claim."
+    },
+    {
+      "id": "E11",
+      "status": "unconfirmed",
+      "evidence": "Meaningful focused frozen race checks passed, but all-module final run has not completed and root reports round 1 root documentation guard failure. All-module final pass required."
+    },
+    {
+      "id": "E12",
+      "status": "confirmed",
+      "evidence": "Every complex profile fails predeclared numeric qualification; baseline retained. Local fixtures never promote universal default; Recall improvements, ranking losses and no-answer errors visible."
+    }
+  ],
+  "independent_checks": {
+    "candidate_hashes": "42/42match at start",
+    "evaluation_freeze_hashes": "536/536match",
+    "metric_recomputation": "all text/graph/tensor holdout metrics match",
+    "runner_evaluation_gate": {
+      "text": "passed",
+      "graph": "passed",
+      "tensor": "failed: unexpected execution grid / incomplete strategy metrics"
+    },
+    "race": {
+      "internal/task19": "passed 1.224s",
+      "recipe_comparison": "passed 44.829s",
+      "graph_comparison": "passed 63.945s",
+      "tensor_comparison": "passed 17.935s"
+    }
+  },
+  "pending": "Root repairs runner expectation and documentation wording, then creates new final candidate and round 2 all-module matrix; no acceptance granted."
+}

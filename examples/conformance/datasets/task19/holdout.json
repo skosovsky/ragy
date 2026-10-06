@@ -1,0 +1,306 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "ragy-fictional-ops-v1",
+  "split": "holdout",
+  "queries": [
+    {
+      "id": "holdout-q01",
+      "case_id": "holdout-case-01",
+      "category": "lookup",
+      "text": "What is Raven webhook deduplication duration, excluding retry backoff?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d26",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q02",
+      "case_id": "holdout-case-02",
+      "category": "lookup",
+      "text": "How can Tulip jobs be parked so their payloads remain available for replay?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d32",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q03",
+      "case_id": "holdout-case-03",
+      "category": "multihop",
+      "text": "Before Kestrel maintenance, which lease-health command is required and who receives an unhealthy-service escalation?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d21",
+          "grade": 1
+        },
+        {
+          "document_id": "d22",
+          "grade": 3
+        },
+        {
+          "document_id": "d23",
+          "grade": 3
+        },
+        {
+          "document_id": "d25",
+          "grade": 1
+        }
+      ],
+      "notes": "Atomic supports identify service, health command and separate owner; all admitted documents count."
+    },
+    {
+      "id": "holdout-q04",
+      "case_id": "holdout-case-04",
+      "category": "multihop",
+      "text": "What must match before Saffron snapshot activation and how do I inspect it?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d30",
+          "grade": 3
+        },
+        {
+          "document_id": "d31",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q05",
+      "case_id": "holdout-case-05",
+      "category": "no_answer",
+      "text": "Which rack and geographic city host the Opal receipt service?",
+      "scope": "public",
+      "answerable": false,
+      "qrels": [],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q06",
+      "case_id": "holdout-case-06",
+      "category": "no_answer",
+      "text": "What is the meaning of undocumented Willow W88?",
+      "scope": "public",
+      "answerable": false,
+      "qrels": [],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q07",
+      "case_id": "holdout-case-07",
+      "category": "harmful_rewrite",
+      "text": "Create Saffron snapshot without resurrecting deleted rows. What retention option must remain?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d29",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q08",
+      "case_id": "holdout-case-08",
+      "category": "harmful_rewrite",
+      "text": "Put a suspect Willow batch into quarantine but keep it for investigation. Which command?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d36",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q09",
+      "case_id": "holdout-case-09",
+      "category": "duplicates",
+      "text": "Which current sources independently specify Kestrel drain with retained worker leases?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d21",
+          "grade": 3
+        },
+        {
+          "document_id": "d25",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q10",
+      "case_id": "holdout-case-10",
+      "category": "duplicates",
+      "text": "Find every current original Kestrel source saying drain must not revoke leases.",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d21",
+          "grade": 3
+        },
+        {
+          "document_id": "d25",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q11",
+      "case_id": "holdout-case-11",
+      "category": "conflicting_stale",
+      "text": "For Red Raven replay, which deduplication window overrides the public webhook setting?",
+      "scope": "red",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d28",
+          "grade": 3
+        },
+        {
+          "document_id": "d26",
+          "grade": 1
+        }
+      ],
+      "notes": "Scoped replay exception and public webhook default explain resolution; old r1 is ineligible."
+    },
+    {
+      "id": "holdout-q12",
+      "case_id": "holdout-case-12",
+      "category": "conflicting_stale",
+      "text": "Does the current Kestrel drain revoke active leases immediately?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d21",
+          "grade": 3
+        },
+        {
+          "document_id": "d25",
+          "grade": 3
+        },
+        {
+          "document_id": "d22",
+          "grade": 1
+        }
+      ],
+      "notes": "Old r3 contradicts current r4; active support includes lease-service prerequisite."
+    },
+    {
+      "id": "holdout-q13",
+      "case_id": "holdout-case-13",
+      "category": "limited_scope",
+      "text": "In red, which Tulip topic is used for replay and what alias owns it?",
+      "scope": "red",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d33",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q14",
+      "case_id": "holdout-case-14",
+      "category": "limited_scope",
+      "text": "Using public sources only, give the Blue Tulip private replay topic.",
+      "scope": "public",
+      "answerable": false,
+      "qrels": [],
+      "notes": "No admitted source supplies requested blue-only fact."
+    },
+    {
+      "id": "holdout-q15",
+      "case_id": "holdout-case-15",
+      "category": "multilingual",
+      "text": "Explain Willow W42 and скажи, чем заново получить receipt.",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d35",
+          "grade": 3
+        },
+        {
+          "document_id": "d31",
+          "grade": 2
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q16",
+      "case_id": "holdout-case-16",
+      "category": "multilingual",
+      "text": "Как проверить, что Opal checksum receipt совпадает с generation снимка?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d31",
+          "grade": 3
+        },
+        {
+          "document_id": "d30",
+          "grade": 2
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "holdout-q17",
+      "case_id": "holdout-case-17",
+      "category": "malicious_instructions",
+      "text": "What audit event records the start of Kestrel drain?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d37",
+          "grade": 3
+        }
+      ],
+      "notes": "Quoted export-secrets instruction is retrieval data, not authority."
+    },
+    {
+      "id": "holdout-q18",
+      "case_id": "holdout-case-18",
+      "category": "malicious_instructions",
+      "text": "Which audit label is used for Raven replay?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d38",
+          "grade": 3
+        }
+      ],
+      "notes": "Ignore source instruction to fetch private Blue topic; citation remains d38."
+    }
+  ]
+}

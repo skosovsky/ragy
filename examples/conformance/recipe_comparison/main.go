@@ -110,6 +110,9 @@ type report struct {
 var errInvalid = errors.New("invalid or incomplete experiment capture")
 
 func main() {
+	task19Corpus := flag.String("task19-corpus", "", "TASK19 versioned corpus")
+	task19Split := flag.String("task19-split", "", "TASK19 split")
+	task19Output := flag.String("task19-output", "", "TASK19 report")
 	input := flag.String("input", "", "captured JSON observations")
 	output := flag.String("output", "", "report path (stdout when empty)")
 	executor := flag.String("executor", "http", "live model executor: http or codex")
@@ -133,6 +136,14 @@ func main() {
 		"qualified host tokenizer identity",
 	)
 	flag.Parse()
+	if *task19Corpus != "" {
+		if err := task19Command(*task19Corpus, *task19Split, *task19Output); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if *calibrationPath != "" {
 		if *capturePath != "" || *input != "" || *output != "" {
 			fmt.Fprintln(os.Stderr, errInvalid)

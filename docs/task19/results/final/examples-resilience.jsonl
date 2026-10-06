@@ -1,0 +1,11 @@
+{"Time":"2026-10-06T19:45:15.909198+07:00","Action":"start","Package":"github.com/skosovsky/ragy/examples/resilience/rescue_search"}
+{"Time":"2026-10-06T19:45:15.909464+07:00","Action":"start","Package":"github.com/skosovsky/ragy/examples/resilience/retry_embedder"}
+{"Time":"2026-10-06T19:45:15.909686+07:00","Action":"output","Package":"github.com/skosovsky/ragy/examples/resilience/retry_embedder","Output":"?   \tgithub.com/skosovsky/ragy/examples/resilience/retry_embedder\t[no test files]\n"}
+{"Time":"2026-10-06T19:45:15.909754+07:00","Action":"skip","Package":"github.com/skosovsky/ragy/examples/resilience/retry_embedder","Elapsed":0}
+{"Time":"2026-10-06T19:45:16.355022+07:00","Action":"run","Package":"github.com/skosovsky/ragy/examples/resilience/rescue_search","Test":"TestRescueSearch_EmptySecondaryPropagatesPrimaryError"}
+{"Time":"2026-10-06T19:45:16.355136+07:00","Action":"output","Package":"github.com/skosovsky/ragy/examples/resilience/rescue_search","Test":"TestRescueSearch_EmptySecondaryPropagatesPrimaryError","Output":"=== RUN   TestRescueSearch_EmptySecondaryPropagatesPrimaryError\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:45:16.355436+07:00","Action":"output","Package":"github.com/skosovsky/ragy/examples/resilience/rescue_search","Test":"TestRescueSearch_EmptySecondaryPropagatesPrimaryError","Output":"--- PASS: TestRescueSearch_EmptySecondaryPropagatesPrimaryError (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:45:16.35546+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/examples/resilience/rescue_search","Test":"TestRescueSearch_EmptySecondaryPropagatesPrimaryError","Elapsed":0}
+{"Time":"2026-10-06T19:45:16.35547+07:00","Action":"output","Package":"github.com/skosovsky/ragy/examples/resilience/rescue_search","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:45:17.362697+07:00","Action":"output","Package":"github.com/skosovsky/ragy/examples/resilience/rescue_search","Output":"ok  \tgithub.com/skosovsky/ragy/examples/resilience/rescue_search\t1.453s\n"}
+{"Time":"2026-10-06T19:45:17.362745+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/examples/resilience/rescue_search","Elapsed":1.454}

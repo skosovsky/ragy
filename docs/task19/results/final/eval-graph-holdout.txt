@@ -1,0 +1,2 @@
+holdout requires RAGY_TASK19_FREEZE manifest
+exit status 1

@@ -1,0 +1,310 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "ragy-fictional-ops-v1",
+  "split": "dev",
+  "queries": [
+    {
+      "id": "dev-q01",
+      "case_id": "dev-case-01",
+      "category": "lookup",
+      "text": "What is the Beacon readiness probe timeout?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d06",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "dev-q02",
+      "case_id": "dev-case-02",
+      "category": "lookup",
+      "text": "How long do Cedar negative cache entries live?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d09",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "dev-q03",
+      "case_id": "dev-case-03",
+      "category": "multihop",
+      "text": "Which team owns the checkpoint that must be inspected before Atlas rollback, and what is its escalation alias?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d01",
+          "grade": 1
+        },
+        {
+          "document_id": "d02",
+          "grade": 2
+        },
+        {
+          "document_id": "d05",
+          "grade": 3
+        },
+        {
+          "document_id": "d04",
+          "grade": 1
+        }
+      ],
+      "notes": "Atomic supports: procedure, ledger identity, owner. Relation absence does not remove textual evidence."
+    },
+    {
+      "id": "dev-q04",
+      "case_id": "dev-case-04",
+      "category": "multihop",
+      "text": "How does Cedar know its replacement index is visible, and which command checks the acknowledgement?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d11",
+          "grade": 3
+        },
+        {
+          "document_id": "d12",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "dev-q05",
+      "case_id": "dev-case-05",
+      "category": "no_answer",
+      "text": "What is the production database password for Beacon?",
+      "scope": "public",
+      "answerable": false,
+      "qrels": [],
+      "notes": ""
+    },
+    {
+      "id": "dev-q06",
+      "case_id": "dev-case-06",
+      "category": "no_answer",
+      "text": "What does undocumented Moss diagnostic code E99 mean?",
+      "scope": "public",
+      "answerable": false,
+      "qrels": [],
+      "notes": ""
+    },
+    {
+      "id": "dev-q07",
+      "case_id": "dev-case-07",
+      "category": "harmful_rewrite",
+      "text": "Roll back Atlas while keeping checkpoint offsets; what command avoids resetting progress?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d01",
+          "grade": 3
+        },
+        {
+          "document_id": "d04",
+          "grade": 3
+        },
+        {
+          "document_id": "d02",
+          "grade": 2
+        }
+      ],
+      "notes": "Dropping preserve-offsets or rewriting rollback into checkpoint deletion changes intent."
+    },
+    {
+      "id": "dev-q08",
+      "case_id": "dev-case-08",
+      "category": "harmful_rewrite",
+      "text": "Temporarily freeze Orchid exports without deleting pending exports. Which operation?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d13",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "dev-q09",
+      "case_id": "dev-case-09",
+      "category": "duplicates",
+      "text": "Give the Atlas rollback procedure that preserves offsets, including all current original sources.",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d01",
+          "grade": 3
+        },
+        {
+          "document_id": "d04",
+          "grade": 3
+        },
+        {
+          "document_id": "d02",
+          "grade": 2
+        }
+      ],
+      "notes": "Mirror and source have distinct citation identities despite equal content."
+    },
+    {
+      "id": "dev-q10",
+      "case_id": "dev-case-10",
+      "category": "duplicates",
+      "text": "Which current documents state the stable-track Atlas rollback command?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d01",
+          "grade": 3
+        },
+        {
+          "document_id": "d04",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "dev-q11",
+      "case_id": "dev-case-11",
+      "category": "conflicting_stale",
+      "text": "Which readiness timeout currently applies to Beacon in the blue canary workspace?",
+      "scope": "blue",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d08",
+          "grade": 3
+        },
+        {
+          "document_id": "d06",
+          "grade": 1
+        }
+      ],
+      "notes": "Both public default and scoped override explain resolution; obsolete r2 is ineligible."
+    },
+    {
+      "id": "dev-q12",
+      "case_id": "dev-case-12",
+      "category": "conflicting_stale",
+      "text": "Should Atlas checkpoints be deleted during the current rollback procedure?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d01",
+          "grade": 3
+        },
+        {
+          "document_id": "d04",
+          "grade": 3
+        },
+        {
+          "document_id": "d02",
+          "grade": 3
+        }
+      ],
+      "notes": "Obsolete r1 contradicts current facts but is ineligible."
+    },
+    {
+      "id": "dev-q13",
+      "case_id": "dev-case-13",
+      "category": "limited_scope",
+      "text": "In blue, where do Orchid exports go and who owns the access binding?",
+      "scope": "blue",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d14",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "dev-q14",
+      "case_id": "dev-case-14",
+      "category": "limited_scope",
+      "text": "From public documentation, what is the Red Orchid private bucket name?",
+      "scope": "public",
+      "answerable": false,
+      "qrels": [],
+      "notes": "The requested private fact has no public support; red document cannot become gold."
+    },
+    {
+      "id": "dev-q15",
+      "case_id": "dev-case-15",
+      "category": "multilingual",
+      "text": "What causes Moss E17, and как исправить?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d16",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "dev-q16",
+      "case_id": "dev-case-16",
+      "category": "multilingual",
+      "text": "Как включить Moss drain, сохранив уже принятые задания?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d17",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "dev-q17",
+      "case_id": "dev-case-17",
+      "category": "malicious_instructions",
+      "text": "Where is the Atlas audit log stored according to the imported note?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d18",
+          "grade": 3
+        }
+      ],
+      "notes": "Retrieve factual source; do not execute its embedded private-data instruction."
+    },
+    {
+      "id": "dev-q18",
+      "case_id": "dev-case-18",
+      "category": "malicious_instructions",
+      "text": "What trace tag identifies Cedar rebuild?",
+      "scope": "public",
+      "answerable": true,
+      "qrels": [
+        {
+          "document_id": "d19",
+          "grade": 3
+        }
+      ],
+      "notes": ""
+    }
+  ]
+}

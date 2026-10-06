@@ -6,11 +6,11 @@ The core is domain-first and capability-specific:
 
 - `retrieval` for `Document[TMeta]`, `Backend[TIntent, TMeta]`, `Query[TIntent]`, `ExecutionPipeline`, `RetrieveOptions`, planners, and post-processors
 - `filter` for schema-bound filter builders and adapter-readable IR
-- `dense`, `lexical`, `tensor`, `graph`, `documents` for capability contracts
+- `embedding` for declared model/revision/config/metric spaces and query/document purpose; `dense`, `lexical`, `tensor`, `graph`, `documents` for capability contracts
 - `ranking` for query-aware reranking and ranked-list merging
 - [`chunking`](chunking/README.md) for source-mapped fragments and explicit index text; [`graphingest`](graphingest/README.md) for typed extraction/resolution/materialization with host lifecycle handoff
 
-Provider and storage adapters live under `adapters/...`.
+Provider and storage adapters live under `adapters/...`. Host applications own IAM, prompts, agent/tool loops, model selection, tokenizers, prices and retention policy. The [capability matrix](docs/task19/capabilities.md) separates implemented contracts, local/wire verification and real-service verification.
 
 ## Typed retrieval model
 
@@ -323,7 +323,7 @@ The same store also satisfies `graph.Store[TMeta]` for upsert and low-level trav
 
 ### Timeouts
 
-Use `context.WithTimeout` (or `context.WithDeadline`) at the scope you care about: one deadline for an entire RAG pipeline, or tighter deadlines per `Embed` / `Retrieve` call. Adapter methods respect `ctx`; when the deadline passes, you typically see `context.DeadlineExceeded` wrapped with `ErrUnavailable` (see below).
+Use `context.WithTimeout` (or `context.WithDeadline`) at the scope you care about: one deadline for an entire RAG pipeline, or tighter deadlines per `Embed` / `Retrieve` call. Context cancellation/deadline errors remain discoverable with `errors.Is`. Host callbacks and transports must cooperate with context; local cancellation does not prove remote cancellation or billing rollback.
 
 ### Canonical errors (`errors.Is`)
 
@@ -332,6 +332,8 @@ Use `context.WithTimeout` (or `context.WithDeadline`) at the scope you care abou
 | `ragy.ErrInvalidArgument`       | Bad config, bad request, HTTP **4xx** (except 429)                                       | No                                              |
 | `ragy.ErrUnavailable`           | Network/transport failure, timeouts, HTTP **429** / **5xx**, DB/RPC failures from stores | Often yes (with backoff)                        |
 | `ragy.ErrProtocol`              | Decode/validate/wire-shape failures (`WrapProjectionError`), provider cardinality bugs   | Usually no (bug or provider change)             |
+| `ragy.ErrUnsupported`           | Requested capability, publication or provider mode is not implemented                   | No automatic downgrade                         |
+| `context.Canceled` / `context.DeadlineExceeded` | Attempt canceled or its explicit deadline expired                       | Host chooses a new attempt; do not hide failure |
 | `retrieval.PartialFailureError` | Aggregate child failed while other branches returned docs                                | Partial `ResultSet` is usable; inspect `Errors` |
 
 `context.Canceled` is returned as-is from HTTP transport helpers (caller canceled; not a retry target).
@@ -343,7 +345,7 @@ Helpers in the root module:
 - `ragy.WrapBackendError` — classify errors from `pgvector`, `qdrant`, `elasticsearch`, and `neo4j` store boundaries (`Retrieve`, `Traverse`, and `Upsert`)
 - `ragy.WrapProjectionError` — adapter document projection failures (decode, validate, wire shape) as `ErrProtocol`
 
-HTTP clients for providers (OpenAI, Jina, Gemini, Cohere) and store adapters (`pgvector`, `qdrant`, `elasticsearch`) use these helpers so retry logic can key off `errors.Is(err, ragy.ErrUnavailable)` vs `ErrInvalidArgument`.
+Provider HTTP clients (OpenAI, Jina, Gemini, Cohere) require finite request/response/time limits, forbid redirects, preserve reported usage as known or unknown, and sanitize provider error payloads. Store adapters (`pgvector`, `qdrant`, `elasticsearch`) classify host bridge errors with the shared sentinels. Any retry wrapper must account for actual calls and unknown outcomes; a required shared recipe ledger does not implicitly refund failed calls.
 
 ### Decorator sketch (stdlib only)
 
@@ -426,9 +428,24 @@ Retrieval requests require an explicit `Read` binding. Use
 `retrieval.UnrestrictedRead()` for live unrestricted reads. Protected requests use
 `access.Scoped` with a mandatory predicate, host policy snapshot/authority and
 publication selection. Planner, binder and projector cannot replace this binding.
-A capability/authorization failure is fatal to rescue. Pinned lifecycle publication,
-scoped graph traversal and the full scope matrix are still under implementation;
-existing adapters reject guarantees they cannot provide.
+A capability/authorization failure is fatal to rescue. Local persistent dense/tensor
+and managed lexical/graph paths implement pinned lifecycle reads and scope admission.
+Managed graph admits nodes and edges before traversal. Capability-preserving cache,
+projection and OTel decorators retain these checks; incompatible external adapters
+reject scoped or pinned guarantees they cannot provide. See the
+[capability matrix](docs/task19/capabilities.md) for the actual per-path limits.
+
+Lifecycle uses the explicit `ragy.lifecycle/v2` format. Local maintenance retains
+identity and cleanup fences, protects registered metadata pins and unfinished work,
+and refuses capacity without implicit deletion. Value-only publication capture
+does not register retention. Target/source availability and authority remain host
+contracts; see [maintenance and migration](docs/task18/lifecycle-maintenance.md).
+
+Bounded text/graph recipes share an explicit attempt ledger. Context packing counts
+the complete formatted artifact, records actual input contributors and reports
+delivered provenance uncertainty. Evidence export uses the strict
+`ragy.retrieval-evidence/v2` contract and is default-deny; optional diagnostic
+observation does not grant evidence export permission.
 
 Numeric documents require explicit `ScoreState` and `ScoreSemantics`. Native scores
 are finite and may lie outside [0,1]; only explicitly normalized scores use that

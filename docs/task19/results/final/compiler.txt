@@ -1,0 +1,5 @@
+darwin
+arm64
+go1.27.1
+1
+cc

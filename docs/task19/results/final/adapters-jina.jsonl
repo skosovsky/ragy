@@ -1,0 +1,242 @@
+{"Time":"2026-10-06T19:42:49.337904+07:00","Action":"start","Package":"github.com/skosovsky/ragy/adapters/jina/dense"}
+{"Time":"2026-10-06T19:42:49.339399+07:00","Action":"start","Package":"github.com/skosovsky/ragy/adapters/jina/tensor"}
+{"Time":"2026-10-06T19:42:49.859707+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire"}
+{"Time":"2026-10-06T19:42:49.860874+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire","Output":"=== RUN   TestDocumentedWire\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.861429+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire/query"}
+{"Time":"2026-10-06T19:42:49.861439+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire/query","Output":"=== RUN   TestDocumentedWire/query\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.862781+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire"}
+{"Time":"2026-10-06T19:42:49.86287+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire","Output":"=== RUN   TestDocumentedWire\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.862884+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire/query"}
+{"Time":"2026-10-06T19:42:49.862891+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire/query","Output":"=== RUN   TestDocumentedWire/query\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.865957+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire/query","Output":"--- PASS: TestDocumentedWire/query (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.866088+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire/query","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.866327+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire/document"}
+{"Time":"2026-10-06T19:42:49.866334+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire/document","Output":"=== RUN   TestDocumentedWire/document\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.86714+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire/query","Output":"--- PASS: TestDocumentedWire/query (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.867186+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire/query","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.867196+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire/document"}
+{"Time":"2026-10-06T19:42:49.867202+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire/document","Output":"=== RUN   TestDocumentedWire/document\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.868286+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire/document","Output":"--- PASS: TestDocumentedWire/document (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.868318+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire/document","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.868326+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire","Output":"--- PASS: TestDocumentedWire (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.868343+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDocumentedWire","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.868351+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses"}
+{"Time":"2026-10-06T19:42:49.868387+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses","Output":"=== RUN   TestAdversarialResponses\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.868397+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/missing-index"}
+{"Time":"2026-10-06T19:42:49.868402+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/missing-index","Output":"=== RUN   TestAdversarialResponses/missing-index\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.868442+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire/document","Output":"--- PASS: TestDocumentedWire/document (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.868465+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire/document","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.868525+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire","Output":"--- PASS: TestDocumentedWire (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.868559+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDocumentedWire","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.86857+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses"}
+{"Time":"2026-10-06T19:42:49.868576+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses","Output":"=== RUN   TestAdversarialResponses\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.868625+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/out-of-range"}
+{"Time":"2026-10-06T19:42:49.868634+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/out-of-range","Output":"=== RUN   TestAdversarialResponses/out-of-range\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.869464+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/missing-index","Output":"--- PASS: TestAdversarialResponses/missing-index (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.869491+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/missing-index","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.869509+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/out-of-range"}
+{"Time":"2026-10-06T19:42:49.869521+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/out-of-range","Output":"=== RUN   TestAdversarialResponses/out-of-range\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.869534+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/out-of-range","Output":"--- PASS: TestAdversarialResponses/out-of-range (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.869543+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/out-of-range","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.869556+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/extra"}
+{"Time":"2026-10-06T19:42:49.869561+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/extra","Output":"=== RUN   TestAdversarialResponses/extra\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.870463+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/extra","Output":"--- PASS: TestAdversarialResponses/extra (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.870492+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/extra","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.870501+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/empty"}
+{"Time":"2026-10-06T19:42:49.870505+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/empty","Output":"=== RUN   TestAdversarialResponses/empty\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.870574+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/out-of-range","Output":"--- PASS: TestAdversarialResponses/out-of-range (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.870597+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/out-of-range","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.870607+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/empty"}
+{"Time":"2026-10-06T19:42:49.870611+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/empty","Output":"=== RUN   TestAdversarialResponses/empty\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.871248+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/empty","Output":"--- PASS: TestAdversarialResponses/empty (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.871274+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/empty","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.871282+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/overflow"}
+{"Time":"2026-10-06T19:42:49.871292+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/overflow","Output":"=== RUN   TestAdversarialResponses/overflow\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.87137+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/empty","Output":"--- PASS: TestAdversarialResponses/empty (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.87138+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/empty","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.871387+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/overflow"}
+{"Time":"2026-10-06T19:42:49.871391+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/overflow","Output":"=== RUN   TestAdversarialResponses/overflow\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.872347+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/overflow","Output":"--- PASS: TestAdversarialResponses/overflow (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.872386+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/overflow","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.872394+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/model"}
+{"Time":"2026-10-06T19:42:49.8724+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/model","Output":"=== RUN   TestAdversarialResponses/model\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.872689+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/overflow","Output":"--- PASS: TestAdversarialResponses/overflow (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.872719+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/overflow","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.872763+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/model"}
+{"Time":"2026-10-06T19:42:49.87277+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/model","Output":"=== RUN   TestAdversarialResponses/model\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.873206+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/model","Output":"--- PASS: TestAdversarialResponses/model (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.873223+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/model","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.873229+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/usage"}
+{"Time":"2026-10-06T19:42:49.873233+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/usage","Output":"=== RUN   TestAdversarialResponses/usage\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.873738+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/model","Output":"--- PASS: TestAdversarialResponses/model (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.873779+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/model","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.873796+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/trailing"}
+{"Time":"2026-10-06T19:42:49.873803+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/trailing","Output":"=== RUN   TestAdversarialResponses/trailing\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.874113+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/usage","Output":"--- PASS: TestAdversarialResponses/usage (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.874134+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/usage","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.874149+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/trailing"}
+{"Time":"2026-10-06T19:42:49.874162+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/trailing","Output":"=== RUN   TestAdversarialResponses/trailing\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.87477+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/trailing","Output":"--- PASS: TestAdversarialResponses/trailing (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.874795+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/trailing","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.874804+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/missing"}
+{"Time":"2026-10-06T19:42:49.87481+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/missing","Output":"=== RUN   TestAdversarialResponses/missing\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.874999+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/trailing","Output":"--- PASS: TestAdversarialResponses/trailing (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.875027+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/trailing","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.875035+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/missing-index"}
+{"Time":"2026-10-06T19:42:49.875041+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/missing-index","Output":"=== RUN   TestAdversarialResponses/missing-index\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.875583+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/missing","Output":"--- PASS: TestAdversarialResponses/missing (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.875597+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/missing","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.875603+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/extra"}
+{"Time":"2026-10-06T19:42:49.87561+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/extra","Output":"=== RUN   TestAdversarialResponses/extra\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.875845+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/missing-index","Output":"--- PASS: TestAdversarialResponses/missing-index (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.875861+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/missing-index","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.875868+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/wrong-shape"}
+{"Time":"2026-10-06T19:42:49.875878+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/wrong-shape","Output":"=== RUN   TestAdversarialResponses/wrong-shape\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.876328+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/extra","Output":"--- PASS: TestAdversarialResponses/extra (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.876347+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/extra","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.876353+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/wrong-shape"}
+{"Time":"2026-10-06T19:42:49.876359+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/wrong-shape","Output":"=== RUN   TestAdversarialResponses/wrong-shape\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.876687+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/wrong-shape","Output":"--- PASS: TestAdversarialResponses/wrong-shape (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.876738+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/wrong-shape","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.876745+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/nan"}
+{"Time":"2026-10-06T19:42:49.87675+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/nan","Output":"=== RUN   TestAdversarialResponses/nan\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.877385+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/wrong-shape","Output":"--- PASS: TestAdversarialResponses/wrong-shape (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.877415+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/wrong-shape","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.877421+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/nan"}
+{"Time":"2026-10-06T19:42:49.877425+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/nan","Output":"=== RUN   TestAdversarialResponses/nan\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.877556+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/nan","Output":"--- PASS: TestAdversarialResponses/nan (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.877599+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/nan","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.877625+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/missing"}
+{"Time":"2026-10-06T19:42:49.877632+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/missing","Output":"=== RUN   TestAdversarialResponses/missing\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.879669+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/missing","Output":"--- PASS: TestAdversarialResponses/missing (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.879718+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses/missing","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.87973+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses","Output":"--- PASS: TestAdversarialResponses (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.879739+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestAdversarialResponses","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.879745+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDuplicateAndMissingOutput"}
+{"Time":"2026-10-06T19:42:49.879759+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDuplicateAndMissingOutput","Output":"=== RUN   TestDuplicateAndMissingOutput\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.87973+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/nan","Output":"--- PASS: TestAdversarialResponses/nan (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.879881+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/nan","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.88043+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/usage"}
+{"Time":"2026-10-06T19:42:49.880455+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/usage","Output":"=== RUN   TestAdversarialResponses/usage\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.880563+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/usage","Output":"--- PASS: TestAdversarialResponses/usage (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.880619+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses/usage","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.880643+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses","Output":"--- PASS: TestAdversarialResponses (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.880691+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestAdversarialResponses","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.880711+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDuplicateAndMissingOutput"}
+{"Time":"2026-10-06T19:42:49.880726+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDuplicateAndMissingOutput","Output":"=== RUN   TestDuplicateAndMissingOutput\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.881588+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDuplicateAndMissingOutput","Output":"--- PASS: TestDuplicateAndMissingOutput (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.881623+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestDuplicateAndMissingOutput","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.88164+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestUnknownUsage"}
+{"Time":"2026-10-06T19:42:49.881651+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestUnknownUsage","Output":"=== RUN   TestUnknownUsage\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.882452+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestUnknownUsage","Output":"--- PASS: TestUnknownUsage (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.882484+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestUnknownUsage","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.882492+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLocalRejectionBeforeDispatch"}
+{"Time":"2026-10-06T19:42:49.882497+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLocalRejectionBeforeDispatch","Output":"=== RUN   TestLocalRejectionBeforeDispatch\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.882585+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLocalRejectionBeforeDispatch","Output":"--- PASS: TestLocalRejectionBeforeDispatch (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.882596+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLocalRejectionBeforeDispatch","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.882601+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors"}
+{"Time":"2026-10-06T19:42:49.882607+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors","Output":"=== RUN   TestBoundsAndSanitizedErrors\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.882615+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/302"}
+{"Time":"2026-10-06T19:42:49.882622+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/302","Output":"=== RUN   TestBoundsAndSanitizedErrors/302\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.883905+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/302","Output":"--- PASS: TestBoundsAndSanitizedErrors/302 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.883931+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/302","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.883947+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/400"}
+{"Time":"2026-10-06T19:42:49.883956+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/400","Output":"=== RUN   TestBoundsAndSanitizedErrors/400\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.884732+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/400","Output":"--- PASS: TestBoundsAndSanitizedErrors/400 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.884752+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/400","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.88476+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/429"}
+{"Time":"2026-10-06T19:42:49.884767+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/429","Output":"=== RUN   TestBoundsAndSanitizedErrors/429\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.885512+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/429","Output":"--- PASS: TestBoundsAndSanitizedErrors/429 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.885544+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/429","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.885561+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/503"}
+{"Time":"2026-10-06T19:42:49.885569+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/503","Output":"=== RUN   TestBoundsAndSanitizedErrors/503\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.886206+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/503","Output":"--- PASS: TestBoundsAndSanitizedErrors/503 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.886236+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/503","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.886245+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/200"}
+{"Time":"2026-10-06T19:42:49.886252+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/200","Output":"=== RUN   TestBoundsAndSanitizedErrors/200\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.887696+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/200","Output":"--- PASS: TestBoundsAndSanitizedErrors/200 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.887743+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors/200","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.887751+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors","Output":"--- PASS: TestBoundsAndSanitizedErrors (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.887757+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestBoundsAndSanitizedErrors","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.887764+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestTimeout"}
+{"Time":"2026-10-06T19:42:49.887769+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestTimeout","Output":"=== RUN   TestTimeout\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.893226+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDuplicateAndMissingOutput","Output":"--- PASS: TestDuplicateAndMissingOutput (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.893266+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestDuplicateAndMissingOutput","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.893293+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestUnknownUsage"}
+{"Time":"2026-10-06T19:42:49.8933+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestUnknownUsage","Output":"=== RUN   TestUnknownUsage\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.894034+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestUnknownUsage","Output":"--- PASS: TestUnknownUsage (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.894048+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestUnknownUsage","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.894069+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLocalRejectionBeforeDispatch"}
+{"Time":"2026-10-06T19:42:49.894082+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLocalRejectionBeforeDispatch","Output":"=== RUN   TestLocalRejectionBeforeDispatch\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.894257+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLocalRejectionBeforeDispatch","Output":"--- PASS: TestLocalRejectionBeforeDispatch (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.894329+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLocalRejectionBeforeDispatch","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.894343+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors"}
+{"Time":"2026-10-06T19:42:49.89435+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors","Output":"=== RUN   TestBoundsAndSanitizedErrors\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.894357+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/302"}
+{"Time":"2026-10-06T19:42:49.894362+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/302","Output":"=== RUN   TestBoundsAndSanitizedErrors/302\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.8951+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/302","Output":"--- PASS: TestBoundsAndSanitizedErrors/302 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.895117+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/302","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.89515+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/400"}
+{"Time":"2026-10-06T19:42:49.895162+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/400","Output":"=== RUN   TestBoundsAndSanitizedErrors/400\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.896153+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/400","Output":"--- PASS: TestBoundsAndSanitizedErrors/400 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.89621+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/400","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.896248+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/429"}
+{"Time":"2026-10-06T19:42:49.896261+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/429","Output":"=== RUN   TestBoundsAndSanitizedErrors/429\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898132+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/429","Output":"--- PASS: TestBoundsAndSanitizedErrors/429 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898197+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/429","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.898207+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/503"}
+{"Time":"2026-10-06T19:42:49.898213+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/503","Output":"=== RUN   TestBoundsAndSanitizedErrors/503\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898459+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestTimeout","Output":"--- PASS: TestTimeout (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898474+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestTimeout","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.898481+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestInvalidConfiguration"}
+{"Time":"2026-10-06T19:42:49.898486+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestInvalidConfiguration","Output":"=== RUN   TestInvalidConfiguration\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898498+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestInvalidConfiguration","Output":"--- PASS: TestInvalidConfiguration (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898504+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestInvalidConfiguration","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.898509+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLiveProviderSmoke"}
+{"Time":"2026-10-06T19:42:49.898515+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLiveProviderSmoke","Output":"=== RUN   TestLiveProviderSmoke\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898519+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLiveProviderSmoke","Output":"    client_test.go:222: opt-in live provider smoke disabled\n"}
+{"Time":"2026-10-06T19:42:49.898524+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLiveProviderSmoke","Output":"--- SKIP: TestLiveProviderSmoke (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898533+07:00","Action":"skip","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestLiveProviderSmoke","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.898548+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestUnsupportedDimension"}
+{"Time":"2026-10-06T19:42:49.898552+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestUnsupportedDimension","Output":"=== RUN   TestUnsupportedDimension\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898556+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestUnsupportedDimension","Output":"--- PASS: TestUnsupportedDimension (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.898575+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Test":"TestUnsupportedDimension","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.898579+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.900507+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/503","Output":"--- PASS: TestBoundsAndSanitizedErrors/503 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.900552+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/503","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.900583+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/200"}
+{"Time":"2026-10-06T19:42:49.90059+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/200","Output":"=== RUN   TestBoundsAndSanitizedErrors/200\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.901597+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/200","Output":"--- PASS: TestBoundsAndSanitizedErrors/200 (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.901614+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors/200","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.901624+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors","Output":"--- PASS: TestBoundsAndSanitizedErrors (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.90163+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestBoundsAndSanitizedErrors","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.901638+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestTimeout"}
+{"Time":"2026-10-06T19:42:49.901644+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestTimeout","Output":"=== RUN   TestTimeout\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.915128+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestTimeout","Output":"--- PASS: TestTimeout (0.01s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.915165+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestTimeout","Elapsed":0.01}
+{"Time":"2026-10-06T19:42:49.915173+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestInvalidConfiguration"}
+{"Time":"2026-10-06T19:42:49.915179+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestInvalidConfiguration","Output":"=== RUN   TestInvalidConfiguration\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.915185+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestInvalidConfiguration","Output":"--- PASS: TestInvalidConfiguration (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.915191+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestInvalidConfiguration","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.915196+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLiveProviderSmoke"}
+{"Time":"2026-10-06T19:42:49.9152+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLiveProviderSmoke","Output":"=== RUN   TestLiveProviderSmoke\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.915205+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLiveProviderSmoke","Output":"    client_test.go:230: opt-in live provider smoke disabled\n"}
+{"Time":"2026-10-06T19:42:49.915211+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLiveProviderSmoke","Output":"--- SKIP: TestLiveProviderSmoke (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.915216+07:00","Action":"skip","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestLiveProviderSmoke","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.915221+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestTensorRowsBound"}
+{"Time":"2026-10-06T19:42:49.915225+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestTensorRowsBound","Output":"=== RUN   TestTensorRowsBound\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.917362+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestTensorRowsBound","Output":"--- PASS: TestTensorRowsBound (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.917399+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestTensorRowsBound","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.917416+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestRaggedTokenMatrix"}
+{"Time":"2026-10-06T19:42:49.917426+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestRaggedTokenMatrix","Output":"=== RUN   TestRaggedTokenMatrix\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.921381+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestRaggedTokenMatrix","Output":"--- PASS: TestRaggedTokenMatrix (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.921437+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestRaggedTokenMatrix","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.921445+07:00","Action":"run","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestUnsupportedDimension"}
+{"Time":"2026-10-06T19:42:49.921451+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestUnsupportedDimension","Output":"=== RUN   TestUnsupportedDimension\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.921457+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestUnsupportedDimension","Output":"--- PASS: TestUnsupportedDimension (0.00s)\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:49.921463+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Test":"TestUnsupportedDimension","Elapsed":0}
+{"Time":"2026-10-06T19:42:49.921468+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Output":"PASS\n","OutputType":"frame"}
+{"Time":"2026-10-06T19:42:50.90237+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Output":"ok  \tgithub.com/skosovsky/ragy/adapters/jina/dense\t1.564s\n"}
+{"Time":"2026-10-06T19:42:50.902411+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/dense","Elapsed":1.565}
+{"Time":"2026-10-06T19:42:50.924005+07:00","Action":"output","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Output":"ok  \tgithub.com/skosovsky/ragy/adapters/jina/tensor\t1.584s\n"}
+{"Time":"2026-10-06T19:42:50.924064+07:00","Action":"pass","Package":"github.com/skosovsky/ragy/adapters/jina/tensor","Elapsed":1.585}
