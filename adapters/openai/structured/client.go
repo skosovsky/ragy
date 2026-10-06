@@ -10,11 +10,11 @@ import (
 	"io"
 	"math"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	ragy "github.com/skosovsky/ragy"
+	"github.com/skosovsky/ragy/internal/providerhttp"
 	"github.com/skosovsky/ragy/recipe/budget"
 )
 
@@ -71,10 +71,9 @@ func New[T any](cfg Config) (*Client[T], error) {
 	if base == "" {
 		base = "https://api.openai.com/v1"
 	}
-	parsed, err := url.Parse(base)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
-		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return nil, ragy.ErrInvalidArgument
+	endpoint, err := providerhttp.Endpoint(base, "/chat/completions")
+	if err != nil {
+		return nil, err
 	}
 	client := http.Client{}
 	if cfg.HTTPClient != nil {
@@ -83,7 +82,7 @@ func New[T any](cfg Config) (*Client[T], error) {
 	// Redirects cannot dispatch a second call or forward credentials elsewhere.
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	cfg.Schema = bytes.Clone(cfg.Schema)
-	return &Client[T]{config: cfg, http: &client, endpoint: strings.TrimRight(base, "/") + "/chat/completions"}, nil
+	return &Client[T]{config: cfg, http: &client, endpoint: endpoint}, nil
 }
 
 func validSchema(schema json.RawMessage, limit int) bool {
@@ -213,23 +212,36 @@ func (c *Client[T]) call(
 	}
 	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
 	req.Header.Set("Content-Type", "application/json")
+	return c.exchange(ctx, req, limits)
+}
+
+func (c *Client[T]) exchange(ctx context.Context, req *http.Request, limits Limits) (T, Usage, error) {
+	var empty T
 	resp, err := c.http.Do(req)
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
-		if ctx.Err() != nil {
-			return empty, Usage{}, ctx.Err()
-		}
+		return empty, Usage{}, providerhttp.SanitizedError(ctx, err, ragy.ErrProtocol)
+	}
+	if err = ctx.Err(); err != nil {
+		return empty, Usage{}, err
+	}
+	if resp == nil || resp.Body == nil {
 		return empty, Usage{}, ragy.ErrProtocol
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return empty, Usage{}, ragy.ErrorFromHTTPResponse(resp.StatusCode, "openai structured", "")
 	}
 	payload, err := io.ReadAll(io.LimitReader(resp.Body, int64(c.config.MaxResponseBytes)+1))
-	if err != nil || len(payload) > c.config.MaxResponseBytes {
-		return empty, Usage{}, ragy.ErrProtocol
+	if err != nil {
+		return empty, Usage{}, providerhttp.SanitizedError(ctx, err, ragy.ErrProtocol)
 	}
 	if err = ctx.Err(); err != nil {
 		return empty, Usage{}, err
+	}
+	if len(payload) > c.config.MaxResponseBytes {
+		return empty, Usage{}, ragy.ErrProtocol
 	}
 	output, usage, err := c.decode(payload, limits)
 	if ctx.Err() != nil {

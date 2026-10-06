@@ -632,17 +632,31 @@
       "id": "F10",
       "task": "T11",
       "requirement": "P2: structured adapter теряет deadline при чтении response body",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Share parsed URL/endpoint and context-first sanitized error policy; structured headers/body cancellation returns zero output and unknown usage with closure and no retry. Other decode/domain responsibilities remain distinct.",
+      "evidence": [
+        "internal/providerhttp/url.go",
+        "internal/providerhttp/client.go",
+        "adapters/openai/structured/client.go",
+        "adapters/openai/structured/transport_regression_test.go",
+        "docs/task20/T11.md",
+        "docs/task20/acceptance/T11-race.log"
+      ]
     },
     {
       "id": "F11",
       "task": "T11",
       "requirement": "P2: structured BaseURL с bare query меняет pathname запроса",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "fix",
+      "rationale": "Share parsed URL/endpoint and context-first sanitized error policy; structured headers/body cancellation returns zero output and unknown usage with closure and no retry. Other decode/domain responsibilities remain distinct.",
+      "evidence": [
+        "internal/providerhttp/url.go",
+        "internal/providerhttp/client.go",
+        "adapters/openai/structured/client.go",
+        "adapters/openai/structured/transport_regression_test.go",
+        "docs/task20/T11.md",
+        "docs/task20/acceptance/T11-race.log"
+      ]
     }
   ],
   "role_findings": [
@@ -1894,9 +1908,16 @@
       "source": "reviews/providers.md",
       "line": 36,
       "requirement": "Two HTTP implementations diverge.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Share parsed URL/endpoint and context-first sanitized error policy; structured headers/body cancellation returns zero output and unknown usage with closure and no retry. Other decode/domain responsibilities remain distinct.",
+      "evidence": [
+        "internal/providerhttp/url.go",
+        "internal/providerhttp/client.go",
+        "adapters/openai/structured/client.go",
+        "adapters/openai/structured/transport_regression_test.go",
+        "docs/task20/T11.md",
+        "docs/task20/acceptance/T11-race.log"
+      ]
     },
     {
       "id": "providers:02",
@@ -2368,13 +2389,33 @@
       "source": "reviews/providers.md",
       "id": "P-01",
       "master": "F10",
-      "task": "T11"
+      "task": "T11",
+      "disposition": "fix",
+      "rationale": "Share parsed URL/endpoint and context-first sanitized error policy; structured headers/body cancellation returns zero output and unknown usage with closure and no retry. Other decode/domain responsibilities remain distinct.",
+      "evidence": [
+        "internal/providerhttp/url.go",
+        "internal/providerhttp/client.go",
+        "adapters/openai/structured/client.go",
+        "adapters/openai/structured/transport_regression_test.go",
+        "docs/task20/T11.md",
+        "docs/task20/acceptance/T11-race.log"
+      ]
     },
     {
       "source": "reviews/providers.md",
       "id": "P-02",
       "master": "F11",
-      "task": "T11"
+      "task": "T11",
+      "disposition": "fix",
+      "rationale": "Share parsed URL/endpoint and context-first sanitized error policy; structured headers/body cancellation returns zero output and unknown usage with closure and no retry. Other decode/domain responsibilities remain distinct.",
+      "evidence": [
+        "internal/providerhttp/url.go",
+        "internal/providerhttp/client.go",
+        "adapters/openai/structured/client.go",
+        "adapters/openai/structured/transport_regression_test.go",
+        "docs/task20/T11.md",
+        "docs/task20/acceptance/T11-race.log"
+      ]
     },
     {
       "source": "reviews/arch-docs.md",

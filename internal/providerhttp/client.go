@@ -1,4 +1,5 @@
-// Package providerhttp implements bounded JSON transport for embedding providers.
+// Package providerhttp implements bounded JSON transport and shared URL/error
+// policy for provider adapters.
 package providerhttp
 
 import (
@@ -43,13 +44,9 @@ func New(cfg Config) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	base, err := url.Parse(cfg.BaseURL)
-	if err != nil || base.Host == "" || (base.Scheme != "http" && base.Scheme != "https") || base.User != nil ||
-		base.RawQuery != "" ||
-		base.ForceQuery ||
-		base.Fragment != "" ||
-		base.Opaque != "" {
-		return nil, ragy.ErrInvalidArgument
+	base, err := ParseBaseURL(cfg.BaseURL)
+	if err != nil {
+		return nil, err
 	}
 	transport := cfg.HTTPClient
 	if transport == nil {
@@ -112,9 +109,13 @@ func (c *Client) Post(ctx context.Context, path string, headers http.Header, bod
 	if int64(len(requestBody)) > c.limits.MaxRequestBytes {
 		return ragy.ErrInvalidArgument
 	}
+	endpoint, err := Endpoint(c.baseURL, path)
+	if err != nil {
+		return err
+	}
 	requestCtx, cancel := context.WithTimeout(ctx, c.limits.Timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, c.baseURL+path, bytes.NewReader(requestBody))
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, endpoint, bytes.NewReader(requestBody))
 	if err != nil {
 		return ragy.ErrInvalidArgument
 	}
@@ -135,7 +136,7 @@ func (c *Client) exchange(requestCtx context.Context, req *http.Request, out any
 		defer resp.Body.Close()
 	}
 	if err != nil {
-		return sanitizedError(requestCtx, err, ragy.ErrUnavailable)
+		return SanitizedError(requestCtx, err, ragy.ErrUnavailable)
 	}
 	if contextErr := requestCtx.Err(); contextErr != nil {
 		return contextErr
@@ -148,7 +149,7 @@ func (c *Client) exchange(requestCtx context.Context, req *http.Request, out any
 	}
 	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, c.limits.MaxResponseBytes+1))
 	if err != nil {
-		return sanitizedError(requestCtx, err, ragy.ErrProtocol)
+		return SanitizedError(requestCtx, err, ragy.ErrProtocol)
 	}
 	if err := requestCtx.Err(); err != nil {
 		return err
@@ -169,10 +170,11 @@ func validPath(path string) bool {
 	parsed, err := url.Parse(path)
 	return err == nil && parsed.Scheme == "" && parsed.Host == "" && parsed.User == nil && parsed.RawQuery == "" &&
 		!parsed.ForceQuery &&
-		parsed.Fragment == ""
+		parsed.Fragment == "" && !strings.Contains(path, "#")
 }
 
-func sanitizedError(ctx context.Context, err, errorClass error) error {
+// SanitizedError prioritizes context cancellation and suppresses private transport error details.
+func SanitizedError(ctx context.Context, err, errorClass error) error {
 	if contextErr := ctx.Err(); contextErr != nil {
 		return contextErr
 	}

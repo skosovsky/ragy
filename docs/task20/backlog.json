@@ -414,12 +414,12 @@
         "report": "acceptance/T10-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "e960f9e645433e1b8b93d95b18797a8e5156fa47"
   },
   {
     "id": "T11",
     "title": "structured transport",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix: structured transport",
     "criteria": [
       {
@@ -440,8 +440,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "5/5",
+        "coverage_percent": 100,
+        "report": "acceptance/T11-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T11-correctness.md"
+      }
     },
     "commit_sha": null
   },

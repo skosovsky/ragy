@@ -304,3 +304,8 @@ Regression tests используют AAA и утверждают исправл
 - T10 in_progress: final delivery for Neo4j Runner bridge, suppress cancellation on success/empty/partial and preserve observed error causes.
 
 - T10 accepted: completeness 3/3 = 100%, F09/S2 coverage 2/2 = 100%, correctness PASS. Final delivery covers success/empty/partial and cancellation, observed ordinary causes retained safely; final documentation scope clarification independently accepted. Fresh three-package race/lint and independent actual deadline/cause/privacy/scoped/pinned probes PASS. Reports: [completeness](acceptance/T10-completeness.md), [correctness](acceptance/T10-correctness.md). Reviewed SHA256 verified before bookkeeping. Commit SHA записывается следующим journal update.
+
+- T10 commit: `e960f9e645433e1b8b93d95b18797a8e5156fa47` — `fix: neo4j delivery`.
+- T11 in_progress: shared parsed URL endpoint admission and sanitized context-first transport/body errors.
+
+- T11 accepted: completeness 4/4 = 100%, F10/F11/providers:01/P-01/P-02 coverage 5/5 = 100%, correctness PASS. Shared parsed URL/endpoint and sanitized context-first error helpers prevent structured/provider drift; ordinary adapter-specific classes retained. Fresh eight-package race/lint and independent canceled non-2xx headers, partial/complete/oversized body cancellation, wrapped sentinel/privacy, escaped actual Post and invalid endpoint probes PASS. Paid live smoke excluded, no SKIP counted as PASS. Reports: [completeness](acceptance/T11-completeness.md), [correctness](acceptance/T11-correctness.md). Reviewed SHA256 verified before bookkeeping; commit SHA записывается следующим journal update.
