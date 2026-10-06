@@ -1,0 +1,16 @@
+54 paired benchmark profiles; three samples per stage, 324 raw paired samples.
+6 current-format retirement profiles; three samples each, 18 samples.
+9 canonical process resource-stat sets, all successful with CPU/RSS.
+Original overlapping capture, sandbox-limited partial attempt and round1 affected datasets retained separately.
+Baseline isolated Go-source tree SHA256 2f76506e128d6831d2406dd25d96ef2d73ee570b85b612f0ac26ac65c6f69997
+Round1 isolated Go-source tree SHA256 4ecff6fadf7faaa5e59baf3619e9bfc67b1e8227ce19c9b6f70f07a00c83f431
+Round2 final isolated Go-source tree SHA256 70b27da85229b46fde37546f2c06a4f46256d2dbb4ffb90181608d4b7e322276
+Round1 candidate freeze 195f84cfd9514f1d477acca75e1e1bf4868f2e64762d37f8058af8fbadc76da7
+Final candidate freeze af0961f3fbea174049fd61b504d85571068921652880439fb04b43ba9ba1e99f
+AFTER-source mapping:
+- serial-after-core, serial-after-managed, serial-after-persistent: round1 source. Timed query production paths unchanged by the final maintenance.go ValidateReplacement batch conflict guard; Snapshot.Validate and managed read unchanged. Root final consumer tests validate current code.
+- CPU/RSS for those retained profile processes: round1 source including its original untimed CAS setup, explicitly not measurements of the final whole process.
+- serial-after-history and serial-current-retirement: rerun on final round2 source with identical harness, TMPDIR=/tmp, GOMAXPROCS4, benchtime100ms, count3 and /usr/bin/time -l.
+- Before profiles: exact baseline dd3b0f1 plus retained original harness.
+Only round2 affected CAS/retirement canonical outputs replaced; round1 raw/stat/summary/fingerprint evidence remains under round1-*.
+Retirement cleanup receipts are seeded fixture state; no target cleanup dispatch or source-payload measurement occurs. Maintenance is outside ordinary CAS timers; whole-process resources include it.

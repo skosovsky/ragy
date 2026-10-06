@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,6 +46,7 @@ type BM25Index[TMeta any] struct {
 	docs                    map[string]retrieval.Document[TMeta]
 	docLengths              map[string]int
 	avgLength               float64
+	totalLength             int
 	postings                map[string]map[string]int
 	docCount                int
 }
@@ -80,6 +82,11 @@ func NewBM25Index[TMeta any](
 	if b == 0 {
 		b = defaultBM25B
 	}
+	config.SearchFields = slices.Clone(config.SearchFields)
+	ownedSynonyms := make(SynonymMap, len(synonyms))
+	for term, variants := range synonyms {
+		ownedSynonyms[term] = slices.Clone(variants)
+	}
 	config.K1 = k1
 	config.B = b
 	codec := config.Codec
@@ -92,7 +99,7 @@ func NewBM25Index[TMeta any](
 		schema:                  schema,
 		config:                  config,
 		tokenizer:               tokenizer,
-		synonyms:                synonyms,
+		synonyms:                ownedSynonyms,
 		resolver:                retrieval.DefaultResolver(config.Resolver),
 		codec:                   codec,
 		docs:                    make(map[string]retrieval.Document[TMeta]),
@@ -133,6 +140,7 @@ func (idx *BM25Index[TMeta]) Index(docs []retrieval.Document[TMeta]) error {
 	idx.postings = staged.postings
 	idx.docCount = staged.docCount
 	idx.avgLength = staged.avgLength
+	idx.totalLength = staged.totalLength
 	return nil
 }
 
@@ -164,7 +172,8 @@ func (idx *BM25Index[TMeta]) upsertLocked(doc retrieval.Document[TMeta]) error {
 	idx.docs[doc.ID] = doc
 	idx.docLengths[doc.ID] = length
 	idx.docCount++
-	idx.avgLength = idx.recomputeAvgLength()
+	idx.totalLength += length
+	idx.updateAvgLength()
 	for _, token := range tokens {
 		if idx.postings[token] == nil {
 			idx.postings[token] = make(map[string]int)
@@ -190,21 +199,18 @@ func (idx *BM25Index[TMeta]) removeLocked(doc retrieval.Document[TMeta]) error {
 		}
 	}
 	delete(idx.docs, doc.ID)
+	idx.totalLength -= idx.docLengths[doc.ID]
 	delete(idx.docLengths, doc.ID)
 	idx.docCount--
-	idx.avgLength = idx.recomputeAvgLength()
+	idx.updateAvgLength()
 	return nil
 }
 
-func (idx *BM25Index[TMeta]) recomputeAvgLength() float64 {
-	if idx.docCount == 0 {
-		return 0
+func (idx *BM25Index[TMeta]) updateAvgLength() {
+	idx.avgLength = 0
+	if idx.docCount != 0 {
+		idx.avgLength = float64(idx.totalLength) / float64(idx.docCount)
 	}
-	total := 0
-	for _, length := range idx.docLengths {
-		total += length
-	}
-	return float64(total) / float64(idx.docCount)
 }
 
 func (idx *BM25Index[TMeta]) documentTokens(doc retrieval.Document[TMeta]) ([]string, int, error) {
@@ -332,18 +338,16 @@ func (idx *BM25Index[TMeta]) retrieve(
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), err
 	}
 
-	idx.mu.RLock()
-	snapshot := idx.snapshotLocked()
-	idx.mu.RUnlock()
-
 	if err := ctx.Err(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), err
 	}
-
 	queryTokens := idx.synonyms.Expand(idx.tokenizer.Tokenize(query))
 	if len(queryTokens) == 0 {
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), nil
 	}
+	idx.mu.RLock()
+	snapshot := idx.snapshotLocked(queryTokens)
+	idx.mu.RUnlock()
 
 	scores := idx.scoreQuery(snapshot, queryTokens)
 	for _, score := range scores {
@@ -469,24 +473,31 @@ type bm25Snapshot[TMeta any] struct {
 	avgLength  float64
 }
 
-func (idx *BM25Index[TMeta]) snapshotLocked() bm25Snapshot[TMeta] {
-	docs := make(map[string]retrieval.Document[TMeta], len(idx.docs))
-	maps.Copy(docs, idx.docs)
-	lengths := make(map[string]int, len(idx.docLengths))
-	maps.Copy(lengths, idx.docLengths)
-	postings := make(map[string]map[string]int, len(idx.postings))
-	for term, posting := range idx.postings {
+// snapshotLocked captures only query postings and their candidate documents under
+// one read lock. Global statistics remain corpus-wide; all copied maps are owned
+// by this reader and writers cannot change its term frequencies or lengths.
+func (idx *BM25Index[TMeta]) snapshotLocked(queryTokens []string) bm25Snapshot[TMeta] {
+	docs := make(map[string]retrieval.Document[TMeta])
+	lengths := make(map[string]int)
+	postings := make(map[string]map[string]int, len(queryTokens))
+	for _, term := range queryTokens {
+		if _, exists := postings[term]; exists {
+			continue
+		}
+		posting := idx.postings[term]
+		if len(posting) == 0 {
+			continue
+		}
 		copyPosting := make(map[string]int, len(posting))
 		maps.Copy(copyPosting, posting)
 		postings[term] = copyPosting
+		for id := range posting {
+			docs[id] = idx.docs[id]
+			lengths[id] = idx.docLengths[id]
+		}
 	}
-	return bm25Snapshot[TMeta]{
-		docs:       docs,
-		docLengths: lengths,
-		postings:   postings,
-		docCount:   idx.docCount,
-		avgLength:  idx.avgLength,
-	}
+	return bm25Snapshot[TMeta]{docs: docs, docLengths: lengths, postings: postings,
+		docCount: idx.docCount, avgLength: idx.avgLength}
 }
 
 // Schema returns the configured filter schema.

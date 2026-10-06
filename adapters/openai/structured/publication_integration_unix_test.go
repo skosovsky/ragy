@@ -230,8 +230,15 @@ func newGraphPublicationFixture(t *testing.T) graphPublicationFixture {
 	}
 	schema := publishedSchema(t)
 	target, err := managed.New(
-		managed.Config[publishedMetadata]{Namespace: "n", Target: "graph", Store: store, Schema: schema,
-			CloneMeta: func(m publishedMetadata) (publishedMetadata, error) { return m, nil }, MaxRecords: 4},
+		managed.Config[publishedMetadata]{
+			Namespace:           "n",
+			Target:              "graph",
+			Store:               store,
+			Schema:              schema,
+			CloneMeta:           func(m publishedMetadata) (publishedMetadata, error) { return m, nil },
+			MaxRecords:          4,
+			MaxAdmissionRecords: 4,
+		},
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -1,0 +1,7 @@
+=== RUN   TestRawCASBatchCannotAliasExactArtifact
+    batch_test.go:30: snapshot.Validate=<nil> replacementErr=<nil> casErr=<nil> returnedGeneration=1 retainedGeneration=1 retainedManifests=2 loadErr=<nil>
+    batch_test.go:32: raw CAS admitted distinct payload plans sharing exact target/artifact identity
+--- FAIL: TestRawCASBatchCannotAliasExactArtifact (0.02s)
+FAIL
+FAIL	correctnessrepro	0.863s
+FAIL

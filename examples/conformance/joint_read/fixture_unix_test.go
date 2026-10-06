@@ -194,18 +194,19 @@ func newFixture(t *testing.T, target string) *fixture {
 				Store:      store,
 				Schema:     graph.Schema{NodeAttributes: fields, EdgeAttributes: fields},
 				CloneMeta:  cloneMeta,
-				MaxRecords: 100,
+				MaxRecords: 100, MaxAdmissionRecords: 100,
 			},
 		)
 	default:
 		secondary.lexical, err = lexicalmanaged.New(
 			lexicalmanaged.Config[meta]{
-				Namespace: "fixture-a",
-				Target:    target,
-				Store:     store,
-				Schema:    fields,
-				BM25:      lexical.Config[meta]{SearchFields: []string{"content"}},
-				CloneMeta: cloneMeta,
+				MaxCachedSnapshots: 32,
+				Namespace:          "fixture-a",
+				Target:             target,
+				Store:              store,
+				Schema:             fields,
+				BM25:               lexical.Config[meta]{SearchFields: []string{"content"}},
+				CloneMeta:          cloneMeta,
 			},
 		)
 	}

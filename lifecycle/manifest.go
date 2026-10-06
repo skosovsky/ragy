@@ -10,7 +10,7 @@ import (
 	"github.com/skosovsky/ragy/source"
 )
 
-const SchemaIdentity = "ragy.lifecycle"
+const SchemaIdentity = "ragy.lifecycle/v2"
 
 type State string
 
@@ -63,17 +63,20 @@ type Target struct {
 // Manifest stores a complete retained inventory, never just replacement chunk IDs.
 // Checkpoint is the last confirmed state when State is failed/canceled/unknown.
 type Manifest struct {
-	ID                  string    `json:"id"`
-	Identity            Identity  `json:"identity"`
-	Key                 string    `json:"idempotency_key"`
-	Payload             string    `json:"payload_fingerprint"`
-	ExpectedPublication string    `json:"expected_publication"`
-	Tombstone           bool      `json:"tombstone"`
-	Partial             bool      `json:"partial"`
-	State               State     `json:"state"`
-	Checkpoint          State     `json:"checkpoint"`
-	Targets             []Target  `json:"targets"`
-	PublishedAt         time.Time `json:"published_at"`
+	// Retired invalidates this operation handle; identity and exact artifact fences remain reserved.
+	Retired             bool            `json:"retired"`
+	ArtifactFences      []ArtifactFence `json:"artifact_fences"`
+	ID                  string          `json:"id"`
+	Identity            Identity        `json:"identity"`
+	Key                 string          `json:"idempotency_key"`
+	Payload             string          `json:"payload_fingerprint"`
+	ExpectedPublication string          `json:"expected_publication"`
+	Tombstone           bool            `json:"tombstone"`
+	Partial             bool            `json:"partial"`
+	State               State           `json:"state"`
+	Checkpoint          State           `json:"checkpoint"`
+	Targets             []Target        `json:"targets"`
+	PublishedAt         time.Time       `json:"published_at"`
 }
 
 type Publication struct {
@@ -83,6 +86,7 @@ type Publication struct {
 
 // Snapshot is one namespace's atomically persisted publication/manifest inventory.
 type Snapshot struct {
+	Pins         []PublicationPin   `json:"pins"`
 	Inventories  []InventoryReceipt `json:"inventories"`
 	Schema       string             `json:"schema"`
 	Namespace    string             `json:"namespace"`
@@ -136,7 +140,7 @@ func (m Manifest) Validate() error {
 	if afterReady(effective) && !m.Tombstone && ready == 0 {
 		return invalid()
 	}
-	return nil
+	return m.validateRetirement()
 }
 
 func (t Target) validate(identity Identity) error {
@@ -198,6 +202,7 @@ func (s Snapshot) Validate() error {
 		return invalid()
 	}
 	manifests := make(map[string]Manifest, len(s.Manifests))
+	keys := make(map[string]struct{}, len(s.Manifests))
 	for _, manifest := range s.Manifests {
 		if manifest.Identity.Namespace != s.Namespace {
 			return invalid()
@@ -208,7 +213,14 @@ func (s Snapshot) Validate() error {
 		if _, exists := manifests[manifest.ID]; exists {
 			return invalid()
 		}
+		if _, exists := keys[manifest.Key]; exists {
+			return invalid()
+		}
+		keys[manifest.Key] = struct{}{}
 		manifests[manifest.ID] = manifest
+	}
+	if err := s.validatePins(manifests); err != nil {
+		return err
 	}
 	if err := s.validatePublications(manifests); err != nil {
 		return err
@@ -264,7 +276,7 @@ func (s Snapshot) validatePublications(manifests map[string]Manifest) error {
 		}
 		sources[publication.Source] = struct{}{}
 		manifest, exists := manifests[publication.Manifest]
-		if !exists || manifest.Identity.Source != publication.Source {
+		if !exists || manifest.Retired || manifest.Identity.Source != publication.Source {
 			return invalid()
 		}
 		state, err := confirmedState(manifest.State, manifest.Checkpoint)

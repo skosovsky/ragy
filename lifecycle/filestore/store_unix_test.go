@@ -37,12 +37,18 @@ func TestSnapshotBudgetRejectsOversizedWriteWithoutReplacingPublication(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	committed.Manifests[0].Payload = strings.Repeat("x", len(data))
+	additional := fixture().Manifests[0]
+	additional.ID, additional.Key = "publication-2", "request-2"
+	additional.Identity.Source = "other-policy"
+	additional.Payload = strings.Repeat("x", len(data))
+	additional.Targets[0].Artifacts[0].Reference.Source = "other-policy"
+	additional.Targets[0].Artifacts[0].Supports[0].Source = "other-policy"
+	committed.Manifests = append(committed.Manifests, additional)
 	// Act.
 	_, err = store.CompareSwap(context.Background(), 1, committed)
 	loaded, loadErr := store.Load(context.Background(), "n")
 	// Assert.
-	if !errors.Is(err, ragy.ErrInvalidArgument) || loadErr != nil || loaded.Generation != 1 ||
+	if !errors.Is(err, lifecycle.ErrCapacity) || loadErr != nil || loaded.Generation != 1 ||
 		loaded.Manifests[0].Payload != "payload-1" {
 		t.Fatal("oversized write replaced known publication", err, loadErr)
 	}
@@ -50,7 +56,7 @@ func TestSnapshotBudgetRejectsOversizedWriteWithoutReplacingPublication(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = smaller.Load(context.Background(), "n"); !errors.Is(err, ragy.ErrProtocol) {
+	if _, err = smaller.Load(context.Background(), "n"); !errors.Is(err, lifecycle.ErrCapacity) {
 		t.Fatal("oversized persisted state was accepted", err)
 	}
 }

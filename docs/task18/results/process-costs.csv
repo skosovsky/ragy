@@ -1,0 +1,10 @@
+profile,wall_seconds,user_cpu_seconds,system_cpu_seconds,max_rss_platform_units,measurement_source_sha256,scope
+serial-after-core,12.00,13.61,2.26,161890304,4ecff6fadf7faaa5e59baf3619e9bfc67b1e8227ce19c9b6f70f07a00c83f431,whole measured process including its version of untimed setup and compilation
+serial-after-history,6.42,4.08,1.27,152387584,70b27da85229b46fde37546f2c06a4f46256d2dbb4ffb90181608d4b7e322276,whole measured process including its version of untimed setup and compilation
+serial-after-managed,28.45,30.73,3.03,158580736,4ecff6fadf7faaa5e59baf3619e9bfc67b1e8227ce19c9b6f70f07a00c83f431,whole measured process including its version of untimed setup and compilation
+serial-after-persistent,299.93,13.93,27.87,156549120,4ecff6fadf7faaa5e59baf3619e9bfc67b1e8227ce19c9b6f70f07a00c83f431,whole measured process including its version of untimed setup and compilation
+serial-before-core,29.29,28.38,1.77,161579008,2f76506e128d6831d2406dd25d96ef2d73ee570b85b612f0ac26ac65c6f69997,whole measured process including its version of untimed setup and compilation
+serial-before-history,5.40,2.94,1.01,148094976,2f76506e128d6831d2406dd25d96ef2d73ee570b85b612f0ac26ac65c6f69997,whole measured process including its version of untimed setup and compilation
+serial-before-managed,113.12,73.70,3.34,154976256,2f76506e128d6831d2406dd25d96ef2d73ee570b85b612f0ac26ac65c6f69997,whole measured process including its version of untimed setup and compilation
+serial-before-persistent,356.05,13.88,27.22,161267712,2f76506e128d6831d2406dd25d96ef2d73ee570b85b612f0ac26ac65c6f69997,whole measured process including its version of untimed setup and compilation
+serial-current-retirement,12.03,9.30,1.23,149307392,70b27da85229b46fde37546f2c06a4f46256d2dbb4ffb90181608d4b7e322276,whole measured process including its version of untimed setup and compilation

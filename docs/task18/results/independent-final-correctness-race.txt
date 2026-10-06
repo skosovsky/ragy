@@ -1,0 +1,5 @@
+ok  	github.com/skosovsky/ragy/lexical	1.450s
+ok  	github.com/skosovsky/ragy/lexical/managed	4.119s
+ok  	github.com/skosovsky/ragy/graph/managed	6.928s
+ok  	github.com/skosovsky/ragy/lifecycle	6.080s
+ok  	github.com/skosovsky/ragy/lifecycle/filestore	4.169s

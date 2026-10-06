@@ -2,7 +2,7 @@
 
 `managed.Adapter[TMeta]` implements lexical retrieval, lifecycle `StagePort` and
 `CleanupPort`. Register it in `Executor` and `Cleaner`, supplying a finalized
-metadata schema, host metadata clone function, durable manifest store and validated
+metadata schema, host metadata clone function, required positive `MaxCachedSnapshots`, durable manifest store and validated
 payload fingerprint. Stage the full `[]managed.Record[TMeta]` inventory.
 
 Use `lifecycle.CapturePublication` before planning/fan-out and construct the trusted
@@ -20,8 +20,7 @@ retain the original binding fingerprint, gating callbacks and final delivery.
 
 Staging and exact-version cleanup share the adapter lock. New source publications
 cannot make another version's records disappear through cleanup of an old manifest.
-Old pinned reads can complete from already captured records; a physically removed
-snapshot returns unavailable with no latest substitution or partial sibling results.
+Every read confirms exact ledger inventory before accessing the cache and again after scoring/output cloning. A physically removed or retired snapshot returns unavailable with no latest substitution or partial sibling results.
 
 This reference adapter stores documents **in process memory**. Durable manifest state
 does not imply durable lexical records. A fresh adapter without restored records
@@ -34,3 +33,19 @@ through the nested observation callback. Complete inventory accounts for retaine
 versions by `manifest:<operation-id>` opaque keys; missing memory is unavailable even
 when a durable ledger retains a ready checkpoint. The observer performs no indexing,
 source adoption, host metadata callback or deletion.
+
+Scoped BM25 snapshots are retained in an LRU cache of at most `MaxCachedSnapshots`
+entries; zero/negative capacity is invalid. Each adapter owns its configuration and
+cache. Keys include the complete binding fingerprint (publication and policy), actual
+prepared predicate fingerprint, exact staged manifest inventory digest, and mutation
+generation. Stage and cleanup invalidate every entry. A cache hit still checks
+binding freshness, inventory availability and output clone callbacks; authority is
+never cached. Host codec, resolver and clone callbacks must remain stable and safe
+for concurrent calls for the adapter lifetime. `CloneMeta` must return owned metadata.
+
+Misses scan pinned record metadata before cloning admitted payload and build scoring
+statistics solely from the admitted corpus. Hits avoid corpus clone/tokenize/build,
+but retain ledger/inventory validation scans. This is an entry bound, not a byte or
+full-request memory bound: admitted document sizes, concurrent misses and retained
+versions are host workload limits. Eviction discards derived indexes only, never
+retained records or lifecycle history. Volatile records still need explicit cleanup.

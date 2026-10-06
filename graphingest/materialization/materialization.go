@@ -66,7 +66,8 @@ type Materializer[TKind, TRel comparable, TAttr, TMeta any] struct {
 func New[TKind, TRel comparable, TAttr, TMeta any](
 	config Config[TKind, TRel, TAttr, TMeta],
 ) (*Materializer[TKind, TRel, TAttr, TMeta], error) {
-	if config.OntologyIdentity == "" || config.PolicyIdentity == "" || config.Schema.Validate() != nil ||
+	if config.OntologyIdentity == "" || config.PolicyIdentity == "" ||
+		config.Schema.Validate() != nil ||
 		config.MaxFacts <= 0 ||
 		config.MaxSupports <= 0 ||
 		config.CloneAttributes == nil ||
@@ -88,7 +89,8 @@ func (m *Materializer[TKind, TRel, TAttr, TMeta]) Build(
 	request Request,
 	input resolution.Result[TKind, TRel, TAttr],
 ) (Result[TMeta], error) {
-	if m == nil || request.Identity.Validate() != nil || request.Target == "" || request.ManifestID == "" ||
+	if m == nil || request.Identity.Validate() != nil || request.Target == "" ||
+		request.ManifestID == "" ||
 		request.Key == "" ||
 		request.PayloadFingerprint == "" {
 		return Result[TMeta]{}, ragy.ErrInvalidArgument
@@ -96,7 +98,8 @@ func (m *Materializer[TKind, TRel, TAttr, TMeta]) Build(
 	if err := read.Check(ctx); err != nil {
 		return Result[TMeta]{}, err
 	}
-	if input.OntologyIdentity != m.config.OntologyIdentity || input.PolicyIdentity != m.config.PolicyIdentity {
+	if input.OntologyIdentity != m.config.OntologyIdentity ||
+		input.PolicyIdentity != m.config.PolicyIdentity {
 		return Result[TMeta]{}, ragy.ErrProtocol
 	}
 	if !boundedInput(input, m.config.MaxFacts, m.config.MaxSupports) {
@@ -147,7 +150,8 @@ func selected(identity lifecycle.Identity, input []source.Locator) []source.Loca
 	var out []source.Locator
 	for _, location := range input {
 		ref := location.Reference
-		if ref.Namespace == identity.Namespace && ref.Source == identity.Source && ref.Revision == identity.Revision &&
+		if ref.Namespace == identity.Namespace && ref.Source == identity.Source &&
+			ref.Revision == identity.Revision &&
 			ref.AccessFingerprint == identity.Access {
 			out = append(out, location)
 		}
@@ -232,6 +236,8 @@ func manifest(request Request, ontology, policy string) lifecycle.Manifest {
 	identity := request.Identity
 	identity.Transformation = "graph-resolution:" + hex.EncodeToString(digest[:])
 	return lifecycle.Manifest{
+		Retired:             false,
+		ArtifactFences:      nil,
 		ID:                  request.ManifestID,
 		Identity:            identity,
 		Key:                 request.Key,
@@ -243,11 +249,22 @@ func manifest(request Request, ontology, policy string) lifecycle.Manifest {
 		Checkpoint:          "",
 		PublishedAt:         time.Time{},
 		Targets: []lifecycle.Target{
-			{Name: request.Target, Required: true, State: lifecycle.TargetPending, Revision: "", Artifacts: nil},
+			{
+				Name:      request.Target,
+				Required:  true,
+				State:     lifecycle.TargetPending,
+				Revision:  "",
+				Artifacts: nil,
+			},
 		},
 	}
 }
-func artifact(identity lifecycle.Identity, id, representation string, supports []source.Locator) lifecycle.Artifact {
+
+func artifact(
+	identity lifecycle.Identity,
+	id, representation string,
+	supports []source.Locator,
+) lifecycle.Artifact {
 	ref := source.Reference{
 		Namespace:         identity.Namespace,
 		Source:            identity.Source,
@@ -296,7 +313,12 @@ func (m *Materializer[TKind, TRel, TAttr, TMeta]) node(
 	if err = read.Check(ctx); err != nil {
 		return err
 	}
-	entry := artifact(out.Manifest.Identity, selected.group.ID, "graph-node", selected.variant.Supports)
+	entry := artifact(
+		out.Manifest.Identity,
+		selected.group.ID,
+		"graph-node",
+		selected.variant.Supports,
+	)
 	out.Manifest.Targets[0].Artifacts = append(out.Manifest.Targets[0].Artifacts, entry)
 	out.Payload.Nodes = append(
 		out.Payload.Nodes,
@@ -343,7 +365,12 @@ func (m *Materializer[TKind, TRel, TAttr, TMeta]) edge(
 	if err = read.Check(ctx); err != nil {
 		return err
 	}
-	entry := artifact(out.Manifest.Identity, selected.group.ID, "graph-edge", selected.variant.Supports)
+	entry := artifact(
+		out.Manifest.Identity,
+		selected.group.ID,
+		"graph-edge",
+		selected.variant.Supports,
+	)
 	out.Manifest.Targets[0].Artifacts = append(out.Manifest.Targets[0].Artifacts, entry)
 	out.Payload.Edges = append(
 		out.Payload.Edges,

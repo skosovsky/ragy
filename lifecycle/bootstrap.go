@@ -81,7 +81,8 @@ func NewBootstrapper(store Store, verifier InventoryVerifier) (*Bootstrapper, er
 }
 
 func (i Inventory) Validate() error {
-	if !identities(i.Namespace, i.Watermark) || !inventoryProfile(i.Kind, i.Coverage) || len(i.Targets) == 0 {
+	if !identities(i.Namespace, i.Watermark) || !inventoryProfile(i.Kind, i.Coverage) ||
+		len(i.Targets) == 0 {
 		return invalid()
 	}
 	targets, err := inventoryTargetSet(i.Targets)
@@ -95,7 +96,9 @@ func (i Inventory) Validate() error {
 		if err := manifest.Validate(); err != nil {
 			return err
 		}
-		if manifest.Identity.Namespace != i.Namespace || manifest.State != Published || manifest.Tombstone {
+		if manifest.Identity.Namespace != i.Namespace || manifest.State != Published ||
+			manifest.Tombstone ||
+			manifest.Retired {
 			return invalid()
 		}
 		if _, exists := seen[manifest.Identity.Source]; exists {
@@ -139,7 +142,10 @@ func (b *Bootstrapper) Import(ctx context.Context, input Inventory) (InventoryRe
 	return result, err
 }
 
-func (b *Bootstrapper) importInventory(ctx context.Context, input Inventory) (InventoryReceipt, error) {
+func (b *Bootstrapper) importInventory(
+	ctx context.Context,
+	input Inventory,
+) (InventoryReceipt, error) {
 	if b == nil {
 		return InventoryReceipt{}, ragy.ErrInvalidArgument
 	}
@@ -158,7 +164,11 @@ func (b *Bootstrapper) importInventory(ctx context.Context, input Inventory) (In
 	if snapshot.Namespace != captured.Namespace || snapshot.Validate() != nil {
 		return InventoryReceipt{}, ragy.ErrProtocol
 	}
-	if receipt, found, replayErr := inventoryReplay(snapshot, captured, fingerprint); found || replayErr != nil {
+	if retiredInventoryHandle(snapshot, captured) {
+		return InventoryReceipt{}, ErrRetired
+	}
+	if receipt, found, replayErr := inventoryReplay(snapshot, captured, fingerprint); found ||
+		replayErr != nil {
 		if replayErr != nil {
 			return InventoryReceipt{}, replayErr
 		}
@@ -174,8 +184,10 @@ func (b *Bootstrapper) importInventory(ctx context.Context, input Inventory) (In
 	if err = ctx.Err(); err != nil {
 		return InventoryReceipt{}, err
 	}
-	if confirmation.Namespace != captured.Namespace || confirmation.Watermark != captured.Watermark ||
-		confirmation.Fingerprint != fingerprint || confirmation.Coverage != captured.Coverage {
+	if confirmation.Namespace != captured.Namespace ||
+		confirmation.Watermark != captured.Watermark ||
+		confirmation.Fingerprint != fingerprint ||
+		confirmation.Coverage != captured.Coverage {
 		return InventoryReceipt{}, ragy.ErrProtocol
 	}
 	receipt := InventoryReceipt{
@@ -223,7 +235,10 @@ func replacePublication(snapshot *Snapshot, sourceID, manifestID string) {
 			return
 		}
 	}
-	snapshot.Publications = append(snapshot.Publications, Publication{Source: sourceID, Manifest: manifestID})
+	snapshot.Publications = append(
+		snapshot.Publications,
+		Publication{Source: sourceID, Manifest: manifestID},
+	)
 }
 func inventoryProfile(kind InventoryKind, coverage InventoryCoverage) bool {
 	switch kind {
@@ -294,7 +309,12 @@ func inventoryTargetSet(names []string) (map[string]struct{}, error) {
 	}
 	return targets, nil
 }
-func inventoryReplay(snapshot Snapshot, input Inventory, fingerprint string) (InventoryReceipt, bool, error) {
+
+func inventoryReplay(
+	snapshot Snapshot,
+	input Inventory,
+	fingerprint string,
+) (InventoryReceipt, bool, error) {
 	for _, receipt := range snapshot.Inventories {
 		if receipt.Kind != input.Kind || receipt.Watermark != input.Watermark {
 			continue
@@ -307,9 +327,15 @@ func inventoryReplay(snapshot Snapshot, input Inventory, fingerprint string) (In
 	return InventoryReceipt{}, false, nil
 }
 func mergeInventorySource(snapshot *Snapshot, manifest Manifest) error {
+	if manifest.Retired || len(manifest.ArtifactFences) != 0 {
+		return ErrRetired
+	}
 	current := activePublication(*snapshot, manifest.Identity.Source)
 	if existing := manifestIndex(*snapshot, manifest.ID); existing >= 0 {
 		previous := snapshot.Manifests[existing]
+		if previous.Retired {
+			return ErrRetired
+		}
 		state, err := confirmedState(previous.State, previous.Checkpoint)
 		if err != nil || !afterPublished(state) || !samePublishedManifest(previous, manifest) ||
 			current != manifest.ID {
@@ -322,6 +348,9 @@ func mergeInventorySource(snapshot *Snapshot, manifest Manifest) error {
 	}
 	for _, previous := range snapshot.Manifests {
 		if previous.Key == manifest.Key {
+			if previous.Retired {
+				return ErrRetired
+			}
 			return ErrIdempotencyConflict
 		}
 	}
@@ -351,4 +380,15 @@ func missingInventorySources(snapshot Snapshot, incoming map[string]struct{}) []
 		}
 	}
 	return missing
+}
+
+func retiredInventoryHandle(snapshot Snapshot, input Inventory) bool {
+	for _, incoming := range input.Manifests {
+		for _, prior := range snapshot.Manifests {
+			if prior.Retired && (prior.ID == incoming.ID || prior.Key == incoming.Key) {
+				return true
+			}
+		}
+	}
+	return false
 }

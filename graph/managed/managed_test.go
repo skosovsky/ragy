@@ -37,6 +37,10 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
+	return newFixtureWithAdmission(t, 100)
+}
+func newFixtureWithAdmission(t *testing.T, maxAdmission int) *fixture {
+	t.Helper()
 	fields := filter.NewSchema()
 	for _, name := range []string{"tenant", "visibility", "name"} {
 		if _, err := fields.String(name); err != nil {
@@ -67,7 +71,7 @@ func newFixture(t *testing.T) *fixture {
 			Target:     "graph",
 			Store:      store,
 			Schema:     graph.Schema{NodeAttributes: schema, EdgeAttributes: schema},
-			MaxRecords: 100,
+			MaxRecords: 100, MaxAdmissionRecords: maxAdmission,
 			CloneMeta: func(meta metadata) (metadata, error) {
 				f.calls = append(f.calls, meta.Name)
 				if f.revoke {
@@ -194,6 +198,15 @@ func (f *fixture) ingest(t *testing.T, manifest lifecycle.Manifest, input manage
 }
 func (f *fixture) pin(t *testing.T) access.Binding {
 	t.Helper()
+	return f.pinWithAuthority(t, access.AuthorityFunc(func(context.Context, access.Snapshot) error {
+		if f.epoch != 7 {
+			return ragy.ErrUnavailable
+		}
+		return nil
+	}))
+}
+func (f *fixture) pinWithAuthority(t *testing.T, authority access.Authority) access.Binding {
+	t.Helper()
 	publication, err := lifecycle.CapturePublication(context.Background(), f.store, "n", []string{"graph"})
 	if err != nil {
 		t.Fatal(err)
@@ -227,12 +240,7 @@ func (f *fixture) pin(t *testing.T) access.Binding {
 			Schema:      f.schema,
 			Publication: publication,
 			Now:         func() time.Time { return f.now },
-			Authority: access.AuthorityFunc(func(context.Context, access.Snapshot) error {
-				if f.epoch != 7 {
-					return ragy.ErrUnavailable
-				}
-				return nil
-			}),
+			Authority:   authority,
 		},
 	)
 	if err != nil {
@@ -442,7 +450,7 @@ func TestManagedGraphUnpublishedAndLostInventoryFailClosed(t *testing.T) {
 			Store:      f.store,
 			Schema:     f.adapter.Schema(),
 			CloneMeta:  func(meta metadata) (metadata, error) { return meta, nil },
-			MaxRecords: 100,
+			MaxRecords: 100, MaxAdmissionRecords: 100,
 		},
 	)
 	if err != nil {

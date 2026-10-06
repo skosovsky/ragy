@@ -139,12 +139,13 @@ func restartVolatileInventoryTarget(t *testing.T, f *fixture) {
 	if f.target == "lexical" {
 		f.secondary.lexical, err = lexicalmanaged.New(
 			lexicalmanaged.Config[meta]{
-				Namespace: "fixture-a",
-				Target:    f.target,
-				Store:     f.store,
-				Schema:    f.schema,
-				BM25:      lexical.Config[meta]{SearchFields: []string{"content"}},
-				CloneMeta: cloneMeta,
+				MaxCachedSnapshots: 32,
+				Namespace:          "fixture-a",
+				Target:             f.target,
+				Store:              f.store,
+				Schema:             f.schema,
+				BM25:               lexical.Config[meta]{SearchFields: []string{"content"}},
+				CloneMeta:          cloneMeta,
 			},
 		)
 	} else {
@@ -155,7 +156,7 @@ func restartVolatileInventoryTarget(t *testing.T, f *fixture) {
 				Store:      f.store,
 				Schema:     graph.Schema{NodeAttributes: f.schema, EdgeAttributes: f.schema},
 				CloneMeta:  cloneMeta,
-				MaxRecords: 100,
+				MaxRecords: 100, MaxAdmissionRecords: 100,
 			},
 		)
 	}

@@ -75,7 +75,8 @@ type CleanerConfig struct {
 type Cleaner struct{ config CleanerConfig }
 
 func NewCleaner(config CleanerConfig) (*Cleaner, error) {
-	if nilPort(config.Store) || config.Now == nil || config.Policy.Deadline <= 0 || len(config.Policy.Backoff) == 0 {
+	if nilPort(config.Store) || config.Now == nil || config.Policy.Deadline <= 0 ||
+		len(config.Policy.Backoff) == 0 {
 		return nil, ragy.ErrInvalidArgument
 	}
 	config.Targets = slices.Clone(config.Targets)
@@ -111,14 +112,17 @@ func (c *Cleaner) begin(ctx context.Context, namespace, ownerID string) (Cleanup
 	if err != nil {
 		return CleanupJob{}, err
 	}
-	if index := jobIndex(snapshot, ownerID); index >= 0 {
-		return cloneJob(snapshot.Cleanups[index]), nil
-	}
 	ownerIndex := manifestIndex(snapshot, ownerID)
 	if ownerIndex < 0 {
 		return CleanupJob{}, ragy.ErrUnavailable
 	}
 	owner := snapshot.Manifests[ownerIndex]
+	if owner.Retired {
+		return CleanupJob{}, ErrRetired
+	}
+	if index := jobIndex(snapshot, ownerID); index >= 0 {
+		return cloneJob(snapshot.Cleanups[index]), nil
+	}
 	state, err := confirmedState(owner.State, owner.Checkpoint)
 	if err != nil || !afterPublished(state) {
 		return CleanupJob{}, ragy.ErrInvalidArgument
@@ -168,7 +172,13 @@ func (c *Cleaner) attempt(
 	namespace, owner, retired, target string,
 	recovery bool,
 ) (CleanupJob, error) {
-	snapshot, jobAt, itemAt, request, port, err := c.operation(ctx, namespace, owner, retired, target)
+	snapshot, jobAt, itemAt, request, port, err := c.operation(
+		ctx,
+		namespace,
+		owner,
+		retired,
+		target,
+	)
 	if err != nil {
 		return CleanupJob{}, err
 	}
@@ -216,15 +226,27 @@ func (c *Cleaner) attempt(
 }
 
 // Reconcile inspects uncertainty once and never issues another destructive call.
-func (c *Cleaner) Reconcile(ctx context.Context, namespace, owner, retired, target string) (CleanupJob, error) {
+func (c *Cleaner) Reconcile(
+	ctx context.Context,
+	namespace, owner, retired, target string,
+) (CleanupJob, error) {
 	ctx, span := observation.Begin(ctx, observation.StageLifecycleCleanupReconcile)
 	result, err := c.reconcile(ctx, namespace, owner, retired, target)
 	span.End(cleanupCompletion(result, err))
 	return result, err
 }
 
-func (c *Cleaner) reconcile(ctx context.Context, namespace, owner, retired, target string) (CleanupJob, error) {
-	snapshot, jobAt, itemAt, request, port, err := c.operation(ctx, namespace, owner, retired, target)
+func (c *Cleaner) reconcile(
+	ctx context.Context,
+	namespace, owner, retired, target string,
+) (CleanupJob, error) {
+	snapshot, jobAt, itemAt, request, port, err := c.operation(
+		ctx,
+		namespace,
+		owner,
+		retired,
+		target,
+	)
 	if err != nil {
 		return CleanupJob{}, err
 	}
@@ -337,9 +359,17 @@ func (c *Cleaner) operation(
 			}
 			ownerManifest := snapshot.Manifests[manifestIndex(snapshot, owner)]
 			retiredManifest := snapshot.Manifests[manifestIndex(snapshot, retired)]
+			if ownerManifest.Retired || retiredManifest.Retired {
+				return Snapshot{}, 0, 0, CleanupRequest{}, nil, ErrRetired
+			}
 			request := CleanupRequest{
-				Owner: cloneManifest(ownerManifest), Retired: cloneManifest(retiredManifest), Target: target,
-				ActivePublication: activePublication(snapshot, ownerManifest.Identity.Source), Retained: nil,
+				Owner: cloneManifest(
+					ownerManifest,
+				), Retired: cloneManifest(retiredManifest), Target: target,
+				ActivePublication: activePublication(
+					snapshot,
+					ownerManifest.Identity.Source,
+				), Retained: nil,
 			}
 			request.Retained = retainedArtifacts(snapshot, retired, target)
 			return snapshot, jobAt, itemAt, request, port, nil
@@ -384,7 +414,7 @@ func (c *Cleaner) retiredItems(snapshot Snapshot, owner Manifest) ([]RetiredTarg
 	}
 	var items []RetiredTarget
 	for _, retired := range snapshot.Manifests {
-		if !retirable(retired, owner, ancestors) {
+		if retired.Retired || !retirable(retired, owner, ancestors) {
 			continue
 		}
 		for _, target := range retired.Targets {

@@ -1,0 +1,6 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+adapters/openai/structured/publication_integration_unix_test.go:233:1: File is not properly formatted (golines)
+		managed.Config[publishedMetadata]{Namespace: "n", Target: "graph", Store: store, Schema: schema,
+^
+1 issues:
+* golines: 1

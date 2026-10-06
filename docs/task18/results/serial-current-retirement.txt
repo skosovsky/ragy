@@ -1,0 +1,24 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/skosovsky/ragy/lifecycle/filestore
+cpu: Apple M1 Max
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History10-4         	       8	  14800984 ns/op	    119746 snapshot-bytes	 1586055 B/op	    2166 allocs/op
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History10-4         	       8	  14078401 ns/op	    119746 snapshot-bytes	 1716259 B/op	    2179 allocs/op
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History10-4         	       8	  15397844 ns/op	    119746 snapshot-bytes	 1586548 B/op	    2168 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History10-4          	       9	  11892875 ns/op	     43137 snapshot-bytes	  946146 B/op	    5424 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History10-4          	       9	  12245051 ns/op	     43137 snapshot-bytes	  921456 B/op	    5410 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History10-4          	       9	  11893676 ns/op	     43137 snapshot-bytes	  943819 B/op	    5402 allocs/op
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History100-4        	       3	  40385708 ns/op	   1202986 snapshot-bytes	22015893 B/op	   22706 allocs/op
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History100-4        	       3	  41495708 ns/op	   1202986 snapshot-bytes	22015856 B/op	   22706 allocs/op
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History100-4        	       2	  52492208 ns/op	   1202986 snapshot-bytes	22015824 B/op	   22706 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History100-4         	       4	  51219031 ns/op	    431126 snapshot-bytes	10362354 B/op	   54115 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History100-4         	       4	  25290979 ns/op	    431126 snapshot-bytes	10363644 B/op	   54118 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History100-4         	       5	  24109942 ns/op	    431126 snapshot-bytes	10362252 B/op	   54113 allocs/op
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History1000-4       	       1	 550249166 ns/op	  12102886 snapshot-bytes	207790688 B/op	  206807 allocs/op
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History1000-4       	       1	 657163833 ns/op	  12102886 snapshot-bytes	207790688 B/op	  206807 allocs/op
+BenchmarkTask18Retirement/CASBeforeCompaction/Artifacts32/History1000-4       	       1	 560397125 ns/op	  12102886 snapshot-bytes	207791224 B/op	  206809 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History1000-4        	       1	 313483250 ns/op	   4320926 snapshot-bytes	118497272 B/op	  535400 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History1000-4        	       1	 327818459 ns/op	   4320926 snapshot-bytes	118497336 B/op	  535400 allocs/op
+BenchmarkTask18Retirement/CASAfterCompaction/Artifacts32/History1000-4        	       1	 324102667 ns/op	   4320926 snapshot-bytes	118496800 B/op	  535398 allocs/op
+PASS
+ok  	github.com/skosovsky/ragy/lifecycle/filestore	11.741s

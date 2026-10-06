@@ -160,7 +160,7 @@ func TestResolvedMaterializationPublicationAndSharedSupportCleanup(t *testing.T)
 			Store:      store,
 			Schema:     cfg.Schema,
 			CloneMeta:  cfg.CloneMeta,
-			MaxRecords: 40,
+			MaxRecords: 40, MaxAdmissionRecords: 40,
 		},
 	)
 	if err != nil {

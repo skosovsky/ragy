@@ -1,0 +1,8 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/skosovsky/ragy/lexical
+cpu: Apple M1 Max
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N100-4         	      10	    138838 ns/op	   92424 B/op	     488 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N1000-4        	      10	   1066138 ns/op	  644356 B/op	    3108 allocs/op
+PASS
+ok  	github.com/skosovsky/ragy/lexical	1.786s

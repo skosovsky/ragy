@@ -150,7 +150,7 @@ func TestTombstonePublicationDoesNotDependOnPhysicalCleanup(t *testing.T) {
 
 func TestLifecycleWireFixtureMatchesSemanticContract(t *testing.T) {
 	// Arrange: the independently validated schema fixture is also decoded by Go.
-	data, err := os.ReadFile("../docs/task12/fixtures/lifecycle_snapshot.json")
+	data, err := os.ReadFile("../docs/task18/fixtures/lifecycle_snapshot.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestLifecycleWireFixtureMatchesSemanticContract(t *testing.T) {
 
 func TestCleanupWireFixtureMatchesSemanticContract(t *testing.T) {
 	// Arrange.
-	data, err := os.ReadFile("../docs/task12/fixtures/lifecycle_cleanup.json")
+	data, err := os.ReadFile("../docs/task18/fixtures/lifecycle_cleanup.json")
 	if err != nil {
 		t.Fatal(err)
 	}

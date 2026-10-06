@@ -1,0 +1,2 @@
+ok  	github.com/skosovsky/ragy/adapters/jina/dense	(cached)
+ok  	github.com/skosovsky/ragy/adapters/jina/tensor	(cached)

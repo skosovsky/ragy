@@ -98,12 +98,18 @@ func (e *Executor[TPayload]) prepare(ctx context.Context, plan Manifest) (Manife
 	}
 	for _, previous := range snapshot.Manifests {
 		if previous.Key == plan.Key {
+			if previous.Retired {
+				return Manifest{}, ErrRetired
+			}
 			if !samePlan(previous, plan) {
 				return Manifest{}, ErrIdempotencyConflict
 			}
 			return cloneManifest(previous), nil
 		}
 		if previous.ID == plan.ID {
+			if previous.Retired {
+				return Manifest{}, ErrRetired
+			}
 			return Manifest{}, ErrIdempotencyConflict
 		}
 	}
@@ -142,6 +148,9 @@ func (e *Executor[TPayload]) stage(
 		return Manifest{}, err
 	}
 	manifest := snapshot.Manifests[index]
+	if manifest.Retired {
+		return Manifest{}, ErrRetired
+	}
 	target := manifest.Targets[targetIndex]
 	if activePublication(snapshot, manifest.Identity.Source) != manifest.ExpectedPublication {
 		return Manifest{}, ErrConflict
@@ -199,6 +208,9 @@ func (e *Executor[TPayload]) reconcile(ctx context.Context, namespace, id, targe
 		return Manifest{}, err
 	}
 	manifest := snapshot.Manifests[index]
+	if manifest.Retired {
+		return Manifest{}, ErrRetired
+	}
 	if manifest.Targets[targetIndex].State != TargetUnknown {
 		return cloneManifest(manifest), nil
 	}
@@ -230,6 +242,9 @@ func (e *Executor[TPayload]) publish(ctx context.Context, namespace, id string) 
 		return Manifest{}, ragy.ErrUnavailable
 	}
 	manifest := snapshot.Manifests[index]
+	if manifest.Retired {
+		return Manifest{}, ErrRetired
+	}
 	effective, err := confirmedState(manifest.State, manifest.Checkpoint)
 	if err != nil {
 		return Manifest{}, err
@@ -300,7 +315,7 @@ func (e *Executor[TPayload]) load(ctx context.Context, namespace string) (Snapsh
 }
 
 func (e *Executor[TPayload]) validatePlan(plan Manifest) error {
-	if plan.State != Planned || plan.Checkpoint != "" {
+	if plan.Retired || len(plan.ArtifactFences) != 0 || plan.State != Planned || plan.Checkpoint != "" {
 		return ragy.ErrInvalidArgument
 	}
 	if err := plan.Validate(); err != nil {
@@ -338,6 +353,9 @@ func (e *Executor[TPayload]) operation(
 		return Snapshot{}, 0, 0, nil, ragy.ErrUnavailable
 	}
 	manifest := snapshot.Manifests[index]
+	if manifest.Retired {
+		return Snapshot{}, 0, 0, nil, ErrRetired
+	}
 	state, err := confirmedState(manifest.State, manifest.Checkpoint)
 	if err != nil {
 		return Snapshot{}, 0, 0, nil, err
@@ -434,6 +452,7 @@ func activePublication(snapshot Snapshot, sourceID string) string {
 	return ""
 }
 func cloneManifest(manifest Manifest) Manifest {
+	manifest.ArtifactFences = slices.Clone(manifest.ArtifactFences)
 	manifest.Targets = slices.Clone(manifest.Targets)
 	for i := range manifest.Targets {
 		manifest.Targets[i].Artifacts = slices.Clone(manifest.Targets[i].Artifacts)
@@ -486,7 +505,11 @@ func overlappingInventory(snapshot Snapshot, plan Manifest) bool {
 		reference source.Reference
 	}
 	occupied := make(map[key]struct{})
+	fenced := make(map[ArtifactFence]struct{})
 	for _, previous := range snapshot.Manifests {
+		for _, fence := range previous.ArtifactFences {
+			fenced[fence] = struct{}{}
+		}
 		for _, existing := range previous.Targets {
 			for _, artifact := range existing.Artifacts {
 				occupied[key{target: existing.Name, reference: artifact.Reference}] = struct{}{}
@@ -495,6 +518,9 @@ func overlappingInventory(snapshot Snapshot, plan Manifest) bool {
 	}
 	for _, target := range plan.Targets {
 		for _, artifact := range target.Artifacts {
+			if _, exists := fenced[ArtifactFence{Target: target.Name, Digest: referenceDigest(artifact.Reference)}]; exists {
+				return true
+			}
 			if _, exists := occupied[key{target: target.Name, reference: artifact.Reference}]; exists {
 				return true
 			}

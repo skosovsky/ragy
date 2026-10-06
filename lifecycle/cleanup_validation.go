@@ -35,7 +35,8 @@ func (j CleanupJob) validateItems(manifests map[string]Manifest, owner Manifest,
 		}
 		seen[key] = struct{}{}
 		retired, exists := manifests[item.Manifest]
-		if !exists || !retirable(retired, owner, ancestors) {
+		if !exists || !retirable(retired, owner, ancestors) ||
+			(retired.Retired && (!j.Complete || item.State != CleanupDone)) {
 			return invalid()
 		}
 		if err = item.validate(retired, publications, j); err != nil {
@@ -45,15 +46,8 @@ func (j CleanupJob) validateItems(manifests map[string]Manifest, owner Manifest,
 			complete = false
 		}
 	}
-	for _, retired := range manifests {
-		if !retirable(retired, owner, ancestors) {
-			continue
-		}
-		for _, target := range retired.Targets {
-			if _, exists := seen[[2]string{retired.ID, target.Name}]; !exists {
-				return invalid()
-			}
-		}
+	if err := validateCleanupCoverage(manifests, owner, ancestors, seen); err != nil {
+		return err
 	}
 	if j.Complete != complete {
 		return invalid()
@@ -120,4 +114,23 @@ func retirable(retired, owner Manifest, ancestors map[string]struct{}) bool {
 	}
 	_, exists := ancestors[retired.ExpectedPublication]
 	return exists
+}
+
+func validateCleanupCoverage(
+	manifests map[string]Manifest,
+	owner Manifest,
+	ancestors map[string]struct{},
+	seen map[[2]string]struct{},
+) error {
+	for _, retired := range manifests {
+		if retired.Retired || !retirable(retired, owner, ancestors) {
+			continue
+		}
+		for _, target := range retired.Targets {
+			if _, exists := seen[[2]string{retired.ID, target.Name}]; !exists {
+				return invalid()
+			}
+		}
+	}
+	return nil
 }

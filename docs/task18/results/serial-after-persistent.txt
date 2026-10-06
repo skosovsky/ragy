@@ -1,0 +1,39 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/skosovsky/ragy/dense/persistent
+cpu: Apple M1 Max
+BenchmarkTask18DenseExactScan/N100-4         	      24	   4795920 ns/op	 1820460 B/op	    9335 allocs/op
+BenchmarkTask18DenseExactScan/N100-4         	      27	   4662076 ns/op	 1822910 B/op	    9359 allocs/op
+BenchmarkTask18DenseExactScan/N100-4         	      26	   4979926 ns/op	 1822718 B/op	    9354 allocs/op
+BenchmarkTask18DenseExactScan/N1000-4        	       2	  87574770 ns/op	19570960 B/op	   92555 allocs/op
+BenchmarkTask18DenseExactScan/N1000-4        	       2	  62533312 ns/op	19583516 B/op	   92582 allocs/op
+BenchmarkTask18DenseExactScan/N1000-4        	       2	  59516208 ns/op	19567980 B/op	   92548 allocs/op
+BenchmarkTask18DenseExactScan/N10000-4       	       1	 550107250 ns/op	196334808 B/op	  922516 allocs/op
+BenchmarkTask18DenseExactScan/N10000-4       	       1	 496764291 ns/op	196342504 B/op	  922580 allocs/op
+BenchmarkTask18DenseExactScan/N10000-4       	       1	1697600542 ns/op	196327208 B/op	  922503 allocs/op
+PASS
+ok  	github.com/skosovsky/ragy/dense/persistent	218.148s
+goos: darwin
+goarch: arm64
+pkg: github.com/skosovsky/ragy/tensor/persistent
+cpu: Apple M1 Max
+BenchmarkTask18TensorCandidateMaxSim/N100/Candidates10Pct-4         	      80	   5230026 ns/op	 1061393 B/op	    3882 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N100/Candidates10Pct-4         	      70	   5436470 ns/op	 1061735 B/op	    3883 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N100/Candidates10Pct-4         	      69	   2014618 ns/op	 1061742 B/op	    3885 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N100/Candidates100Pct-4        	      20	   5988229 ns/op	 2057878 B/op	   11220 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N100/Candidates100Pct-4        	      20	   6280406 ns/op	 2059436 B/op	   11229 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N100/Candidates100Pct-4        	      20	   5949938 ns/op	 2059697 B/op	   11225 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N1000/Candidates10Pct-4        	       7	  16391929 ns/op	11616738 B/op	   36601 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N1000/Candidates10Pct-4        	       7	  16675250 ns/op	11617769 B/op	   36614 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N1000/Candidates10Pct-4        	       7	  16454893 ns/op	11616702 B/op	   36605 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N1000/Candidates100Pct-4       	       2	  59801542 ns/op	21693120 B/op	  109740 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N1000/Candidates100Pct-4       	       2	  64731896 ns/op	21686900 B/op	  109716 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N1000/Candidates100Pct-4       	       2	  59328062 ns/op	21692160 B/op	  109746 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N10000/Candidates10Pct-4       	       1	 263380916 ns/op	110063640 B/op	  363106 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N10000/Candidates10Pct-4       	       1	 254436500 ns/op	110073704 B/op	  363137 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N10000/Candidates10Pct-4       	       1	 189579750 ns/op	110073376 B/op	  363133 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N10000/Candidates100Pct-4      	       1	 655709709 ns/op	212861208 B/op	 1092760 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N10000/Candidates100Pct-4      	       1	 659259083 ns/op	212861928 B/op	 1092770 allocs/op
+BenchmarkTask18TensorCandidateMaxSim/N10000/Candidates100Pct-4      	       1	 683264375 ns/op	212855200 B/op	 1092776 allocs/op
+PASS
+ok  	github.com/skosovsky/ragy/tensor/persistent	81.148s

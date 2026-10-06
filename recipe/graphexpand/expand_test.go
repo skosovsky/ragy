@@ -108,8 +108,8 @@ func newFixture(t *testing.T) *fixture {
 		},
 		NodeCodec:  nil,
 		EdgeCodec:  nil,
-		MaxRecords: 100,
-		CloneMeta:  func(m metadata) (metadata, error) { f.cloned = append(f.cloned, m.Name); return m, nil },
+		MaxRecords: 100, MaxAdmissionRecords: 100,
+		CloneMeta: func(m metadata) (metadata, error) { f.cloned = append(f.cloned, m.Name); return m, nil },
 	})
 	if err != nil {
 		t.Fatal(err)

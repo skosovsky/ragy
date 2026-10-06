@@ -1,0 +1,84 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/skosovsky/ragy/lexical/managed
+cpu: Apple M1 Max
+BenchmarkTask18ManagedLexical/N100/Scope100-4         	      93	   1506919 ns/op	 1379974 B/op	    4365 allocs/op
+BenchmarkTask18ManagedLexical/N100/Scope100-4         	      81	   1465713 ns/op	 1385720 B/op	    4367 allocs/op
+BenchmarkTask18ManagedLexical/N100/Scope100-4         	      70	   1455485 ns/op	 1379558 B/op	    4366 allocs/op
+BenchmarkTask18ManagedLexical/N100/Scope10-4          	      32	   4975650 ns/op	 1125990 B/op	    1286 allocs/op
+BenchmarkTask18ManagedLexical/N100/Scope10-4          	     100	   1174643 ns/op	 1140964 B/op	    1285 allocs/op
+BenchmarkTask18ManagedLexical/N100/Scope10-4          	      97	   1157104 ns/op	 1148029 B/op	    1286 allocs/op
+BenchmarkTask18ManagedLexical/N1000/Scope100-4        	       8	  14244354 ns/op	14347254 B/op	   40574 allocs/op
+BenchmarkTask18ManagedLexical/N1000/Scope100-4        	       7	  14491470 ns/op	14318298 B/op	   40571 allocs/op
+BenchmarkTask18ManagedLexical/N1000/Scope100-4        	       7	  14294393 ns/op	14316444 B/op	   40564 allocs/op
+BenchmarkTask18ManagedLexical/N1000/Scope10-4         	       9	  11580167 ns/op	11938693 B/op	    9931 allocs/op
+BenchmarkTask18ManagedLexical/N1000/Scope10-4         	      10	  11652408 ns/op	11787004 B/op	    9935 allocs/op
+BenchmarkTask18ManagedLexical/N1000/Scope10-4         	       9	  11645412 ns/op	11938503 B/op	    9931 allocs/op
+BenchmarkTask18ManagedLexical/N10000/Scope100-4       	       1	 130428667 ns/op	122654344 B/op	  402259 allocs/op
+BenchmarkTask18ManagedLexical/N10000/Scope100-4       	       1	 133048250 ns/op	139450952 B/op	  402296 allocs/op
+BenchmarkTask18ManagedLexical/N10000/Scope100-4       	       1	 131742375 ns/op	122666696 B/op	  402283 allocs/op
+BenchmarkTask18ManagedLexical/N10000/Scope10-4        	       2	  96422770 ns/op	114486168 B/op	   95981 allocs/op
+BenchmarkTask18ManagedLexical/N10000/Scope10-4        	       2	  96985292 ns/op	114486112 B/op	   95981 allocs/op
+BenchmarkTask18ManagedLexical/N10000/Scope10-4        	       2	  97139771 ns/op	114486652 B/op	   95983 allocs/op
+PASS
+ok  	github.com/skosovsky/ragy/lexical/managed	11.986s
+goos: darwin
+goarch: arm64
+pkg: github.com/skosovsky/ragy/graph/managed
+cpu: Apple M1 Max
+BenchmarkTask18ManagedGraph/N100/Scope100/Admission-4         	  183672	       647.6 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope100/Admission-4         	  175738	       649.1 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope100/Admission-4         	  189868	       657.1 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope100/FindByIDsFullView-4 	     124	    947901 ns/op	  870317 B/op	    2150 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope100/FindByIDsFullView-4 	     122	    937804 ns/op	  870189 B/op	    2150 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope100/FindByIDsFullView-4 	     122	    944892 ns/op	  870063 B/op	    2149 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope100/TraverseDepth4-4    	     122	    956468 ns/op	  876959 B/op	    2188 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope100/TraverseDepth4-4    	     121	    959954 ns/op	  877064 B/op	    2189 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope100/TraverseDepth4-4    	     123	    953884 ns/op	  876726 B/op	    2187 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/Admission-4          	  176451	       653.5 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/Admission-4          	  184634	       653.8 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/Admission-4          	  186223	       655.5 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/FindByIDsFullView-4  	     138	    855751 ns/op	  750540 B/op	    1575 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/FindByIDsFullView-4  	     141	    846241 ns/op	  750557 B/op	    1575 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/FindByIDsFullView-4  	     136	    856328 ns/op	  750306 B/op	    1574 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/TraverseDepth4-4     	     136	    868951 ns/op	  756740 B/op	    1611 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/TraverseDepth4-4     	     138	    871877 ns/op	  756672 B/op	    1611 allocs/op
+BenchmarkTask18ManagedGraph/N100/Scope10/TraverseDepth4-4     	     136	    877280 ns/op	  756685 B/op	    1611 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/Admission-4        	  179846	       665.8 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/Admission-4        	  185869	       659.0 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/Admission-4        	  184623	       662.0 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/FindByIDsFullView-4         	      13	   9806337 ns/op	 9531649 B/op	   20330 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/FindByIDsFullView-4         	      12	   9782302 ns/op	 9531211 B/op	   20329 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/FindByIDsFullView-4         	      12	   9855430 ns/op	 9531208 B/op	   20329 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/TraverseDepth4-4            	      12	   9791191 ns/op	 9537587 B/op	   20366 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/TraverseDepth4-4            	      12	   9888059 ns/op	 9537606 B/op	   20366 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope100/TraverseDepth4-4            	      13	   9958891 ns/op	 9537673 B/op	   20367 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/Admission-4                  	  183957	       667.9 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/Admission-4                  	  182882	       653.7 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/Admission-4                  	  185026	       662.6 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/FindByIDsFullView-4          	      14	   8651205 ns/op	 7914682 B/op	   14863 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/FindByIDsFullView-4          	      13	   8583673 ns/op	 7914647 B/op	   14863 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/FindByIDsFullView-4          	      12	   8671167 ns/op	 7914646 B/op	   14863 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/TraverseDepth4-4             	      12	   8641990 ns/op	 7920982 B/op	   14900 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/TraverseDepth4-4             	      13	   8727010 ns/op	 7920982 B/op	   14900 allocs/op
+BenchmarkTask18ManagedGraph/N1000/Scope10/TraverseDepth4-4             	      13	   8568138 ns/op	 7920980 B/op	   14900 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/Admission-4                	  182166	       664.2 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/Admission-4                	  188360	       673.2 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/Admission-4                	  180063	       674.3 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/FindByIDsFullView-4        	       2	  97235396 ns/op	89248432 B/op	  201514 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/FindByIDsFullView-4        	       2	  96553979 ns/op	89248756 B/op	  201515 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/FindByIDsFullView-4        	       2	  97196270 ns/op	89248692 B/op	  201515 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/TraverseDepth4-4           	       2	  95718042 ns/op	89255036 B/op	  201552 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/TraverseDepth4-4           	       2	  98422542 ns/op	89255304 B/op	  201553 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope100/TraverseDepth4-4           	       2	  97404146 ns/op	89255036 B/op	  201552 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/Admission-4                 	  179970	       674.7 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/Admission-4                 	  181530	       665.5 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/Admission-4                 	  181653	       663.1 ns/op	      80 B/op	       3 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/FindByIDsFullView-4         	       2	  81908916 ns/op	75298436 B/op	  147162 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/FindByIDsFullView-4         	       2	  82082480 ns/op	75298400 B/op	  147161 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/FindByIDsFullView-4         	       2	  81923458 ns/op	75295656 B/op	  147154 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/TraverseDepth4-4            	       2	  84838042 ns/op	75301988 B/op	  147191 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/TraverseDepth4-4            	       2	  85657625 ns/op	75304772 B/op	  147199 allocs/op
+BenchmarkTask18ManagedGraph/N10000/Scope10/TraverseDepth4-4            	       2	  83838084 ns/op	75301732 B/op	  147190 allocs/op
+PASS
+ok  	github.com/skosovsky/ragy/graph/managed	15.575s

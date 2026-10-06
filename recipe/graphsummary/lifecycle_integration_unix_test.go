@@ -82,8 +82,15 @@ func newSummaryLifecycle(t *testing.T, f *fixture) summaryLifecycle {
 		t.Fatal(err)
 	}
 	target, err := managed.New(
-		managed.Config[summaryGraphMeta]{Namespace: "n", Target: "graph", Store: store, Schema: schema, MaxRecords: 10,
-			CloneMeta: func(m summaryGraphMeta) (summaryGraphMeta, error) { return m, nil }},
+		managed.Config[summaryGraphMeta]{
+			Namespace:           "n",
+			Target:              "graph",
+			Store:               store,
+			Schema:              schema,
+			MaxRecords:          10,
+			MaxAdmissionRecords: 10,
+			CloneMeta:           func(m summaryGraphMeta) (summaryGraphMeta, error) { return m, nil },
+		},
 	)
 	if err != nil {
 		t.Fatal(err)

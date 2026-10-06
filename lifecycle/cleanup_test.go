@@ -195,7 +195,24 @@ func TestCleanupCapturesAbandonedPlansButExcludesNewerWork(t *testing.T) {
 	stale.ID, stale.Key, stale.ExpectedPublication = "abandoned", "abandoned-key", "pub1"
 	newer := plannedManifest()
 	newer.ID, newer.Key, newer.ExpectedPublication = "new-plan", "new-key", "deleted"
+	// Each operation owns distinct artifacts even when source supports are shared.
+	for i := range stale.Targets {
+		for j := range stale.Targets[i].Artifacts {
+			stale.Targets[i].Artifacts[j].Reference.Artifact += "-abandoned"
+		}
+	}
+	for i := range newer.Targets {
+		for j := range newer.Targets[i].Artifacts {
+			newer.Targets[i].Artifacts[j].Reference.Artifact += "-future"
+		}
+	}
 	snapshot.Manifests = append(snapshot.Manifests, stale, newer)
+	// Build an independent pre-Begin crash fixture; committed cleanup fences cannot be erased by CAS.
+	store, err = filestore.New(t.TempDir(), 8<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Generation = 0
 	if _, err = store.CompareSwap(ctx, snapshot.Generation, snapshot); err != nil {
 		t.Fatal(err)
 	}

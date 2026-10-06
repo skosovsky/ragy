@@ -1,0 +1,24 @@
+# TASK-18 scale and storage maintenance contract
+
+Baseline: `dd3b0f1`. Original TASK-18 and common execution scope remain mandatory. Benchmark workload and raw before results are frozen before the corresponding production edits.
+
+- BM25 maintains aggregate total document length atomically, including replacement/bulk rebuild. A query snapshots only matching term postings and candidate document/length rows under a read lock, while retaining complete admitted corpus statistics. Reader state is immutable after publication, and rebuild failure leaves prior state intact. No ANN claim.
+- Managed lexical snapshots are reusable only inside an immutable-config adapter for the exact prepared filter, binding/publication/inventory and mutation generation. MaxCachedSnapshots is required positive; LRU capacity bounds entries, not arbitrary BYOT payload bytes. Every hit repeats authoritative publication/retained-inventory/freshness checks and owned result cloning. Cleanup/staging invalidate generations; forbidden documents never enter scoped statistics. Callback/config behavior must be stable and thread-safe.
+- Managed graph admission has a required positive MaxAdmissionRecords independent of per-write MaxRecords. It bounds selected fact record cardinality before filtering/deduplication, not lifecycle metadata loading or host attribute bytes. Output MaxNodes/MaxEdges remain output bounds. Adjacency is built only after mandatory admission/conflict resolution; traversal scans incident admitted edges and preserves cycles, private-bridge exclusion and provenance. Document and benchmark pre-traversal metadata/fact costs separately.
+- Local lifecycle maintenance uses retained manifest skeletons and immutable exact-artifact identity digest fences. Host explicitly selects retirement candidates through a generation-CAS operation; only noncurrent, fully confirmed cleaned history without unknown/active work, unfinished cleanup references/ancestry or registered protected pins is eligible. Original IDs/keys/ancestry/checkpoints and cleanup receipts remain reserved; retired handles explicitly fail ErrRetired and never alias new data. No target/source payload deletion is performed by maintenance.
+- Durable publication-pin registration/release shares the namespace CAS generation with maintenance, protecting exact target revisions across restart. CapturePublication remains an observation; host must register pins before promising metadata retention and synchronize release. Pin registration does not restore cleaned target payload or replace authority/retention policy. Released pin IDs remain reserved. No lease clock, scheduler or automatic expiration.
+- Lifecycle v2 is one new format, with explicit rejection and offline backup/migration or fresh-root reindex instructions. ValidateReplacement preserves prior retired fences/reserved pin identities for filestore and custom Store contracts. Full atomic snapshot/flock/rename/fsync is retained: artifact-heavy history compacts without inventing a multi-file recovery profile. Snapshot budget includes skeletons, fences, jobs and pins; eventual capacity refusal remains explicit ErrCapacity, never automatic deletion or indefinite constant-space promise.
+- Reproducible before/after profiles include scale curves, ns/op, bytes/op, allocations, snapshot sizes, corpus/scope/revision/config, concurrency, actual local filesystem and Go/runtime versions. Persistent dense/tensor exact-scan and candidate-only MaxSim are measured/documented honestly; external services are not claimed verified by local fakes.
+
+| ID | Mandatory requirement |
+|---|---|
+| S01 | Frozen reproducible before/after workloads and raw scale/allocation/latency/storage measurements |
+| S02 | O(1) BM25 length aggregates, rare query avoids whole corpus/postings copy, atomic score/snapshot correctness |
+| S03 | Bounded managed lexical reuse keyed by complete identity, repeated freshness/revoke/cleanup gates and no private corpus statistics |
+| S04 | Admitted graph adjacency and cardinality profile; cycles/private bridges/conflicts/shared supports preserved; admission cost measured |
+| S05 | Explicit host retirement eligibility/reference model, registered live pins and active/unknown/cleanup work protected |
+| S06 | Durable maintenance survives restart/crash/concurrent CAS without partial metadata or source payload deletion |
+| S07 | Immutable retired/pin identities and artifact fences; old handles fail explicitly, never reuse for different data |
+| S08 | Explicit diagnostic capacity refusal without authorized retirement, truthful finite local-format/storage limits and migration |
+| S09 | Actual capability/scale matrix for volatile lexical/graph and persistent exact dense/tensor, local flock/fsync profile |
+| S10 | Affected consumers/adversarial persistent concurrency/race/lint pass; core remains provider/OTel independent |

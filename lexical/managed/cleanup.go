@@ -27,6 +27,7 @@ func (a *Adapter[TMeta]) Cleanup(
 		return lifecycle.CleanupUnknown, lifecycle.ErrConflict
 	}
 	delete(a.versions, key)
+	a.invalidateCacheLocked()
 	if err := ctx.Err(); err != nil {
 		return lifecycle.CleanupUnknown, err
 	}

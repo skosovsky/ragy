@@ -1,0 +1,51 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/skosovsky/ragy/lexical
+cpu: Apple M1 Max
+BenchmarkTask18Lexical/Bulk/N100-4         	     218	    539252 ns/op	  164429 B/op	     932 allocs/op
+BenchmarkTask18Lexical/Bulk/N100-4         	     224	    541722 ns/op	  164903 B/op	     932 allocs/op
+BenchmarkTask18Lexical/Bulk/N100-4         	     220	    538665 ns/op	  164760 B/op	     932 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N100-4 	   64396	      1830 ns/op	    2399 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N100-4 	   66710	      1827 ns/op	    2400 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N100-4 	   64549	      1878 ns/op	    2403 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/common/N100-4  	    3175	     39186 ns/op	   53638 B/op	     187 allocs/op
+BenchmarkTask18Lexical/Read/common/N100-4  	    3085	     38306 ns/op	   53592 B/op	     187 allocs/op
+BenchmarkTask18Lexical/Read/common/N100-4  	    3368	     39327 ns/op	   53663 B/op	     187 allocs/op
+BenchmarkTask18Lexical/Update/N100-4       	   10000	     10287 ns/op	    2055 B/op	      13 allocs/op
+BenchmarkTask18Lexical/Update/N100-4       	   10000	     10246 ns/op	    2055 B/op	      13 allocs/op
+BenchmarkTask18Lexical/Update/N100-4       	   10000	     10230 ns/op	    2063 B/op	      13 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N100-4         	   39255	      3170 ns/op	    2347 B/op	      27 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N100-4         	   39013	      3172 ns/op	    2350 B/op	      27 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N100-4         	   35593	      3172 ns/op	    2352 B/op	      27 allocs/op
+BenchmarkTask18Lexical/Bulk/N1000-4                        	      21	   5592885 ns/op	 1522400 B/op	    7560 allocs/op
+BenchmarkTask18Lexical/Bulk/N1000-4                        	      21	   5598526 ns/op	 1520626 B/op	    7560 allocs/op
+BenchmarkTask18Lexical/Bulk/N1000-4                        	      21	   5609407 ns/op	 1515297 B/op	    7559 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N1000-4                	   57660	      2064 ns/op	    2420 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N1000-4                	   59306	      2043 ns/op	    2410 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N1000-4                	   60765	      2083 ns/op	    2415 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/common/N1000-4                 	     228	    524356 ns/op	  601360 B/op	    1125 allocs/op
+BenchmarkTask18Lexical/Read/common/N1000-4                 	     235	    525964 ns/op	  601531 B/op	    1125 allocs/op
+BenchmarkTask18Lexical/Read/common/N1000-4                 	     232	    511319 ns/op	  599409 B/op	    1125 allocs/op
+BenchmarkTask18Lexical/Update/N1000-4                      	   10000	     10773 ns/op	    1822 B/op	      11 allocs/op
+BenchmarkTask18Lexical/Update/N1000-4                      	   10000	     10567 ns/op	    1810 B/op	      11 allocs/op
+BenchmarkTask18Lexical/Update/N1000-4                      	   10000	     10939 ns/op	    1799 B/op	      11 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N1000-4        	   35928	      3456 ns/op	    2331 B/op	      27 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N1000-4        	   35277	      3485 ns/op	    2329 B/op	      27 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N1000-4        	   35212	      3342 ns/op	    2329 B/op	      27 allocs/op
+BenchmarkTask18Lexical/Bulk/N10000-4                       	       2	  59106042 ns/op	14468684 B/op	   71351 allocs/op
+BenchmarkTask18Lexical/Bulk/N10000-4                       	       2	  59380834 ns/op	14394192 B/op	   71339 allocs/op
+BenchmarkTask18Lexical/Bulk/N10000-4                       	       2	  58823000 ns/op	14375656 B/op	   71336 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N10000-4               	   63940	      1921 ns/op	    2385 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N10000-4               	   60700	      1869 ns/op	    2383 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/unique0/N10000-4               	   63199	      1890 ns/op	    2385 B/op	      29 allocs/op
+BenchmarkTask18Lexical/Read/common/N10000-4                	      19	   5738202 ns/op	 5083584 B/op	   10330 allocs/op
+BenchmarkTask18Lexical/Read/common/N10000-4                	      19	   5898465 ns/op	 5089517 B/op	   10331 allocs/op
+BenchmarkTask18Lexical/Read/common/N10000-4                	      19	   5958969 ns/op	 5083584 B/op	   10330 allocs/op
+BenchmarkTask18Lexical/Update/N10000-4                     	   10000	     11469 ns/op	    1795 B/op	      11 allocs/op
+BenchmarkTask18Lexical/Update/N10000-4                     	   10000	     11574 ns/op	    1806 B/op	      11 allocs/op
+BenchmarkTask18Lexical/Update/N10000-4                     	    9891	     11383 ns/op	    1795 B/op	      11 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N10000-4       	   33234	      3375 ns/op	    2322 B/op	      27 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N10000-4       	   34756	      3573 ns/op	    2323 B/op	      27 allocs/op
+BenchmarkTask18Lexical/ConcurrentReadUpdate/N10000-4       	   34671	      3468 ns/op	    2322 B/op	      27 allocs/op
+PASS
+ok  	github.com/skosovsky/ragy/lexical	10.186s

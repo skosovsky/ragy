@@ -1,0 +1,7 @@
+--- FAIL: TestCleanupCapturesAbandonedPlansButExcludesNewerWork (0.26s)
+    cleanup_test.go:206: lifecycle compare-and-swap conflict
+FAIL
+FAIL	github.com/skosovsky/ragy/lifecycle	2.921s
+ok  	github.com/skosovsky/ragy/lifecycle/filestore	3.703s
+ok  	github.com/skosovsky/ragy/graphingest/materialization	2.553s
+FAIL

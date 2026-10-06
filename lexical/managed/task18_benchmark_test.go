@@ -1,0 +1,179 @@
+//go:build darwin || linux
+
+package managed_test
+
+import (
+	"context"
+	"fmt"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/lexical"
+	"github.com/skosovsky/ragy/lexical/managed"
+	"github.com/skosovsky/ragy/lifecycle"
+	"github.com/skosovsky/ragy/lifecycle/filestore"
+	"github.com/skosovsky/ragy/retrieval"
+	"github.com/skosovsky/ragy/source"
+)
+
+// BenchmarkTask18ManagedLexical includes durable publication confirmation and
+// same-scope BM25 retrieval. Setup publishes one revision outside the timer.
+//
+//nolint:gocognit // Keep lifecycle fixture steps and timer boundaries explicit in this reproducible benchmark.
+func BenchmarkTask18ManagedLexical(b *testing.B) {
+	for _, n := range []int{100, 1000, 10000} {
+		for _, percent := range []int{100, 10} {
+			b.Run(fmt.Sprintf("N%d/Scope%d", n, percent), func(b *testing.B) {
+				ctx := context.Background()
+				fields := filter.NewSchema()
+				tenant, err := fields.String("tenant")
+				if err != nil {
+					b.Fatal(err)
+				}
+				if _, err = fields.String("artifact"); err != nil {
+					b.Fatal(err)
+				}
+				schema, err := fields.Build()
+				if err != nil {
+					b.Fatal(err)
+				}
+				store, err := filestore.New(b.TempDir(), 128<<20)
+				if err != nil {
+					b.Fatal(err)
+				}
+				adapter, err := managed.New(
+					managed.Config[metadata]{
+						Namespace:          "n",
+						Target:             "lexical",
+						MaxCachedSnapshots: 32,
+						Store:              store,
+						Schema:             schema,
+						BM25:               lexical.Config[metadata]{SearchFields: []string{"content"}},
+						CloneMeta:          func(m metadata) (metadata, error) { return m, nil },
+					},
+				)
+				if err != nil {
+					b.Fatal(err)
+				}
+				records := make([]managed.Record[metadata], n)
+				artifacts := make([]lifecycle.Artifact, n)
+				for i := range records {
+					id := fmt.Sprintf("doc-%06d", i)
+					scope := "b"
+					if i < n*percent/100 {
+						scope = "a"
+					}
+					reference := source.Reference{
+						Namespace:         "n",
+						Source:            "corpus",
+						Revision:          "r1",
+						Transformation:    "chunk",
+						AccessFingerprint: "acl",
+						Artifact:          id,
+						Representation:    "text",
+					}
+					records[i] = managed.Record[metadata]{
+						Reference: reference,
+						Document: retrieval.Document[metadata]{
+							ID:      id,
+							Content: fmt.Sprintf("searchable document token%d", i%17),
+							Meta:    metadata{Tenant: scope, Artifact: id},
+						},
+					}
+					artifacts[i] = lifecycle.Artifact{Reference: reference, Supports: []source.Reference{reference}}
+				}
+				manifest := lifecycle.Manifest{
+					ID:      "p1",
+					Key:     "p1",
+					Payload: payloadFingerprint(records),
+					State:   lifecycle.Planned,
+					Identity: lifecycle.Identity{
+						Namespace:      "n",
+						Source:         "corpus",
+						Revision:       "r1",
+						Content:        "r1",
+						Transformation: "chunk",
+						Access:         "acl",
+					},
+					Targets: []lifecycle.Target{
+						{Name: "lexical", Required: true, State: lifecycle.TargetPending, Artifacts: artifacts},
+					},
+				}
+				now := time.Unix(100, 0).UTC()
+				executor, err := lifecycle.NewExecutor(
+					lifecycle.ExecutorConfig[[]managed.Record[metadata]]{
+						Store: store,
+						Now:   func() time.Time { return now },
+						Targets: []lifecycle.Registration[[]managed.Record[metadata]]{
+							{Name: "lexical", Port: adapter},
+						},
+						ClonePayload:    func(p []managed.Record[metadata]) ([]managed.Record[metadata], error) { return slices.Clone(p), nil },
+						ValidatePayload: func(lifecycle.Manifest, []managed.Record[metadata]) error { return nil },
+					},
+				)
+				if err != nil {
+					b.Fatal(err)
+				}
+				if _, err = executor.Prepare(ctx, manifest); err != nil {
+					b.Fatal(err)
+				}
+				if _, err = executor.Stage(ctx, "n", "p1", "lexical", records); err != nil {
+					b.Fatal(err)
+				}
+				if _, err = executor.Publish(ctx, "n", "p1"); err != nil {
+					b.Fatal(err)
+				}
+				publication, err := lifecycle.CapturePublication(ctx, store, "n", []string{"lexical"})
+				if err != nil {
+					b.Fatal(err)
+				}
+				builder, err := filter.NewBuilder(schema)
+				if err != nil {
+					b.Fatal(err)
+				}
+				mandatory, err := filter.Eq(builder, tenant, "a").Build()
+				if err != nil {
+					b.Fatal(err)
+				}
+				read, err := access.Scoped(
+					access.ScopedConfig{
+						Snapshot: access.Snapshot{
+							Identity:    "bench",
+							PolicyEpoch: 7,
+							IssuedAt:    now,
+							ExpiresAt:   now.Add(time.Hour),
+						},
+						Mandatory:   mandatory,
+						Schema:      schema,
+						Publication: publication,
+						Now:         func() time.Time { return now },
+						Authority:   access.AuthorityFunc(func(context.Context, access.Snapshot) error { return nil }),
+					},
+				)
+				if err != nil {
+					b.Fatal(err)
+				}
+				request := retrieval.Query[struct{}]{
+					Read:    read,
+					Text:    "searchable",
+					Options: retrieval.RetrieveOptions{TopK: 10},
+				}
+				result, err := adapter.Retrieve(ctx, request)
+				if err != nil || result.Len() != 10 {
+					b.Fatalf("warm read len=%d: %v", result.Len(), err)
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for range b.N {
+					result, err = adapter.Retrieve(ctx, request)
+					if err != nil || result.Len() != 10 {
+						b.Fatalf("read: %v", err)
+					}
+				}
+			})
+		}
+	}
+}

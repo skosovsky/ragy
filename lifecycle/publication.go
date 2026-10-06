@@ -56,6 +56,24 @@ func capturePublication(
 	if err != nil {
 		return access.Publication{}, err
 	}
+	return publicationFromSnapshot(ctx, snapshot, targets, partial)
+}
+
+func publicationFromSnapshot(
+	ctx context.Context,
+	snapshot Snapshot,
+	targets []string,
+	partial bool,
+) (access.Publication, error) {
+	namespace := snapshot.Namespace
+	if !identities(namespace) || len(targets) == 0 {
+		return access.Publication{}, ragy.ErrInvalidArgument
+	}
+	targets = slices.Clone(targets)
+	requested, err := inventoryTargetSet(targets)
+	if err != nil {
+		return access.Publication{}, err
+	}
 	if snapshot.Namespace != namespace || snapshot.Validate() != nil {
 		return access.Publication{}, ragy.ErrProtocol
 	}

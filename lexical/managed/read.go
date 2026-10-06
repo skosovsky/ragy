@@ -2,6 +2,9 @@ package managed
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
@@ -48,10 +51,53 @@ func (a *Adapter[TMeta]) retrieve(
 	if err = prepared.Options.Validate(); err != nil {
 		return nil, err
 	}
-	records, err := a.selectedRecords(ctx, prepared.Read.Publication())
+	records, generation, inventory, err := a.selectedRecords(ctx, prepared.Read.Publication())
 	if err != nil {
 		return nil, err
 	}
+	binding, err := prepared.Read.Fingerprint()
+	if err != nil {
+		return nil, err
+	}
+	predicate, err := prepared.Options.Filters.Fingerprint()
+	if err != nil {
+		return nil, err
+	}
+	key := snapshotKey{binding: binding, predicate: predicate, generation: generation, inventory: inventory}
+	if err = prepared.Read.Check(ctx); err != nil {
+		return nil, err
+	}
+	index := a.cached(key)
+	if index == nil {
+		index, err = a.buildSnapshot(ctx, prepared, records)
+		if err != nil {
+			return nil, err
+		}
+		index = a.cacheSnapshot(key, index)
+	}
+	if err = prepared.Read.Check(ctx); err != nil {
+		return nil, err
+	}
+	result, err := index.Retrieve(ctx, prepared)
+	if err != nil {
+		return nil, err
+	}
+	// Cleanup and ledger changes must be checked even when an index was cached.
+	if _, _, _, err = a.selectedRecords(ctx, prepared.Read.Publication()); err != nil {
+		return nil, err
+	}
+	if err = prepared.Read.Check(ctx); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (a *Adapter[TMeta]) buildSnapshot(
+	ctx context.Context,
+	prepared retrieval.Query[struct{}],
+	records []Record[TMeta],
+) (*lexical.BM25Snapshot[TMeta], error) {
+	var err error
 	var docs []retrieval.Document[TMeta]
 	for _, record := range records {
 		if err = prepared.Read.Check(ctx); err != nil {
@@ -80,25 +126,30 @@ func (a *Adapter[TMeta]) retrieve(
 	if err != nil {
 		return nil, err
 	}
-	return index.Retrieve(ctx, prepared)
+	return index, nil
 }
-func (a *Adapter[TMeta]) selectedRecords(ctx context.Context, publication access.Publication) ([]Record[TMeta], error) {
+
+func (a *Adapter[TMeta]) selectedRecords(
+	ctx context.Context,
+	publication access.Publication,
+) ([]Record[TMeta], uint64, string, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	snapshot, err := a.config.Store.Load(ctx, a.config.Namespace)
 	if err != nil {
-		return nil, err
+		return nil, 0, "", err
 	}
 	if snapshot.Namespace != a.config.Namespace || snapshot.Validate() != nil {
-		return nil, ragy.ErrProtocol
+		return nil, 0, "", ragy.ErrProtocol
 	}
 	var records []Record[TMeta]
+	var manifests []lifecycle.Manifest
 	for _, target := range publication.Targets() {
 		if target.Target != a.config.Target {
 			continue
 		}
 		if target.Namespace != a.config.Namespace {
-			return nil, ragy.ErrUnavailable
+			return nil, 0, "", ragy.ErrUnavailable
 		}
 		key := revisionKey{
 			namespace:      target.Namespace,
@@ -109,11 +160,17 @@ func (a *Adapter[TMeta]) selectedRecords(ctx context.Context, publication access
 		}
 		version, exists := a.versions[key]
 		if !exists || !confirmedVersion(snapshot, target, version) {
-			return nil, ragy.ErrUnavailable
+			return nil, 0, "", ragy.ErrUnavailable
 		}
 		records = append(records, version.records...)
+		manifests = append(manifests, version.manifest)
 	}
-	return records, nil
+	data, err := json.Marshal(manifests)
+	if err != nil {
+		return nil, 0, "", ragy.ErrProtocol
+	}
+	digest := sha256.Sum256(data)
+	return records, a.generation, hex.EncodeToString(digest[:]), nil
 }
 
 // A caller-supplied pinned tuple is insufficient: the exact inventory must have
@@ -125,7 +182,12 @@ func confirmedVersion[TMeta any](
 	version staged[TMeta],
 ) bool {
 	for _, manifest := range snapshot.Manifests {
-		if manifest.ID != version.manifest.ID || manifest.Tombstone || manifest.PublishedAt.IsZero() ||
+		if manifest.Retired || manifest.ID != version.manifest.ID || manifest.Payload != version.manifest.Payload ||
+			!lifecycle.SameTargetInventory(
+				manifest,
+				version.manifest,
+				target.Target,
+			) || manifest.Tombstone || manifest.PublishedAt.IsZero() ||
 			keyForIdentity(manifest.Identity) != (revisionKey{
 				namespace: target.Namespace, source: target.Source, revision: target.Revision,
 				transformation: target.Transformation, access: target.AccessFingerprint,

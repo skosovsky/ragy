@@ -1,0 +1,4 @@
+ok  	github.com/skosovsky/ragy/examples/planner/catalog_vector_fallback	(cached)
+ok  	github.com/skosovsky/ragy/examples/planner/partial_failure_aggregate	(cached)
+ok  	github.com/skosovsky/ragy/examples/planner/rescue_fallback_aggregate	(cached)
+ok  	github.com/skosovsky/ragy/examples/planner/vector_bm25_aggregate	(cached)

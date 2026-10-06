@@ -1,0 +1,14 @@
+Implementation baseline commit dd3b0f1b379ce0d5fbcfd543336b2d6093228a5b
+Date 2026-10-06 Asia/Ho_Chi_Minh
+Go go1.27.1 darwin/arm64
+CPU Apple M1 Max (Go benchmark header)
+OS Darwin 27.0.0 Darwin Kernel Version 27.0.0: Tue Aug 11 21:22:49 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T6000 arm64
+GOMAXPROCS4 (-cpu=4)
+Native libc statfs /tmp: apfs /System/Volumes/Data /dev/disk3s1 blocksize4096
+Go build cache /tmp/ragy-task18-go-cache (sandbox writable)
+Filesystem /dev/disk3s1 capacity1.8Ti used1.6Ti avail148Gi (df rounded)
+Bench -run ^$ -bench Task18 -benchmem -benchtime=100ms -count=3 -cpu=4
+No race instrumentation in before/after measurements.
+Network database none; filestore CAS os.MkdirTemp /tmp, other b.TempDir OS temp root /private/var/folders/.../T on same Data APFS volume.
+Initial captures have no independent process CPU-time or tail latency samples; ns/op is measured wall time. Final serial commands additionally use /usr/bin/time -l to record whole-process user/system CPU seconds and maxRSS; setup/compilation included. No per-query CPU or tail-latency claim.
+Background system load uncontrolled. Profiles ran overlapping during initial before collection.

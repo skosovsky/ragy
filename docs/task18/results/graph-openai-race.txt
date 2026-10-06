@@ -1,0 +1,1 @@
+ok  	github.com/skosovsky/ragy/adapters/openai/structured	1.780s

@@ -1,0 +1,10 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+lifecycle/filestore/task18_benchmark_test.go:27:7: directive `//nolint:usetesting // Fixed local filesystem root is part of the benchmark profile.` is unused for linter "usetesting" (nolintlint)
+				) //nolint:usetesting // Fixed local filesystem root is part of the benchmark profile.
+				  ^
+lifecycle/filestore/task18_benchmark_test.go:24:18: os.MkdirTemp() could be replaced by b.TempDir() in BenchmarkTask18Filestore (usetesting)
+				root, err := os.MkdirTemp(
+				             ^
+2 issues:
+* nolintlint: 1
+* usetesting: 1

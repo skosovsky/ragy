@@ -1,0 +1,69 @@
+{
+  "schema": "ragy.lifecycle/v2",
+  "namespace": "n",
+  "generation": 1,
+  "manifests": [
+    {
+      "id": "publication-1",
+      "identity": {
+        "namespace": "n",
+        "source": "policy",
+        "revision": "r1",
+        "content_fingerprint": "content",
+        "transformation": "chunk",
+        "access_fingerprint": "acl"
+      },
+      "idempotency_key": "request-1",
+      "payload_fingerprint": "payload-1",
+      "expected_publication": "",
+      "tombstone": false,
+      "partial": false,
+      "state": "published",
+      "checkpoint": "",
+      "targets": [
+        {
+          "name": "lexical",
+          "required": true,
+          "state": "ready",
+          "revision": "r1",
+          "artifacts": [
+            {
+              "reference": {
+                "namespace": "n",
+                "source": "policy",
+                "revision": "r1",
+                "transformation": "chunk",
+                "access_fingerprint": "acl",
+                "artifact": "p1",
+                "representation": "text"
+              },
+              "supports": [
+                {
+                  "namespace": "n",
+                  "source": "policy",
+                  "revision": "r1",
+                  "transformation": "chunk",
+                  "access_fingerprint": "acl",
+                  "artifact": "p1",
+                  "representation": "text"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "published_at": "1970-01-01T00:01:40Z",
+      "retired": false,
+      "artifact_fences": null
+    }
+  ],
+  "publications": [
+    {
+      "source": "policy",
+      "manifest": "publication-1"
+    }
+  ],
+  "cleanups": null,
+  "inventories": null,
+  "pins": null
+}

@@ -1,0 +1,143 @@
+package managed_test
+
+import (
+	"context"
+	"fmt"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/skosovsky/ragy/access"
+	"github.com/skosovsky/ragy/filter"
+	"github.com/skosovsky/ragy/graph"
+	"github.com/skosovsky/ragy/graph/managed"
+	"github.com/skosovsky/ragy/lifecycle"
+	"github.com/skosovsky/ragy/lifecycle/filestore"
+)
+
+// BenchmarkTask18ManagedGraph separates admission from operations that materialize
+// the full admitted view. The published graph is a chain; output remains bounded.
+func BenchmarkTask18ManagedGraph(b *testing.B) {
+	for _, n := range []int{100, 1000, 10000} {
+		for _, percent := range []int{100, 10} {
+			b.Run(fmt.Sprintf("N%d/Scope%d", n, percent), func(b *testing.B) {
+				ctx := context.Background()
+				fields := filter.NewSchema()
+				tenant, err := fields.String("tenant")
+				if err != nil {
+					b.Fatal(err)
+				}
+				if _, err := fields.String("visibility"); err != nil {
+					b.Fatal(err)
+				}
+				if _, err := fields.String("name"); err != nil {
+					b.Fatal(err)
+				}
+				schema, err := fields.Build()
+				if err != nil {
+					b.Fatal(err)
+				}
+				store, err := filestore.New(b.TempDir(), 128<<20)
+				if err != nil {
+					b.Fatal(err)
+				}
+				adapter, err := managed.New(managed.Config[metadata]{Namespace: "n", Target: "graph", Store: store, Schema: graph.Schema{NodeAttributes: schema, EdgeAttributes: schema}, MaxRecords: 2 * n, CloneMeta: func(m metadata) (metadata, error) { return m, nil }})
+				if err != nil {
+					b.Fatal(err)
+				}
+				input := managed.Payload[metadata]{Nodes: make([]managed.Node[metadata], n), Edges: make([]managed.Edge[metadata], n-1)}
+				for i := 0; i < n; i++ {
+					id := fmt.Sprintf("node-%06d", i)
+					scope := "b"
+					if i < n*percent/100 {
+						scope = "a"
+					}
+					input.Nodes[i] = managed.Node[metadata]{Reference: ref("chain", "r1", id, "graph-node"), Value: graph.Node[metadata]{ID: id, Labels: []string{"Node"}, Content: id, Meta: metadata{Tenant: scope, Visibility: "public", Name: id}}}
+					if i > 0 {
+						edgeID := fmt.Sprintf("edge-%06d", i-1)
+						input.Edges[i-1] = managed.Edge[metadata]{Reference: ref("chain", "r1", edgeID, "graph-edge"), Value: graph.Edge[metadata]{ID: edgeID, SourceID: fmt.Sprintf("node-%06d", i-1), TargetID: id, Type: "next", Meta: metadata{Tenant: scope, Visibility: "public", Name: edgeID}}}
+					}
+				}
+				now := time.Unix(100, 0).UTC()
+				executor, err := lifecycle.NewExecutor(lifecycle.ExecutorConfig[managed.Payload[metadata]]{Store: store, Targets: []lifecycle.Registration[managed.Payload[metadata]]{{Name: "graph", Port: adapter}}, Now: func() time.Time { return now }, ClonePayload: func(p managed.Payload[metadata]) (managed.Payload[metadata], error) {
+					p.Nodes = slices.Clone(p.Nodes)
+					p.Edges = slices.Clone(p.Edges)
+					for i := range p.Nodes {
+						p.Nodes[i].Value.Labels = slices.Clone(p.Nodes[i].Value.Labels)
+					}
+					return p, nil
+				}, ValidatePayload: func(lifecycle.Manifest, managed.Payload[metadata]) error { return nil }})
+				if err != nil {
+					b.Fatal(err)
+				}
+				manifest := plan("p1", "", input, "support")
+				if _, err = executor.Prepare(ctx, manifest); err != nil {
+					b.Fatal(err)
+				}
+				if _, err = executor.Stage(ctx, "n", "p1", "graph", input); err != nil {
+					b.Fatal(err)
+				}
+				if _, err = executor.Publish(ctx, "n", "p1"); err != nil {
+					b.Fatal(err)
+				}
+				publication, err := lifecycle.CapturePublication(ctx, store, "n", []string{"graph"})
+				if err != nil {
+					b.Fatal(err)
+				}
+				builder, err := filter.NewBuilder(schema)
+				if err != nil {
+					b.Fatal(err)
+				}
+				mandatory, err := filter.Eq(builder, tenant, "a").Build()
+				if err != nil {
+					b.Fatal(err)
+				}
+				read, err := access.Scoped(access.ScopedConfig{Snapshot: access.Snapshot{Identity: "bench", PolicyEpoch: 7, IssuedAt: now, ExpiresAt: now.Add(time.Hour)}, Mandatory: mandatory, Schema: schema, Publication: publication, Now: func() time.Time { return now }, Authority: access.AuthorityFunc(func(context.Context, access.Snapshot) error { return nil })})
+				if err != nil {
+					b.Fatal(err)
+				}
+				request := managed.Request{Read: read, Traversal: graph.TraversalRequest{Seeds: []string{"node-000000"}, Direction: graph.DirectionOutbound, Depth: 4}, MaxNodes: 16, MaxEdges: 16}
+				b.Run("Admission", func(b *testing.B) {
+					if err := adapter.AdmitTraversal(ctx, request); err != nil {
+						b.Fatal(err)
+					}
+					b.ReportAllocs()
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						if err := adapter.AdmitTraversal(ctx, request); err != nil {
+							b.Fatal(err)
+						}
+					}
+				})
+				b.Run("FindByIDsFullView", func(b *testing.B) {
+					result, err := adapter.FindByIDs(ctx, request)
+					if err != nil || len(result.Snapshot.Nodes) != 1 {
+						b.Fatalf("warm read: %v", err)
+					}
+					b.ReportAllocs()
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						result, err = adapter.FindByIDs(ctx, request)
+						if err != nil || len(result.Snapshot.Nodes) != 1 {
+							b.Fatalf("read: %v", err)
+						}
+					}
+				})
+				b.Run("TraverseDepth4", func(b *testing.B) {
+					result, err := adapter.Traverse(ctx, request)
+					if err != nil || len(result.Snapshot.Nodes) != 5 || len(result.Snapshot.Edges) != 4 {
+						b.Fatalf("warm traverse nodes=%d edges=%d: %v", len(result.Snapshot.Nodes), len(result.Snapshot.Edges), err)
+					}
+					b.ReportAllocs()
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						result, err = adapter.Traverse(ctx, request)
+						if err != nil || len(result.Snapshot.Nodes) != 5 || len(result.Snapshot.Edges) != 4 {
+							b.Fatalf("traverse: %v", err)
+						}
+					}
+				})
+			})
+		}
+	}
+}

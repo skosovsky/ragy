@@ -58,7 +58,8 @@ func newFixture(t *testing.T) *fixture {
 	}
 	f := &fixture{store: store, schema: schema, epoch: 7, now: time.Unix(100, 0).UTC()}
 	adapter, err := managed.New(managed.Config[metadata]{
-		Namespace: "n", Target: "lexical", Store: store, Schema: schema,
+		MaxCachedSnapshots: 32,
+		Namespace:          "n", Target: "lexical", Store: store, Schema: schema,
 		BM25: lexical.Config[metadata]{SearchFields: []string{"content"}},
 		CloneMeta: func(meta metadata) (metadata, error) {
 			f.copies = append(f.copies, meta.Artifact)
@@ -389,7 +390,8 @@ func TestEmptyPinAndVolatileMissingSnapshotRemainExplicit(t *testing.T) {
 	f.ingest(t, plan, records, true)
 	read := f.pin(t)
 	restarted, err := managed.New(managed.Config[metadata]{
-		Namespace: "n", Target: "lexical", Store: f.store, Schema: f.schema,
+		MaxCachedSnapshots: 32,
+		Namespace:          "n", Target: "lexical", Store: f.store, Schema: f.schema,
 		BM25:      lexical.Config[metadata]{SearchFields: []string{"content"}},
 		CloneMeta: func(meta metadata) (metadata, error) { meta.Tags = slices.Clone(meta.Tags); return meta, nil },
 	})
@@ -412,6 +414,94 @@ func checkScopeAndStaging(t *testing.T, results retrieval.ResultSet[metadata], c
 	for _, copied := range copies {
 		if copied == "policy-b" || copied == "faq-b" {
 			t.Fatal("private payload projection before metadata admission")
+		}
+	}
+}
+
+func TestWarmSnapshotAvoidsRebuildAndRetainsCloneRevocationGates(t *testing.T) {
+	// Arrange.
+	f := newFixture(t)
+	plan, records := sourcePlan("p1", "policy", "r1", "")
+	f.ingest(t, plan, records, true)
+	read := f.pin(t)
+	f.copies = nil
+	cold, coldErr := f.adapter.Retrieve(t.Context(), query(read))
+	coldCopies := len(f.copies)
+	f.copies = nil
+	// Act.
+	warm, warmErr := f.adapter.Retrieve(t.Context(), query(read))
+	// Assert: only delivered metadata is cloned on a hit; cold construction clones corpus.
+	if coldErr != nil || warmErr != nil || cold.Len() != warm.Len() || warm.Len() != 1 || len(f.copies) != warm.Len() ||
+		coldCopies <= len(f.copies) {
+		t.Fatalf("cold=%v warm=%v coldCopies=%d warmCopies=%d", coldErr, warmErr, coldCopies, len(f.copies))
+	}
+	// Act: authority revokes in the output clone of an existing cached snapshot.
+	f.revokeOnCopy = true
+	revoked, revokeErr := f.adapter.Retrieve(t.Context(), query(read))
+	// Assert.
+	if !errors.Is(revokeErr, ragy.ErrUnavailable) || revoked.Len() != 0 {
+		t.Fatal("cache bypassed clone revocation gate", revokeErr)
+	}
+}
+
+func TestCachedSnapshotsPartitionActualPreparedFilters(t *testing.T) {
+	// Arrange: same binding/publication, different admitted scoring corpora.
+	f := newFixture(t)
+	for _, name := range []string{"policy", "faq"} {
+		plan, records := sourcePlan(name+"1", name, "r1", "")
+		f.ingest(t, plan, records, true)
+	}
+	read := f.pin(t)
+	broad := query(read)
+	fields := filter.NewSchema()
+	artifact, err := fields.String("artifact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	builder, err := filter.NewBuilder(f.schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	narrowFilter, err := filter.Eq(builder, artifact, "policy-a").Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	narrow := broad
+	narrow.Options.Filters = narrowFilter
+	// Act.
+	full, fullErr := f.adapter.Retrieve(t.Context(), broad)
+	selected, selectedErr := f.adapter.Retrieve(t.Context(), narrow)
+	repeated, repeatedErr := f.adapter.Retrieve(t.Context(), broad)
+	// Assert: filtered corpus BM25 statistics must not reuse broader statistics.
+	if fullErr != nil || selectedErr != nil || repeatedErr != nil || full.Len() != 2 || selected.Len() != 1 ||
+		repeated.Len() != 2 {
+		t.Fatalf("full=%v selected=%v repeated=%v", fullErr, selectedErr, repeatedErr)
+	}
+	if selected.Documents()[0].Meta.Artifact != "policy-a" ||
+		selected.Documents()[0].Score == full.Documents()[0].Score ||
+		repeated.Documents()[0].Score != full.Documents()[0].Score {
+		t.Fatal("cache mixed prepared filter corpora")
+	}
+}
+
+func TestManagedCacheCapacityMustBeExplicitPositive(t *testing.T) {
+	// Arrange.
+	f := newFixture(t)
+	for _, capacity := range []int{0, -1} {
+		config := managed.Config[metadata]{
+			Namespace:          "n",
+			Target:             "lexical",
+			Store:              f.store,
+			Schema:             f.schema,
+			BM25:               lexical.Config[metadata]{SearchFields: []string{"content"}},
+			CloneMeta:          func(meta metadata) (metadata, error) { return meta, nil },
+			MaxCachedSnapshots: capacity,
+		}
+		// Act.
+		_, err := managed.New(config)
+		// Assert.
+		if !errors.Is(err, ragy.ErrInvalidArgument) {
+			t.Fatalf("capacity=%d error=%v", capacity, err)
 		}
 	}
 }

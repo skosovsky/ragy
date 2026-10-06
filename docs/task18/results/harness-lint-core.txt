@@ -1,0 +1,36 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+lifecycle/filestore/maintenance_persist_unix_test.go:16:2: there must be an empty line separating embedded fields from regular fields (embeddedstructfieldcheck)
+	context.Context
+	^
+lifecycle/filestore/store_unix.go:67:10: lifecycle.Snapshot is missing field Pins (exhaustruct)
+		return lifecycle.Snapshot{
+		       ^
+lifecycle/filestore/maintenance_unix_test.go:159:1: cognitive complexity 24 of func `TestCrashReleasesLockAndRestartMaintainsCommittedHistory` is high (> 20) (gocognit)
+func TestCrashReleasesLockAndRestartMaintainsCommittedHistory(t *testing.T) {
+^
+lifecycle/filestore/maintenance_persist_unix_test.go:53:1: File is not properly formatted (golines)
+			if !errors.Is(err, context.Canceled) || readErr != nil || globErr != nil || string(after) != string(expected) || len(temporary) != 0 {
+^
+lifecycle/filestore/maintenance_unix_test.go:41:1: File is not properly formatted (golines)
+	snapshot.Cleanups = []lifecycle.CleanupJob{{Owner: active.ID, StartedAt: active.PublishedAt, Deadline: active.PublishedAt.Add(time.Hour), Complete: true, Items: []lifecycle.RetiredTarget{{Manifest: prior.ID, Target: "lexical", State: lifecycle.CleanupDone, Attempts: 1, NextAt: active.PublishedAt}}}}
+^
+lifecycle/filestore/store_unix.go:123:1: File is not properly formatted (golines)
+func (s *Store) Maintain(ctx context.Context, expected uint64, request lifecycle.RetirementRequest) (lifecycle.Snapshot, error) {
+^
+lifecycle/filestore/maintenance_unix_test.go:160:1: `if root != ""` has complex nested blocks (complexity: 6) (nestif)
+	if root := os.Getenv("RAGY_MAINTENANCE_CRASH_ROOT"); root != "" {
+^
+lifecycle/filestore/maintenance_unix_test.go:187:3: redefines-builtin-id: redefinition of the built-in type byte (revive)
+		var byte [1]byte
+		^
+lifecycle/filestore/task18_benchmark_test.go:24:18: os.MkdirTemp() could be replaced by b.TempDir() in BenchmarkTask18Filestore (usetesting)
+				root, err := os.MkdirTemp("/tmp", "ragy-task18-")
+				             ^
+9 issues:
+* embeddedstructfieldcheck: 1
+* exhaustruct: 1
+* gocognit: 1
+* golines: 3
+* nestif: 1
+* revive: 1
+* usetesting: 1

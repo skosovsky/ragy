@@ -228,8 +228,8 @@ func buildGraphCorpus(
 			Target:     graphTarget,
 			Store:      store,
 			Schema:     schema,
-			MaxRecords: localEdgeCap,
-			CloneMeta:  func(m graphMetadata) (graphMetadata, error) { return m, nil },
+			MaxRecords: localEdgeCap, MaxAdmissionRecords: localEdgeCap,
+			CloneMeta: func(m graphMetadata) (graphMetadata, error) { return m, nil },
 		},
 	)
 	if err != nil {

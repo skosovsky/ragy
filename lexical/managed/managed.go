@@ -27,6 +27,8 @@ type Config[TMeta any] struct {
 	Schema    filter.Schema
 	BM25      lexical.Config[TMeta]
 	CloneMeta func(TMeta) (TMeta, error)
+	// MaxCachedSnapshots is a required positive bound on resident scoped BM25 indexes.
+	MaxCachedSnapshots int
 }
 
 type revisionKey struct{ namespace, source, revision, transformation, access string }
@@ -38,13 +40,17 @@ type staged[TMeta any] struct {
 // Adapter retains exact snapshots until explicit cleanup. It does not promise
 // persistence across process restart; missing retained snapshots fail explicitly.
 type Adapter[TMeta any] struct {
-	mu       sync.RWMutex
-	config   Config[TMeta]
-	versions map[revisionKey]staged[TMeta]
+	mu         sync.RWMutex
+	config     Config[TMeta]
+	versions   map[revisionKey]staged[TMeta]
+	generation uint64
+	cacheClock uint64
+	cache      map[snapshotKey]cachedSnapshot[TMeta]
 }
 
 func New[TMeta any](config Config[TMeta]) (*Adapter[TMeta], error) {
-	if config.Namespace == "" || config.Target == "" || config.Store == nil || config.CloneMeta == nil {
+	if config.Namespace == "" || config.Target == "" || config.Store == nil || config.CloneMeta == nil ||
+		config.MaxCachedSnapshots <= 0 {
 		return nil, ragy.ErrInvalidArgument
 	}
 	config.BM25.SearchFields = slices.Clone(config.BM25.SearchFields)
@@ -54,7 +60,14 @@ func New[TMeta any](config Config[TMeta]) (*Adapter[TMeta], error) {
 	if _, err := lexical.NewBM25Index(config.Schema, config.BM25, nil, nil); err != nil {
 		return nil, err
 	}
-	return &Adapter[TMeta]{mu: sync.RWMutex{}, config: config, versions: make(map[revisionKey]staged[TMeta])}, nil
+	return &Adapter[TMeta]{
+		mu:         sync.RWMutex{},
+		generation: 0,
+		cacheClock: 0,
+		config:     config,
+		versions:   make(map[revisionKey]staged[TMeta]),
+		cache:      make(map[snapshotKey]cachedSnapshot[TMeta]),
+	}, nil
 }
 func (a *Adapter[TMeta]) Schema() filter.Schema { return a.config.Schema }
 func (*Adapter[TMeta]) ReadCapabilities() access.Capabilities {
@@ -84,6 +97,7 @@ func (a *Adapter[TMeta]) Stage(
 		return lifecycle.StageResult{}, lifecycle.ErrConflict
 	}
 	a.versions[key] = staged[TMeta]{manifest: request.Manifest, records: captured}
+	a.invalidateCacheLocked()
 	if err = ctx.Err(); err != nil {
 		return lifecycle.StageResult{}, err
 	}

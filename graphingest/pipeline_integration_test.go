@@ -320,7 +320,7 @@ func graphLifecycle(
 			Store:      store,
 			Schema:     graph.EmptySchema(),
 			CloneMeta:  func(m graphMeta) (graphMeta, error) { return m, nil },
-			MaxRecords: 8,
+			MaxRecords: 8, MaxAdmissionRecords: 8,
 		},
 	)
 	if err != nil {

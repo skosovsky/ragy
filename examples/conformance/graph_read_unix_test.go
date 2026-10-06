@@ -214,7 +214,7 @@ func newGraphReadFixture(
 			Target:     "graph",
 			Store:      store,
 			Schema:     graph.Schema{NodeAttributes: schema, EdgeAttributes: schema},
-			MaxRecords: 100,
+			MaxRecords: 100, MaxAdmissionRecords: 100,
 			CloneMeta: func(meta graphMetadata) (graphMetadata, error) {
 				port.mu.Lock()
 				defer port.mu.Unlock()

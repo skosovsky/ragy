@@ -3,6 +3,8 @@ package managed
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"iter"
 	"slices"
 
 	ragy "github.com/skosovsky/ragy"
@@ -17,8 +19,9 @@ type Request struct {
 	Read      access.Binding
 	HostBasis string
 	Traversal graph.TraversalRequest
-	MaxNodes  int
-	MaxEdges  int
+	// MaxNodes and MaxEdges bound delivered traversal results, not admission work.
+	MaxNodes int
+	MaxEdges int
 }
 type Support struct {
 	Kind       string
@@ -91,7 +94,7 @@ func (a *Adapter[TMeta]) FindByIDs(ctx context.Context, request Request) (Result
 	if err != nil {
 		return empty, access.NonSkippable(err)
 	}
-	view, err := admitted(ctx, versions, prepared)
+	view, err := a.admit(ctx, versions, prepared)
 	if err != nil {
 		return empty, access.NonSkippable(err)
 	}
@@ -122,7 +125,7 @@ func (a *Adapter[TMeta]) traverse(ctx context.Context, request Request) (Result[
 	if err != nil {
 		return emptyResult[TMeta](), err
 	}
-	view, err := admitted(ctx, versions, prepared)
+	view, err := a.admit(ctx, versions, prepared)
 	if err != nil {
 		return emptyResult[TMeta](), err
 	}
@@ -204,6 +207,8 @@ func (a *Adapter[TMeta]) selected(
 }
 
 type view[TMeta any] struct {
+	outbound     map[string][]string
+	inbound      map[string][]string
 	nodes        map[string]storedNode[TMeta]
 	edges        map[string]storedEdge[TMeta]
 	nodeSupports map[string][]source.Reference
@@ -213,8 +218,29 @@ type view[TMeta any] struct {
 	conflicts    []Conflict
 }
 
+// admit rejects oversized selected inventory before materializing the scoped view.
+func (a *Adapter[TMeta]) admit(ctx context.Context, versions []version[TMeta], request Request) (view[TMeta], error) {
+	remaining := a.config.MaxAdmissionRecords
+	for _, version := range versions {
+		if err := request.Read.Check(ctx); err != nil {
+			return view[TMeta]{}, err
+		}
+		if len(version.nodes) > remaining {
+			return view[TMeta]{}, fmt.Errorf("%w: graph admission record capacity exceeded", ragy.ErrInvalidArgument)
+		}
+		remaining -= len(version.nodes)
+		if len(version.edges) > remaining {
+			return view[TMeta]{}, fmt.Errorf("%w: graph admission record capacity exceeded", ragy.ErrInvalidArgument)
+		}
+		remaining -= len(version.edges)
+	}
+	return admitted(ctx, versions, request)
+}
+
 func admitted[TMeta any](ctx context.Context, versions []version[TMeta], request Request) (view[TMeta], error) {
 	out := view[TMeta]{
+		outbound:     make(map[string][]string),
+		inbound:      make(map[string][]string),
 		nodes:        make(map[string]storedNode[TMeta]),
 		edges:        make(map[string]storedEdge[TMeta]),
 		nodeSupports: make(map[string][]source.Reference),
@@ -224,11 +250,15 @@ func admitted[TMeta any](ctx context.Context, versions []version[TMeta], request
 	}
 	badNodes, badEdges := map[string]bool{}, map[string]bool{}
 	for _, version := range versions {
+		origin, err := indexedOrigin(ctx, request.Read, version)
+		if err != nil {
+			return out, err
+		}
 		if err := admitFacts(
 			ctx,
 			request.Read,
 			request.Traversal.NodeFilter,
-			supportOrigin{manifest: version.manifest, basis: version.hostBasis, target: version.target},
+			origin,
 			version.nodes,
 			out.nodes,
 			out.nodeSupports,
@@ -241,7 +271,7 @@ func admitted[TMeta any](ctx context.Context, versions []version[TMeta], request
 			ctx,
 			request.Read,
 			request.Traversal.EdgeFilter,
-			supportOrigin{manifest: version.manifest, basis: version.hostBasis, target: version.target},
+			origin,
 			version.edges,
 			out.edges,
 			out.edgeSupports,
@@ -276,6 +306,9 @@ func admitted[TMeta any](ctx context.Context, versions []version[TMeta], request
 		)
 		delete(out.edges, id)
 	}
+	if err := indexAdjacency(ctx, request.Read, &out); err != nil {
+		return out, err
+	}
 	return out, nil
 }
 func match(condition filter.Condition, attrs filter.RawAttributes) (bool, error) {
@@ -284,16 +317,39 @@ func match(condition filter.Condition, attrs filter.RawAttributes) (bool, error)
 		func(field string) (any, bool) { value, exists := attrs[field]; return value, exists },
 	)
 }
-func supports(manifest lifecycle.Manifest, targetName string, ref source.Reference) []source.Reference {
-	for _, target := range manifest.Targets {
-		if target.Name != targetName {
+
+// indexedOrigin scans only the selected target inventory once per version.
+func indexedOrigin[TMeta any](ctx context.Context, read access.Binding, version version[TMeta]) (supportOrigin, error) {
+	out := supportOrigin{basis: version.hostBasis, refs: make(map[source.Reference][]source.Reference)}
+	for _, target := range version.manifest.Targets {
+		if target.Name != version.target {
 			continue
 		}
 		for _, artifact := range target.Artifacts {
-			if artifact.Reference == ref {
-				return artifact.Supports
+			if err := read.Check(ctx); err != nil {
+				return supportOrigin{}, err
 			}
+			out.refs[artifact.Reference] = artifact.Supports
 		}
+	}
+	return out, nil
+}
+
+func indexAdjacency[TMeta any](ctx context.Context, read access.Binding, view *view[TMeta]) error {
+	for id, edge := range view.edges {
+		if err := read.Check(ctx); err != nil {
+			return err
+		}
+		value := edge.record.Value
+		if _, exists := view.nodes[value.SourceID]; !exists {
+			continue
+		}
+		if _, exists := view.nodes[value.TargetID]; !exists {
+			continue
+		}
+		view.outbound[value.SourceID] = append(view.outbound[value.SourceID], id)
+		// Self-loops are stored in both directions, but expanded once for undirected reads.
+		view.inbound[value.TargetID] = append(view.inbound[value.TargetID], id)
 	}
 	return nil
 }
@@ -440,7 +496,7 @@ func admitFacts[T fact](
 		if origin.basis != "" {
 			bases[id] = append(bases[id], origin.basis)
 		}
-		refs[id] = append(refs[id], supports(origin.manifest, origin.target, record.factRef())...)
+		refs[id] = append(refs[id], origin.refs[record.factRef()]...)
 		if previous, exists := output[id]; exists &&
 			!bytes.Equal(previous.factFingerprint(), record.factFingerprint()) {
 			bad[id] = true
@@ -459,7 +515,8 @@ func expand[TMeta any](
 	visited, edgeIDs map[string]bool,
 ) ([]string, error) {
 	next := []string{}
-	for edgeID, edge := range view.edges {
+	for edgeID := range incident(view, id, request.Traversal.Direction) {
+		edge := view.edges[edgeID]
 		if err := request.Read.Check(ctx); err != nil {
 			return nil, err
 		}
@@ -486,12 +543,42 @@ func expand[TMeta any](
 	return next, nil
 }
 
+func incident[TMeta any](view view[TMeta], id string, direction graph.Direction) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		if direction != graph.DirectionInbound && !yieldEdges(view, view.outbound[id], "", yield) {
+			return
+		}
+		if direction != graph.DirectionOutbound {
+			selfLoopSource := ""
+			if direction == graph.DirectionUndirected {
+				selfLoopSource = id
+			}
+			yieldEdges(view, view.inbound[id], selfLoopSource, yield)
+		}
+	}
+}
+
+func yieldEdges[TMeta any](view view[TMeta], edges []string, skipSelfLoopSource string, yield func(string) bool) bool {
+	for _, edgeID := range edges {
+		if skipSelfLoopSource != "" && view.edges[edgeID].record.Value.SourceID == skipSelfLoopSource {
+			continue
+		}
+		if !yield(edgeID) {
+			return false
+		}
+	}
+	return true
+}
+
 func confirmed(snapshot lifecycle.Snapshot, captured lifecycle.Manifest, target string) bool {
+	if captured.Retired {
+		return false
+	}
 	for _, manifest := range snapshot.Manifests {
 		if manifest.ID != captured.ID || manifest.Identity != captured.Identity ||
 			manifest.Payload != captured.Payload ||
 			manifest.PublishedAt.IsZero() ||
-			manifest.Tombstone {
+			manifest.Retired || manifest.Tombstone {
 			continue
 		}
 		for _, item := range manifest.Targets {
@@ -529,7 +616,6 @@ func selectedVersion[TMeta any](
 }
 
 type supportOrigin struct {
-	target   string
-	manifest lifecycle.Manifest
-	basis    string
+	basis string
+	refs  map[source.Reference][]source.Reference
 }

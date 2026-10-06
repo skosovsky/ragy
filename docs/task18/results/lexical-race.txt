@@ -1,0 +1,2 @@
+ok  	github.com/skosovsky/ragy/lexical	1.668s
+ok  	github.com/skosovsky/ragy/lexical/managed	3.789s

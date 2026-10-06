@@ -38,6 +38,9 @@ type Config[TMeta any] struct {
 	EdgeCodec  retrieval.MetadataCodec[TMeta]
 	CloneMeta  func(TMeta) (TMeta, error)
 	MaxRecords int
+	// MaxAdmissionRecords bounds selected facts before scope filtering and deduplication.
+	// It must be positive and is independent of per-write MaxRecords and result budgets.
+	MaxAdmissionRecords int
 }
 type storedNode[TMeta any] struct {
 	record      Node[TMeta]
@@ -66,7 +69,7 @@ type Adapter[TMeta any] struct {
 
 func New[TMeta any](config Config[TMeta]) (*Adapter[TMeta], error) {
 	if config.Namespace == "" || config.Target == "" || config.Store == nil || config.CloneMeta == nil ||
-		config.MaxRecords <= 0 {
+		config.MaxRecords <= 0 || config.MaxAdmissionRecords <= 0 {
 		return nil, ragy.ErrInvalidArgument
 	}
 	if err := config.Schema.Validate(); err != nil {
