@@ -33,3 +33,21 @@ func TestRawDotMaxSimDeclaresActualSemantics(t *testing.T) {
 		t.Fatalf("unsupported metric accepted: %v", err)
 	}
 }
+
+func TestNativeMaxSimNegativeScoresAreNotClamped(t *testing.T) {
+	for _, metric := range []encoding.Metric{encoding.Dot, encoding.NormalizedDot} {
+		t.Run(string(metric), func(t *testing.T) {
+			// Arrange: all document-token similarities are negative.
+			space := fixtureSpace()
+			space.Metric = metric
+			query := tensor.Embedding{Space: space, Tokens: tensor.Tensor{{1, 0}, {1, 0}}}
+			document := tensor.Embedding{Space: space, Tokens: tensor.Tensor{{-1, 0}}}
+			// Act.
+			score, err := tensor.MaxSim(t.Context(), query, document)
+			// Assert: sum of two -1 maxima stays -2 in both native metrics.
+			if err != nil || score != -2 {
+				t.Fatal("clamped native score", score, err)
+			}
+		})
+	}
+}

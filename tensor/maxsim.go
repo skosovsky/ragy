@@ -31,7 +31,8 @@ func ValidateSpace(space Space) error {
 	return nil
 }
 
-// Embedding pairs a normalized token matrix with its declared space.
+// Embedding pairs a token matrix with its declared space.
+// NormalizedDot requires unit rows; Dot preserves native magnitudes.
 // The caller owns Tokens and must not mutate it during an operation.
 type Embedding struct {
 	Space  Space
@@ -40,6 +41,15 @@ type Embedding struct {
 
 // Validate checks every component and token shape. It never silently normalizes.
 func (e Embedding) Validate() error {
+	return e.ValidateContext(context.Background())
+}
+
+// ValidateContext checks shapes and values with cancellation between token rows.
+// One row validation is indivisible; callers must bound token dimensions.
+func (e Embedding) ValidateContext(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if len(e.Tokens) == 0 {
 		return fmt.Errorf("%w: tensor tokens", ragy.ErrEmptyVector)
 	}
@@ -47,6 +57,9 @@ func (e Embedding) Validate() error {
 		return err
 	}
 	for _, token := range e.Tokens {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if len(token) != e.Space.Dimension {
 			return ragy.ErrInvalidArgument
 		}
@@ -55,7 +68,7 @@ func (e Embedding) Validate() error {
 		}
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // MaxSim computes the reference native score. Validation precedes computation;
@@ -64,10 +77,10 @@ func MaxSim(ctx context.Context, query, document Embedding) (float64, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	if err := query.Validate(); err != nil {
+	if err := query.ValidateContext(ctx); err != nil {
 		return 0, err
 	}
-	if err := document.Validate(); err != nil {
+	if err := document.ValidateContext(ctx); err != nil {
 		return 0, err
 	}
 	if query.Space != document.Space {
@@ -137,24 +150,11 @@ func Rerank(ctx context.Context, query Embedding, candidates []Candidate, option
 		len(candidates) > options.CandidateBudget {
 		return RerankResult{}, fmt.Errorf("%w: tensor candidate/output limits", ragy.ErrInvalidArgument)
 	}
-	if err := query.Validate(); err != nil {
+	if err := query.ValidateContext(ctx); err != nil {
 		return RerankResult{}, err
 	}
-	seen := make(map[string]struct{}, len(candidates))
-	for _, candidate := range candidates {
-		if candidate.ID == "" {
-			return RerankResult{}, ragy.ErrMissingID
-		}
-		if _, exists := seen[candidate.ID]; exists {
-			return RerankResult{}, fmt.Errorf("%w: duplicate tensor candidate", ragy.ErrInvalidArgument)
-		}
-		seen[candidate.ID] = struct{}{}
-		if err := candidate.Embedding.Validate(); err != nil {
-			return RerankResult{}, err
-		}
-		if candidate.Embedding.Space != query.Space {
-			return RerankResult{}, fmt.Errorf("%w: incompatible tensor candidate space", ragy.ErrInvalidArgument)
-		}
+	if err := validateCandidates(ctx, query.Space, candidates); err != nil {
+		return RerankResult{}, err
 	}
 	result := RerankResult{Ranking: nil, CandidateIDs: nil, CandidateBudget: options.CandidateBudget}
 	for _, candidate := range candidates {
@@ -167,6 +167,9 @@ func Rerank(ctx context.Context, query Embedding, candidates []Candidate, option
 			result.Ranking,
 			ScoredCandidate{ID: candidate.ID, Score: score, Semantics: MaxSimSemanticsFor(query.Space.Metric), Rank: 0},
 		)
+	}
+	if err := ctx.Err(); err != nil {
+		return RerankResult{}, err
 	}
 	sort.SliceStable(result.Ranking, func(i, j int) bool {
 		return result.Ranking[i].Score > result.Ranking[j].Score
@@ -181,4 +184,27 @@ func Rerank(ctx context.Context, query Embedding, candidates []Candidate, option
 		return RerankResult{}, err
 	}
 	return result, nil
+}
+
+func validateCandidates(ctx context.Context, space Space, candidates []Candidate) error {
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if candidate.ID == "" {
+			return ragy.ErrMissingID
+		}
+		if _, exists := seen[candidate.ID]; exists {
+			return fmt.Errorf("%w: duplicate tensor candidate", ragy.ErrInvalidArgument)
+		}
+		seen[candidate.ID] = struct{}{}
+		if err := candidate.Embedding.ValidateContext(ctx); err != nil {
+			return err
+		}
+		if candidate.Embedding.Space != space {
+			return fmt.Errorf("%w: incompatible tensor candidate space", ragy.ErrInvalidArgument)
+		}
+	}
+	return nil
 }

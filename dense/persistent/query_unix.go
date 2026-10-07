@@ -285,7 +285,7 @@ func selectedManifest(snapshot lifecycle.Snapshot, pinned access.TargetRevision)
 			id.Transformation != pinned.Transformation ||
 			id.Access != pinned.AccessFingerprint ||
 			manifest.PublishedAt.IsZero() ||
-			manifest.Tombstone {
+			manifest.Tombstone || manifest.Retired {
 			continue
 		}
 		for _, target := range manifest.Targets {

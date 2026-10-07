@@ -536,57 +536,111 @@
       "id": "D44",
       "task": "T16",
       "requirement": "Tensor score/work: MaxSim может быть negative/>1, Dot не требует normalized input. Candidate-bound != token×dimension bound; ctx checks между rows/candidates и limits нужны по профилю, не implicit clamping.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Metric-dependent shapes/native scores retained; validation observes row/candidate cancellation and discards results. Candidate count is not token/dimension/CPU budget.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/maxsim.go",
+        "tensor/cancellation_test.go",
+        "tensor/metric_test.go"
+      ]
     },
     {
       "id": "D45",
       "task": "T16",
       "requirement": "Candidate catalog semantics: Exact-within-candidates не ANN/exhaustive. Budget считает docs, projection dedup считает refs; catalog scan шире payload budget. MaxRecords не должен скрывать несколько независимых units.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Exact scoring stays within supplied candidates; backend-document budget precedes first-occurrence reference dedup. Catalog scanning is broader; all distinct MaxRecords units are documented.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/persistent/README.md",
+        "tensor/query/search.go",
+        "tensor/persistent/storage_unix.go"
+      ]
     },
     {
       "id": "D46",
       "task": "T16",
       "requirement": "Lexical cache/config: Snapshot count не byte/transient-builder cap; generation-wide invalidation безопасна. B=0/K1=0 как default мешает математическим zero значениям — optional config при clean break. Borrowed raw metadata явно ограничивает concurrency.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Optional copied BM25 parameter aggregate supports explicit K1/B zeros; resident snapshot count and concurrent transient builds remain distinct. Generation-wide invalidation and raw host borrowing retained.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/bm25.go",
+        "lexical/bm25_parameters_test.go",
+        "lexical/managed/parameters_unix_test.go",
+        "lexical/README.md",
+        "lexical/managed/README.md",
+        "lexical/managed/cache_test.go"
+      ]
     },
     {
       "id": "D47",
       "task": "T16",
       "requirement": "Повторные admission passes: Некоторые clone/build/check нужны для ownership/freshness; объединять только с fence tests. CPU scoring/sorting BM25 требует cancellation checkpoints при больших corpora.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "BM25 checks cancellation during score accumulation and result construction; sorts and snapshot copies remain indivisible cooperative work, with no performance optimization claim. Repeated clone/admission/build gates fence different ownership/publication transitions; retain without consolidation or optimization claims. Existing callback/cache/fence regressions remain required.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/bm25.go",
+        "lexical/cancellation_test.go",
+        "lexical/README.md",
+        "lexical/managed/README.md",
+        "lexical/callback_gate_test.go",
+        "lexical/managed/callback_gate_test.go",
+        "tensor/query/publication_admission_test.go"
+      ]
     },
     {
       "id": "D48",
       "task": "T16",
       "requirement": "Local file profile: fsync files/root не доказывает power-loss mkdir ancestor durability. Явный pre-provisioned root либо synced init при нужном контракте; не заявлять hardware crash verification по process-crash tests.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Trusted preprovisioned local roots/ancestors and process-crash profile; file/root sync does not prove ancestor or hardware power-loss durability. Flock contention is nonblocking; handle/open-file-description lifetime, no network filesystem promise.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "internal/durablefs/README.md",
+        "internal/durablefs/files_unix.go",
+        "tensor/persistent/README.md",
+        "dense/persistent/README.md",
+        "tensor/persistent/physical_crash_unix_test.go",
+        "dense/persistent/physical_crash_unix_test.go"
+      ]
     },
     {
       "id": "D49",
       "task": "T16",
       "requirement": "Filesystem boundaries: Nonblocking flock конфликт возвращает host; describe handle/OS semantics, no networkFS fallback. Trusted root не hostile filesystem sandbox. Explicit Retired check полезен, native retired-payload bypass не подтверждён.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Explicitly reject Retired in both selectors, including a retired duplicate beside one live match. Hardening is not a newly confirmed native payload bypass. Trusted preprovisioned local roots/ancestors and process-crash profile; file/root sync does not prove ancestor or hardware power-loss durability. Flock contention is nonblocking; handle/open-file-description lifetime, no network filesystem promise.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/persistent/query_unix.go",
+        "dense/persistent/query_unix.go",
+        "tensor/persistent/retired_selection_unix_test.go",
+        "dense/persistent/retired_selection_unix_test.go",
+        "internal/durablefs/README.md",
+        "internal/durablefs/files_unix.go",
+        "tensor/persistent/README.md",
+        "dense/persistent/README.md",
+        "tensor/persistent/physical_crash_unix_test.go",
+        "dense/persistent/physical_crash_unix_test.go"
+      ]
     },
     {
       "id": "D50",
       "task": "T16",
       "requirement": "Dense/tensor duplication: Узкий internal helper для inventory/cleanup может сократить drift; не публичный универсальный storage engine, скрывающий gates и type-specific validation.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep visible type-specific validation/catalog/publication gates; narrow mechanics already share durablefs. Generic storage engine or hidden-gate helper has no demonstrated benefit; no clone/CPU optimization claimed.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/persistent/README.md",
+        "dense/persistent/README.md",
+        "internal/durablefs/README.md"
+      ]
     },
     {
       "id": "D51",
@@ -2085,9 +2139,15 @@
       "source": "reviews/tensor.md",
       "line": 25,
       "requirement": "Tensor is bounded only by candidate count",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Metric-dependent shapes/native scores retained; validation observes row/candidate cancellation and discards results. Candidate count is not token/dimension/CPU budget.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/maxsim.go",
+        "tensor/cancellation_test.go",
+        "tensor/metric_test.go"
+      ]
     },
     {
       "id": "tensor:02",
@@ -2095,9 +2155,15 @@
       "source": "reviews/tensor.md",
       "line": 26,
       "requirement": "Cancellation during tensor validation",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Metric-dependent shapes/native scores retained; validation observes row/candidate cancellation and discards results. Candidate count is not token/dimension/CPU budget.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/maxsim.go",
+        "tensor/cancellation_test.go",
+        "tensor/metric_test.go"
+      ]
     },
     {
       "id": "tensor:03",
@@ -2105,9 +2171,15 @@
       "source": "reviews/tensor.md",
       "line": 27,
       "requirement": "Native MaxSim negative and >1 scores correct",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Metric-dependent shapes/native scores retained; validation observes row/candidate cancellation and discards results. Candidate count is not token/dimension/CPU budget.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/maxsim.go",
+        "tensor/cancellation_test.go",
+        "tensor/metric_test.go"
+      ]
     },
     {
       "id": "tensor:04",
@@ -2115,9 +2187,15 @@
       "source": "reviews/tensor.md",
       "line": 28,
       "requirement": "Candidate loss intentionally observable",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Exact scoring stays within supplied candidates; backend-document budget precedes first-occurrence reference dedup. Catalog scanning is broader; all distinct MaxRecords units are documented.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/persistent/README.md",
+        "tensor/query/search.go",
+        "tensor/persistent/storage_unix.go"
+      ]
     },
     {
       "id": "tensor:05",
@@ -2125,9 +2203,15 @@
       "source": "reviews/tensor.md",
       "line": 29,
       "requirement": "Duplicate source references are explicitly deduplicated",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Exact scoring stays within supplied candidates; backend-document budget precedes first-occurrence reference dedup. Catalog scanning is broader; all distinct MaxRecords units are documented.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/persistent/README.md",
+        "tensor/query/search.go",
+        "tensor/persistent/storage_unix.go"
+      ]
     },
     {
       "id": "tensor:06",
@@ -2135,9 +2219,15 @@
       "source": "reviews/tensor.md",
       "line": 30,
       "requirement": "Catalog work is broader than candidate budget",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Exact scoring stays within supplied candidates; backend-document budget precedes first-occurrence reference dedup. Catalog scanning is broader; all distinct MaxRecords units are documented.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/persistent/README.md",
+        "tensor/query/search.go",
+        "tensor/persistent/storage_unix.go"
+      ]
     },
     {
       "id": "tensor:07",
@@ -2145,9 +2235,15 @@
       "source": "reviews/tensor.md",
       "line": 31,
       "requirement": "MaxRecords overloaded",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Exact scoring stays within supplied candidates; backend-document budget precedes first-occurrence reference dedup. Catalog scanning is broader; all distinct MaxRecords units are documented.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/README.md",
+        "tensor/persistent/README.md",
+        "tensor/query/search.go",
+        "tensor/persistent/storage_unix.go"
+      ]
     },
     {
       "id": "tensor:08",
@@ -2155,9 +2251,17 @@
       "source": "reviews/tensor.md",
       "line": 32,
       "requirement": "Lexical cache bound counts snapshots",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Optional copied BM25 parameter aggregate supports explicit K1/B zeros; resident snapshot count and concurrent transient builds remain distinct. Generation-wide invalidation and raw host borrowing retained.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/bm25.go",
+        "lexical/bm25_parameters_test.go",
+        "lexical/managed/parameters_unix_test.go",
+        "lexical/README.md",
+        "lexical/managed/README.md",
+        "lexical/managed/cache_test.go"
+      ]
     },
     {
       "id": "tensor:09",
@@ -2165,9 +2269,17 @@
       "source": "reviews/tensor.md",
       "line": 33,
       "requirement": "Lexical generation invalidates all scope caches",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Optional copied BM25 parameter aggregate supports explicit K1/B zeros; resident snapshot count and concurrent transient builds remain distinct. Generation-wide invalidation and raw host borrowing retained.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/bm25.go",
+        "lexical/bm25_parameters_test.go",
+        "lexical/managed/parameters_unix_test.go",
+        "lexical/README.md",
+        "lexical/managed/README.md",
+        "lexical/managed/cache_test.go"
+      ]
     },
     {
       "id": "tensor:10",
@@ -2175,9 +2287,15 @@
       "source": "reviews/tensor.md",
       "line": 34,
       "requirement": "Repeated admission/build passes",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Repeated clone/admission/build gates fence different ownership/publication transitions; retain without consolidation or optimization claims. Existing callback/cache/fence regressions remain required.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/managed/README.md",
+        "lexical/callback_gate_test.go",
+        "lexical/managed/callback_gate_test.go",
+        "tensor/query/publication_admission_test.go"
+      ]
     },
     {
       "id": "tensor:11",
@@ -2185,9 +2303,17 @@
       "source": "reviews/tensor.md",
       "line": 35,
       "requirement": "BM25 B=0 cannot mean no length normalization",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Optional copied BM25 parameter aggregate supports explicit K1/B zeros; resident snapshot count and concurrent transient builds remain distinct. Generation-wide invalidation and raw host borrowing retained.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/bm25.go",
+        "lexical/bm25_parameters_test.go",
+        "lexical/managed/parameters_unix_test.go",
+        "lexical/README.md",
+        "lexical/managed/README.md",
+        "lexical/managed/cache_test.go"
+      ]
     },
     {
       "id": "tensor:12",
@@ -2195,9 +2321,17 @@
       "source": "reviews/tensor.md",
       "line": 36,
       "requirement": "Raw BM25 mutable metadata is host-owned",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Optional copied BM25 parameter aggregate supports explicit K1/B zeros; resident snapshot count and concurrent transient builds remain distinct. Generation-wide invalidation and raw host borrowing retained.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/bm25.go",
+        "lexical/bm25_parameters_test.go",
+        "lexical/managed/parameters_unix_test.go",
+        "lexical/README.md",
+        "lexical/managed/README.md",
+        "lexical/managed/cache_test.go"
+      ]
     },
     {
       "id": "tensor:13",
@@ -2205,9 +2339,14 @@
       "source": "reviews/tensor.md",
       "line": 37,
       "requirement": "Cancellation inside BM25 CPU loops",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "BM25 checks cancellation during score accumulation and result construction; sorts and snapshot copies remain indivisible cooperative work, with no performance optimization claim.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/bm25.go",
+        "lexical/cancellation_test.go",
+        "lexical/README.md"
+      ]
     },
     {
       "id": "tensor:14",
@@ -2215,9 +2354,15 @@
       "source": "reviews/tensor.md",
       "line": 38,
       "requirement": "Threshold semantics belong terminal composition",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Threshold belongs terminal composition; raw BM25 ignores it and Graph/Vector carry no BM25 semantics. Tensor query rejects Threshold/Graph, candidate vector is cleared for target.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "lexical/README.md",
+        "tensor/README.md",
+        "tensor/query/search.go",
+        "tensor/persistent/query_unix.go"
+      ]
     },
     {
       "id": "tensor:15",
@@ -2225,9 +2370,17 @@
       "source": "reviews/tensor.md",
       "line": 39,
       "requirement": "Persistent filesystem initialization",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Trusted preprovisioned local roots/ancestors and process-crash profile; file/root sync does not prove ancestor or hardware power-loss durability. Flock contention is nonblocking; handle/open-file-description lifetime, no network filesystem promise.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "internal/durablefs/README.md",
+        "internal/durablefs/files_unix.go",
+        "tensor/persistent/README.md",
+        "dense/persistent/README.md",
+        "tensor/persistent/physical_crash_unix_test.go",
+        "dense/persistent/physical_crash_unix_test.go"
+      ]
     },
     {
       "id": "tensor:16",
@@ -2235,9 +2388,17 @@
       "source": "reviews/tensor.md",
       "line": 40,
       "requirement": "Nonblocking flock intentional",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Trusted preprovisioned local roots/ancestors and process-crash profile; file/root sync does not prove ancestor or hardware power-loss durability. Flock contention is nonblocking; handle/open-file-description lifetime, no network filesystem promise.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "internal/durablefs/README.md",
+        "internal/durablefs/files_unix.go",
+        "tensor/persistent/README.md",
+        "dense/persistent/README.md",
+        "tensor/persistent/physical_crash_unix_test.go",
+        "dense/persistent/physical_crash_unix_test.go"
+      ]
     },
     {
       "id": "tensor:17",
@@ -2245,9 +2406,14 @@
       "source": "reviews/tensor.md",
       "line": 41,
       "requirement": "Persistent read failures are deliberately redacted",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Payload error details remain redacted while cancellation, deadline and protocol sentinels are preserved; ordinary storage errors become unavailable.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "internal/durablefs/payload_unix.go",
+        "internal/durablefs/payload_unix_test.go",
+        "internal/durablefs/README.md"
+      ]
     },
     {
       "id": "tensor:18",
@@ -2255,9 +2421,15 @@
       "source": "reviews/tensor.md",
       "line": 42,
       "requirement": "selectedManifest omits Retired flag",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Explicitly reject Retired in both selectors, including a retired duplicate beside one live match. Hardening is not a newly confirmed native payload bypass.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/persistent/query_unix.go",
+        "dense/persistent/query_unix.go",
+        "tensor/persistent/retired_selection_unix_test.go",
+        "dense/persistent/retired_selection_unix_test.go"
+      ]
     },
     {
       "id": "tensor:19",
@@ -2265,9 +2437,17 @@
       "source": "reviews/tensor.md",
       "line": 43,
       "requirement": "Local root ownership is explicit boundary",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Trusted preprovisioned local roots/ancestors and process-crash profile; file/root sync does not prove ancestor or hardware power-loss durability. Flock contention is nonblocking; handle/open-file-description lifetime, no network filesystem promise.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "internal/durablefs/README.md",
+        "internal/durablefs/files_unix.go",
+        "tensor/persistent/README.md",
+        "dense/persistent/README.md",
+        "tensor/persistent/physical_crash_unix_test.go",
+        "dense/persistent/physical_crash_unix_test.go"
+      ]
     },
     {
       "id": "tensor:20",
@@ -2275,9 +2455,14 @@
       "source": "reviews/tensor.md",
       "line": 44,
       "requirement": "dense/tensor persistence duplication",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep visible type-specific validation/catalog/publication gates; narrow mechanics already share durablefs. Generic storage engine or hidden-gate helper has no demonstrated benefit; no clone/CPU optimization claimed.",
+      "evidence": [
+        "docs/task20/T16.md",
+        "tensor/persistent/README.md",
+        "dense/persistent/README.md",
+        "internal/durablefs/README.md"
+      ]
     },
     {
       "id": "storage:01",

@@ -65,3 +65,16 @@ Protected lexical errors retain callback identities/public classifications throu
 payload-bearing callback error objects are excluded from error text/`errors.As`
 traversal. Protection/gate errors remain inspectable; this scoped boundary does not
 change global `access.Protect` sanitization or raw metadata ownership.
+
+Managed construction also copies the optional BM25 parameter aggregate. Nil uses
+raw lexical defaults; explicit zero K1/B remain meaningful. Later caller mutation
+cannot change a newly built scoring snapshot.
+
+Keep Stage admission, retained-corpus selection, clone ownership, snapshot build
+and delivery freshness gates separate. Cache hits still observe exact retained
+inventory; mutation invalidates the entire generation and rejects stale in-flight
+builds. MaxCachedSnapshots counts resident snapshots only, not bytes or concurrent
+transient builders (including simultaneous misses for one key). No single-flight,
+clone-count or memory improvement is claimed here. Raw lexical metadata is borrowed
+immutable, whereas managed metadata uses the host clone contract. Host tokenizer
+and codec implementations must remain stable and support concurrent calls.

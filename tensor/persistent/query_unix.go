@@ -81,7 +81,7 @@ func (a *Adapter[TMeta]) query(
 	if err != nil {
 		return tensorquery.Result[TMeta]{}, err
 	}
-	if err = a.validateQuery(prepared); err != nil {
+	if err = a.validateQuery(ctx, prepared); err != nil {
 		return tensorquery.Result[TMeta]{}, err
 	}
 
@@ -118,7 +118,7 @@ func (a *Adapter[TMeta]) query(
 	return tensorquery.Result[TMeta]{Documents: retrieval.NewResultSet(ranked, nil), Evidence: evidence}, nil
 }
 
-func (a *Adapter[TMeta]) validateQuery(request retrieval.Query[tensorquery.Intent]) error {
+func (a *Adapter[TMeta]) validateQuery(ctx context.Context, request retrieval.Query[tensorquery.Intent]) error {
 	intent := request.Intent
 	if intent.CandidateBudget <= 0 || intent.CandidateBudget > a.config.MaxRecords ||
 		len(intent.Candidates) > intent.CandidateBudget ||
@@ -135,11 +135,14 @@ func (a *Adapter[TMeta]) validateQuery(request retrieval.Query[tensorquery.Inten
 	if intent.Embedding.Space != a.config.Space {
 		return ragy.ErrInvalidArgument
 	}
-	if err := intent.Embedding.Validate(); err != nil {
+	if err := intent.Embedding.ValidateContext(ctx); err != nil {
 		return err
 	}
 	seen := make(map[source.Reference]struct{}, len(intent.Candidates))
 	for _, ref := range intent.Candidates {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := ref.Validate(); err != nil {
 			return err
 		}
@@ -201,7 +204,7 @@ func selectedManifest(snapshot lifecycle.Snapshot, pinned access.TargetRevision)
 			id.Transformation != pinned.Transformation ||
 			id.Access != pinned.AccessFingerprint ||
 			manifest.PublishedAt.IsZero() ||
-			manifest.Tombstone {
+			manifest.Tombstone || manifest.Retired {
 			continue
 		}
 		for _, target := range manifest.Targets {

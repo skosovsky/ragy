@@ -1,0 +1,7 @@
+ok  	github.com/skosovsky/ragy/lexical	1.275s
+ok  	github.com/skosovsky/ragy/lexical/managed	12.904s
+ok  	github.com/skosovsky/ragy/tensor	1.252s
+ok  	github.com/skosovsky/ragy/tensor/query	1.255s
+ok  	github.com/skosovsky/ragy/tensor/persistent	18.307s
+ok  	github.com/skosovsky/ragy/dense/persistent	19.143s
+ok  	github.com/skosovsky/ragy/internal/durablefs	1.379s

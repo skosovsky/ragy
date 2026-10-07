@@ -1,0 +1,12 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+examples/conformance/graph_comparison/baseline_unix.go:300:1: File is not properly formatted (golines)
+		lexical.Config[baselineMetadata]{SearchFields: []string{"content"}, Parameters: &lexical.BM25Parameters{K1: baselineK1, B: baselineB}},
+^
+examples/conformance/internal/task19/data.go:221:1: File is not properly formatted (golines)
+		lexical.Config[Meta]{SearchFields: []string{"content"}, Parameters: &lexical.BM25Parameters{K1: BM25K1, B: BM25B}},
+^
+examples/conformance/recipe_comparison/capture.go:179:1: File is not properly formatted (golines)
+		lexical.Config[comparisonMetadata]{SearchFields: []string{"content"}, Parameters: &lexical.BM25Parameters{K1: comparisonK1, B: comparisonB}},
+^
+3 issues:
+* golines: 3

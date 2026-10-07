@@ -14,7 +14,9 @@ import (
 	"github.com/skosovsky/ragy/lifecycle"
 )
 
-// Lock is nonblocking. Closing the returned file releases the process-owned lock.
+// Lock is nonblocking and reports contention without retrying.
+// The caller must not duplicate the returned handle; closing that handle releases
+// its local filesystem lock. On Linux flock is tied to an open file description.
 func Lock(ctx context.Context, path string, exclusive bool) (*os.File, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

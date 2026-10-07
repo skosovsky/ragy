@@ -23,12 +23,18 @@ const defaultBM25K1 = 1.2
 const defaultBM25B = 0.75
 const bm25IDFSmoothing = 0.5
 
+// BM25Parameters controls native BM25 scoring. K1 must be finite and >= 0;
+// B must be finite and in [0,1]. Both parameters permit explicit zero.
+type BM25Parameters struct {
+	K1 float64
+	B  float64
+}
+
 // Config configures in-memory BM25 indexing and retrieval.
-// Zero K1/B select defaults; explicit values require finite K1 > 0 and B in (0,1].
+// Nil Parameters selects K1=1.2 and B=0.75; supplied parameters are copied.
 type Config[TMeta any] struct {
 	SearchFields []string
-	K1           float64
-	B            float64
+	Parameters   *BM25Parameters
 	Resolver     retrieval.IdentityResolver[TMeta]
 	// Codec overrides metadata codec for filter matching. Defaults to JSONCodec when nil.
 	Codec retrieval.MetadataCodec[TMeta]
@@ -71,25 +77,20 @@ func NewBM25Index[TMeta any](
 	if tokenizer == nil {
 		tokenizer = DefaultTokenizer{}
 	}
-	if math.IsNaN(config.K1) || math.IsInf(config.K1, 0) || config.K1 < 0 ||
-		math.IsNaN(config.B) || math.IsInf(config.B, 0) || config.B < 0 || config.B > 1 {
+	parameters := BM25Parameters{K1: defaultBM25K1, B: defaultBM25B}
+	if config.Parameters != nil {
+		parameters = *config.Parameters
+	}
+	if math.IsNaN(parameters.K1) || math.IsInf(parameters.K1, 0) || parameters.K1 < 0 ||
+		math.IsNaN(parameters.B) || math.IsInf(parameters.B, 0) || parameters.B < 0 || parameters.B > 1 {
 		return nil, fmt.Errorf("%w: BM25 requires finite K1 >= 0 and B in [0,1]", ragy.ErrInvalidArgument)
-	}
-	k1 := config.K1
-	if k1 == 0 {
-		k1 = defaultBM25K1
-	}
-	b := config.B
-	if b == 0 {
-		b = defaultBM25B
 	}
 	config.SearchFields = slices.Clone(config.SearchFields)
 	ownedSynonyms := make(SynonymMap, len(synonyms))
 	for term, variants := range synonyms {
 		ownedSynonyms[term] = slices.Clone(variants)
 	}
-	config.K1 = k1
-	config.B = b
+	config.Parameters = &parameters
 	codec := config.Codec
 	if codec == nil {
 		codec = retrieval.NewJSONCodec[TMeta](schema)
@@ -354,12 +355,12 @@ func (idx *BM25Index[TMeta]) retrieve(
 	snapshot := idx.snapshotLocked(queryTokens)
 	idx.mu.RUnlock()
 
-	scores := idx.scoreQuery(snapshot, queryTokens)
-	for _, score := range scores {
-		if math.IsNaN(score) || math.IsInf(score, 0) {
-			return retrieval.NewResultSet[TMeta](nil, idx.resolver),
-				fmt.Errorf("%w: non-finite BM25 score", ragy.ErrProtocol)
-		}
+	scores, scoreErr := idx.scoreQuery(ctx, snapshot, queryTokens)
+	if scoreErr != nil {
+		return retrieval.NewResultSet[TMeta](nil, idx.resolver), scoreErr
+	}
+	if err := validateBM25Scores(scores); err != nil {
+		return retrieval.NewResultSet[TMeta](nil, idx.resolver), err
 	}
 	if len(scores) == 0 {
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), nil
@@ -369,19 +370,41 @@ func (idx *BM25Index[TMeta]) retrieve(
 	if access.IsProtectionFailure(err) {
 		return retrieval.NewResultSet[TMeta](nil, idx.resolver), access.Protect(err)
 	}
-	docs := idx.rankScoredDocs(snapshot, filteredScores, opts.BackendFetchLimit())
+	docs, rankErr := idx.rankScoredDocs(ctx, snapshot, filteredScores, opts.BackendFetchLimit())
+	if rankErr != nil {
+		return retrieval.NewResultSet[TMeta](nil, idx.resolver), readfailure.Join(rankErr, err)
+	}
 	rs := retrieval.NewResultSet(docs, idx.resolver)
 	return retrieval.PreserveResultOnError(rs, err, idx.resolver)
 }
 
-func (idx *BM25Index[TMeta]) scoreQuery(snapshot bm25Snapshot[TMeta], queryTokens []string) map[string]float64 {
+func validateBM25Scores(scores map[string]float64) error {
+	for _, score := range scores {
+		if math.IsNaN(score) || math.IsInf(score, 0) {
+			return fmt.Errorf("%w: non-finite BM25 score", ragy.ErrProtocol)
+		}
+	}
+	return nil
+}
+
+func (idx *BM25Index[TMeta]) scoreQuery(
+	ctx context.Context,
+	snapshot bm25Snapshot[TMeta],
+	queryTokens []string,
+) (map[string]float64, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	avgLength := snapshot.avgLength
 	if avgLength <= 0 {
-		return nil
+		return map[string]float64{}, nil
 	}
 
 	scores := make(map[string]float64)
 	for _, token := range queryTokens {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		posting := snapshot.postings[token]
 		if len(posting) == 0 {
 			continue
@@ -389,13 +412,21 @@ func (idx *BM25Index[TMeta]) scoreQuery(snapshot bm25Snapshot[TMeta], queryToken
 		df := len(posting)
 		idf := math.Log(1 + (float64(snapshot.docCount)-float64(df)+bm25IDFSmoothing)/(float64(df)+bm25IDFSmoothing))
 		for docID, tf := range posting {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			docLen := float64(snapshot.docLengths[docID])
-			numerator := float64(tf) * (idx.config.K1 + 1)
-			denominator := float64(tf) + idx.config.K1*(1-idx.config.B+idx.config.B*docLen/avgLength)
+			numerator := float64(tf) * (idx.config.Parameters.K1 + 1)
+			denominator := float64(
+				tf,
+			) + idx.config.Parameters.K1*(1-idx.config.Parameters.B+idx.config.Parameters.B*docLen/avgLength)
 			scores[docID] += idf * numerator / denominator
 		}
 	}
-	return scores
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return scores, nil
 }
 
 func (idx *BM25Index[TMeta]) filterScoredDocs(
@@ -437,22 +468,32 @@ func (idx *BM25Index[TMeta]) filterScoredDocs(
 }
 
 func (idx *BM25Index[TMeta]) rankScoredDocs(
+	ctx context.Context,
 	snapshot bm25Snapshot[TMeta],
 	scores map[string]float64,
 	limit int,
-) []retrieval.Document[TMeta] {
+) ([]retrieval.Document[TMeta], error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	type scored struct {
 		id    string
 		score float64
 	}
 	docIDs := make([]string, 0, len(scores))
 	for id := range scores {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		docIDs = append(docIDs, id)
 	}
 	sort.Strings(docIDs)
 
 	ranked := make([]scored, 0, len(docIDs))
 	for _, id := range docIDs {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		score := scores[id]
 		ranked = append(ranked, scored{id: id, score: score})
 	}
@@ -469,16 +510,22 @@ func (idx *BM25Index[TMeta]) rankScoredDocs(
 
 	docs := make([]retrieval.Document[TMeta], 0, limit)
 	for _, item := range ranked[:limit] {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		doc := snapshot.docs[item.id]
 		doc.Score = item.score
 		doc.ScoreState = retrieval.ScorePresent
 		doc.ScoreSemantics = retrieval.ScoreSemantics(
-			fmt.Sprintf("lexical.bm25:k1=%g,b=%g", idx.config.K1, idx.config.B),
+			fmt.Sprintf("lexical.bm25:k1=%g,b=%g", idx.config.Parameters.K1, idx.config.Parameters.B),
 		)
 		doc.Rank = len(docs) + 1
 		docs = append(docs, doc)
 	}
-	return docs
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return docs, nil
 }
 
 type bm25Snapshot[TMeta any] struct {

@@ -1,6 +1,7 @@
 package lexical
 
 import (
+	"context"
 	"math"
 	"strconv"
 	"testing"
@@ -31,7 +32,11 @@ func TestBM25QuerySnapshotOwnsOnlyCandidatesAndKeepsGlobalStatistics(t *testing.
 	index.mu.RLock()
 	snapshot := index.snapshotLocked([]string{"needle", "needle"})
 	index.mu.RUnlock()
-	before := index.scoreQuery(snapshot, []string{"needle"})["rare"]
+	beforeScores, err := index.scoreQuery(context.Background(), snapshot, []string{"needle"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := beforeScores["rare"]
 	if err = index.Upsert(
 		retrieval.Document[struct{}]{ID: "rare", Content: "common replacement much longer words"},
 	); err != nil {
@@ -45,7 +50,11 @@ func TestBM25QuerySnapshotOwnsOnlyCandidatesAndKeepsGlobalStatistics(t *testing.
 		math.Abs(before-expected) > 1e-12 {
 		t.Fatalf("snapshot=%+v score=%v expected=%v", snapshot, before, expected)
 	}
-	if got := index.scoreQuery(snapshot, []string{"needle"})["rare"]; got != before {
+	afterScores, err := index.scoreQuery(context.Background(), snapshot, []string{"needle"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := afterScores["rare"]; got != before {
 		t.Fatalf("reader changed after upsert: %v vs %v", got, before)
 	}
 	if index.totalLength != 305 || index.avgLength != 305.0/101 {

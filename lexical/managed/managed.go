@@ -54,6 +54,10 @@ func New[TMeta any](config Config[TMeta]) (*Adapter[TMeta], error) {
 		return nil, ragy.ErrInvalidArgument
 	}
 	config.BM25.SearchFields = slices.Clone(config.BM25.SearchFields)
+	if config.BM25.Parameters != nil {
+		parameters := *config.BM25.Parameters
+		config.BM25.Parameters = &parameters
+	}
 	if config.BM25.Codec == nil {
 		config.BM25.Codec = retrieval.NewJSONCodec[TMeta](config.Schema)
 	}

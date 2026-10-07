@@ -176,7 +176,10 @@ func newCaptureCorpusLifetime(ctx context.Context, lifetime time.Duration) (capt
 	index, err := lexical.NewBM25Snapshot(
 		ctx,
 		schema,
-		lexical.Config[comparisonMetadata]{SearchFields: []string{"content"}, K1: comparisonK1, B: comparisonB},
+		lexical.Config[comparisonMetadata]{
+			SearchFields: []string{"content"},
+			Parameters:   &lexical.BM25Parameters{K1: comparisonK1, B: comparisonB},
+		},
 		read,
 		docs,
 		cloneComparisonMetadata,

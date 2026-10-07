@@ -218,7 +218,10 @@ func BM25(ctx context.Context, c Corpus, q Query) (access.Binding, *lexical.BM25
 	index, e := lexical.NewBM25Snapshot(
 		ctx,
 		s,
-		lexical.Config[Meta]{SearchFields: []string{"content"}, K1: BM25K1, B: BM25B},
+		lexical.Config[Meta]{
+			SearchFields: []string{"content"},
+			Parameters:   &lexical.BM25Parameters{K1: BM25K1, B: BM25B},
+		},
 		b,
 		Documents(c),
 		Clone,

@@ -39,3 +39,18 @@ Protected lexical errors retain callback identities/public classifications throu
 payload-bearing callback error objects are excluded from error text/`errors.As`
 traversal. Protection/gate errors remain inspectable; this scoped boundary does not
 change global `access.Protect` sanitization or raw metadata ownership.
+
+BM25 parameters are an optional aggregate: `Config.Parameters == nil` selects
+K1=1.2/B=0.75; `&lexical.BM25Parameters{K1: 0, B: 0}` preserves explicit zeros.
+K1 must be finite and nonnegative; B must be finite in [0,1]. Constructors copy
+supplied parameters. With K1=0 term frequency saturation becomes constant; with
+B=0 document length normalization is disabled. Native finite scores and their
+actual parameter semantics are retained; nonfinite computed scores fail protocol.
+
+Scoring accumulation and ranking construction check context between postings and
+records. Sorting is checked at surrounding cooperative boundaries; a sort and the
+query snapshot copy are indivisible work, so this is not a hard CPU deadline.
+TopK bounds delivery, not postings, scoring or ranking work. Threshold is applied
+by terminal composition; the raw BM25 backend ignores it. Graph/Vector options
+carry no BM25 scoring semantics. No scoring/cache/clone optimization is claimed by
+these cancellation checkpoints.

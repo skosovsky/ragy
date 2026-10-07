@@ -624,12 +624,12 @@
         "report": "acceptance/T15-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "5775f4ee0b1aeb11feb634cbb480a670ace0c7ce"
   },
   {
     "id": "T16",
     "title": "local retrieval contracts",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix!: local retrieval contracts",
     "criteria": [
       {
@@ -654,10 +654,23 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "27/27",
+        "coverage_percent": 100,
+        "report": "acceptance/T16-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T16-correctness.md"
+      }
     },
-    "commit_sha": null
+    "commit_sha": null,
+    "acceptance_report_sha256": {
+      "completeness": "4c76c0ead3500629d6a82f8ddeb08c87b2c158cdd6bac83b9d3bc552af56f986",
+      "correctness": "8ac44bcedc3fd29701046e7bd5b666f1a424343e5f233e1f78a8cc39657b3006"
+    }
   },
   {
     "id": "T17",

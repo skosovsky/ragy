@@ -297,7 +297,10 @@ func (c denseCorpus) baseline(ctx context.Context, read access.Binding) (hybridB
 	index, err := lexical.NewBM25Snapshot(
 		ctx,
 		c.schema,
-		lexical.Config[baselineMetadata]{SearchFields: []string{"content"}, K1: baselineK1, B: baselineB},
+		lexical.Config[baselineMetadata]{
+			SearchFields: []string{"content"},
+			Parameters:   &lexical.BM25Parameters{K1: baselineK1, B: baselineB},
+		},
 		read,
 		docs,
 		func(m baselineMetadata) (baselineMetadata, error) { return m, nil },

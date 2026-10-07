@@ -45,7 +45,9 @@ type Config[TMeta any] struct {
 	Space           tensor.Space
 	MaxCatalogBytes int64
 	MaxPayloadBytes int64
-	MaxRecords      int
+	// MaxRecords bounds per-stage/catalog records, query candidates, inventory
+	// directory keys, and total inventory records independently; see README.md.
+	MaxRecords int
 }
 
 type descriptor struct {

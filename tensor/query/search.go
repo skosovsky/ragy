@@ -137,7 +137,7 @@ func (s *Search[TCandidateMeta, TMeta]) query(
 	if err := request.Read.Check(ctx); err != nil {
 		return Result[TMeta]{}, err
 	}
-	if err := s.validate(request); err != nil {
+	if err := s.validate(ctx, request); err != nil {
 		return Result[TMeta]{}, err
 	}
 	var err error
@@ -176,7 +176,7 @@ func (s *Search[TCandidateMeta, TMeta]) query(
 	return s.config.Target.Query(ctx, request)
 }
 
-func (s *Search[TCandidateMeta, TMeta]) validate(request retrieval.Query[Intent]) error {
+func (s *Search[TCandidateMeta, TMeta]) validate(ctx context.Context, request retrieval.Query[Intent]) error {
 	caps := s.config.Target.QueryCapabilities()
 	if len(request.Intent.Candidates) != 0 || request.Intent.CandidateBudget <= 0 ||
 		request.Intent.CandidateBudget > caps.CandidateLimit ||
@@ -190,7 +190,7 @@ func (s *Search[TCandidateMeta, TMeta]) validate(request retrieval.Query[Intent]
 	if request.Intent.Embedding.Space != caps.Space {
 		return ragy.ErrInvalidArgument
 	}
-	if err := request.Intent.Embedding.Validate(); err != nil {
+	if err := request.Intent.Embedding.ValidateContext(ctx); err != nil {
 		return err
 	}
 	if request.Options.Threshold != nil || request.Options.Graph != nil {
