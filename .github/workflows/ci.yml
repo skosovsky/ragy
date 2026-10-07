@@ -108,11 +108,15 @@ jobs:
         if: matrix.mode == 'checkout'
         with:
           repository: skosovsky/memy
+          # Reviewed current source; default branch predates this canonical contract.
+          ref: 9719bc7967031c56daba9ef302edc4994ec8554a
           path: memy
       - uses: actions/checkout@v6
         if: matrix.mode == 'checkout'
         with:
           repository: skosovsky/contexty
+          # Reviewed current source, independent of published-module resolution.
+          ref: 912c0413994b2b3a1a7d3849a0aa09c71350f915
           path: contexty
       - uses: actions/setup-go@v6
         with:

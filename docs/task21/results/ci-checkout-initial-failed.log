@@ -1,0 +1,627 @@
+﻿2026-10-07T10:08:15.9792104Z Current runner version: '2.337.0'
+2026-10-07T10:08:15.9807028Z ##[group]Runner Image Provisioner
+2026-10-07T10:08:15.9807639Z Hosted Compute Agent
+2026-10-07T10:08:15.9808011Z Version: 20260901.588
+2026-10-07T10:08:15.9808436Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+2026-10-07T10:08:15.9808858Z Build Date: 2026-09-01T19:56:44Z
+2026-10-07T10:08:15.9809275Z Worker ID: {10c13de9-2904-4392-afb5-e2bf07201038}
+2026-10-07T10:08:15.9809744Z Azure Region: southcentralus
+2026-10-07T10:08:15.9810101Z ##[endgroup]
+2026-10-07T10:08:15.9811047Z ##[group]Operating System
+2026-10-07T10:08:15.9811409Z Ubuntu
+2026-10-07T10:08:15.9811746Z 24.04.5
+2026-10-07T10:08:15.9812097Z LTS
+2026-10-07T10:08:15.9812428Z ##[endgroup]
+2026-10-07T10:08:15.9812785Z ##[group]Runner Image
+2026-10-07T10:08:15.9813315Z Image: ubuntu-24.04
+2026-10-07T10:08:15.9813677Z Version: 20260927.320.1
+2026-10-07T10:08:15.9814451Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-07T10:08:15.9815326Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260927.320
+2026-10-07T10:08:15.9815879Z ##[endgroup]
+2026-10-07T10:08:15.9816635Z ##[group]GITHUB_TOKEN Permissions
+2026-10-07T10:08:15.9817909Z Contents: read
+2026-10-07T10:08:15.9818245Z Metadata: read
+2026-10-07T10:08:15.9818649Z Packages: read
+2026-10-07T10:08:15.9819010Z ##[endgroup]
+2026-10-07T10:08:15.9820178Z Secret source: Actions
+2026-10-07T10:08:15.9820803Z Cache mode: write
+2026-10-07T10:08:15.9821195Z Prepare workflow directory
+2026-10-07T10:08:16.0046271Z Prepare all required actions
+2026-10-07T10:08:16.0075889Z Getting action download info
+2026-10-07T10:08:16.2833404Z Download action repository 'actions/checkout@v6' (SHA:d23441a48e516b6c34aea4fa41551a30e30af803)
+2026-10-07T10:08:16.4362500Z Download action repository 'actions/setup-go@v6' (SHA:924ae3a1cded613372ab5595356fb5720e22ba16)
+2026-10-07T10:08:17.2201185Z Download action repository 'actions/upload-artifact@v6' (SHA:b7c566a772e6b6bfb58ed0dc250532a479d7789f)
+2026-10-07T10:08:17.8174860Z Complete job name: context-bridge (checkout)
+2026-10-07T10:08:17.8775791Z ##[group]Run actions/checkout@v6
+2026-10-07T10:08:17.8776135Z with:
+2026-10-07T10:08:17.8776325Z   path: ragy
+2026-10-07T10:08:17.8776528Z   repository: skosovsky/ragy
+2026-10-07T10:08:17.8778058Z   token: ***
+2026-10-07T10:08:17.8778250Z   ssh-strict: true
+2026-10-07T10:08:17.8778447Z   ssh-user: git
+2026-10-07T10:08:17.8778645Z   persist-credentials: true
+2026-10-07T10:08:17.8778859Z   clean: true
+2026-10-07T10:08:17.8779064Z   sparse-checkout-cone-mode: true
+2026-10-07T10:08:17.8779282Z   fetch-depth: 1
+2026-10-07T10:08:17.8779476Z   fetch-tags: false
+2026-10-07T10:08:17.8779675Z   show-progress: true
+2026-10-07T10:08:17.8779876Z   lfs: false
+2026-10-07T10:08:17.8780059Z   submodules: false
+2026-10-07T10:08:17.8780265Z   set-safe-directory: true
+2026-10-07T10:08:17.8780485Z   allow-unsafe-pr-checkout: false
+2026-10-07T10:08:17.8780766Z env:
+2026-10-07T10:08:17.8780942Z   GOWORK: off
+2026-10-07T10:08:17.8781141Z ##[endgroup]
+2026-10-07T10:08:17.9409484Z Syncing repository: skosovsky/ragy
+2026-10-07T10:08:17.9410863Z ##[group]Getting Git version info
+2026-10-07T10:08:17.9411443Z Working directory is '/home/runner/work/ragy/ragy/ragy'
+2026-10-07T10:08:17.9412070Z [command]/usr/bin/git version
+2026-10-07T10:08:17.9567685Z git version 2.55.0
+2026-10-07T10:08:17.9584581Z ##[endgroup]
+2026-10-07T10:08:17.9598935Z Temporarily overriding HOME='/home/runner/work/_temp/47f1bd6f-699f-4c79-aacc-38cafba3a0e9' before making global git config changes
+2026-10-07T10:08:17.9599897Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T10:08:17.9603404Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ragy/ragy/ragy
+2026-10-07T10:08:17.9734241Z ##[group]Determining repository object format
+2026-10-07T10:08:17.9753902Z ##[endgroup]
+2026-10-07T10:08:17.9754746Z ##[group]Initializing the repository
+2026-10-07T10:08:17.9755327Z [command]/usr/bin/git init /home/runner/work/ragy/ragy/ragy
+2026-10-07T10:08:18.1534912Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-07T10:08:18.1535556Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-07T10:08:18.1535979Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-07T10:08:18.1536260Z hint: call:
+2026-10-07T10:08:18.1536442Z hint:
+2026-10-07T10:08:18.1536724Z hint: 	git config --global init.defaultBranch <name>
+2026-10-07T10:08:18.1537109Z hint:
+2026-10-07T10:08:18.1537480Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-07T10:08:18.1538014Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-07T10:08:18.1538478Z hint:
+2026-10-07T10:08:18.1538789Z hint: 	git branch -m <name>
+2026-10-07T10:08:18.1539097Z hint:
+2026-10-07T10:08:18.1539490Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-07T10:08:18.1596609Z Initialized empty Git repository in /home/runner/work/ragy/ragy/ragy/.git/
+2026-10-07T10:08:18.1598001Z [command]/usr/bin/git remote add origin https://github.com/skosovsky/ragy
+2026-10-07T10:08:18.2311500Z ##[endgroup]
+2026-10-07T10:08:18.2311854Z ##[group]Disabling automatic garbage collection
+2026-10-07T10:08:18.2323795Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-07T10:08:18.2708143Z ##[endgroup]
+2026-10-07T10:08:18.2708633Z ##[group]Setting up auth
+2026-10-07T10:08:18.2709178Z Removing SSH command configuration
+2026-10-07T10:08:18.2713392Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T10:08:18.2739324Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T10:08:18.3019311Z Removing HTTP extra header
+2026-10-07T10:08:18.3022246Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T10:08:18.3047815Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T10:08:18.3213466Z Removing includeIf entries pointing to credentials config files
+2026-10-07T10:08:18.3214163Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T10:08:18.3239985Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T10:08:18.3406188Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-07T10:08:18.3500258Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ragy/ragy/ragy/.git.path /home/runner/work/_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:18.3528359Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ragy/ragy/ragy/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:18.3607290Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/ragy/.git.path /github/runner_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:18.3704970Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/ragy/.git/worktrees/*.path /github/runner_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:18.4309208Z ##[endgroup]
+2026-10-07T10:08:18.4309783Z ##[group]Fetching the repository
+2026-10-07T10:08:18.4316141Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +42062c9b00c6d6f9bf3b9a1de9f9ffbba206e14a:refs/remotes/origin/codex/context-bridge
+2026-10-07T10:08:19.5724457Z From https://github.com/skosovsky/ragy
+2026-10-07T10:08:19.5725050Z  * [new ref]         42062c9b00c6d6f9bf3b9a1de9f9ffbba206e14a -> origin/codex/context-bridge
+2026-10-07T10:08:19.5731722Z [command]/usr/bin/git branch --list --remote origin/codex/context-bridge
+2026-10-07T10:08:19.5754962Z   origin/codex/context-bridge
+2026-10-07T10:08:19.5760971Z [command]/usr/bin/git rev-parse refs/remotes/origin/codex/context-bridge
+2026-10-07T10:08:19.5781540Z 42062c9b00c6d6f9bf3b9a1de9f9ffbba206e14a
+2026-10-07T10:08:19.5784355Z ##[endgroup]
+2026-10-07T10:08:19.5784677Z ##[group]Determining the checkout info
+2026-10-07T10:08:19.5785145Z ##[endgroup]
+2026-10-07T10:08:19.5787428Z [command]/usr/bin/git sparse-checkout disable
+2026-10-07T10:08:19.5951135Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-07T10:08:19.6046635Z ##[group]Checking out the ref
+2026-10-07T10:08:19.6053654Z [command]/usr/bin/git checkout --progress --force -B codex/context-bridge refs/remotes/origin/codex/context-bridge
+2026-10-07T10:08:19.7238609Z Switched to a new branch 'codex/context-bridge'
+2026-10-07T10:08:19.7346741Z branch 'codex/context-bridge' set up to track 'origin/codex/context-bridge'.
+2026-10-07T10:08:19.7362059Z ##[endgroup]
+2026-10-07T10:08:19.7401521Z [command]/usr/bin/git log -1 --format=%H
+2026-10-07T10:08:19.7423450Z 42062c9b00c6d6f9bf3b9a1de9f9ffbba206e14a
+2026-10-07T10:08:19.7855972Z ##[group]Run actions/checkout@v6
+2026-10-07T10:08:19.7856147Z with:
+2026-10-07T10:08:19.7856263Z   repository: skosovsky/memy
+2026-10-07T10:08:19.7856394Z   path: memy
+2026-10-07T10:08:19.7857661Z   token: ***
+2026-10-07T10:08:19.7857771Z   ssh-strict: true
+2026-10-07T10:08:19.7857884Z   ssh-user: git
+2026-10-07T10:08:19.7858007Z   persist-credentials: true
+2026-10-07T10:08:19.7858137Z   clean: true
+2026-10-07T10:08:19.7858257Z   sparse-checkout-cone-mode: true
+2026-10-07T10:08:19.7858405Z   fetch-depth: 1
+2026-10-07T10:08:19.7858538Z   fetch-tags: false
+2026-10-07T10:08:19.7858681Z   show-progress: true
+2026-10-07T10:08:19.7858812Z   lfs: false
+2026-10-07T10:08:19.7858918Z   submodules: false
+2026-10-07T10:08:19.7859039Z   set-safe-directory: true
+2026-10-07T10:08:19.7859177Z   allow-unsafe-pr-checkout: false
+2026-10-07T10:08:19.7859318Z env:
+2026-10-07T10:08:19.7859424Z   GOWORK: off
+2026-10-07T10:08:19.7859533Z ##[endgroup]
+2026-10-07T10:08:19.8377940Z Syncing repository: skosovsky/memy
+2026-10-07T10:08:19.8379023Z ##[group]Getting Git version info
+2026-10-07T10:08:19.8379359Z Working directory is '/home/runner/work/ragy/ragy/memy'
+2026-10-07T10:08:19.8400364Z [command]/usr/bin/git version
+2026-10-07T10:08:19.8437693Z git version 2.55.0
+2026-10-07T10:08:19.8465368Z ##[endgroup]
+2026-10-07T10:08:19.8466707Z Temporarily overriding HOME='/home/runner/work/_temp/d2c5c74f-5098-42cd-9b19-17f3df0290e7' before making global git config changes
+2026-10-07T10:08:19.8467347Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T10:08:19.8467997Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ragy/ragy/memy
+2026-10-07T10:08:19.8564802Z ##[group]Determining repository object format
+2026-10-07T10:08:20.1418358Z ##[endgroup]
+2026-10-07T10:08:20.1419077Z ##[group]Initializing the repository
+2026-10-07T10:08:20.1421396Z [command]/usr/bin/git init /home/runner/work/ragy/ragy/memy
+2026-10-07T10:08:20.2167243Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-07T10:08:20.2167555Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-07T10:08:20.2167821Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-07T10:08:20.2168125Z hint: call:
+2026-10-07T10:08:20.2168281Z hint:
+2026-10-07T10:08:20.2168424Z hint: 	git config --global init.defaultBranch <name>
+2026-10-07T10:08:20.2168584Z hint:
+2026-10-07T10:08:20.2168739Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-07T10:08:20.2169025Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-07T10:08:20.2169545Z hint:
+2026-10-07T10:08:20.2169704Z hint: 	git branch -m <name>
+2026-10-07T10:08:20.2169905Z hint:
+2026-10-07T10:08:20.2170148Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-07T10:08:20.2170709Z Initialized empty Git repository in /home/runner/work/ragy/ragy/memy/.git/
+2026-10-07T10:08:20.2176926Z [command]/usr/bin/git remote add origin https://github.com/skosovsky/memy
+2026-10-07T10:08:20.3229814Z ##[endgroup]
+2026-10-07T10:08:20.3230162Z ##[group]Disabling automatic garbage collection
+2026-10-07T10:08:20.3234103Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-07T10:08:20.4418125Z ##[endgroup]
+2026-10-07T10:08:20.4418455Z ##[group]Setting up auth
+2026-10-07T10:08:20.4419510Z Removing SSH command configuration
+2026-10-07T10:08:20.4424827Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T10:08:20.4456360Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T10:08:20.4625004Z Removing HTTP extra header
+2026-10-07T10:08:20.4628744Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T10:08:20.4659485Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T10:08:20.4829345Z Removing includeIf entries pointing to credentials config files
+2026-10-07T10:08:20.4834940Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T10:08:20.4866191Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T10:08:20.5047743Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-07T10:08:20.5710859Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ragy/ragy/memy/.git.path /home/runner/work/_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:20.5747896Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ragy/ragy/memy/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:20.5806105Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/memy/.git.path /github/runner_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:20.5836590Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/memy/.git/worktrees/*.path /github/runner_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:20.5864652Z ##[endgroup]
+2026-10-07T10:08:20.5864891Z ##[group]Determining the default branch
+2026-10-07T10:08:20.5868126Z Retrieving the default branch name
+2026-10-07T10:08:20.8475448Z Default branch 'main'
+2026-10-07T10:08:20.8476054Z ##[endgroup]
+2026-10-07T10:08:20.8476359Z ##[group]Fetching the repository
+2026-10-07T10:08:20.8480468Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+2026-10-07T10:08:21.3685558Z From https://github.com/skosovsky/memy
+2026-10-07T10:08:21.3685801Z  * [new branch]      main       -> origin/main
+2026-10-07T10:08:21.3690966Z ##[endgroup]
+2026-10-07T10:08:21.3691272Z ##[group]Determining the checkout info
+2026-10-07T10:08:21.3691751Z ##[endgroup]
+2026-10-07T10:08:21.3695824Z [command]/usr/bin/git sparse-checkout disable
+2026-10-07T10:08:21.3804634Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-07T10:08:21.3831871Z ##[group]Checking out the ref
+2026-10-07T10:08:21.3834260Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-07T10:08:21.3931104Z Switched to a new branch 'main'
+2026-10-07T10:08:21.3931761Z branch 'main' set up to track 'origin/main'.
+2026-10-07T10:08:21.3935708Z ##[endgroup]
+2026-10-07T10:08:21.3970312Z [command]/usr/bin/git log -1 --format=%H
+2026-10-07T10:08:21.3995000Z c0bcc491e243f78a1dbb51602cd8c844c2cb972d
+2026-10-07T10:08:21.4140775Z ##[group]Run actions/checkout@v6
+2026-10-07T10:08:21.4140913Z with:
+2026-10-07T10:08:21.4141026Z   repository: skosovsky/contexty
+2026-10-07T10:08:21.4141160Z   path: contexty
+2026-10-07T10:08:21.4142384Z   token: ***
+2026-10-07T10:08:21.4142493Z   ssh-strict: true
+2026-10-07T10:08:21.4142603Z   ssh-user: git
+2026-10-07T10:08:21.4142719Z   persist-credentials: true
+2026-10-07T10:08:21.4142844Z   clean: true
+2026-10-07T10:08:21.4143107Z   sparse-checkout-cone-mode: true
+2026-10-07T10:08:21.4143247Z   fetch-depth: 1
+2026-10-07T10:08:21.4143354Z   fetch-tags: false
+2026-10-07T10:08:21.4143465Z   show-progress: true
+2026-10-07T10:08:21.4143590Z   lfs: false
+2026-10-07T10:08:21.4143694Z   submodules: false
+2026-10-07T10:08:21.4143811Z   set-safe-directory: true
+2026-10-07T10:08:21.4143945Z   allow-unsafe-pr-checkout: false
+2026-10-07T10:08:21.4144077Z env:
+2026-10-07T10:08:21.4144173Z   GOWORK: off
+2026-10-07T10:08:21.4144275Z ##[endgroup]
+2026-10-07T10:08:21.4635505Z Syncing repository: skosovsky/contexty
+2026-10-07T10:08:21.4643201Z ##[group]Getting Git version info
+2026-10-07T10:08:21.4643948Z Working directory is '/home/runner/work/ragy/ragy/contexty'
+2026-10-07T10:08:21.4663347Z [command]/usr/bin/git version
+2026-10-07T10:08:21.4690599Z git version 2.55.0
+2026-10-07T10:08:21.4704271Z ##[endgroup]
+2026-10-07T10:08:21.4712300Z Temporarily overriding HOME='/home/runner/work/_temp/0931af9e-e726-4ed1-8bd0-1549b1b3386a' before making global git config changes
+2026-10-07T10:08:21.4713032Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T10:08:21.4715432Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ragy/ragy/contexty
+2026-10-07T10:08:21.4742800Z ##[group]Determining repository object format
+2026-10-07T10:08:21.7455337Z ##[endgroup]
+2026-10-07T10:08:21.7455728Z ##[group]Initializing the repository
+2026-10-07T10:08:21.7458868Z [command]/usr/bin/git init /home/runner/work/ragy/ragy/contexty
+2026-10-07T10:08:21.7511537Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-07T10:08:21.7512119Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-07T10:08:21.7512679Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-07T10:08:21.7513267Z hint: call:
+2026-10-07T10:08:21.7513538Z hint:
+2026-10-07T10:08:21.7513871Z hint: 	git config --global init.defaultBranch <name>
+2026-10-07T10:08:21.7514244Z hint:
+2026-10-07T10:08:21.7514605Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-07T10:08:21.7515136Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-07T10:08:21.7515661Z hint:
+2026-10-07T10:08:21.7515971Z hint: 	git branch -m <name>
+2026-10-07T10:08:21.7516277Z hint:
+2026-10-07T10:08:21.7516663Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-07T10:08:21.7517261Z Initialized empty Git repository in /home/runner/work/ragy/ragy/contexty/.git/
+2026-10-07T10:08:21.7538596Z [command]/usr/bin/git remote add origin https://github.com/skosovsky/contexty
+2026-10-07T10:08:21.7576667Z ##[endgroup]
+2026-10-07T10:08:21.7577099Z ##[group]Disabling automatic garbage collection
+2026-10-07T10:08:21.7580241Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-07T10:08:21.7612097Z ##[endgroup]
+2026-10-07T10:08:21.7612407Z ##[group]Setting up auth
+2026-10-07T10:08:21.7613247Z Removing SSH command configuration
+2026-10-07T10:08:21.7617526Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T10:08:21.7652573Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T10:08:21.7829286Z Removing HTTP extra header
+2026-10-07T10:08:21.7832757Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T10:08:21.7863292Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T10:08:21.8025572Z Removing includeIf entries pointing to credentials config files
+2026-10-07T10:08:21.8029572Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T10:08:21.8058792Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T10:08:21.8242209Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-07T10:08:21.8284027Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ragy/ragy/contexty/.git.path /home/runner/work/_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:21.8315615Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ragy/ragy/contexty/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:21.8351448Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/contexty/.git.path /github/runner_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:21.8382686Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/contexty/.git/worktrees/*.path /github/runner_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:21.8411959Z ##[endgroup]
+2026-10-07T10:08:21.8412272Z ##[group]Determining the default branch
+2026-10-07T10:08:21.8415169Z Retrieving the default branch name
+2026-10-07T10:08:22.0943933Z Default branch 'main'
+2026-10-07T10:08:22.0944812Z ##[endgroup]
+2026-10-07T10:08:22.0963078Z ##[group]Fetching the repository
+2026-10-07T10:08:22.0963666Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+2026-10-07T10:08:22.6418316Z From https://github.com/skosovsky/contexty
+2026-10-07T10:08:22.6418663Z  * [new branch]      main       -> origin/main
+2026-10-07T10:08:22.6423318Z ##[endgroup]
+2026-10-07T10:08:22.6423646Z ##[group]Determining the checkout info
+2026-10-07T10:08:22.6424004Z ##[endgroup]
+2026-10-07T10:08:22.6427819Z [command]/usr/bin/git sparse-checkout disable
+2026-10-07T10:08:22.6465290Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-07T10:08:22.6492810Z ##[group]Checking out the ref
+2026-10-07T10:08:22.6495284Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-07T10:08:22.6568534Z Switched to a new branch 'main'
+2026-10-07T10:08:22.6570557Z branch 'main' set up to track 'origin/main'.
+2026-10-07T10:08:22.6574574Z ##[endgroup]
+2026-10-07T10:08:22.6607991Z [command]/usr/bin/git log -1 --format=%H
+2026-10-07T10:08:22.6632353Z cdda9b30fcdf163a2265578592a12e1762f193e5
+2026-10-07T10:08:22.6761654Z ##[group]Run actions/setup-go@v6
+2026-10-07T10:08:22.6761793Z with:
+2026-10-07T10:08:22.6761897Z   go-version: 1.27.1
+2026-10-07T10:08:22.6762012Z   check-latest: false
+2026-10-07T10:08:22.6763609Z   token: ***
+2026-10-07T10:08:22.6763714Z   cache: true
+2026-10-07T10:08:22.6763815Z env:
+2026-10-07T10:08:22.6763911Z   GOWORK: off
+2026-10-07T10:08:22.6764013Z ##[endgroup]
+2026-10-07T10:08:22.7517342Z Setup go version spec 1.27.1
+2026-10-07T10:08:22.7524861Z Attempting to download 1.27.1...
+2026-10-07T10:08:23.4660823Z matching 1.27.1...
+2026-10-07T10:08:23.4676227Z Acquiring 1.27.1 from https://github.com/actions/go-versions/releases/download/1.27.1-33583469715/go-1.27.1-linux-x64.tar.gz
+2026-10-07T10:08:23.9358062Z Extracting Go...
+2026-10-07T10:08:23.9432097Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/28602a1e-5b25-4d40-b3f9-e64d5610a96f -f /home/runner/work/_temp/b2be5bcd-82bc-48c1-8b5e-a660e07fe73d
+2026-10-07T10:08:25.1761609Z Successfully extracted go to /home/runner/work/_temp/28602a1e-5b25-4d40-b3f9-e64d5610a96f
+2026-10-07T10:08:25.1761889Z Adding to the cache ...
+2026-10-07T10:08:30.0312839Z Successfully cached go to /opt/hostedtoolcache/go/1.27.1/x64
+2026-10-07T10:08:30.0314787Z Added go to the path
+2026-10-07T10:08:30.0316510Z Successfully set up Go version 1.27.1
+2026-10-07T10:08:30.0459527Z [command]/opt/hostedtoolcache/go/1.27.1/x64/bin/go env GOMODCACHE
+2026-10-07T10:08:30.0488209Z [command]/opt/hostedtoolcache/go/1.27.1/x64/bin/go env GOCACHE
+2026-10-07T10:08:30.0515927Z /home/runner/go/pkg/mod
+2026-10-07T10:08:30.0528103Z /home/runner/.cache/go-build
+2026-10-07T10:08:30.0545822Z ##[warning]Restore cache failed: Dependencies file is not found in /home/runner/work/ragy/ragy. Supported file pattern: go.mod
+2026-10-07T10:08:30.0565564Z go version go1.27.1 linux/amd64
+2026-10-07T10:08:30.0565674Z 
+2026-10-07T10:08:30.0565836Z ##[group]go env
+2026-10-07T10:08:30.1571210Z AR='ar'
+2026-10-07T10:08:30.1571416Z CC='gcc'
+2026-10-07T10:08:30.1571623Z CGO_CFLAGS='-O2 -g'
+2026-10-07T10:08:30.1571815Z CGO_CPPFLAGS=''
+2026-10-07T10:08:30.1571996Z CGO_CXXFLAGS='-O2 -g'
+2026-10-07T10:08:30.1572176Z CGO_ENABLED='1'
+2026-10-07T10:08:30.1572338Z CGO_FFLAGS='-O2 -g'
+2026-10-07T10:08:30.1572505Z CGO_LDFLAGS='-O2 -g'
+2026-10-07T10:08:30.1572671Z CXX='g++'
+2026-10-07T10:08:30.1572820Z GCCGO='gccgo'
+2026-10-07T10:08:30.1573119Z GO111MODULE=''
+2026-10-07T10:08:30.1573272Z GOAMD64='v1'
+2026-10-07T10:08:30.1573428Z GOARCH='amd64'
+2026-10-07T10:08:30.1573589Z GOAUTH='netrc'
+2026-10-07T10:08:30.1573788Z GOBIN='/home/runner/go/bin'
+2026-10-07T10:08:30.1574021Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-07T10:08:30.1574236Z GOCACHEPROG=''
+2026-10-07T10:08:30.1574396Z GODEBUG=''
+2026-10-07T10:08:30.1574562Z GOENV='/home/runner/.config/go/env'
+2026-10-07T10:08:30.1574759Z GOEXE=''
+2026-10-07T10:08:30.1574909Z GOEXPERIMENT=''
+2026-10-07T10:08:30.1575072Z GOFIPS140='off'
+2026-10-07T10:08:30.1575238Z GOFLAGS=''
+2026-10-07T10:08:30.1575877Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build2477571088=/tmp/go-build -gno-record-gcc-switches'
+2026-10-07T10:08:30.1576417Z GOHOSTARCH='amd64'
+2026-10-07T10:08:30.1576592Z GOHOSTOS='linux'
+2026-10-07T10:08:30.1576754Z GOINSECURE=''
+2026-10-07T10:08:30.1576921Z GOMOD='/dev/null'
+2026-10-07T10:08:30.1577133Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-07T10:08:30.1577344Z GONOPROXY=''
+2026-10-07T10:08:30.1577495Z GONOSUMDB=''
+2026-10-07T10:08:30.1577645Z GOOS='linux'
+2026-10-07T10:08:30.1577804Z GOPACKAGESDRIVER=''
+2026-10-07T10:08:30.1577981Z GOPATH='/home/runner/go'
+2026-10-07T10:08:30.1578171Z GOPRIVATE=''
+2026-10-07T10:08:30.1578393Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-07T10:08:30.1578663Z GOROOT='/opt/hostedtoolcache/go/1.27.1/x64'
+2026-10-07T10:08:30.1578900Z GOSUMDB='sum.golang.org'
+2026-10-07T10:08:30.1579086Z GOTELEMETRY='local'
+2026-10-07T10:08:30.1579302Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-07T10:08:30.1579546Z GOTMPDIR=''
+2026-10-07T10:08:30.1579966Z GOTOOLCHAIN='local'
+2026-10-07T10:08:30.1580225Z GOTOOLDIR='/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+2026-10-07T10:08:30.1580512Z GOVCS=''
+2026-10-07T10:08:30.1580671Z GOVERSION='go1.27.1'
+2026-10-07T10:08:30.1580843Z GOWORK='off'
+2026-10-07T10:08:30.1581011Z PKG_CONFIG='pkg-config'
+2026-10-07T10:08:30.1581125Z 
+2026-10-07T10:08:30.1581418Z ##[endgroup]
+2026-10-07T10:08:30.1756219Z ##[group]Run python3 scripts/check_context_bridge.py "checkout" --dependency-root .. --output "docs/task21/results/checkout.json"
+2026-10-07T10:08:30.1756734Z [36;1mpython3 scripts/check_context_bridge.py "checkout" --dependency-root .. --output "docs/task21/results/checkout.json"[0m
+2026-10-07T10:08:30.1978003Z shell: /usr/bin/bash -e {0}
+2026-10-07T10:08:30.1978154Z env:
+2026-10-07T10:08:30.1978261Z   GOWORK: off
+2026-10-07T10:08:30.1978372Z   GOTOOLCHAIN: local
+2026-10-07T10:08:30.1978490Z ##[endgroup]
+2026-10-07T10:08:30.2308944Z {"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/ragy"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:30.2335217Z {"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/memy"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:30.2355858Z {"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/contexty"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:30.2375934Z {"command": ["git", "rev-parse", "HEAD"], "cwd": "/home/runner/work/ragy/ragy/ragy", "GOWORK": "off"}
+2026-10-07T10:08:30.2389716Z 42062c9b00c6d6f9bf3b9a1de9f9ffbba206e14a
+2026-10-07T10:08:30.2390053Z {"command": ["git", "status", "--porcelain"], "cwd": "/home/runner/work/ragy/ragy/ragy", "GOWORK": "off"}
+2026-10-07T10:08:30.4794889Z {"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/ragy=/tmp/ragy-context-bridge-ae9210v0/dependencies/ragy"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:30.4821672Z {"command": ["git", "rev-parse", "HEAD"], "cwd": "/home/runner/work/ragy/ragy/memy", "GOWORK": "off"}
+2026-10-07T10:08:30.4837084Z c0bcc491e243f78a1dbb51602cd8c844c2cb972d
+2026-10-07T10:08:30.4837399Z {"command": ["git", "status", "--porcelain"], "cwd": "/home/runner/work/ragy/ragy/memy", "GOWORK": "off"}
+2026-10-07T10:08:30.4995830Z {"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/memy=/tmp/ragy-context-bridge-ae9210v0/dependencies/memy"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:30.5020353Z {"command": ["git", "rev-parse", "HEAD"], "cwd": "/home/runner/work/ragy/ragy/contexty", "GOWORK": "off"}
+2026-10-07T10:08:30.5034353Z cdda9b30fcdf163a2265578592a12e1762f193e5
+2026-10-07T10:08:30.5034854Z {"command": ["git", "status", "--porcelain"], "cwd": "/home/runner/work/ragy/ragy/contexty", "GOWORK": "off"}
+2026-10-07T10:08:30.5164025Z {"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/contexty=/tmp/ragy-context-bridge-ae9210v0/dependencies/contexty"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:30.5189300Z {"command": ["go", "mod", "tidy"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:31.1547135Z go: downloading github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+2026-10-07T10:08:31.1547699Z go: downloading github.com/stretchr/testify v1.11.1
+2026-10-07T10:08:31.1548013Z go: downloading github.com/mattn/go-sqlite3 v1.14.52
+2026-10-07T10:08:31.1548334Z go: downloading golang.org/x/text v0.42.0
+2026-10-07T10:08:31.1548632Z go: downloading github.com/dlclark/regexp2 v1.11.0
+2026-10-07T10:08:31.1548988Z go: downloading github.com/davecgh/go-spew v1.1.1
+2026-10-07T10:08:31.1549317Z go: downloading github.com/pmezard/go-difflib v1.0.0
+2026-10-07T10:08:31.1549615Z go: downloading gopkg.in/yaml.v3 v3.0.1
+2026-10-07T10:08:31.1550038Z {"command": ["go", "mod", "edit", "-json"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:31.1581159Z {
+2026-10-07T10:08:31.1581458Z 	"Module": {
+2026-10-07T10:08:31.1581749Z 		"Path": "example.com/ragy-context-bridge"
+2026-10-07T10:08:31.1582048Z 	},
+2026-10-07T10:08:31.1582238Z 	"Go": "1.27.1",
+2026-10-07T10:08:31.1582434Z 	"Require": [
+2026-10-07T10:08:31.1582592Z 		{
+2026-10-07T10:08:31.1582839Z 			"Path": "github.com/santhosh-tekuri/jsonschema/v6",
+2026-10-07T10:08:31.1583570Z 			"Version": "v6.0.3"
+2026-10-07T10:08:31.1583956Z 		},
+2026-10-07T10:08:31.1584211Z 		{
+2026-10-07T10:08:31.1584420Z 			"Path": "github.com/skosovsky/contexty",
+2026-10-07T10:08:31.1584677Z 			"Version": "v0.13.1"
+2026-10-07T10:08:31.1585016Z 		},
+2026-10-07T10:08:31.1585154Z 		{
+2026-10-07T10:08:31.1585358Z 			"Path": "github.com/skosovsky/memy",
+2026-10-07T10:08:31.1585591Z 			"Version": "v0.3.1"
+2026-10-07T10:08:31.1585755Z 		},
+2026-10-07T10:08:31.1585892Z 		{
+2026-10-07T10:08:31.1586097Z 			"Path": "github.com/skosovsky/ragy",
+2026-10-07T10:08:31.1586326Z 			"Version": "v0.8.0"
+2026-10-07T10:08:31.1586490Z 		},
+2026-10-07T10:08:31.1586625Z 		{
+2026-10-07T10:08:31.1586817Z 			"Path": "golang.org/x/text",
+2026-10-07T10:08:31.1587040Z 			"Version": "v0.42.0",
+2026-10-07T10:08:31.1587237Z 			"Indirect": true
+2026-10-07T10:08:31.1587395Z 		}
+2026-10-07T10:08:31.1587533Z 	],
+2026-10-07T10:08:31.1587694Z 	"Replace": [
+2026-10-07T10:08:31.1587805Z 		{
+2026-10-07T10:08:31.1587900Z 			"Old": {
+2026-10-07T10:08:31.1588037Z 				"Path": "github.com/skosovsky/ragy"
+2026-10-07T10:08:31.1588171Z 			},
+2026-10-07T10:08:31.1588269Z 			"New": {
+2026-10-07T10:08:31.1588541Z 				"Path": "/tmp/ragy-context-bridge-ae9210v0/dependencies/ragy"
+2026-10-07T10:08:31.1588720Z 			}
+2026-10-07T10:08:31.1588811Z 		},
+2026-10-07T10:08:31.1588900Z 		{
+2026-10-07T10:08:31.1588998Z 			"Old": {
+2026-10-07T10:08:31.1589178Z 				"Path": "github.com/skosovsky/memy"
+2026-10-07T10:08:31.1589333Z 			},
+2026-10-07T10:08:31.1589432Z 			"New": {
+2026-10-07T10:08:31.1589613Z 				"Path": "/tmp/ragy-context-bridge-ae9210v0/dependencies/memy"
+2026-10-07T10:08:31.1589784Z 			}
+2026-10-07T10:08:31.1589895Z 		},
+2026-10-07T10:08:31.1590033Z 		{
+2026-10-07T10:08:31.1590127Z 			"Old": {
+2026-10-07T10:08:31.1590265Z 				"Path": "github.com/skosovsky/contexty"
+2026-10-07T10:08:31.1590404Z 			},
+2026-10-07T10:08:31.1590502Z 			"New": {
+2026-10-07T10:08:31.1590729Z 				"Path": "/tmp/ragy-context-bridge-ae9210v0/dependencies/contexty"
+2026-10-07T10:08:31.1590944Z 			}
+2026-10-07T10:08:31.1591035Z 		}
+2026-10-07T10:08:31.1591126Z 	]
+2026-10-07T10:08:31.1591214Z }
+2026-10-07T10:08:31.1591426Z {"command": ["go", "list", "-m", "all"], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:31.2496554Z example.com/ragy-context-bridge
+2026-10-07T10:08:31.2496871Z github.com/davecgh/go-spew v1.1.1
+2026-10-07T10:08:31.2497095Z github.com/dlclark/regexp2 v1.11.0
+2026-10-07T10:08:31.2497248Z github.com/kr/pretty v0.3.1
+2026-10-07T10:08:31.2497400Z github.com/mattn/go-sqlite3 v1.14.52
+2026-10-07T10:08:31.2497557Z github.com/pmezard/go-difflib v1.0.0
+2026-10-07T10:08:31.2497711Z github.com/rogpeppe/go-internal v1.14.1
+2026-10-07T10:08:31.2497890Z github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+2026-10-07T10:08:31.2498168Z github.com/skosovsky/contexty v0.13.1 => /tmp/ragy-context-bridge-ae9210v0/dependencies/contexty
+2026-10-07T10:08:31.2498508Z github.com/skosovsky/memy v0.3.1 => /tmp/ragy-context-bridge-ae9210v0/dependencies/memy
+2026-10-07T10:08:31.2498850Z github.com/skosovsky/ragy v0.8.0 => /tmp/ragy-context-bridge-ae9210v0/dependencies/ragy
+2026-10-07T10:08:31.2499079Z github.com/stretchr/testify v1.11.1
+2026-10-07T10:08:31.2499229Z golang.org/x/mod v0.41.0
+2026-10-07T10:08:31.2499372Z golang.org/x/sync v0.23.0
+2026-10-07T10:08:31.2499500Z golang.org/x/text v0.42.0
+2026-10-07T10:08:31.2499625Z golang.org/x/tools v0.49.0
+2026-10-07T10:08:31.2499780Z gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
+2026-10-07T10:08:31.2499940Z gopkg.in/yaml.v3 v3.0.1
+2026-10-07T10:08:31.2500203Z {"command": ["go", "test", "-race", "-count=1", "./..."], "cwd": "/tmp/ragy-context-bridge-ae9210v0/consumer", "GOWORK": "off"}
+2026-10-07T10:08:45.7078312Z # example.com/ragy-context-bridge
+2026-10-07T10:08:45.7089697Z ##[error]./sidecar.go:92:28: undefined: memy.RecallProgress
+2026-10-07T10:08:45.7090959Z ##[error]./sidecar.go:109:16: undefined: memy.RecallProgress
+2026-10-07T10:08:45.7091551Z ##[error]./bridge.go:66:49: undefined: memy.MaxSearchCandidates
+2026-10-07T10:08:45.7092549Z ##[error]./bridge.go:111:31: unknown field MaxCandidates in struct literal of type memy.SearchOptions
+2026-10-07T10:08:45.7093500Z ##[error]./bridge.go:119:14: recalled.Progress undefined (type memy.RecallResult[P, R] has no field or method Progress)
+2026-10-07T10:08:45.7094402Z ##[error]./bridge.go:138:12: recalled.Progress undefined (type memy.RecallResult[P, R] has no field or method Progress)
+2026-10-07T10:08:45.7095017Z ##[error]./contracts.go:100:51: undefined: memy.ErrStaleCursor
+2026-10-07T10:08:45.7095552Z ##[error]./contracts.go:102:8: undefined: memy.ErrMaintenance
+2026-10-07T10:08:45.7096237Z ##[error]./search.go:26:47: unknown field BoundedCandidates in struct literal of type memy.SearchCapabilities
+2026-10-07T10:08:45.7097066Z ##[error]./search.go:44:10: opts.MaxCandidates undefined (type memy.SearchOptions has no field or method MaxCandidates)
+2026-10-07T10:08:45.7097638Z ##[error]./search.go:44:10: too many errors
+2026-10-07T10:08:45.7098063Z FAIL	example.com/ragy-context-bridge [build failed]
+2026-10-07T10:08:45.7098283Z FAIL	example.com/ragy-context-bridge/cmd/demo [build failed]
+2026-10-07T10:08:45.7098456Z FAIL
+2026-10-07T10:08:45.8083164Z Traceback (most recent call last):
+2026-10-07T10:08:45.8083705Z   File "/home/runner/work/ragy/ragy/ragy/scripts/check_context_bridge.py", line 82, in <module>
+2026-10-07T10:08:45.8084118Z     raise SystemExit(main())
+2026-10-07T10:08:45.8084393Z                      ^^^^^^
+2026-10-07T10:08:45.8084760Z   File "/home/runner/work/ragy/ragy/ragy/scripts/check_context_bridge.py", line 72, in main
+2026-10-07T10:08:45.8085182Z     run([go, "test", "-race", "-count=1", "./..."], module, env, record["commands"])
+2026-10-07T10:08:45.8085486Z   File "/home/runner/work/ragy/ragy/ragy/scripts/check_context_bridge.py", line 22, in run
+2026-10-07T10:08:45.8085806Z     raise subprocess.CalledProcessError(result.returncode, command)
+2026-10-07T10:08:45.8086158Z subprocess.CalledProcessError: Command '['go', 'test', '-race', '-count=1', './...']' returned non-zero exit status 1.
+2026-10-07T10:08:45.8219587Z ##[error]Process completed with exit code 1.
+2026-10-07T10:08:45.8674735Z ##[group]Run actions/upload-artifact@v6
+2026-10-07T10:08:45.8674901Z with:
+2026-10-07T10:08:45.8675034Z   name: context-bridge-checkout
+2026-10-07T10:08:45.8675178Z   path: ragy/docs/task21/results/*.json
+2026-10-07T10:08:45.8675327Z   if-no-files-found: warn
+2026-10-07T10:08:45.8675456Z   compression-level: 6
+2026-10-07T10:08:45.8675576Z   overwrite: false
+2026-10-07T10:08:45.8675696Z   include-hidden-files: false
+2026-10-07T10:08:45.8675822Z env:
+2026-10-07T10:08:45.8675919Z   GOWORK: off
+2026-10-07T10:08:45.8676028Z   GOTOOLCHAIN: local
+2026-10-07T10:08:45.8676142Z ##[endgroup]
+2026-10-07T10:08:45.9741783Z With the provided path, there will be 3 files uploaded
+2026-10-07T10:08:45.9754158Z Artifact name is valid!
+2026-10-07T10:08:45.9754406Z Root directory input is valid!
+2026-10-07T10:08:46.2620089Z Beginning upload of artifact content to blob storage
+2026-10-07T10:08:46.5180132Z Uploaded bytes 45941
+2026-10-07T10:08:46.5613032Z Finished uploading artifact content to blob storage!
+2026-10-07T10:08:46.5613576Z SHA256 digest of uploaded artifact zip is cb16435392a789eaa11d475a592397cde60a5cce950a808e3d769f63fc9b4359
+2026-10-07T10:08:46.5615038Z Finalizing artifact upload
+2026-10-07T10:08:46.8709483Z Artifact context-bridge-checkout.zip successfully finalized. Artifact ID 11474229054
+2026-10-07T10:08:46.8710128Z Artifact context-bridge-checkout has been successfully uploaded! Final size is 45941 bytes. Artifact ID is 11474229054
+2026-10-07T10:08:46.8713086Z Artifact download URL: https://github.com/skosovsky/ragy/actions/runs/37605363190/artifacts/11474229054
+2026-10-07T10:08:46.8859507Z Post job cleanup.
+2026-10-07T10:08:46.9402849Z [command]/usr/bin/git version
+2026-10-07T10:08:46.9435770Z git version 2.55.0
+2026-10-07T10:08:46.9461855Z Temporarily overriding HOME='/home/runner/work/_temp/580bac8e-c0a7-43cc-85ec-58eb2354d592' before making global git config changes
+2026-10-07T10:08:46.9462814Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T10:08:46.9466193Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ragy/ragy/contexty
+2026-10-07T10:08:47.0334071Z Removing SSH command configuration
+2026-10-07T10:08:47.0340625Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T10:08:47.0376126Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T10:08:47.0546316Z Removing HTTP extra header
+2026-10-07T10:08:47.0549306Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T10:08:47.0575779Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T10:08:47.0739629Z Removing includeIf entries pointing to credentials config files
+2026-10-07T10:08:47.0744655Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T10:08:47.1117615Z includeif.gitdir:/home/runner/work/ragy/ragy/contexty/.git.path
+2026-10-07T10:08:47.1118078Z includeif.gitdir:/home/runner/work/ragy/ragy/contexty/.git/worktrees/*.path
+2026-10-07T10:08:47.1118373Z includeif.gitdir:/github/workspace/contexty/.git.path
+2026-10-07T10:08:47.1118610Z includeif.gitdir:/github/workspace/contexty/.git/worktrees/*.path
+2026-10-07T10:08:47.1126466Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ragy/ragy/contexty/.git.path
+2026-10-07T10:08:47.1150198Z /home/runner/work/_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:47.1158949Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ragy/ragy/contexty/.git.path /home/runner/work/_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:47.1232677Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ragy/ragy/contexty/.git/worktrees/*.path
+2026-10-07T10:08:47.1254718Z /home/runner/work/_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:47.1261001Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ragy/ragy/contexty/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:47.1743211Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/contexty/.git.path
+2026-10-07T10:08:47.1765440Z /github/runner_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:47.1771080Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/contexty/.git.path /github/runner_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:47.1819285Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/contexty/.git/worktrees/*.path
+2026-10-07T10:08:47.1839086Z /github/runner_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:47.1845873Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/contexty/.git/worktrees/*.path /github/runner_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config
+2026-10-07T10:08:47.1919644Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T10:08:47.2087665Z Removing credentials config '/home/runner/work/_temp/git-credentials-fc3a66ba-8024-454c-87c8-bd69c1cd8324.config'
+2026-10-07T10:08:47.2221423Z Post job cleanup.
+2026-10-07T10:08:47.2750509Z [command]/usr/bin/git version
+2026-10-07T10:08:47.2780620Z git version 2.55.0
+2026-10-07T10:08:47.2804044Z Temporarily overriding HOME='/home/runner/work/_temp/38fe764d-e744-4fbc-97b1-8f2921794c0c' before making global git config changes
+2026-10-07T10:08:47.2804759Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T10:08:47.2807422Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ragy/ragy/memy
+2026-10-07T10:08:47.2917916Z Removing SSH command configuration
+2026-10-07T10:08:47.2924127Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T10:08:47.2956452Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T10:08:47.3146495Z Removing HTTP extra header
+2026-10-07T10:08:47.3150729Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T10:08:47.3181469Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T10:08:47.3375362Z Removing includeIf entries pointing to credentials config files
+2026-10-07T10:08:47.3378687Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T10:08:47.3402777Z includeif.gitdir:/home/runner/work/ragy/ragy/memy/.git.path
+2026-10-07T10:08:47.3409886Z includeif.gitdir:/home/runner/work/ragy/ragy/memy/.git/worktrees/*.path
+2026-10-07T10:08:47.3410669Z includeif.gitdir:/github/workspace/memy/.git.path
+2026-10-07T10:08:47.3411307Z includeif.gitdir:/github/workspace/memy/.git/worktrees/*.path
+2026-10-07T10:08:47.3412305Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ragy/ragy/memy/.git.path
+2026-10-07T10:08:47.3432557Z /home/runner/work/_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:47.3441495Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ragy/ragy/memy/.git.path /home/runner/work/_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:47.3518934Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ragy/ragy/memy/.git/worktrees/*.path
+2026-10-07T10:08:47.3540285Z /home/runner/work/_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:47.3547022Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ragy/ragy/memy/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:47.3633839Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/memy/.git.path
+2026-10-07T10:08:47.3654034Z /github/runner_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:47.3659893Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/memy/.git.path /github/runner_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:47.4018192Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/memy/.git/worktrees/*.path
+2026-10-07T10:08:47.4042688Z /github/runner_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:47.4050081Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/memy/.git/worktrees/*.path /github/runner_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config
+2026-10-07T10:08:47.4324433Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T10:08:47.4496186Z Removing credentials config '/home/runner/work/_temp/git-credentials-cc3f19e4-265f-450d-a471-5e5dc6f77f8f.config'
+2026-10-07T10:08:47.4691913Z Post job cleanup.
+2026-10-07T10:08:47.5234837Z [command]/usr/bin/git version
+2026-10-07T10:08:47.5267252Z git version 2.55.0
+2026-10-07T10:08:47.5292027Z Temporarily overriding HOME='/home/runner/work/_temp/69cc38fc-5bc1-4026-82df-ddb5db5780cb' before making global git config changes
+2026-10-07T10:08:47.5292708Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-07T10:08:47.5295970Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ragy/ragy/ragy
+2026-10-07T10:08:47.5719762Z Removing SSH command configuration
+2026-10-07T10:08:47.5724210Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-07T10:08:47.5761373Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-07T10:08:47.5948606Z Removing HTTP extra header
+2026-10-07T10:08:47.5953728Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-07T10:08:47.5984559Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-07T10:08:47.6164614Z Removing includeIf entries pointing to credentials config files
+2026-10-07T10:08:47.6170042Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-07T10:08:47.6192156Z includeif.gitdir:/home/runner/work/ragy/ragy/ragy/.git.path
+2026-10-07T10:08:47.6192583Z includeif.gitdir:/home/runner/work/ragy/ragy/ragy/.git/worktrees/*.path
+2026-10-07T10:08:47.6193292Z includeif.gitdir:/github/workspace/ragy/.git.path
+2026-10-07T10:08:47.6193565Z includeif.gitdir:/github/workspace/ragy/.git/worktrees/*.path
+2026-10-07T10:08:47.6198992Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ragy/ragy/ragy/.git.path
+2026-10-07T10:08:47.6219208Z /home/runner/work/_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:47.6227705Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ragy/ragy/ragy/.git.path /home/runner/work/_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:47.6260446Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ragy/ragy/ragy/.git/worktrees/*.path
+2026-10-07T10:08:47.6281677Z /home/runner/work/_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:47.6288527Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ragy/ragy/ragy/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:47.6317350Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/ragy/.git.path
+2026-10-07T10:08:47.6337237Z /github/runner_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:47.6343281Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/ragy/.git.path /github/runner_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:47.6395233Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/ragy/.git/worktrees/*.path
+2026-10-07T10:08:47.6415686Z /github/runner_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:47.6421327Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/ragy/.git/worktrees/*.path /github/runner_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config
+2026-10-07T10:08:47.6451308Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-07T10:08:47.6650129Z Removing credentials config '/home/runner/work/_temp/git-credentials-5a6b167c-6668-4725-a03b-7f51e8800581.config'
+2026-10-07T10:08:47.6761657Z Cleaning up orphan processes

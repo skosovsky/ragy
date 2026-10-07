@@ -1,0 +1,66 @@
+{"command": ["go", "version"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.012}
+{"command": ["golangci-lint", "version"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.057}
+{"go": "go version go1.27.1 darwin/arm64", "golangci_lint": "golangci-lint has version 2.14.0 built with go1.27.1 from 114493f on 2026-09-24T10:54:53Z", "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]", "validated": {"go": "1.27.1", "golangci_lint": "2.14.0"}}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 0.953}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy	1.810s
+ok  	github.com/skosovsky/ragy/access	1.617s
+ok  	github.com/skosovsky/ragy/chunking	1.559s
+ok  	github.com/skosovsky/ragy/contracttest	1.932s
+ok  	github.com/skosovsky/ragy/dense	1.432s
+ok  	github.com/skosovsky/ragy/dense/persistent	11.025s
+ok  	github.com/skosovsky/ragy/documents	1.914s
+ok  	github.com/skosovsky/ragy/embedding	1.887s
+ok  	github.com/skosovsky/ragy/evidence	2.024s
+?   	github.com/skosovsky/ragy/examples/local-bm25	[no test files]
+ok  	github.com/skosovsky/ragy/filter	1.876s
+ok  	github.com/skosovsky/ragy/graph	1.579s
+ok  	github.com/skosovsky/ragy/graph/managed	6.673s
+ok  	github.com/skosovsky/ragy/graphingest	1.780s
+ok  	github.com/skosovsky/ragy/graphingest/extraction	1.433s
+ok  	github.com/skosovsky/ragy/graphingest/materialization	2.005s
+ok  	github.com/skosovsky/ragy/graphingest/resolution	1.425s
+ok  	github.com/skosovsky/ragy/graphingest/resolution/history	1.677s
+ok  	github.com/skosovsky/ragy/internal/durablefs	1.631s
+?   	github.com/skosovsky/ragy/internal/ident	[no test files]
+?   	github.com/skosovsky/ragy/internal/mathutil	[no test files]
+?   	github.com/skosovsky/ragy/internal/metaattrs	[no test files]
+?   	github.com/skosovsky/ragy/internal/nilvalue	[no test files]
+ok  	github.com/skosovsky/ragy/internal/parallel	1.425s
+ok  	github.com/skosovsky/ragy/internal/providerhttp	1.593s
+ok  	github.com/skosovsky/ragy/internal/readfailure	1.497s
+ok  	github.com/skosovsky/ragy/layout	1.426s
+ok  	github.com/skosovsky/ragy/lexical	1.465s
+ok  	github.com/skosovsky/ragy/lexical/managed	8.021s
+ok  	github.com/skosovsky/ragy/lifecycle	7.854s
+ok  	github.com/skosovsky/ragy/lifecycle/filestore	4.006s
+ok  	github.com/skosovsky/ragy/lifecycle/integration	66.635s
+ok  	github.com/skosovsky/ragy/multimodal	1.453s
+ok  	github.com/skosovsky/ragy/observation	1.425s
+ok  	github.com/skosovsky/ragy/recipe	1.651s
+ok  	github.com/skosovsky/ragy/recipe/budget	1.470s
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	1.964s
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	2.618s
+ok  	github.com/skosovsky/ragy/recipe/recording	1.430s
+ok  	github.com/skosovsky/ragy/retrieval	1.631s
+ok  	github.com/skosovsky/ragy/source	1.491s
+ok  	github.com/skosovsky/ragy/tensor	1.431s
+ok  	github.com/skosovsky/ragy/tensor/persistent	8.940s
+ok  	github.com/skosovsky/ragy/tensor/query	1.415s
+ok  	github.com/skosovsky/ragy/testutil	1.708s
+{"exit_code": 0, "elapsed_seconds": 71.706}
+{"command": ["go", "build", "-o", "/dev/null", "./examples/local-bm25"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.596}
+{"command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "scripts/verify_test.py", "-v"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+test_acceptance_rejects_toolchain_suffix_or_mismatch (__main__.VerificationContract.test_acceptance_rejects_toolchain_suffix_or_mismatch) ... ok
+test_actual_go_unicode_letter_is_not_filtered_by_python_identifiers (__main__.VerificationContract.test_actual_go_unicode_letter_is_not_filtered_by_python_identifiers) ... make: *** [acceptance] Error 130
+fuzz: elapsed: 0s, gathering baseline coverage: 0/1 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 1/1 completed, now fuzzing with 2 workers
+fuzz: elapsed: 1s, execs: 112544 (111299/sec), new interesting: 0 (total: 1)
+PASS
+ok  	example.invalid/fuzzletters	1.407s
