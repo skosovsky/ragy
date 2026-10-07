@@ -1,0 +1,5 @@
+=== RUN   TestRealPostgresCanonicalCodecAndQuotedTable
+    bridge_pg_test.go:69: native quoted table=RagyT17_4555, canonical custom codec calls=4, exact deleted=1
+--- PASS: TestRealPostgresCanonicalCodecAndQuotedTable (2.35s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/pgvector	3.829s

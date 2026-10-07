@@ -1,0 +1,5 @@
+=== RUN   TestRealPostgresScopedTenantPairsAndPinnedAdmission
+    scope_pg_test.go:86: native Binding tenant pairs >2^53, omission, conflicting optional predicate and pinned-before-I/O verified
+--- PASS: TestRealPostgresScopedTenantPairsAndPinnedAdmission (2.13s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/pgvector	3.556s

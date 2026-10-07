@@ -8,7 +8,9 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 )
 
-// DeleteResult reports how many documents were deleted.
+// DeleteResult reports an exact nonnegative number of deleted documents.
+// Unknown or asynchronous affected counts are unsupported by this profile; hosts
+// must observe the actual outcome or return an error, never infer request length.
 type DeleteResult struct {
 	Deleted int
 }

@@ -1,0 +1,13 @@
+ok  	github.com/skosovsky/ragy/filter	1.417s
+ok  	github.com/skosovsky/ragy/adapters/elasticsearch	1.395s
+ok  	github.com/skosovsky/ragy/adapters/neo4j	2.147s
+--- FAIL: TestTableIdentifierPreservesCaseAndKeywords (0.00s)
+    --- FAIL: TestTableIdentifierPreservesCaseAndKeywords/docs (0.00s)
+        codec_contract_test.go:77: table identity  invalid argument
+    --- FAIL: TestTableIdentifierPreservesCaseAndKeywords/MixedCase (0.00s)
+        codec_contract_test.go:77: table identity  invalid argument
+    --- FAIL: TestTableIdentifierPreservesCaseAndKeywords/select (0.00s)
+        codec_contract_test.go:77: table identity  invalid argument
+FAIL
+FAIL	github.com/skosovsky/ragy/adapters/pgvector	0.516s
+FAIL

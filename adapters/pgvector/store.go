@@ -18,7 +18,8 @@ import (
 
 const fieldsPerRecord = 4
 
-// Rows iterates over query results.
+// Rows iterates over query results. Err reports query/iteration outcomes.
+// Close is cleanup-only; hosts observe its diagnostics inside their implementation.
 type Rows interface {
 	Next() bool
 	Scan(dest ...any) error
@@ -26,7 +27,7 @@ type Rows interface {
 	Close() error
 }
 
-// Result reports rows affected.
+// Result reports exact nonnegative rows affected; unknown/async counts are unsupported.
 type Result interface {
 	RowsAffected() int64
 }
@@ -83,7 +84,7 @@ func New[TMeta any](db DB, cfg Config[TMeta], codec retrieval.MetadataCodec[TMet
 	return &Store[TMeta]{
 		space:    cfg.Space,
 		db:       db,
-		table:    cfg.Table,
+		table:    `"` + cfg.Table + `"`,
 		schema:   cfg.Schema,
 		codec:    codec,
 		resolver: retrieval.DefaultResolver(cfg.Resolver),
@@ -340,7 +341,7 @@ func (s *Store[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents
 		return documents.DeleteResult{}, ragy.WrapBackendError(err, "pgvector delete by ids")
 	}
 
-	return documents.DeleteResult{Deleted: int(result.RowsAffected())}, nil
+	return exactDeleteResult(result.RowsAffected())
 }
 
 // DeleteByFilter implements documents.RawStore.
@@ -363,7 +364,7 @@ func (s *Store[TMeta]) DeleteByFilter(ctx context.Context, cond filter.Condition
 		return documents.DeleteResult{}, ragy.WrapBackendError(err, "pgvector delete by filter")
 	}
 
-	return documents.DeleteResult{Deleted: int(result.RowsAffected())}, nil
+	return exactDeleteResult(result.RowsAffected())
 }
 
 // Schema returns the finalized filter schema used by the store.
@@ -373,14 +374,15 @@ func (s *Store[TMeta]) Schema() filter.Schema {
 
 func (s *Store[TMeta]) decodeStoredMeta(data []byte) (TMeta, error) {
 	var meta TMeta
-	if len(data) == 0 {
-		return meta, nil
-	}
 	attrs, err := attributesFromJSON(data)
 	if err != nil {
 		return meta, err
 	}
-	return s.codec.Decode(attrs)
+	normalized, err := s.schema.NormalizeAttributes(attrs)
+	if err != nil {
+		return meta, err
+	}
+	return s.codec.Decode(normalized)
 }
 
 func attributesFromJSON(data []byte) (filter.RawAttributes, error) {
@@ -632,3 +634,10 @@ func (s *Store[TMeta]) ReadCapabilities() access.Capabilities {
 
 // Space returns the configured host-declared profile; no service attestation is made.
 func (s *Store[TMeta]) Space() embedding.Space { return s.space }
+
+func exactDeleteResult(count int64) (documents.DeleteResult, error) {
+	if count < 0 || uint64(count) > uint64(^uint(0)>>1) {
+		return documents.DeleteResult{}, fmt.Errorf("%w: invalid affected count", ragy.ErrProtocol)
+	}
+	return documents.DeleteResult{Deleted: int(count)}, nil
+}

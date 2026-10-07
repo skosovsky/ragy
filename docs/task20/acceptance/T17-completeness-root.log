@@ -1,0 +1,4 @@
+ok  	github.com/skosovsky/ragy/filter	1.190s
+ok  	github.com/skosovsky/ragy/retrieval	1.327s
+ok  	github.com/skosovsky/ragy/documents	1.232s
+ok  	github.com/skosovsky/ragy/contracttest	1.242s

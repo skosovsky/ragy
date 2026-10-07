@@ -1,0 +1,13 @@
+ok  	github.com/skosovsky/ragy/filter	1.448s
+--- FAIL: TestPipelineContractConformance (0.00s)
+    --- FAIL: TestPipelineContractConformance/aggregate_uses_score_merge_fallback_when_merger_fails (0.00s)
+        pipeline.go:570: Retrieve() error = fusion failed: invalid argument, want PartialFailureError
+    --- FAIL: TestPipelineContractConformance/conditional_runs_child_when_predicate_nil (0.00s)
+        pipeline.go:478: Build(): invalid argument: conditional predicate
+FAIL
+FAIL	github.com/skosovsky/ragy/contracttest	0.444s
+ok  	github.com/skosovsky/ragy/retrieval	1.598s
+ok  	github.com/skosovsky/ragy/documents	1.445s
+ok  	github.com/skosovsky/ragy/graph	1.445s
+ok  	github.com/skosovsky/ragy/graph/managed	5.001s
+FAIL

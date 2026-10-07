@@ -631,7 +631,7 @@ func newDocumentsDB(docs []retrieval.Document[contracttest.StructMeta]) *documen
 
 func (db *documentsDB) Query(_ context.Context, sql string, args ...any) (Rows, error) {
 	switch {
-	case strings.Contains(sql, "SELECT id, content, attributes FROM docs WHERE id IN"):
+	case strings.Contains(sql, "SELECT id, content, attributes FROM \"docs\" WHERE id IN"):
 		rows := make([]fakeRow, 0, len(args))
 		for _, arg := range args {
 			id, ok := arg.(string)
@@ -661,7 +661,7 @@ func (db *documentsDB) Query(_ context.Context, sql string, args ...any) (Rows, 
 
 func (db *documentsDB) Exec(_ context.Context, sql string, args ...any) (Result, error) {
 	switch {
-	case strings.Contains(sql, "DELETE FROM docs WHERE COALESCE(attributes->>'tenant' = $1, FALSE)"):
+	case strings.Contains(sql, "DELETE FROM \"docs\" WHERE COALESCE(attributes->>'tenant' = $1, FALSE)"):
 		tenant, ok := args[0].(string)
 		if !ok {
 			return nil, fmt.Errorf("unexpected tenant arg type %T", args[0])

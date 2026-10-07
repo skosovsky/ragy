@@ -1,0 +1,10 @@
+--- FAIL: TestTableIdentifierPreservesCaseAndKeywords (0.00s)
+    --- FAIL: TestTableIdentifierPreservesCaseAndKeywords/docs (0.00s)
+        codec_contract_test.go:79: table identity  invalid argument
+    --- FAIL: TestTableIdentifierPreservesCaseAndKeywords/MixedCase (0.00s)
+        codec_contract_test.go:79: table identity  invalid argument
+    --- FAIL: TestTableIdentifierPreservesCaseAndKeywords/select (0.00s)
+        codec_contract_test.go:79: table identity  invalid argument
+FAIL
+FAIL	github.com/skosovsky/ragy/adapters/pgvector	0.473s
+FAIL

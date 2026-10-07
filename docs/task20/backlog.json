@@ -666,7 +666,7 @@
         "report": "acceptance/T16-correctness.md"
       }
     },
-    "commit_sha": null,
+    "commit_sha": "e6578d18eeab6e8030727025f5cd57e974afa619",
     "acceptance_report_sha256": {
       "completeness": "4c76c0ead3500629d6a82f8ddeb08c87b2c158cdd6bac83b9d3bc552af56f986",
       "correctness": "8ac44bcedc3fd29701046e7bd5b666f1a424343e5f233e1f78a8cc39657b3006"
@@ -675,7 +675,7 @@
   {
     "id": "T17",
     "title": "storage bridge contracts",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix!: storage bridge contracts",
     "criteria": [
       {
@@ -700,10 +700,23 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "21/21",
+        "coverage_percent": 100,
+        "report": "acceptance/T17-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T17-correctness.md"
+      }
     },
-    "commit_sha": null
+    "commit_sha": null,
+    "acceptance_report_sha256": {
+      "completeness": "7a9917a24d9af746eb447f195d0a3a96a61114220a2ccdcefa5f53241cf73631",
+      "correctness": "edc1466ebb16a78dbac680ac053fd5a288e28690db013d87c881b32787efe81c"
+    }
   },
   {
     "id": "T18",

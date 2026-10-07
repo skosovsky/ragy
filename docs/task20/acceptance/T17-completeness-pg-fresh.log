@@ -1,0 +1,122 @@
+=== RUN   TestRealPostgresCanonicalCodecAndQuotedTable
+    bridge_pg_test.go:69: native quoted table=RagyT17_13065, canonical custom codec calls=4, exact deleted=1
+--- PASS: TestRealPostgresCanonicalCodecAndQuotedTable (2.38s)
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity
+    filter_pg_test.go:216: PostgreSQL/pgvector [17.11 (Debian 17.11-1.pgdg12+2) 0.8.7]; table=ragy_t09_13065
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/s_eq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/s_not_eq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/s_neq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/s_not_neq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/s_in
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/s_not_in
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/s_in_both
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/s_not_in_both
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_eq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_not_eq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_neq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_not_neq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_in
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_not_in
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_in_both
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_not_in_both
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_eq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_not_eq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_neq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_not_neq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_in
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_not_in
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_in_both
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_not_in_both
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/b_eq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/b_not_eq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/b_neq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/b_not_neq
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/b_in
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/b_not_in
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/b_in_both
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/b_not_in_both
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_gt
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_not_gt
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_gte
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_not_gte
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_lt
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_not_lt
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_lte
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/i_not_lte
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_gt
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_not_gt
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_gte
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_not_gte
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_lt
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_not_lt
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_lte
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/f_not_lte
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/empty
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/and
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/or
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/not_and
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/not_or
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/not_or_and
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/or_not_and
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity/and_not_or
+=== NAME  TestRealPostgresPortableQueryAndDeleteParity
+    filter_pg_test.go:250: corpus=81 predicates=56 malformed=12; query/delete parity verified
+--- PASS: TestRealPostgresPortableQueryAndDeleteParity (103.09s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/s_eq (1.66s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/s_not_eq (1.71s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/s_neq (1.56s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/s_not_neq (1.52s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/s_in (1.47s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/s_not_in (1.51s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/s_in_both (1.58s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/s_not_in_both (1.51s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_eq (1.97s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_not_eq (2.04s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_neq (2.17s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_not_neq (2.17s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_in (2.28s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_not_in (1.83s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_in_both (2.09s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_not_in_both (1.62s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_eq (1.70s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_not_eq (1.91s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_neq (2.33s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_not_neq (2.15s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_in (2.13s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_not_in (2.45s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_in_both (2.60s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_not_in_both (2.73s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/b_eq (1.68s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/b_not_eq (1.53s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/b_neq (1.59s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/b_not_neq (1.56s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/b_in (1.61s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/b_not_in (1.55s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/b_in_both (1.62s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/b_not_in_both (1.57s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_gt (1.68s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_not_gt (1.91s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_gte (1.69s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_not_gte (1.59s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_lt (1.63s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_not_lt (1.84s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_lte (1.64s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/i_not_lte (1.64s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_gt (1.78s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_not_gt (1.83s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_gte (1.63s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_not_gte (1.85s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_lt (1.74s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_not_lt (1.65s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_lte (1.91s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/f_not_lte (1.59s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/empty (0.95s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/and (1.80s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/or (1.64s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/not_and (1.75s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/not_or (1.70s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/not_or_and (2.08s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/or_not_and (2.33s)
+    --- PASS: TestRealPostgresPortableQueryAndDeleteParity/and_not_or (2.76s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/pgvector	106.891s

@@ -117,7 +117,7 @@ func addFilterCase(t *testing.T, fixture *FilterParityFixture, name string, buil
 }
 
 func addScalarFilterCases[T interface {
-	~string | ~int64 | ~float64 | ~bool
+	string | int64 | float64 | bool
 }](t *testing.T, fixture *FilterParityFixture, field filter.Field[T], equal, unequal T) {
 	t.Helper()
 	fresh := func() *filter.Builder {
@@ -142,7 +142,7 @@ func addScalarFilterCases[T interface {
 	}
 }
 
-func addOrderedFilterCases[T interface{ ~int64 | ~float64 }](
+func addOrderedFilterCases[T interface{ int64 | float64 }](
 	t *testing.T,
 	fixture *FilterParityFixture,
 	field filter.Field[T],

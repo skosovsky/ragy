@@ -1,0 +1,10 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+adapters/qdrant/count_contract_test.go:14:2: there must be an empty line separating embedded fields from regular fields (embeddedstructfieldcheck)
+	*fakeClient
+	^
+adapters/qdrant/count_contract_test.go:49:1: File is not properly formatted (golines)
+		store, err := New(client, Config[contracttest.StructMeta]{Collection: "docs", Space: fixtureSpace(), Schema: schema}, contracttest.JSONCodec[contracttest.StructMeta](t, schema))
+^
+2 issues:
+* embeddedstructfieldcheck: 1
+* golines: 1

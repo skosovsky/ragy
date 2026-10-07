@@ -646,33 +646,75 @@
       "id": "D51",
       "task": "T17",
       "requirement": "Storage codec/filter contract: PG custom codec получает json.Number, ES/Qdrant normalized scalar: согласовать input types/empty attrs. Portable missing/null/wrong-kind truth table и constructor sentinel errors нужны независимо от SQL.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "PG now normalizes UseNumber attributes before custom Decode, including empty wire. Present schema-canonical kinds and nil/empty equivalence match ES/Qdrant; malformed present values fail admission. Portable omission booleans remain two-valued; present null/wrong-kind/nonfinite values require admission rejection. MatchIR lookup is pre-normalized, not arbitrary public metadata. Existing exhaustive parity verifies nested logic and all kinds. Nil/zero/unfinalized builder failures classify ErrInvalidArgument consistently. Final schema name/kind validation remains the provenance boundary.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "retrieval/codec.go",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/codec_contract_test.go",
+        "adapters/pgvector/bridge_pg_test.go",
+        "filter/README.md",
+        "filter/match.go",
+        "contracttest/filter_parity.go",
+        "adapters/pgvector/filter_pg_test.go",
+        "filter/builder.go",
+        "filter/builder_contract_test.go",
+        "filter/README.md"
+      ]
     },
     {
       "id": "D52",
       "task": "T17",
       "requirement": "ES tokenizer/config: SynonymMap следует clone/freeze; tokenize один раз и передавать результат. Stateful tokenizer не должен менять preflight и dispatched query; не новый tokenizer framework.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "ES deep-owns synonyms and fields; tokenize/expand once then reuse exact tokens for admission and dispatch. Stable/concurrent host callbacks retained; mutation/stateful fixture tests actual wire.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/elasticsearch/elasticsearch.go",
+        "adapters/elasticsearch/config_contract_test.go",
+        "adapters/elasticsearch/README.md"
+      ]
     },
     {
       "id": "D53",
       "task": "T17",
       "requirement": "PG identifiers/batch/order: Unquoted safe regex защищает injection, но uppercase/keywords требуют policy/quoting. Upsert batch bound host-owned без hidden chunked partial commits. Equal-distance tie order определить с учётом ANN planning.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Quote validated single ASCII table names, preserving case/keywords with no schema-qualified expansion. Retain host-bounded one-statement atomic batches, unspecified equal-distance ties and cleanup-only Close with authoritative Rows.Err.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/README.md",
+        "adapters/pgvector/codec_contract_test.go",
+        "adapters/pgvector/rows_contract_test.go",
+        "adapters/pgvector/bridge_pg_test.go"
+      ]
     },
     {
       "id": "D54",
       "task": "T17",
       "requirement": "Bridge capability honesty: Neo4j — Runner bridge, не native driver; generic Filters mapping/rejection и projection validation явны. Unknown affected counts не заменять длиной input. Local wire tests не certification live scope enforcement.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Reject generic Filters before Runner; graph-domain NodeFilter/EdgeFilter are explicit. Retrieve validates only document projection and ordinary prefixes; Traverse/Upsert validate full snapshots. T10 cancellation/private-cause regression restored locally and covered by retained delivery tests. Keep explicit host transport/Runner boundaries: no native driver, retry, DDL, migration or remote attestation. Local wire tests do not certify server enforcement; actual isolated PG profile separately checks tenant/omission/exact integers, unsupported pins remain explicit. Keep exact-only nonnegative counts; host must resolve unknown/asynchronous outcomes or return unsupported/error, never infer ID count. Negative/unrepresentable PG and negative Qdrant reports fail protocol; no fabricated unknown zero success. Direct Options.Filters/Plan.Filters/Plan.Ranges all reject before Runner; reviewed revision closes planned-channel omission. Native scoped Binding tenant pairs >2^53, omission, conflicting optional predicate and unsupported pinned-before-I/O are tested separately from unrestricted SQL predicate parity.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/neo4j/neo4j.go",
+        "adapters/neo4j/filter_contract_test.go",
+        "adapters/neo4j/delivery_test.go",
+        "adapters/neo4j/README.md",
+        "adapters/neo4j/README.md",
+        "adapters/pgvector/README.md",
+        "adapters/qdrant/README.md",
+        "adapters/elasticsearch/README.md",
+        "docs/task19/capabilities.md",
+        "documents/documents.go",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/count_contract_test.go",
+        "adapters/qdrant/store.go",
+        "adapters/qdrant/count_contract_test.go",
+        "adapters/pgvector/scope_pg_test.go"
+      ]
     },
     {
       "id": "D55",
@@ -2470,9 +2512,15 @@
       "source": "reviews/storage.md",
       "line": 35,
       "requirement": "`pgvector/store.go:374-383` hands raw json.Number to custom codec directly and skips codec on empty wire; Qdrant `:326-334` and ES `:273-299` normalize first. Probe TestReviewPGCodecCanonical using codec expecting schema-canonical int64 prints `canonical tenant: got json.Number` for 9007199254740993; built-in JSONCodec remains correct because it normalizes itself. MetadataCodec's current interface does NOT explicitly promise canonical Decode input, so classify as contract inconsistency to settle, not precision regression. Prefer adapter-owned normalization then custom codec receives stable scalar kinds on every backend; document empty attributes behavior.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "PG now normalizes UseNumber attributes before custom Decode, including empty wire. Present schema-canonical kinds and nil/empty equivalence match ES/Qdrant; malformed present values fail admission.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "retrieval/codec.go",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/codec_contract_test.go",
+        "adapters/pgvector/bridge_pg_test.go"
+      ]
     },
     {
       "id": "storage:02",
@@ -2480,9 +2528,14 @@
       "source": "reviews/storage.md",
       "line": 37,
       "requirement": "`elasticsearch.go:95` retains caller SynonymMap and nested slices, while BM25 constructor deep clones (`lexical/bm25.go:86-89`). Decide ownership once: clone immutable config maps/slices at construction, document callback concurrency separately. Otherwise post-construction config edits change behavior and concurrent edits can race. No concurrent mutation probe run; not a proven caller-contract violation.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "ES deep-owns synonyms and fields; tokenize/expand once then reuse exact tokens for admission and dispatch. Stable/concurrent host callbacks retained; mutation/stateful fixture tests actual wire.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/elasticsearch/elasticsearch.go",
+        "adapters/elasticsearch/config_contract_test.go",
+        "adapters/elasticsearch/README.md"
+      ]
     },
     {
       "id": "storage:03",
@@ -2490,9 +2543,14 @@
       "source": "reviews/storage.md",
       "line": 39,
       "requirement": "ES calls Tokenizer twice (`elasticsearch.go:129`, `:168`, `:212`) per successful retrieval. Stateful or expensive tokenizers see duplicate work and potentially inconsistent empty admission vs dispatched query. Compute once and pass tokens/expanded string; require stable tokenizer behavior explicitly. Avoid creating a tokenization framework.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "ES deep-owns synonyms and fields; tokenize/expand once then reuse exact tokens for admission and dispatch. Stable/concurrent host callbacks retained; mutation/stateful fixture tests actual wire.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/elasticsearch/elasticsearch.go",
+        "adapters/elasticsearch/config_contract_test.go",
+        "adapters/elasticsearch/README.md"
+      ]
     },
     {
       "id": "storage:04",
@@ -2500,9 +2558,16 @@
       "source": "reviews/storage.md",
       "line": 41,
       "requirement": "pgvector adapter names accepted by `ValidateSQLIdentifier` are interpolated unquoted (`:180`, `:271`), so uppercase names fold and SQL keywords fail. Safe regex prevents injection; this is not an injection defect. Specify lowercase unquoted identifiers vs correctly quote identifiers, including schema-qualified names if intentionally supported. Do not expand identifier policy speculatively.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Quote validated single ASCII table names, preserving case/keywords with no schema-qualified expansion. Retain host-bounded one-statement atomic batches, unspecified equal-distance ties and cleanup-only Close with authoritative Rows.Err.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/README.md",
+        "adapters/pgvector/codec_contract_test.go",
+        "adapters/pgvector/rows_contract_test.go",
+        "adapters/pgvector/bridge_pg_test.go"
+      ]
     },
     {
       "id": "storage:05",
@@ -2510,9 +2575,15 @@
       "source": "reviews/storage.md",
       "line": 43,
       "requirement": "Filter missing/NULL/wrong-kind contract should be documented independently of backend implementation, with conformance cases. RawAttributes nil rejected, absent accepted; portable missing-field behavior still matters without explicit null. `MatchIR` takes a lookup that can supply NaN/wrong numeric types; decide validated-boundary precondition vs graceful rejection. Don't let arbitrary user maps become domain metadata API.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Portable omission booleans remain two-valued; present null/wrong-kind/nonfinite values require admission rejection. MatchIR lookup is pre-normalized, not arbitrary public metadata. Existing exhaustive parity verifies nested logic and all kinds.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "filter/README.md",
+        "filter/match.go",
+        "contracttest/filter_parity.go",
+        "adapters/pgvector/filter_pg_test.go"
+      ]
     },
     {
       "id": "storage:06",
@@ -2520,9 +2591,16 @@
       "source": "reviews/storage.md",
       "line": 45,
       "requirement": "Neo4j currently exposes a typed Runner abstraction, not Cypher/driver implementation (`neo4j.go:26-29`). Keep that honest in naming and docs; a built-in driver is an optional separate adapter, not a prerequisite for correctness. Existing capability matrix explicitly says no native driver and scoped/pinned unsupported — retain this honesty.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep explicit host transport/Runner boundaries: no native driver, retry, DDL, migration or remote attestation. Local wire tests do not certify server enforcement; actual isolated PG profile separately checks tenant/omission/exact integers, unsupported pins remain explicit.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/neo4j/README.md",
+        "adapters/pgvector/README.md",
+        "adapters/qdrant/README.md",
+        "adapters/elasticsearch/README.md",
+        "docs/task19/capabilities.md"
+      ]
     },
     {
       "id": "storage:07",
@@ -2530,9 +2608,15 @@
       "source": "reviews/storage.md",
       "line": 47,
       "requirement": "Neo4j Retrieve accepts generic Filters/Plan filters but only passes Graph.NodeFilter/EdgeFilter. Contract should explicitly reject unsupported generic filter fields or define mapping; don't silently reinterpret node-vs-edge domain semantics. Graph module owner should assess together with managed graph query behavior. No scope bypass claim because this backend denies scoped reads.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Reject generic Filters before Runner; graph-domain NodeFilter/EdgeFilter are explicit. Retrieve validates only document projection and ordinary prefixes; Traverse/Upsert validate full snapshots. T10 cancellation/private-cause regression restored locally and covered by retained delivery tests. Direct Options.Filters/Plan.Filters/Plan.Ranges all reject before Runner; reviewed revision closes planned-channel omission.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/neo4j/neo4j.go",
+        "adapters/neo4j/filter_contract_test.go",
+        "adapters/neo4j/delivery_test.go",
+        "adapters/neo4j/README.md"
+      ]
     },
     {
       "id": "storage:08",
@@ -2540,9 +2624,15 @@
       "source": "reviews/storage.md",
       "line": 49,
       "requirement": "Neo4j Traverse normalizes full returned snapshot, while Retrieve projects only document fields (`neo4j.go:106-125`, `:153`). Decide whether invalid labels/edge endpoints/metadata from Runner must be rejected during retrieval or intentionally excluded from the projection contract; documenting only schema-validated traversal is insufficient if consumers assume full returned graph validation.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Reject generic Filters before Runner; graph-domain NodeFilter/EdgeFilter are explicit. Retrieve validates only document projection and ordinary prefixes; Traverse/Upsert validate full snapshots. T10 cancellation/private-cause regression restored locally and covered by retained delivery tests. Direct Options.Filters/Plan.Filters/Plan.Ranges all reject before Runner; reviewed revision closes planned-channel omission.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/neo4j/neo4j.go",
+        "adapters/neo4j/filter_contract_test.go",
+        "adapters/neo4j/delivery_test.go",
+        "adapters/neo4j/README.md"
+      ]
     },
     {
       "id": "storage:09",
@@ -2550,9 +2640,16 @@
       "source": "reviews/storage.md",
       "line": 51,
       "requirement": "pgvector Upsert builds one SQL statement with four parameters per record. Host must bound batch size (Postgres parameter/statement capacities); no implicit chunking that turns atomic single-statement semantics into partial commits. Expose/document explicit capacity or host batching responsibility and errors.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Quote validated single ASCII table names, preserving case/keywords with no schema-qualified expansion. Retain host-bounded one-statement atomic batches, unspecified equal-distance ties and cleanup-only Close with authoritative Rows.Err.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/README.md",
+        "adapters/pgvector/codec_contract_test.go",
+        "adapters/pgvector/rows_contract_test.go",
+        "adapters/pgvector/bridge_pg_test.go"
+      ]
     },
     {
       "id": "storage:10",
@@ -2560,9 +2657,16 @@
       "source": "reviews/storage.md",
       "line": 53,
       "requirement": "pgvector search orders only distance (`store.go:182`) and lacks tie-break ID. Define whether deterministic equal-score ordering is required, especially evaluation reproducibility/caches. Add stable tie-break if supported without undermining ANN index planning; no ANN guarantees currently claimed.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Quote validated single ASCII table names, preserving case/keywords with no schema-qualified expansion. Retain host-bounded one-statement atomic batches, unspecified equal-distance ties and cleanup-only Close with authoritative Rows.Err.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/README.md",
+        "adapters/pgvector/codec_contract_test.go",
+        "adapters/pgvector/rows_contract_test.go",
+        "adapters/pgvector/bridge_pg_test.go"
+      ]
     },
     {
       "id": "storage:11",
@@ -2570,9 +2674,15 @@
       "source": "reviews/storage.md",
       "line": 55,
       "requirement": "RawStore FindByIDs/Delete methods deliberately bypass read Binding and use explicit raw administration contract. Keep them clearly named/documented. Do not retrofit service IAM into every raw storage operation or misreport this as boundary violation.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "FindByIDs/Get/Delete are explicitly raw administration outside read binding/scoped hydration guarantees; no retrofit service IAM.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "documents/documents.go",
+        "documents/README.md",
+        "adapters/pgvector/README.md",
+        "adapters/qdrant/README.md"
+      ]
     },
     {
       "id": "storage:12",
@@ -2580,9 +2690,16 @@
       "source": "reviews/storage.md",
       "line": 57,
       "requirement": "Returned affected counts from Qdrant bridge trusted; transport driver must implement exact vs unknown counts honestly (especially async deletes). Current int API leaves unknown unrepresentable. Decide known/unknown DeleteResult count contract if real drivers cannot provide exact count; don't synthesize count from request length.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Keep exact-only nonnegative counts; host must resolve unknown/asynchronous outcomes or return unsupported/error, never infer ID count. Negative/unrepresentable PG and negative Qdrant reports fail protocol; no fabricated unknown zero success.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "documents/documents.go",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/count_contract_test.go",
+        "adapters/qdrant/store.go",
+        "adapters/qdrant/count_contract_test.go"
+      ]
     },
     {
       "id": "storage:13",
@@ -2590,9 +2707,16 @@
       "source": "reviews/storage.md",
       "line": 59,
       "requirement": "pgvector Rows.Close errors ignored; query/decode partial handling otherwise explicit. Decide if close error can contain a meaningful host-driver query outcome and whether to expose it; no blanket defer-error machinery without real driver requirement.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Quote validated single ASCII table names, preserving case/keywords with no schema-qualified expansion. Retain host-bounded one-statement atomic batches, unspecified equal-distance ties and cleanup-only Close with authoritative Rows.Err.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/pgvector/store.go",
+        "adapters/pgvector/README.md",
+        "adapters/pgvector/codec_contract_test.go",
+        "adapters/pgvector/rows_contract_test.go",
+        "adapters/pgvector/bridge_pg_test.go"
+      ]
     },
     {
       "id": "storage:14",
@@ -2600,9 +2724,16 @@
       "source": "reviews/storage.md",
       "line": 61,
       "requirement": "All storage bridges lack native live transport, retries, migrations and remote profile inspection. These are documented host responsibilities and appropriate boundaries. Keep no hidden fallback/backoff; do not add automatic remote DDL/schema mutation, shadow collections or re-embedding to adapter constructors.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep explicit host transport/Runner boundaries: no native driver, retry, DDL, migration or remote attestation. Local wire tests do not certify server enforcement; actual isolated PG profile separately checks tenant/omission/exact integers, unsupported pins remain explicit.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/neo4j/README.md",
+        "adapters/pgvector/README.md",
+        "adapters/qdrant/README.md",
+        "adapters/elasticsearch/README.md",
+        "docs/task19/capabilities.md"
+      ]
     },
     {
       "id": "storage:15",
@@ -2610,9 +2741,17 @@
       "source": "reviews/storage.md",
       "line": 63,
       "requirement": "Capability claims for pgvector/Qdrant/ES rely on host bridge actually enforcing supplied predicate before loading payload. Local SQL/DSL/condition tests cannot prove bridge/server enforcement. Keep integration certification separate, including tenant pairs, >2^53 int64 neighbors, omission metadata cases and unsupported pinned requests. Existing docs/task19/capabilities.md distinguishes wire/local/live correctly.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep explicit host transport/Runner boundaries: no native driver, retry, DDL, migration or remote attestation. Local wire tests do not certify server enforcement; actual isolated PG profile separately checks tenant/omission/exact integers, unsupported pins remain explicit. Native scoped Binding tenant pairs >2^53, omission, conflicting optional predicate and unsupported pinned-before-I/O are tested separately from unrestricted SQL predicate parity.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "adapters/neo4j/README.md",
+        "adapters/pgvector/README.md",
+        "adapters/qdrant/README.md",
+        "adapters/elasticsearch/README.md",
+        "docs/task19/capabilities.md",
+        "adapters/pgvector/scope_pg_test.go"
+      ]
     },
     {
       "id": "storage:16",
@@ -2620,9 +2759,14 @@
       "source": "reviews/storage.md",
       "line": 65,
       "requirement": "Public filter aliases expose constraints with underlying scalar (~) types but constructors produce only built-in typed fields, while internal scalarKind/toValue handle exact types. Avoid speculative generic alias support until public constructor permits it; simplify constraints or ensure alias-normalization deliberately if that API expands.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Simplify scalar constraints to exact built-in types matching actual public schema constructors; migrate two private parity helpers after consumer inventory. No speculative named-type constructor/normalization API.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "filter/filter.go",
+        "filter/README.md",
+        "contracttest/filter_parity.go"
+      ]
     },
     {
       "id": "storage:17",
@@ -2630,9 +2774,14 @@
       "source": "reviews/storage.md",
       "line": 67,
       "requirement": "Public builders return bare errors for nil/unfinalized states (`filter/builder.go:15`, `:38`) while schema/adapters use ErrInvalidArgument. Standardize sentinel classification where callers need it; naming/building no schema provenance token is fine because final schema validation checks names+kinds.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Nil/zero/unfinalized builder failures classify ErrInvalidArgument consistently. Final schema name/kind validation remains the provenance boundary.",
+      "evidence": [
+        "docs/task20/T17.md",
+        "filter/builder.go",
+        "filter/builder_contract_test.go",
+        "filter/README.md"
+      ]
     },
     {
       "id": "providers:01",

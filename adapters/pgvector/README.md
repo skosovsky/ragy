@@ -42,3 +42,44 @@ Missing container/label/extension/runtime is a failure, never SKIP. The profile
 creates/drops only its process-specific test table; supply an isolated runtime with
 no production data. Production transport remains the host's responsibility; no SQL
 driver dependency or automatic server startup was added to this module.
+
+## Host bridge outcomes and identifiers
+
+The existing single ASCII identifier grammar is retained; table names are always
+quoted, preserving case and keywords. Schema-qualified names are unsupported.
+Values remain parameters. Hosts provision tables and bound Upsert batch sizes for
+server/driver parameter and statement capacity. Upsert is one SQL statement; no
+implicit chunking or partial batch commits are introduced.
+
+Distance-only ordering leaves equal-distance ties unspecified. Ranks reflect actual
+backend order; callers must not assume reproducible ID tie order or ANN recall.
+This retains the query shape usable by a host's chosen ANN planner/index profile.
+
+Custom Decode receives schema-canonical scalars (including exact int64) and is
+called even on empty wire attributes. Omitted whole attributes normalize to nil;
+codecs accept nil/empty equivalently. Present null/wrong-kind values fail admission.
+JSONCodec may also accept raw wire attributes and normalize them defensively.
+
+Rows.Err reports query/iteration outcome before delivery. Rows.Close belongs to
+cleanup only in this bridge profile; its returned diagnostic is not interpreted
+as a late query outcome. Host drivers must surface actual query failures through
+Err and observe cleanup diagnostics themselves. Raw FindByIDs/Delete are explicit
+administration without bound retrieval scope/publication guarantees.
+
+RowsAffected must be exact, nonnegative and representable as a Go int. Invalid
+counts fail protocol. Unknown/asynchronous outcomes require host observation or an
+explicit unsupported/error result; never infer affected count from submitted IDs.
+No transport, retry, migration or remote profile inspection is supplied here.
+
+The additional `TestRealPostgresCanonicalCodecAndQuotedTable` profile creates a
+process-unique mixed-case table and asserts actual Upsert/Retrieve/FindByIDs/delete,
+custom-codec canonical int64 >2^53, empty attributes and exact deleted count.
+Use the same isolated container/label and `integration_pg` tag; run both profiles
+with `-run '^TestRealPostgres(Portable|Canonical|Scoped)'`. The T17-owned container adds
+`ragy.task20.owner=T17` while retaining the original profile isolation label T09.
+
+`TestRealPostgresScopedTenantPairsAndPinnedAdmission` uses actual host-scoped
+Bindings and mandatory tenant predicates on adjacent int64 identities above2^53.
+It checks both tenants, omitted metadata, a conflicting optional predicate, and
+unsupported pinned publication rejection before DB invocation. This certifies the
+explicit local bridge/server test profile, not arbitrary host authority policies.

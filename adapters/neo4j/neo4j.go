@@ -63,11 +63,11 @@ func (s *Store[TMeta]) Retrieve(
 	req retrieval.Query[struct{}],
 ) (retrieval.ResultSet[TMeta], error) {
 	rs, err := s.retrieve(ctx, req)
-	delivered, deliveryErr := retrieval.DeliverRead(ctx, req.Read, rs, err, s.resolver)
+	delivered, deliveryErr := retrieval.DeliverRead(ctx, req.Read, rs, nil, s.resolver)
 	if access.IsProtectionFailure(deliveryErr) {
 		return delivered, readfailure.Join(deliveryErr, err)
 	}
-	return delivered, deliveryErr
+	return retrieval.PreserveResultOnError(delivered, err, s.resolver)
 }
 
 func (s *Store[TMeta]) retrieve(
@@ -83,6 +83,9 @@ func (s *Store[TMeta]) retrieve(
 	opts := req.Options
 	if err := opts.Validate(); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
+	}
+	if hasGenericPredicates(req) {
+		return retrieval.NewResultSet[TMeta](nil, s.resolver), ragy.ErrUnsupported
 	}
 	if opts.Graph == nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver),
@@ -187,3 +190,10 @@ var (
 	_ retrieval.Backend[struct{}, any] = (*Store[any])(nil)
 	_ graph.Store[any]                 = (*Store[any])(nil)
 )
+
+func hasGenericPredicates(req retrieval.Query[struct{}]) bool {
+	if !filter.IsEmpty(req.Options.Filters.IR()) {
+		return true
+	}
+	return req.Plan != nil && (!filter.IsEmpty(req.Plan.Filters.IR()) || len(req.Plan.Ranges) > 0)
+}

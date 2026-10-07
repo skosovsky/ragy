@@ -83,6 +83,8 @@ type Point struct {
 
 // Client executes qdrant operations against the host-provisioned collection.
 // Search returns native similarity scores unchanged, with larger values better.
+// Delete methods report exact nonnegative counts; hosts resolve unknown/async
+// outcomes or return an error rather than infer request length.
 // Cosine collections use Cosine; dot and normalized-dot profiles use Dot.
 type Client interface {
 	Upsert(ctx context.Context, collection string, points []Point) error
@@ -292,6 +294,9 @@ func (s *Store[TMeta]) DeleteByIDs(ctx context.Context, ids []string) (documents
 		return documents.DeleteResult{}, ragy.WrapBackendError(err, "qdrant delete by ids")
 	}
 
+	if deleted < 0 {
+		return documents.DeleteResult{}, fmt.Errorf("%w: invalid affected count", ragy.ErrProtocol)
+	}
 	return documents.DeleteResult{Deleted: deleted}, nil
 }
 
@@ -315,6 +320,9 @@ func (s *Store[TMeta]) DeleteByFilter(ctx context.Context, cond filter.Condition
 		return documents.DeleteResult{}, ragy.WrapBackendError(err, "qdrant delete by filter")
 	}
 
+	if deleted < 0 {
+		return documents.DeleteResult{}, fmt.Errorf("%w: invalid affected count", ragy.ErrProtocol)
+	}
 	return documents.DeleteResult{Deleted: deleted}, nil
 }
 

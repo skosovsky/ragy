@@ -195,7 +195,6 @@ func TestPipelineContractConformance(t *testing.T) {
 				{ScoreSemantics: "fixture-similarity", ScoreState: retrieval.ScorePresent, ID: "hit", Score: 1},
 			},
 		},
-		ConditionalNilPredicateWantID: "hit",
 		AggregatePartialNodes: []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			errorNode[struct{}]{err: ragy.ErrUnavailable},
 			stubNode[struct{}]{
@@ -205,7 +204,7 @@ func TestPipelineContractConformance(t *testing.T) {
 			},
 		},
 		AggregatePartialWantID: "hit",
-		AggregateMergeFallbackNodes: []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
+		AggregateFusionFailureNodes: []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			stubNode[struct{}]{docs: []retrieval.Document[struct{}]{
 				{
 					ScoreSemantics: "fixture-similarity",
@@ -225,8 +224,7 @@ func TestPipelineContractConformance(t *testing.T) {
 				},
 			}},
 		},
-		AggregateMergeFallbackMerger:  stubFailingMerger{},
-		AggregateMergeFallbackWantLen: 1,
+		AggregateFusionFailureMerger: stubFailingMerger{},
 	})
 }
 

@@ -1,0 +1,3 @@
+ok  	github.com/skosovsky/ragy/filter	1.436s
+ok  	github.com/skosovsky/ragy/adapters/elasticsearch	1.445s
+ok  	github.com/skosovsky/ragy/adapters/neo4j	1.977s

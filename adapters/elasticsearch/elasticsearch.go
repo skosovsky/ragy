@@ -85,13 +85,18 @@ func New[TMeta any](client Client, cfg Config[TMeta], codec retrieval.MetadataCo
 		tokenizer = lexical.DefaultTokenizer{}
 	}
 
+	ownedSynonyms := make(lexical.SynonymMap, len(cfg.Synonyms))
+	for term, variants := range cfg.Synonyms {
+		ownedSynonyms[term] = slices.Clone(variants)
+	}
+
 	return &Store[TMeta]{
 		client:    client,
 		index:     cfg.Index,
 		fields:    fields,
 		schema:    cfg.Schema,
 		codec:     codec,
-		synonyms:  cfg.Synonyms,
+		synonyms:  ownedSynonyms,
 		tokenizer: tokenizer,
 		resolver:  retrieval.DefaultResolver(cfg.Resolver),
 	}, nil
@@ -127,11 +132,12 @@ func (s *Store[TMeta]) retrieve(
 	if err := s.Schema().ValidateSchemaIR(opts.Filters.IR()); err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
-	if len(s.queryTokens(query)) == 0 {
+	tokens := s.queryTokens(query)
+	if len(tokens) == 0 {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), nil
 	}
 
-	body, err := s.render(query, opts)
+	body, err := s.render(tokens, opts)
 	if err != nil {
 		return retrieval.NewResultSet[TMeta](nil, s.resolver), err
 	}
@@ -164,8 +170,8 @@ func (s *Store[TMeta]) Schema() filter.Schema {
 	return s.schema
 }
 
-func (s *Store[TMeta]) render(query string, opts retrieval.RetrieveOptions) (map[string]any, error) {
-	searchQuery := s.expandQuery(query)
+func (s *Store[TMeta]) render(tokens []string, opts retrieval.RetrieveOptions) (map[string]any, error) {
+	searchQuery := strings.Join(tokens, " ")
 	multiMatch := map[string]any{
 		"query":  searchQuery,
 		"fields": slices.Clone(s.fields),
@@ -206,14 +212,6 @@ func (s *Store[TMeta]) queryTokens(query string) []string {
 		return tokens
 	}
 	return s.synonyms.Expand(tokens)
-}
-
-func (s *Store[TMeta]) expandQuery(query string) string {
-	tokens := s.queryTokens(query)
-	if len(tokens) == 0 {
-		return ""
-	}
-	return strings.Join(tokens, " ")
 }
 
 func renderFilter(expr filter.IR) (map[string]any, error) {

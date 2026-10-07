@@ -1,6 +1,10 @@
 package filter
 
-import "errors"
+import (
+	"fmt"
+
+	ragy "github.com/skosovsky/ragy"
+)
 
 // Builder constructs validated filter conditions without exposing IR construction to callers.
 type Builder struct {
@@ -11,7 +15,7 @@ type Builder struct {
 // NewBuilder creates a filter builder bound to a finalized schema.
 func NewBuilder(schema Schema) (*Builder, error) {
 	if !schema.IsFinalized() {
-		return nil, errors.New("filter builder requires finalized schema")
+		return nil, fmt.Errorf("%w: filter builder requires finalized schema", ragy.ErrInvalidArgument)
 	}
 	return &Builder{schema: schema}, nil
 }
@@ -34,7 +38,10 @@ func (b *Builder) with(e expr) *Builder {
 // Build validates the expression against the schema and returns a Condition.
 func (b *Builder) Build() (Condition, error) {
 	if b == nil {
-		return Condition{}, errors.New("filter builder is nil")
+		return Condition{}, fmt.Errorf("%w: filter builder is nil", ragy.ErrInvalidArgument)
+	}
+	if !b.schema.IsFinalized() {
+		return Condition{}, fmt.Errorf("%w: filter builder requires finalized schema", ragy.ErrInvalidArgument)
 	}
 	if b.expr == nil {
 		return emptyBuiltCondition(), nil

@@ -35,7 +35,8 @@ func ValidateIdentifier(name string) error {
 	return nil
 }
 
-// ValidateSQLIdentifier enforces the unquoted-safe SQL identifier policy.
+// ValidateSQLIdentifier enforces a single ASCII SQL identifier grammar.
+// Adapters quote accepted names to preserve case and reserved keywords.
 func ValidateSQLIdentifier(name string) error {
 	if !sqlIdentifierPattern.MatchString(name) {
 		return fmt.Errorf("%w: invalid sql identifier %q", ragy.ErrInvalidArgument, name)
@@ -73,15 +74,15 @@ const (
 )
 
 type scalar interface {
-	~string |
-		~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~float32 | ~float64 |
-		~bool
+	string |
+		int | int8 | int16 | int32 | int64 |
+		float32 | float64 |
+		bool
 }
 
 type orderedScalar interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~float32 | ~float64
+	int | int8 | int16 | int32 | int64 |
+		float32 | float64
 }
 
 // SchemaBuilder constructs typed field descriptors before freezing a schema.

@@ -50,15 +50,13 @@ type PipelineNodeSemanticsConfig struct {
 	ConditionalPredicateTrue func(retrieval.Query[struct{}]) bool
 	ConditionalTrueWantID    string
 
-	ConditionalNilPredicateChild  retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
-	ConditionalNilPredicateWantID string
+	ConditionalNilPredicateChild retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 
 	AggregatePartialNodes  []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
 	AggregatePartialWantID string
 
-	AggregateMergeFallbackNodes   []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
-	AggregateMergeFallbackMerger  retrieval.ResultMerger[struct{}]
-	AggregateMergeFallbackWantLen int
+	AggregateFusionFailureNodes  []retrieval.ExecutionNode[struct{}, struct{}, retrieval.NoExecutionMeta]
+	AggregateFusionFailureMerger retrieval.ResultMerger[struct{}]
 }
 
 func pipelineSemanticsQuery[TIntent any]() retrieval.Query[TIntent] {
@@ -162,7 +160,7 @@ func RunPipelineNodeSemanticsSuite(t *testing.T, cfg PipelineNodeSemanticsConfig
 	runPipelineRescueSemantics(t, cfg)
 	runPipelineConditionalSemantics(t, cfg)
 	runPipelineAggregatePartialSemantics(t, cfg)
-	runPipelineAggregateMergeFallbackSemantics(t, cfg)
+	runPipelineAggregateFusionFailureSemantics(t, cfg)
 }
 
 func runPipelineFallbackSemantics(t *testing.T, cfg PipelineNodeSemanticsConfig) {
@@ -473,39 +471,26 @@ func runPipelineConditionalSemantics(t *testing.T, cfg PipelineNodeSemanticsConf
 		}
 	})
 
-	t.Run("conditional runs child when predicate nil", func(t *testing.T) {
+	t.Run("conditional rejects nil predicate", func(t *testing.T) {
 		t.Parallel()
-		testPipelineConditionalRunsChildWhenPredicateNil(t, cfg)
+		testPipelineConditionalRejectsNilPredicate(t, cfg)
 	})
 }
 
-func testPipelineConditionalRunsChildWhenPredicateNil(t *testing.T, cfg PipelineNodeSemanticsConfig) {
+func testPipelineConditionalRejectsNilPredicate(t *testing.T, cfg PipelineNodeSemanticsConfig) {
 	t.Helper()
 
 	if cfg.ConditionalNilPredicateChild == nil {
 		t.Skip("no ConditionalNilPredicateChild configured")
 	}
-	wantID := cfg.ConditionalNilPredicateWantID
-	if wantID == "" {
-		wantID = "hit"
-	}
-
 	pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
 		WithRoot(retrieval.ConditionalNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
 			Predicate: nil,
 			Child:     cfg.ConditionalNilPredicateChild,
 		}).
 		Build()
-	if err != nil {
-		t.Fatalf("Build(): %v", err)
-	}
-
-	rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
-	if err != nil {
-		t.Fatalf("Retrieve(): %v", err)
-	}
-	if rs.IsEmpty() || rs.Documents()[0].ID != wantID {
-		t.Fatalf("Documents() = %#v, want id %q when predicate nil", rs.Documents(), wantID)
+	if pipeline != nil || !errors.Is(err, ragy.ErrInvalidArgument) {
+		t.Fatalf("Build() = %v, %v, want rejected nil predicate", pipeline, err)
 	}
 }
 
@@ -539,24 +524,24 @@ func runPipelineAggregatePartialSemantics(t *testing.T, cfg PipelineNodeSemantic
 	})
 }
 
-func runPipelineAggregateMergeFallbackSemantics(t *testing.T, cfg PipelineNodeSemanticsConfig) {
+func runPipelineAggregateFusionFailureSemantics(t *testing.T, cfg PipelineNodeSemanticsConfig) {
 	t.Helper()
 
-	if len(cfg.AggregateMergeFallbackNodes) == 0 {
+	if len(cfg.AggregateFusionFailureNodes) == 0 {
 		return
 	}
 
-	t.Run("aggregate uses score merge fallback when merger fails", func(t *testing.T) {
+	t.Run("aggregate retains observations when merger fails", func(t *testing.T) {
 		t.Parallel()
 
-		merger := cfg.AggregateMergeFallbackMerger
+		merger := cfg.AggregateFusionFailureMerger
 		if merger == nil {
-			t.Fatal("AggregateMergeFallbackMerger must be configured")
+			t.Fatal("AggregateFusionFailureMerger must be configured")
 		}
 
 		pipeline, err := retrieval.NewExecutionPipelineBuilder[struct{}, struct{}, retrieval.NoExecutionMeta]().
 			WithRoot(retrieval.AggregateNode[struct{}, struct{}, retrieval.NoExecutionMeta]{
-				Nodes:  cfg.AggregateMergeFallbackNodes,
+				Nodes:  cfg.AggregateFusionFailureNodes,
 				Merger: merger,
 			}).
 			WithResolver(ContentMergeResolver[struct{}]{}).
@@ -566,21 +551,16 @@ func runPipelineAggregateMergeFallbackSemantics(t *testing.T, cfg PipelineNodeSe
 		}
 
 		rs, err := pipeline.Execute(context.Background(), pipelineSemanticsQuery[struct{}]())
-		if _, ok := errors.AsType[*retrieval.PartialFailureError[struct{}]](err); !ok {
-			t.Fatalf("Retrieve() error = %v, want PartialFailureError", err)
+		fusion, ok := errors.AsType[*retrieval.FusionFailureError[struct{}]](err)
+		if !ok || !errors.Is(err, ragy.ErrInvalidArgument) || !rs.IsEmpty() {
+			t.Fatalf("Retrieve() result=%v error=%v, want fusion failure without fabricated result", rs, err)
 		}
-		if !errors.Is(err, ragy.ErrInvalidArgument) {
-			t.Fatalf("Retrieve() error = %v, want invalid argument from failing merger", err)
-		}
-		wantLen := cfg.AggregateMergeFallbackWantLen
-		if wantLen == 0 {
-			wantLen = 1
-		}
-		if rs.Len() != wantLen {
-			t.Fatalf("Len() = %d, want %d (degraded merge preserved docs)", rs.Len(), wantLen)
-		}
-		if rs.IsEmpty() {
-			t.Fatalf("Documents() empty, want score-merge fallback result")
+		if len(fusion.Observations()) != len(cfg.AggregateFusionFailureNodes) {
+			t.Fatalf(
+				"observations=%d, want %d original inputs",
+				len(fusion.Observations()),
+				len(cfg.AggregateFusionFailureNodes),
+			)
 		}
 	})
 }

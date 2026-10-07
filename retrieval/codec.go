@@ -10,6 +10,10 @@ import (
 )
 
 // MetadataCodec serializes typed metadata to storage attributes and back.
+// PG/ES/Qdrant storage bridges normalize present Decode values to schema kinds:
+// string, bool, int64 and finite float64. Omitted attributes normalize to nil;
+// custom codecs must accept nil and empty maps equivalently. JSONCodec also
+// accepts raw transport attributes and normalizes them defensively.
 type MetadataCodec[TMeta any] interface {
 	Encode(meta TMeta) (filter.RawAttributes, error)
 	Decode(attrs filter.RawAttributes) (TMeta, error)
