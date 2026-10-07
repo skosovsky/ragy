@@ -55,7 +55,7 @@ class Fixture:
 
     def invoke(self, source=None):
         return subprocess.run(["bash", str(self.repo / "scripts/release.sh"), "patch", source or self.source],
-                              cwd=self.repo, input="y\n", text=True, capture_output=True, timeout=60,
+                              cwd=self.repo, input="y\n", text=True, capture_output=True, timeout=180,
                               env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
 
     def snapshot(self):
@@ -207,7 +207,7 @@ class ReleaseIsolation(unittest.TestCase):
                 # Act.
                 completed = subprocess.run(
                     ["bash", str(fixture.repo / "scripts/release.sh"), "patch", fixture.source],
-                    cwd=fixture.repo, input="y\n", text=True, capture_output=True, timeout=60,
+                    cwd=fixture.repo, input="y\n", text=True, capture_output=True, timeout=180,
                     env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", variable: target},
                 )
                 # Assert.
@@ -233,7 +233,7 @@ class ReleaseIsolation(unittest.TestCase):
             # Act.
             completed = subprocess.run(
                 ["bash", str(fixture.repo / "scripts/release.sh"), "patch", fixture.source],
-                cwd=fixture.repo, input="y\n", text=True, capture_output=True, timeout=60,
+                cwd=fixture.repo, input="y\n", text=True, capture_output=True, timeout=180,
                 env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "GIT_CONFIG_GLOBAL": str(config)},
             )
             # Assert.

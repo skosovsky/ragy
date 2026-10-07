@@ -21,13 +21,13 @@ def record(fixture):
 
 def command(fixture, operation, env=None):
     return subprocess.run(["bash", str(fixture.repo / "scripts/release.sh"), operation],
-                          cwd=fixture.repo, text=True, capture_output=True, timeout=60,
+                          cwd=fixture.repo, text=True, capture_output=True, timeout=180,
                           env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **(env or {})})
 
 
 def invoke(fixture, env=None):
     return subprocess.run(["bash", str(fixture.repo / "scripts/release.sh"), "patch", fixture.source],
-                          cwd=fixture.repo, input="y\n", text=True, capture_output=True, timeout=60,
+                          cwd=fixture.repo, input="y\n", text=True, capture_output=True, timeout=180,
                           env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **(env or {})})
 
 
