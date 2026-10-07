@@ -1,67 +1,39 @@
-GO      := go
-MODULES := $(shell find . -type d \( -name ".*" -not -name "." -o -name "vendor" \) -prune -o -type f -name "go.mod" -exec dirname {} \;)
+GO := go
+PYTHON := python3
+VERIFY := GO="$(GO)" $(PYTHON) scripts/verify.py
 
-.PHONY: lint fix test examples test-examples bench bench-hotpath fuzz cover release-patch release-break
+.PHONY: lint fix test acceptance examples test-examples bench fuzz cover versions release-patch release-break
 
 lint:
-	@for dir in $(MODULES); do \
-		echo "golangci-lint - $$dir"; \
-		(cd "$$dir" && golangci-lint run --allow-serial-runners ./...) || exit 1; \
-	done
+	@$(VERIFY) lint
+
+# Cached developer checks; use acceptance for a fresh, recorded review gate.
+test:
+	@$(VERIFY) test
+
+acceptance:
+	@$(VERIFY) acceptance
+
+versions:
+	@$(VERIFY) versions
+
+examples test-examples:
+	@$(VERIFY) examples
 
 fix:
-	@if [ -f "go.work" ]; then $(GO) work sync; fi
-	@for dir in $(MODULES); do \
-		echo "fix & tidy - $$dir"; \
-		(cd "$$dir" && $(GO) fix ./... && $(GO) mod tidy) || exit 1; \
-		(cd "$$dir" && golangci-lint run --fix ./...) || exit 1; \
-	done
-
-test:
-	@for dir in $(MODULES); do \
-		echo "test - $$dir"; \
-		(cd "$$dir" && $(GO) test -v -race ./...) || exit 1; \
-	done
-	@$(MAKE) test-examples
-
-test-examples:
-	@for ex in catalog_vector_fallback partial_failure_aggregate rescue_fallback_aggregate vector_bm25_aggregate; do \
-		echo "build examples/planner/$$ex"; \
-		$(GO) build -o /dev/null ./examples/planner/$$ex/... || exit 1; \
-	done
-	@echo "build examples/resilience"
-	@cd examples/resilience && $(GO) build -o /dev/null ./...
-	@echo "test examples/planner"
-	@cd examples/planner && $(GO) test -race ./...
-	@echo "test examples/resilience"
-	@cd examples/resilience && $(GO) test -race ./...
+	@$(VERIFY) fix
 
 bench:
-	@for dir in $(MODULES); do \
-		echo "bench - $$dir"; \
-		(cd "$$dir" && $(GO) test -bench=. -run=^$$ ./...) || exit 1; \
-	done
+	@$(VERIFY) bench
 
 fuzz:
-	@for dir in $(MODULES); do \
-		echo "fuzz - $$dir"; \
-		(cd "$$dir" && \
-			for pkg in $$($(GO) list -tags=fuzz ./...); do \
-				if $(GO) test -tags=fuzz -list . "$$pkg" 2>/dev/null | grep -q '^Fuzz'; then \
-					$(GO) test -tags=fuzz -fuzz=. -fuzztime=30s "$$pkg" || exit 1; \
-				fi; \
-			done \
-		) || exit 1; \
-	done
+	@$(VERIFY) fuzz --fuzz-seconds=$(or $(FUZZ_SECONDS),30)
 
 cover:
-	@for dir in $(MODULES); do \
-		echo "cover - $$dir"; \
-		(cd "$$dir" && $(GO) test -coverprofile=coverage.out ./... && $(GO) tool cover -func=coverage.out) || exit 1; \
-	done
+	@$(VERIFY) cover
 
-release-patch: lint test ## v0.5.0 -> v0.5.1
+release-patch: acceptance
 	@./scripts/release.sh patch "$(RELEASE_SOURCE)"
 
-release-break: lint test ## v0.5.1 -> v0.6.0
+release-break: acceptance
 	@./scripts/release.sh break "$(RELEASE_SOURCE)"

@@ -1,0 +1,185 @@
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.294}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.983}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/access"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.777}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/chunking"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.804}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-run=^$", "-fuzz=^FuzzRecursiveCoordinates$", "-fuzztime=1s", "-parallel=2", "github.com/skosovsky/ragy/chunking"], "module": ".", "GOWORK": "off", "timeout_seconds": 61}
+fuzz: elapsed: 0s, gathering baseline coverage: 0/76 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 76/76 completed, now fuzzing with 2 workers
+fuzz: elapsed: 1s, execs: 26115 (23692/sec), new interesting: 14 (total: 90)
+PASS
+ok  	github.com/skosovsky/ragy/chunking	1.519s
+{"exit_code": 0, "elapsed_seconds": 2.317}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/contracttest"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.831}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/dense"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.816}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/dense/persistent"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.746}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/documents"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.836}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/embedding"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.72}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/evidence"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.698}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/examples/local-bm25"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.152}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/filter"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.819}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/graph"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.76}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/graph/managed"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.733}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/graphingest"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.851}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/graphingest/extraction"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.714}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/graphingest/materialization"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.838}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/graphingest/resolution"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.747}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/graphingest/resolution/history"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.821}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/internal/durablefs"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.731}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/internal/ident"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.063}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/internal/mathutil"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.033}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/internal/metaattrs"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.135}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/internal/nilvalue"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.061}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/internal/parallel"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.758}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/internal/providerhttp"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.866}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/internal/readfailure"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.722}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/layout"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.83}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/lexical"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.804}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/lexical/managed"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 1.019}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/lifecycle"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.824}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/lifecycle/filestore"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.817}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/lifecycle/integration"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.954}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/multimodal"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.833}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/observation"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.713}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/recipe"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.871}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/recipe/budget"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.7}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/recipe/graphexpand"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.85}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/recipe/graphsummary"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.755}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/recipe/recording"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.812}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/retrieval"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.917}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/source"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.689}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/tensor"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.697}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/tensor/persistent"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.85}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/tensor/query"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.717}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/testutil"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.867}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/cohere", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.042}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/cohere/rerank"], "module": "adapters/cohere", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.773}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/elasticsearch", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.043}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/elasticsearch"], "module": "adapters/elasticsearch", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.726}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/gemini", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.043}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/gemini/dense"], "module": "adapters/gemini", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.747}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/gemini/internal/wire"], "module": "adapters/gemini", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.747}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/gemini/multimodal"], "module": "adapters/gemini", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.759}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/jina", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.042}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/jina/dense"], "module": "adapters/jina", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.793}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/jina/tensor"], "module": "adapters/jina", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.747}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/neo4j", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.039}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/neo4j"], "module": "adapters/neo4j", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.77}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/observability/otel", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.043}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/observability/otel"], "module": "adapters/observability/otel", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 1.035}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/openai", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.049}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/openai/dense"], "module": "adapters/openai", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.757}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/openai/structured"], "module": "adapters/openai", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.975}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/pdf", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.045}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/pdf"], "module": "adapters/pdf", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.784}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/pgvector", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.041}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/pgvector"], "module": "adapters/pgvector", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.758}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "adapters/qdrant", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.043}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/adapters/qdrant"], "module": "adapters/qdrant", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.728}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.132}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.92}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/final_contract"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.781}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/graph_comparison"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.862}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/internal/codexcall"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.609}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/internal/modelcounter"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.079}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/internal/task19"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.788}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/joint_read"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.779}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/observation_contract"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.839}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/recipe_comparison"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.841}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "example.com/ragyconsumer/tensor_comparison"], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.908}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "examples/planner", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.143}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/examples/planner/catalog_vector_fallback"], "module": "examples/planner", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.721}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/examples/planner/partial_failure_aggregate"], "module": "examples/planner", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.718}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/examples/planner/rescue_fallback_aggregate"], "module": "examples/planner", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.825}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/examples/planner/vector_bm25_aggregate"], "module": "examples/planner", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.73}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "list", "-tags=fuzz", "./..."], "module": "examples/resilience", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.14}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/examples/resilience/rescue_search"], "module": "examples/resilience", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.719}
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "test", "-tags=fuzz", "-list=^Fuzz", "github.com/skosovsky/ragy/examples/resilience/retry_embedder"], "module": "examples/resilience", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.193}

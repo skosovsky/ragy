@@ -838,7 +838,7 @@
         "report": "acceptance/T20-correctness.md"
       }
     },
-    "commit_sha": null,
+    "commit_sha": "b92813c472105ebf2f654c15e912048fafb37a79",
     "acceptance_report_sha256": {
       "completeness": "cbe2bc40a7fd0faac4425922f8a2acff255a632a3ffcdf142e0a0d92c987e625",
       "correctness": "2f0bfc4866cceefbe8c75f862512e0714cd2edacb61ba2c39c559040d11dc2ad"
@@ -847,7 +847,7 @@
   {
     "id": "T21",
     "title": "fresh acceptance and release tooling",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "test: fresh acceptance",
     "criteria": [
       {
@@ -872,10 +872,23 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "7/7",
+        "coverage_percent": 100,
+        "report": "acceptance/T21-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T21-correctness.md"
+      }
     },
-    "commit_sha": null
+    "commit_sha": null,
+    "acceptance_report_sha256": {
+      "completeness": "b895e71249499dc520322770a0bc7eb3c7b87c80d6e08164bb96a1d1566efc45",
+      "correctness": "603bd84209ea1e95f10b9713166ff0fc4a2e5dfd7a545ffa89b32bd40c6e7c27"
+    }
   },
   {
     "id": "T22",

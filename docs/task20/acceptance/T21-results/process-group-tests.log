@@ -1,0 +1,6 @@
+test_both_runners_kill_term_ignoring_descendant_after_leader_exit (__main__.ProcessGroupTimeout.test_both_runners_kill_term_ignoring_descendant_after_leader_exit) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 2.624s
+
+OK

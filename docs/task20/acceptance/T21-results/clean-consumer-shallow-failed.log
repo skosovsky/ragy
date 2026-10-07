@@ -1,0 +1,48 @@
+{"command": ["git", "rev-parse", "--verify", "b92813c472105ebf2f654c15e912048fafb37a79^{commit}"], "cwd": "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438/Projects/ai/ragy"}
+b92813c472105ebf2f654c15e912048fafb37a79
+{"command": ["git", "init", "--quiet"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+{"command": ["git", "fetch", "--quiet", "--no-tags", "--depth=1", "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438/Projects/ai/ragy", "b92813c472105ebf2f654c15e912048fafb37a79"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+{"command": ["git", "checkout", "--quiet", "--detach", "b92813c472105ebf2f654c15e912048fafb37a79"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+{"command": ["git", "config", "user.name", "Clean consumer fixture"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+{"command": ["git", "config", "user.email", "fixture@example.invalid"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+{"command": ["git", "config", "commit.gpgsign", "false"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+{"command": ["git", "config", "tag.gpgsign", "false"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+{"command": ["git", "init", "--bare", "--quiet", "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/remote.git"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k"}
+{"command": ["git", "remote", "add", "origin", "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/remote.git"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+{"command": ["git", "rev-parse", "HEAD"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+b92813c472105ebf2f654c15e912048fafb37a79
+{"command": ["bash", "scripts/release.sh", "patch", "b92813c472105ebf2f654c15e912048fafb37a79"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/reviewed"}
+Reviewed source: b92813c472105ebf2f654c15e912048fafb37a79
+Destination: /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/remote.git
+Version: v0.0.1
+Modules: ., adapters/cohere, adapters/elasticsearch, adapters/gemini, adapters/jina, adapters/neo4j, adapters/observability/otel, adapters/openai, adapters/pdf, adapters/pgvector, adapters/qdrant
+Permitted changes: go.mod, adapters/cohere/go.mod, adapters/elasticsearch/go.mod, adapters/gemini/go.mod, adapters/jina/go.mod, adapters/neo4j/go.mod, adapters/observability/otel/go.mod, adapters/openai/go.mod, adapters/pdf/go.mod, adapters/pgvector/go.mod, adapters/qdrant/go.mod
+Exact refs: refs/tags/v0.0.1, refs/tags/adapters/cohere/v0.0.1, refs/tags/adapters/elasticsearch/v0.0.1, refs/tags/adapters/gemini/v0.0.1, refs/tags/adapters/jina/v0.0.1, refs/tags/adapters/neo4j/v0.0.1, refs/tags/adapters/observability/otel/v0.0.1, refs/tags/adapters/openai/v0.0.1, refs/tags/adapters/pdf/v0.0.1, refs/tags/adapters/pgvector/v0.0.1, refs/tags/adapters/qdrant/v0.0.1
+Publish this reviewed scope? [y/N] warning: rejected b92813c472105ebf2f654c15e912048fafb37a79 because shallow roots are not allowed to be updated
+error: Could not read 1672c0e029f81480003f797dac174e16f5e141e2
+fatal: Failed to traverse parents of commit b92813c472105ebf2f654c15e912048fafb37a79
+error: remote unpack failed: eof before pack header was fully read
+To /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/remote.git
+ ! [remote rejected] v0.0.1 -> v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/cohere/v0.0.1 -> adapters/cohere/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/elasticsearch/v0.0.1 -> adapters/elasticsearch/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/gemini/v0.0.1 -> adapters/gemini/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/jina/v0.0.1 -> adapters/jina/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/neo4j/v0.0.1 -> adapters/neo4j/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/observability/otel/v0.0.1 -> adapters/observability/otel/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/openai/v0.0.1 -> adapters/openai/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/pdf/v0.0.1 -> adapters/pdf/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/pgvector/v0.0.1 -> adapters/pgvector/v0.0.1 (unpacker error)
+ ! [remote rejected] adapters/qdrant/v0.0.1 -> adapters/qdrant/v0.0.1 (unpacker error)
+error: failed to push some refs to '/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/remote.git'
+Release failed: Publication none; preserved v0.0.1 candidate. Command '('git', 'push', '--atomic', '--', '/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-clean-consumer-c_1a_t1k/remote.git', 'refs/tags/v0.0.1:refs/tags/v0.0.1', 'refs/tags/adapters/cohere/v0.0.1:refs/tags/adapters/cohere/v0.0.1', 'refs/tags/adapters/elasticsearch/v0.0.1:refs/tags/adapters/elasticsearch/v0.0.1', 'refs/tags/adapters/gemini/v0.0.1:refs/tags/adapters/gemini/v0.0.1', 'refs/tags/adapters/jina/v0.0.1:refs/tags/adapters/jina/v0.0.1', 'refs/tags/adapters/neo4j/v0.0.1:refs/tags/adapters/neo4j/v0.0.1', 'refs/tags/adapters/observability/otel/v0.0.1:refs/tags/adapters/observability/otel/v0.0.1', 'refs/tags/adapters/openai/v0.0.1:refs/tags/adapters/openai/v0.0.1', 'refs/tags/adapters/pdf/v0.0.1:refs/tags/adapters/pdf/v0.0.1', 'refs/tags/adapters/pgvector/v0.0.1:refs/tags/adapters/pgvector/v0.0.1', 'refs/tags/adapters/qdrant/v0.0.1:refs/tags/adapters/qdrant/v0.0.1')' returned non-zero exit status 1.
+Traceback (most recent call last):
+  File "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/Загрузки/Projects/ai/ragy/scripts/check_release_consumer.py", line 133, in <module>
+    verify(args.reviewed_source)
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/Загрузки/Projects/ai/ragy/scripts/check_release_consumer.py", line 77, in verify
+    command(repo, "bash", "scripts/release.sh", "patch", source, env=env, input_text="y\n")
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/Загрузки/Projects/ai/ragy/scripts/check_release_consumer.py", line 23, in command
+    raise subprocess.CalledProcessError(result.returncode, argv, result.stdout)
+subprocess.CalledProcessError: Command '('bash', 'scripts/release.sh', 'patch', 'b92813c472105ebf2f654c15e912048fafb37a79')' returned non-zero exit status 1.

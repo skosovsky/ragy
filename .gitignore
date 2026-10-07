@@ -9,3 +9,6 @@ tmp/
 *.prof
 *.cpu
 *.mem
+
+# Verification tooling bytecode is a local cache.
+__pycache__/

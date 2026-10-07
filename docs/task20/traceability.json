@@ -803,13 +803,19 @@
       "task": "T20",
       "requirement": "Docs/CI/release surface: Current guides вынести из task/.cursor chronology; убрать blanket word blacklist в пользу symbol/snippet tests. Standalone GOWORK=off CI, fresh acceptance и publishable-module manifest отдельно от example modules.",
       "disposition": "change",
-      "rationale": "Current public guides and runnable onboarding published. Existing reviewed release manifest/v2 guard documented. Targeted blacklist replacement, fresh GOWORK-off CI/module/fuzz tooling remain explicit T21 dependencies and final verification T22; not claimed implemented here.",
+      "rationale": "Stable public guides/onboarding delivered T20. T21 implements targeted documentation checks, explicit standalone validated14module CI/fresh acceptance/fuzz dispatch, separate11publishable manifest and exact source-derived clean consumer; actual matrix and candidate proof recorded. Final T22 repeat/audit remains explicit, no production readiness or live-profile claim inferred.",
       "evidence": [
         "README.md",
         "docs/integration.md",
         "docs/release/runbook.md",
         "docs/task20/T20.md",
-        "docs/task20/plan.md"
+        "docs/task20/plan.md",
+        "docs_test.go",
+        ".github/workflows/ci.yml",
+        "scripts/verify.py",
+        "scripts/check_release_consumer.py",
+        "docs/task20/acceptance/T21-results/acceptance.log",
+        "docs/task20/acceptance/T21-results/clean-consumer.log"
       ]
     },
     {
@@ -3255,9 +3261,13 @@
       "source": "reviews/arch-docs.md",
       "line": 53,
       "requirement": "`docs_test.go:22-29` bans words legacy/deprecated/instead of across all public source and README.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Removed the global prose/GoDoc blacklist. Targeted current guide links, exact removed retrieval selectors, parsed/exact runnable README source; discovered missing public lifecycle schema and copied the accepted v2 schema to its documented public path, with independent 8positive/42negative validation.",
+      "evidence": [
+        "docs_test.go",
+        "schemas/lifecycle.schema.json",
+        "docs/task20/acceptance/T21-results/public-schema.log"
+      ]
     },
     {
       "id": "arch-docs:13",
@@ -3280,9 +3290,15 @@
       "source": "reviews/arch-docs.md",
       "line": 55,
       "requirement": "`examples/conformance` real external module name and local replace, GOWORK=off documented; CI executes under ambient workspace.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Normal CI globally GOWORK=off; exact validated fourteen-module inventory includes external BYOT consumer. Full-history dedicated disposable clean-consumer job and repeatable source/candidate/proxy gate cover all eleven published modules without ragy replaces; actual candidate48publicpackages compiled/tested.",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        "scripts/check-modules.txt",
+        "scripts/check_release_consumer.py",
+        "scripts/check_release_consumer_test.py",
+        "docs/task20/acceptance/T21-results/clean-consumer.log"
+      ]
     },
     {
       "id": "arch-docs:15",
@@ -3290,9 +3306,14 @@
       "source": "reviews/arch-docs.md",
       "line": 56,
       "requirement": "Makefile:20-37 tests planner/resilience twice (module loop then test-examples), no -count=1, ambient go.work.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Cached developer make test separated from fresh make acceptance (-count=1/race/lint). Each inventoried module tested once; owning-module examples compile without repeating tests. Fake command-dispatch regression plus actual14module acceptance confirm exact counts.",
+      "evidence": [
+        "Makefile",
+        "scripts/verify.py",
+        "scripts/verify_test.py",
+        "docs/task20/acceptance/T21-results/acceptance.log"
+      ]
     },
     {
       "id": "arch-docs:16",
@@ -3300,9 +3321,14 @@
       "source": "reviews/arch-docs.md",
       "line": 57,
       "requirement": "Makefile:45-54 `-fuzz=.` assumes one fuzz function per package; presently only one in chunking.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Enumerate each Go-listed fuzz identifier individually, including Unicode/bare prefix, anchor selector, positive1–300s budget and bounded subprocess timeout/group termination. Multiple-name dispatch and actual timeout fixtures pass; all-module1s campaign passes. Empty PHONY targets removed; examples implemented alias compile.",
+      "evidence": [
+        "Makefile",
+        "scripts/verify.py",
+        "scripts/verify_test.py",
+        "docs/task20/acceptance/T21-results/all-module-fuzz.log"
+      ]
     },
     {
       "id": "arch-docs:17",
@@ -3310,9 +3336,15 @@
       "source": "reviews/arch-docs.md",
       "line": 58,
       "requirement": "release.sh BSD sed -i '', version policy increments major for >=1 but no /vN import migration; tags generated for examples too.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Portable Python manifest editor, exact eleven-module release manifest and v2+ semantic-import guard already accepted T03/T04. Retain implementation; add normal-CI/external exact candidate install/build/race and preserve production publication exclusion. No current-v0 bug invented.",
+      "evidence": [
+        "scripts/release.py",
+        "scripts/release-modules.txt",
+        "scripts/check_release_consumer.py",
+        "docs/release/runbook.md",
+        "docs/task20/acceptance/T21-results/clean-consumer.log"
+      ]
     },
     {
       "id": "arch-docs:18",
@@ -3320,9 +3352,16 @@
       "source": "reviews/arch-docs.md",
       "line": 59,
       "requirement": "CI pinned golangci-lint2.11.3, local reviewer may newer; TASK19 actual parser/provider/DB profile distinctions clear.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Record actual Go1.26.5 and golangci-lint2.14.0 as validated pins in shared JSON, derive CI setup/action versions from them and fresh-acceptance reject mismatches. Profile docs distinguish local/wire/default suites from actual remote/parser/semantic checks; no new paid referencebudget required.",
+      "evidence": [
+        "scripts/toolchain.json",
+        "scripts/verify.py",
+        ".github/workflows/ci.yml",
+        "docs/verification.md",
+        "docs/task20/acceptance/T21-results/versions.log",
+        "docs/task20/acceptance/T21-results/acceptance.log"
+      ]
     },
     {
       "id": "arch-docs:19",

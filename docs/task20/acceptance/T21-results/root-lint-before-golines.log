@@ -1,0 +1,6 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+docs_test.go:42:1: File is not properly formatted (golines)
+		"README.md", "docs/architecture.md", "docs/capabilities.md", "docs/errors-and-recovery.md",
+^
+1 issues:
+* golines: 1

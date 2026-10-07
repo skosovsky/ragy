@@ -1,0 +1,5 @@
+{"command": ["/opt/homebrew/Cellar/go/1.26.5/bin/go", "version"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.013}
+{"command": ["golangci-lint", "version"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.095}
+{"go": "go version go1.26.5 darwin/arm64", "golangci_lint": "golangci-lint has version 2.14.0 built with go1.27.1 from 114493f on 2026-09-24T10:54:53Z", "validated": {"go": "1.26.5", "golangci_lint": "2.14.0"}}
