@@ -32,6 +32,23 @@ def command(directory, *argv, env=None, input_text=None, timeout=300):
 def proxy_module(candidate, module, version, files, proxy, env, revision="HEAD", overrides=None):
     modfile = "go.mod" if module == "." else module + "/go.mod"
     overrides = overrides or {}
+    prefix = "" if module == "." else module+"/"
+    nested = [name[:-len("go.mod")] for name in files if name.endswith("/go.mod") and name.startswith(prefix) and name != modfile]
+    selected = [name for name in files if name.startswith(prefix)
+                and not any(name.startswith(child) for child in nested)
+                and "/vendor/" not in "/"+name[len(prefix):]]
+    # Go module ZIPs omit symlinks/gitlinks. Reject rather than author bytes
+    # that cannot be the subsequently published module artifact.
+    tree = subprocess.check_output(["git", "ls-tree", "-r", "-z", "--full-tree", revision], cwd=candidate, env=env)
+    modes = {}
+    for entry in tree.split(b"\0"):
+        if entry:
+            metadata, filename = entry.split(b"\t", 1)
+            modes[filename.decode()] = metadata.split()[0].decode()
+    for name in selected:
+        mode = modes.get(name)
+        if mode not in ("100644", "100755"):
+            raise ValueError(f"Unsupported Git mode {mode or 'untracked'} for module artifact: {name}")
     manifest = overrides.get(modfile) or subprocess.check_output(["git", "show", revision+":"+modfile], cwd=candidate, env=env)
     path = re.search(rb"^module\s+(\S+)", manifest, re.MULTILINE).group(1).decode()
     if any(character.isupper() for character in path):
@@ -41,15 +58,9 @@ def proxy_module(candidate, module, version, files, proxy, env, revision="HEAD",
     (base / (version+".mod")).write_bytes(manifest)
     (base / (version+".info")).write_text(json.dumps({"Version": version, "Time": datetime.now(timezone.utc).isoformat()}))
     (base / "list").write_text(version+"\n")
-    prefix = "" if module == "." else module+"/"
-    nested = [name[:-len("go.mod")] for name in files if name.endswith("/go.mod") and name.startswith(prefix) and name != modfile]
     with zipfile.ZipFile(base / (version+".zip"), "w", zipfile.ZIP_DEFLATED) as archive:
-        for name in files:
-            if not name.startswith(prefix) or any(name.startswith(child) for child in nested):
-                continue
+        for name in selected:
             relative = name[len(prefix):]
-            if "/vendor/" in "/"+relative or relative.startswith("vendor/"):
-                continue
             payload = overrides.get(name) or subprocess.check_output(["git", "show", revision+":"+name], cwd=candidate, env=env)
             archive.writestr(path+"@"+version+"/"+relative, payload)
     return path

@@ -21,7 +21,7 @@ def modules(root=ROOT):
         raise ValueError("Check manifest must start with root and contain unique modules")
     found = set()
     for directory, children, files in os.walk(root):
-        children[:] = sorted(name for name in children if not name.startswith(".") and name != "vendor")
+        children[:] = sorted(name for name in children if name not in (".git", "vendor"))
         if "go.mod" in files:
             found.add(Path(directory).relative_to(root).as_posix())
     if set(listed) != found:

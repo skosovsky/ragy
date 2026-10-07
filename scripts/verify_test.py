@@ -11,6 +11,24 @@ import verify
 
 
 class VerificationContract(unittest.TestCase):
+    def test_inventory_rejects_unlisted_hidden_module(self):
+        # Arrange: a tracked-style hidden module must not vanish from the inventory.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "scripts").mkdir()
+            (root / "scripts/check-registry.json").write_text(
+                '{"inventories":{"test":"scripts/check-modules.txt","release":"scripts/release-modules.txt"}}')
+            (root / "go.mod").write_text("module example.invalid/root\n")
+            (root / ".hidden").mkdir()
+            (root / ".hidden/go.mod").write_text("module example.invalid/hidden\n")
+            (root / "scripts/check-modules.txt").write_text(".\n")
+            (root / "scripts/release-modules.txt").write_text(".\n")
+            # Act / Assert: omission is a failure; explicit ownership admits the module.
+            with self.assertRaisesRegex(ValueError, "inventory drift"):
+                verify.modules(root)
+            (root / "scripts/check-modules.txt").write_text(".\n.hidden\n")
+            self.assertEqual(verify.modules(root), [".", ".hidden"])
+
     def test_inventory_rejects_omitted_and_duplicate_modules(self):
         # Arrange: two actual modules, only one inventoried.
         with tempfile.TemporaryDirectory() as temporary:
