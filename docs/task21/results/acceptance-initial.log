@@ -1,0 +1,222 @@
+{"command": ["go", "version"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.034}
+{"command": ["golangci-lint", "version"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.442}
+{"go": "go version go1.27.1 darwin/arm64", "golangci_lint": "golangci-lint has version 2.14.0 built with go1.27.1 from 114493f on 2026-09-24T10:54:53Z", "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]", "validated": {"go": "1.27.1", "golangci_lint": "2.14.0"}}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 41.973}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy	1.536s
+ok  	github.com/skosovsky/ragy/access	1.512s
+ok  	github.com/skosovsky/ragy/chunking	1.568s
+ok  	github.com/skosovsky/ragy/contracttest	1.487s
+ok  	github.com/skosovsky/ragy/dense	1.434s
+ok  	github.com/skosovsky/ragy/dense/persistent	15.870s
+ok  	github.com/skosovsky/ragy/documents	1.424s
+ok  	github.com/skosovsky/ragy/embedding	2.005s
+ok  	github.com/skosovsky/ragy/evidence	1.984s
+?   	github.com/skosovsky/ragy/examples/local-bm25	[no test files]
+ok  	github.com/skosovsky/ragy/filter	1.483s
+ok  	github.com/skosovsky/ragy/graph	1.521s
+ok  	github.com/skosovsky/ragy/graph/managed	10.328s
+ok  	github.com/skosovsky/ragy/graphingest	1.712s
+ok  	github.com/skosovsky/ragy/graphingest/extraction	1.432s
+ok  	github.com/skosovsky/ragy/graphingest/materialization	2.657s
+ok  	github.com/skosovsky/ragy/graphingest/resolution	1.562s
+ok  	github.com/skosovsky/ragy/graphingest/resolution/history	1.928s
+ok  	github.com/skosovsky/ragy/internal/durablefs	1.513s
+?   	github.com/skosovsky/ragy/internal/ident	[no test files]
+?   	github.com/skosovsky/ragy/internal/mathutil	[no test files]
+?   	github.com/skosovsky/ragy/internal/metaattrs	[no test files]
+?   	github.com/skosovsky/ragy/internal/nilvalue	[no test files]
+ok  	github.com/skosovsky/ragy/internal/parallel	1.515s
+ok  	github.com/skosovsky/ragy/internal/providerhttp	1.579s
+ok  	github.com/skosovsky/ragy/internal/readfailure	1.406s
+ok  	github.com/skosovsky/ragy/layout	1.575s
+ok  	github.com/skosovsky/ragy/lexical	1.538s
+ok  	github.com/skosovsky/ragy/lexical/managed	10.706s
+ok  	github.com/skosovsky/ragy/lifecycle	10.036s
+ok  	github.com/skosovsky/ragy/lifecycle/filestore	4.587s
+ok  	github.com/skosovsky/ragy/lifecycle/integration	117.419s
+ok  	github.com/skosovsky/ragy/multimodal	1.529s
+ok  	github.com/skosovsky/ragy/observation	1.478s
+ok  	github.com/skosovsky/ragy/recipe	1.906s
+ok  	github.com/skosovsky/ragy/recipe/budget	1.478s
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	2.351s
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	3.057s
+ok  	github.com/skosovsky/ragy/recipe/recording	1.509s
+ok  	github.com/skosovsky/ragy/retrieval	1.729s
+ok  	github.com/skosovsky/ragy/source	1.615s
+ok  	github.com/skosovsky/ragy/tensor	1.513s
+ok  	github.com/skosovsky/ragy/tensor/persistent	11.692s
+ok  	github.com/skosovsky/ragy/tensor/query	1.517s
+ok  	github.com/skosovsky/ragy/testutil	1.539s
+{"exit_code": 0, "elapsed_seconds": 133.265}
+{"command": ["go", "build", "-o", "/dev/null", "./examples/local-bm25"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 1.419}
+{"command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "scripts/verify_test.py", "-v"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+test_acceptance_rejects_toolchain_suffix_or_mismatch (__main__.VerificationContract.test_acceptance_rejects_toolchain_suffix_or_mismatch) ... ok
+test_actual_go_unicode_letter_is_not_filtered_by_python_identifiers (__main__.VerificationContract.test_actual_go_unicode_letter_is_not_filtered_by_python_identifiers) ... fuzz: elapsed: 0s, gathering baseline coverage: 0/1 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 1/1 completed, now fuzzing with 2 workers
+fuzz: elapsed: 1s, execs: 104722 (95187/sec), new interesting: 0 (total: 1)
+PASS
+ok  	example.invalid/fuzzletters	1.509s
+ok
+test_actual_subprocess_timeout_is_bounded (__main__.VerificationContract.test_actual_subprocess_timeout_is_bounded) ... ok
+test_fresh_and_cached_dispatch_once_per_module (__main__.VerificationContract.test_fresh_and_cached_dispatch_once_per_module) ... ok
+test_fuzz_listing_failure_propagates (__main__.VerificationContract.test_fuzz_listing_failure_propagates) ... ok
+test_fuzz_names_cover_unicode_and_bare_prefix (__main__.VerificationContract.test_fuzz_names_cover_unicode_and_bare_prefix) ... ok
+test_inventory_rejects_omitted_and_duplicate_modules (__main__.VerificationContract.test_inventory_rejects_omitted_and_duplicate_modules) ... ok
+test_multiple_fuzz_functions_are_individual_and_anchored (__main__.VerificationContract.test_multiple_fuzz_functions_are_individual_and_anchored) ... ok
+test_subprocess_forces_off_workspace_and_preserves_nonzero (__main__.VerificationContract.test_subprocess_forces_off_workspace_and_preserves_nonzero) ... ok
+test_zero_and_excessive_fuzz_budget_rejected (__main__.VerificationContract.test_zero_and_excessive_fuzz_budget_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 8.233s
+
+OK
+{"exit_code": 0, "elapsed_seconds": 8.463}
+{"command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "scripts/check_release_consumer_test.py", "-v"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+test_actual_go_selection_excludes_main_and_test_only_packages (__main__.ConsumerProfile.test_actual_go_selection_excludes_main_and_test_only_packages) ... ok
+test_diagnostic_stderr_is_not_inventory_stdout (__main__.ConsumerProfile.test_diagnostic_stderr_is_not_inventory_stdout) ... ok
+test_proxy_root_excludes_nested_modules_and_untracked_payload (__main__.ConsumerProfile.test_proxy_root_excludes_nested_modules_and_untracked_payload) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.241s
+
+OK
+{"exit_code": 0, "elapsed_seconds": 0.346}
+{"command": ["/opt/homebrew/opt/python@3.14/bin/python3.14", "scripts/process_runner_test.py", "-v"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+test_both_runners_kill_term_ignoring_descendant_after_leader_exit (__main__.ProcessGroupTimeout.test_both_runners_kill_term_ignoring_descendant_after_leader_exit) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 2.628s
+
+OK
+{"exit_code": 0, "elapsed_seconds": 2.718}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/cohere", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 9.532}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/cohere", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/cohere/rerank	1.495s
+{"exit_code": 0, "elapsed_seconds": 2.966}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/elasticsearch", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 3.888}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/elasticsearch", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/elasticsearch	1.438s
+{"exit_code": 0, "elapsed_seconds": 2.515}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/gemini", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 2.95}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/gemini", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/gemini/dense	2.106s
+ok  	github.com/skosovsky/ragy/adapters/gemini/internal/wire	2.037s
+ok  	github.com/skosovsky/ragy/adapters/gemini/multimodal	2.065s
+{"exit_code": 0, "elapsed_seconds": 2.872}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/jina", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 3.0}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/jina", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/jina/dense	1.552s
+ok  	github.com/skosovsky/ragy/adapters/jina/tensor	1.542s
+{"exit_code": 0, "elapsed_seconds": 2.692}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/neo4j", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 3.122}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/neo4j", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/neo4j	1.434s
+{"exit_code": 0, "elapsed_seconds": 2.369}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/observability/otel", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 7.798}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/observability/otel", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/observability/otel	1.528s
+{"exit_code": 0, "elapsed_seconds": 5.949}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/openai", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 9.383}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/openai", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/openai/dense	1.591s
+ok  	github.com/skosovsky/ragy/adapters/openai/structured	3.929s
+{"exit_code": 0, "elapsed_seconds": 6.922}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/pdf", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 4.563}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/pdf", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/pdf	1.459s
+{"exit_code": 0, "elapsed_seconds": 2.799}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/pgvector", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 4.122}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/pgvector", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/pgvector	1.473s
+{"exit_code": 0, "elapsed_seconds": 2.888}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "adapters/qdrant", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 15.329}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "adapters/qdrant", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/adapters/qdrant	1.514s
+{"exit_code": 0, "elapsed_seconds": 2.939}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 18.041}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+ok  	example.com/ragyconsumer	15.593s
+ok  	example.com/ragyconsumer/final_contract	2.382s
+ok  	example.com/ragyconsumer/graph_comparison	52.611s
+ok  	example.com/ragyconsumer/internal/codexcall	1.425s
+?   	example.com/ragyconsumer/internal/modelcounter	[no test files]
+ok  	example.com/ragyconsumer/internal/task19	1.957s
+ok  	example.com/ragyconsumer/joint_read	31.964s
+ok  	example.com/ragyconsumer/observation_contract	1.469s
+ok  	example.com/ragyconsumer/recipe_comparison	43.859s
+ok  	example.com/ragyconsumer/tensor_comparison	24.874s
+{"exit_code": 0, "elapsed_seconds": 57.561}
+{"command": ["go", "build", "./..."], "module": "examples/conformance", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 1.757}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "examples/context-bridge", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 19.233}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "examples/context-bridge", "GOWORK": "off", "timeout_seconds": 600}
+ok  	example.com/ragy-context-bridge	18.043s
+?   	example.com/ragy-context-bridge/cmd/demo	[no test files]
+{"exit_code": 0, "elapsed_seconds": 20.952}
+{"command": ["go", "build", "./..."], "module": "examples/context-bridge", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.894}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "examples/planner", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 3.806}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "examples/planner", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/examples/planner/catalog_vector_fallback	1.529s
+ok  	github.com/skosovsky/ragy/examples/planner/partial_failure_aggregate	1.528s
+ok  	github.com/skosovsky/ragy/examples/planner/rescue_fallback_aggregate	1.558s
+ok  	github.com/skosovsky/ragy/examples/planner/vector_bm25_aggregate	1.568s
+{"exit_code": 0, "elapsed_seconds": 3.371}
+{"command": ["go", "build", "./..."], "module": "examples/planner", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 2.044}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "examples/resilience", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 13.267}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "examples/resilience", "GOWORK": "off", "timeout_seconds": 600}
+ok  	github.com/skosovsky/ragy/examples/resilience/rescue_search	1.572s
+?   	github.com/skosovsky/ragy/examples/resilience/retry_embedder	[no test files]
+{"exit_code": 0, "elapsed_seconds": 3.293}
+{"command": ["go", "build", "./..."], "module": "examples/resilience", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.913}

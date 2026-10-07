@@ -10,5 +10,6 @@ adapters/pdf
 adapters/pgvector
 adapters/qdrant
 examples/conformance
+examples/context-bridge
 examples/planner
 examples/resilience

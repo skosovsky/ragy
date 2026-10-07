@@ -1,0 +1,15 @@
+{"command": ["go", "version"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.012}
+{"command": ["golangci-lint", "version"], "module": ".", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.07}
+{"go": "go version go1.27.1 darwin/arm64", "golangci_lint": "golangci-lint has version 2.14.0 built with go1.27.1 from 114493f on 2026-09-24T10:54:53Z", "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]", "validated": {"go": "1.27.1", "golangci_lint": "2.14.0"}}
+{"command": ["golangci-lint", "run", "--allow-serial-runners", "./..."], "module": "examples/context-bridge", "GOWORK": "off", "timeout_seconds": 600}
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+0 issues.
+{"exit_code": 0, "elapsed_seconds": 6.403}
+{"command": ["go", "test", "-count=1", "-race", "./..."], "module": "examples/context-bridge", "GOWORK": "off", "timeout_seconds": 600}
+ok  	example.com/ragy-context-bridge	14.392s
+?   	example.com/ragy-context-bridge/cmd/demo	[no test files]
+{"exit_code": 0, "elapsed_seconds": 16.118}
+{"command": ["go", "build", "./..."], "module": "examples/context-bridge", "GOWORK": "off", "timeout_seconds": 600}
+{"exit_code": 0, "elapsed_seconds": 0.666}

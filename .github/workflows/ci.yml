@@ -92,3 +92,36 @@ jobs:
           go-version: ${{ needs.prepare-matrix.outputs.go }}
       - name: Exact reviewed candidate with disposable local publication
         run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/check_release_consumer.py "$GITHUB_SHA"
+
+  context-bridge:
+    needs: prepare-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [checkout, published]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ragy
+      - uses: actions/checkout@v6
+        if: matrix.mode == 'checkout'
+        with:
+          repository: skosovsky/memy
+          path: memy
+      - uses: actions/checkout@v6
+        if: matrix.mode == 'checkout'
+        with:
+          repository: skosovsky/contexty
+          path: contexty
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ needs.prepare-matrix.outputs.go }}
+      - name: Semantic fixtures and executable example
+        working-directory: ragy
+        run: python3 scripts/check_context_bridge.py "${{ matrix.mode }}" --dependency-root .. --output "docs/task21/results/${{ matrix.mode }}.json"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: context-bridge-${{ matrix.mode }}
+          path: ragy/docs/task21/results/*.json
