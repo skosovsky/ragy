@@ -229,7 +229,8 @@ func validHit(hit WireHit) bool {
 		!validLabel(hit.Judgment) || !validLocations(hit) || !validContributions(hit) {
 		return false
 	}
-	if hit.Rank.State == Observed && (*hit.Rank.Value <= 0 || math.Trunc(*hit.Rank.Value) != *hit.Rank.Value) {
+	if hit.Rank.State == Observed && (*hit.Rank.Value <= 0 || *hit.Rank.Value > float64(MaxExactRank) ||
+		math.Trunc(*hit.Rank.Value) != *hit.Rank.Value) {
 		return false
 	}
 	if hit.SourcesState != Observed && hit.SourcesState != Unavailable && hit.SourcesState != Unsupported {

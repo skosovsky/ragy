@@ -37,3 +37,23 @@ func TestInputValidateAcceptsValidKinds(t *testing.T) {
 		}
 	}
 }
+
+func TestPartLiteralInactiveFieldsAndTransportNeutralURL(t *testing.T) {
+	for _, part := range []Part{
+		{Kind: PartText, Text: string([]byte{0xff})},
+		{Kind: PartText, Text: "text", MIME: " "},
+		{Kind: PartText, Text: "text", URL: " "},
+		{Kind: PartBytes, Bytes: []byte{1}, MIME: "image/png", Text: " "},
+		{Kind: PartURL, URL: "https://example.test/a", Text: " "},
+	} {
+		// Arrange/Act/Assert: inactive whitespace is payload, not absence.
+		if !errors.Is(part.Validate(), ragy.ErrInvalidArgument) {
+			t.Fatal(part.Kind)
+		}
+	}
+	part := Part{Kind: PartURL, URL: " custom://host/value "}
+	before := part.URL
+	if err := part.Validate(); err != nil || part.URL != before {
+		t.Fatal(part, err)
+	}
+}

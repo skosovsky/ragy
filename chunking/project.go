@@ -82,6 +82,9 @@ func (DefaultChunkIdentityPolicy[TSourceMeta, TChunkMeta]) Identity(
 		return ChunkIdentity{}, fmt.Errorf("%w: chunk index out of total", ragy.ErrInvalidArgument)
 	}
 	chunkSourceID := chunk.SourceID
+	if strings.TrimSpace(chunkSourceID) != "" && chunkSourceID != source.ID {
+		return ChunkIdentity{}, ragy.ErrInvalidArgument
+	}
 	if strings.TrimSpace(chunkSourceID) == "" {
 		chunkSourceID = source.ID
 	}
@@ -151,7 +154,8 @@ type ProjectionConfig[TSourceMeta, TChunkMeta, TDocMeta any] struct {
 	IndexText func(Chunk[TChunkMeta]) (string, error)
 }
 
-// ProjectDocuments converts chunks into storage-ready retrieval documents.
+// ProjectDocuments returns all projected documents or no payload on any error.
+// Metadata is host-projected; callbacks must isolate values if ownership is required.
 func ProjectDocuments[TSourceMeta, TChunkMeta, TDocMeta any](
 	chunks []Chunk[TChunkMeta],
 	cfg ProjectionConfig[TSourceMeta, TChunkMeta, TDocMeta],
@@ -167,15 +171,20 @@ func ProjectDocuments[TSourceMeta, TChunkMeta, TDocMeta any](
 		return nil, fmt.Errorf("%w: metadata projector", ragy.ErrInvalidArgument)
 	}
 
+	for _, chunk := range chunks {
+		if !utf8.ValidString(chunk.Content) || !utf8.ValidString(chunk.Context) {
+			return nil, ragy.ErrInvalidArgument
+		}
+	}
 	docs := make([]ProjectedDocument[TDocMeta], 0, len(chunks))
 	for _, chunk := range chunks {
 		id, err := policy.Identity(cfg.Source, chunk)
 		if err != nil {
-			return docs, err
+			return nil, err
 		}
 		meta, err := cfg.MetadataProjector.Project(cfg.Source, chunk, id)
 		if err != nil {
-			return docs, err
+			return nil, err
 		}
 		indexText, indexMapping, supports, indexErr := projectIndexText(chunk, cfg.IndexText)
 		if indexErr != nil {
@@ -190,7 +199,7 @@ func ProjectDocuments[TSourceMeta, TChunkMeta, TDocMeta any](
 			SourceMapping: chunk.SourceMapping, SourceSupports: supports,
 		}
 		if err := retrieval.ValidateDocument(doc); err != nil {
-			return docs, err
+			return nil, err
 		}
 		docs = append(
 			docs,

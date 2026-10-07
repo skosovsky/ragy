@@ -225,6 +225,9 @@ func validateHit[TMeta any](c *capture, input Input[TMeta], stage Stage[TMeta], 
 	if err := retrieval.ValidateDocument(hit.Document); err != nil {
 		return err
 	}
+	if int64(hit.Document.Rank) > MaxExactRank {
+		return ragy.ErrInvalidArgument
+	}
 	if err := admitHitSources(c, input, stage, hit); err != nil {
 		return err
 	}

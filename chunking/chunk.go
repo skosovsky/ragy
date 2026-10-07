@@ -3,6 +3,7 @@ package chunking
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/source"
@@ -23,7 +24,8 @@ type Chunk[TMeta any] struct {
 	SourceSupports []source.Locator
 }
 
-// ValidateChunk checks chunk invariants.
+// ValidateChunk checks standalone shape. Total=0 means unknown. InputSpan cannot
+// be checked against original source bytes without the source document.
 func ValidateChunk[TMeta any](c Chunk[TMeta]) error {
 	if c.ID == "" {
 		return fmt.Errorf("%w: chunk id", ragy.ErrMissingID)
@@ -39,6 +41,13 @@ func ValidateChunk[TMeta any](c Chunk[TMeta]) error {
 	}
 	if c.Total > 0 && c.Index >= c.Total {
 		return fmt.Errorf("%w: chunk index must be less than total", ragy.ErrInvalidArgument)
+	}
+	if !utf8.ValidString(c.Content) || !utf8.ValidString(c.Context) {
+		return ragy.ErrInvalidArgument
+	}
+	if c.InputSpan != (source.ByteSpan{Start: 0, End: 0}) &&
+		(c.InputSpan.Start < 0 || c.InputSpan.End <= c.InputSpan.Start) {
+		return ragy.ErrInvalidArgument
 	}
 	if strings.TrimSpace(c.Content) == "" {
 		return fmt.Errorf("%w: chunk content", ragy.ErrEmptyText)

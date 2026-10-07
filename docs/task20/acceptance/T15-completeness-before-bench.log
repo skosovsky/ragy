@@ -1,0 +1,8 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/skosovsky/ragy/source
+cpu: Apple M1 Max
+BenchmarkLongPageWordMappings/words=512-10         	       4	  26215802 ns/op	 5110958 B/op	   10254 allocs/op
+BenchmarkLongPageWordMappings/words=2048-10        	       1	 364490834 ns/op	21194104 B/op	   40991 allocs/op
+PASS
+ok  	github.com/skosovsky/ragy/source	0.860s

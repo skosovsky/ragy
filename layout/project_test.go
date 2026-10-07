@@ -85,3 +85,37 @@ func projectionCallback(
 		return source.DerivedText("description", []source.Locator{support})
 	}
 }
+
+func TestEmptyImageTextExplicitlyOverridesRecognizedOCR(t *testing.T) {
+	// Arrange: real recognized OCR exists but host selects the explicit empty policy.
+	document := ocrDocument()
+	document, err := layout.ApplyOCR(t.Context(), document, []layout.OCRObservation{{
+		Source: document.Pages[0].Images[0].Location, State: layout.OCRRecognized,
+		Transformation: "ocr", Text: "recognized",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline, err := layout.Project(t.Context(), document, layout.ProjectionOptions{Read: access.Unrestricted()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	// Act.
+	output, err := layout.Project(t.Context(), document, layout.ProjectionOptions{
+		Read: access.Unrestricted(),
+		ImageText: func(context.Context, access.Binding, layout.Image) (source.MappedText, error) {
+			calls++
+			return source.MappedText{}, nil
+		},
+	})
+	// Assert: only image-derived text disappears; page evidence/partial coverage remain.
+	if err != nil || calls != 1 || len(output) != len(baseline)-1 {
+		t.Fatal(len(output), len(baseline), calls, err)
+	}
+	for _, projected := range output {
+		if projected.Text.Text() == "recognized" || projected.Coverage != layout.Partial {
+			t.Fatal(projected)
+		}
+	}
+}

@@ -578,12 +578,12 @@
         "report": "acceptance/T14-correctness.md"
       }
     },
-    "commit_sha": null
+    "commit_sha": "e5e9d1e18407b1c02a5a4df6be4e3df5cb1f23e5"
   },
   {
     "id": "T15",
     "title": "source and chunk contracts",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix!: source contracts",
     "criteria": [
       {
@@ -612,8 +612,17 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "6/6",
+        "percent": 100,
+        "coverage": "38/38",
+        "coverage_percent": 100,
+        "report": "acceptance/T15-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T15-correctness.md"
+      }
     },
     "commit_sha": null
   },

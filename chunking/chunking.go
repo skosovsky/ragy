@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -502,6 +501,10 @@ func (c *Contextual[TMeta]) Split(ctx context.Context, doc retrieval.Document[TM
 		return nil, err
 	}
 
+	if err = validateContextualBatch(doc, chunks); err != nil {
+		return nil, err
+	}
+
 	enriched, err := parallel.MapOrdered(
 		ctx,
 		c.concurrency,
@@ -518,6 +521,9 @@ func (c *Contextual[TMeta]) Split(ctx context.Context, doc retrieval.Document[TM
 			if gateErr := ctx.Err(); gateErr != nil {
 				return Chunk[TMeta]{}, gateErr
 			}
+			if !utf8.ValidString(contextText) {
+				return Chunk[TMeta]{}, ragy.ErrProtocol
+			}
 			chunk.Context = contextText
 			return chunk, nil
 		},
@@ -525,10 +531,6 @@ func (c *Contextual[TMeta]) Split(ctx context.Context, doc retrieval.Document[TM
 	if err != nil {
 		return nil, err
 	}
-
-	sort.SliceStable(enriched, func(i, j int) bool {
-		return enriched[i].Index < enriched[j].Index
-	})
 
 	return enriched, nil
 }

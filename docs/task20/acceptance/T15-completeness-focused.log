@@ -1,0 +1,116 @@
+=== RUN   TestChunkProjectionIndexAndRetainedResolution
+=== RUN   TestChunkProjectionIndexAndRetainedResolution/new_revision
+=== RUN   TestChunkProjectionIndexAndRetainedResolution/deleted
+=== RUN   TestChunkProjectionIndexAndRetainedResolution/revoked
+--- PASS: TestChunkProjectionIndexAndRetainedResolution (0.00s)
+    --- PASS: TestChunkProjectionIndexAndRetainedResolution/new_revision (0.00s)
+    --- PASS: TestChunkProjectionIndexAndRetainedResolution/deleted (0.00s)
+    --- PASS: TestChunkProjectionIndexAndRetainedResolution/revoked (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/documents	1.257s
+=== RUN   TestOCRObservationsPreserveOriginalAndPartialCoverage
+=== RUN   TestOCRObservationsPreserveOriginalAndPartialCoverage/recognized
+=== RUN   TestOCRObservationsPreserveOriginalAndPartialCoverage/unreadable
+=== RUN   TestOCRObservationsPreserveOriginalAndPartialCoverage/unsupported
+--- PASS: TestOCRObservationsPreserveOriginalAndPartialCoverage (0.00s)
+    --- PASS: TestOCRObservationsPreserveOriginalAndPartialCoverage/recognized (0.00s)
+    --- PASS: TestOCRObservationsPreserveOriginalAndPartialCoverage/unreadable (0.00s)
+    --- PASS: TestOCRObservationsPreserveOriginalAndPartialCoverage/unsupported (0.00s)
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/duplicate
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/wrong_revision
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/unknown_image
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/missing_transformation
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/unreadable_text
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/recognized_empty
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/unknown_state
+=== RUN   TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/cancelled
+--- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation (0.00s)
+    --- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/duplicate (0.00s)
+    --- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/wrong_revision (0.00s)
+    --- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/unknown_image (0.00s)
+    --- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/missing_transformation (0.00s)
+    --- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/unreadable_text (0.00s)
+    --- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/recognized_empty (0.00s)
+    --- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/unknown_state (0.00s)
+    --- PASS: TestOCRRejectsInvalidStatesIdentitiesDuplicatesAndCancellation/cancelled (0.00s)
+=== RUN   TestProjectionGatesImageCallbackAndRejectsFalseOriginalText
+=== RUN   TestProjectionGatesImageCallbackAndRejectsFalseOriginalText/before
+=== RUN   TestProjectionGatesImageCallbackAndRejectsFalseOriginalText/during
+=== RUN   TestProjectionGatesImageCallbackAndRejectsFalseOriginalText/wrong_support
+=== RUN   TestProjectionGatesImageCallbackAndRejectsFalseOriginalText/original_mapping
+--- PASS: TestProjectionGatesImageCallbackAndRejectsFalseOriginalText (0.00s)
+    --- PASS: TestProjectionGatesImageCallbackAndRejectsFalseOriginalText/before (0.00s)
+    --- PASS: TestProjectionGatesImageCallbackAndRejectsFalseOriginalText/during (0.00s)
+    --- PASS: TestProjectionGatesImageCallbackAndRejectsFalseOriginalText/wrong_support (0.00s)
+    --- PASS: TestProjectionGatesImageCallbackAndRejectsFalseOriginalText/original_mapping (0.00s)
+=== RUN   TestProjectionWorksWithoutImageModelAndPreservesCoverageDiagnostics
+--- PASS: TestProjectionWorksWithoutImageModelAndPreservesCoverageDiagnostics (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/layout	1.257s
+=== RUN   TestContextualAdmitsCompleteBatchBeforeGenerators
+=== RUN   TestContextualAdmitsCompleteBatchBeforeGenerators/duplicate-index
+=== RUN   TestContextualAdmitsCompleteBatchBeforeGenerators/unordered
+=== RUN   TestContextualAdmitsCompleteBatchBeforeGenerators/wrong-total
+=== RUN   TestContextualAdmitsCompleteBatchBeforeGenerators/wrong-source
+=== RUN   TestContextualAdmitsCompleteBatchBeforeGenerators/bad-content
+=== RUN   TestContextualAdmitsCompleteBatchBeforeGenerators/bad-context
+=== RUN   TestContextualAdmitsCompleteBatchBeforeGenerators/bad-span
+--- PASS: TestContextualAdmitsCompleteBatchBeforeGenerators (0.00s)
+    --- PASS: TestContextualAdmitsCompleteBatchBeforeGenerators/duplicate-index (0.00s)
+    --- PASS: TestContextualAdmitsCompleteBatchBeforeGenerators/unordered (0.00s)
+    --- PASS: TestContextualAdmitsCompleteBatchBeforeGenerators/wrong-total (0.00s)
+    --- PASS: TestContextualAdmitsCompleteBatchBeforeGenerators/wrong-source (0.00s)
+    --- PASS: TestContextualAdmitsCompleteBatchBeforeGenerators/bad-content (0.00s)
+    --- PASS: TestContextualAdmitsCompleteBatchBeforeGenerators/bad-context (0.00s)
+    --- PASS: TestContextualAdmitsCompleteBatchBeforeGenerators/bad-span (0.00s)
+=== RUN   TestContextualUnknownTotalAndGeneratedUTF8
+--- PASS: TestContextualUnknownTotalAndGeneratedUTF8 (0.00s)
+=== RUN   TestSentenceRangesPreserveNonWhitespaceCoverage
+--- PASS: TestSentenceRangesPreserveNonWhitespaceCoverage (0.00s)
+=== RUN   TestProjectionSuppressesAllPayloadOnLateErrors
+=== RUN   TestProjectionSuppressesAllPayloadOnLateErrors/identity
+=== RUN   TestProjectionSuppressesAllPayloadOnLateErrors/metadata
+=== RUN   TestProjectionSuppressesAllPayloadOnLateErrors/index
+=== RUN   TestProjectionSuppressesAllPayloadOnLateErrors/document
+--- PASS: TestProjectionSuppressesAllPayloadOnLateErrors (0.00s)
+    --- PASS: TestProjectionSuppressesAllPayloadOnLateErrors/identity (0.00s)
+    --- PASS: TestProjectionSuppressesAllPayloadOnLateErrors/metadata (0.00s)
+    --- PASS: TestProjectionSuppressesAllPayloadOnLateErrors/index (0.00s)
+    --- PASS: TestProjectionSuppressesAllPayloadOnLateErrors/document (0.00s)
+=== RUN   TestDeclaredSplitterGrammarAndBoundaryOmissions
+--- PASS: TestDeclaredSplitterGrammarAndBoundaryOmissions (0.00s)
+=== RUN   TestContextualKeepsContentAndSetsContext
+--- PASS: TestContextualKeepsContentAndSetsContext (0.00s)
+=== RUN   TestContextualSplitReturnsErrorOnContextCancel
+=== PAUSE TestContextualSplitReturnsErrorOnContextCancel
+=== RUN   TestContextualFailureCancelsAndJoinsCallbacks
+--- PASS: TestContextualFailureCancelsAndJoinsCallbacks (0.00s)
+=== RUN   TestProjectionSeparatesContextFromOriginalQuote
+--- PASS: TestProjectionSeparatesContextFromOriginalQuote (0.00s)
+=== CONT  TestContextualSplitReturnsErrorOnContextCancel
+--- PASS: TestContextualSplitReturnsErrorOnContextCancel (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/chunking	1.269s
+=== RUN   TestMappingJSONOrdinaryCodecPolicy
+--- PASS: TestMappingJSONOrdinaryCodecPolicy (0.00s)
+=== RUN   TestOriginalTextsMatchesSingleRangeContract
+--- PASS: TestOriginalTextsMatchesSingleRangeContract (0.01s)
+=== RUN   TestOriginalTextsWholeBatchOwnershipAndFailure
+--- PASS: TestOriginalTextsWholeBatchOwnershipAndFailure (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/source	1.262s
+=== RUN   TestPartialPublicationExportNeverPromotesOrMasksInvalidEmpty
+--- PASS: TestPartialPublicationExportNeverPromotesOrMasksInvalidEmpty (0.00s)
+=== RUN   TestEvidenceRankExactOrdinalBoundary
+--- PASS: TestEvidenceRankExactOrdinalBoundary (0.00s)
+=== RUN   TestEvidenceDecodeRejectsOutsideExactRankDomain
+--- PASS: TestEvidenceDecodeRejectsOutsideExactRankDomain (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/evidence	1.271s
+=== RUN   TestPartValidateRejectsMixedPayload
+--- PASS: TestPartValidateRejectsMixedPayload (0.00s)
+=== RUN   TestPartLiteralInactiveFieldsAndTransportNeutralURL
+--- PASS: TestPartLiteralInactiveFieldsAndTransportNeutralURL (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/multimodal	1.241s

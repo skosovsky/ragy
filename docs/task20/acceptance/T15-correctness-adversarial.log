@@ -1,0 +1,12 @@
+=== RUN   TestAdversarialUTF8OnceDoesNotRelaxFragmentBoundaries
+--- PASS: TestAdversarialUTF8OnceDoesNotRelaxFragmentBoundaries (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/source	1.483s
+=== RUN   TestAdversarialMultibyteBatchAdmission
+--- PASS: TestAdversarialMultibyteBatchAdmission (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/chunking	1.411s
+=== RUN   TestAdversarialOversizedRankSuppressesHitIdentifier
+--- PASS: TestAdversarialOversizedRankSuppressesHitIdentifier (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/evidence	1.404s

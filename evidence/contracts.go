@@ -11,6 +11,10 @@ import (
 	"github.com/skosovsky/ragy/source"
 )
 
+// MaxExactRank is the largest positive ordinal exported exactly as a float64.
+// Rank zero remains unavailable; hosts should use smaller collection bounds.
+const MaxExactRank int64 = 9_007_199_254_740_991
+
 const SchemaIdentity = "ragy.retrieval-evidence/v2"
 
 const (

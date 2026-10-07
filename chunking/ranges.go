@@ -181,11 +181,15 @@ func sentenceTexts(ctx context.Context, text string, spans []source.ByteSpan) ([
 			return nil, err
 		}
 		if span.Start < previous || span.ValidateText(text) != nil ||
+			strings.TrimSpace(text[previous:span.Start]) != "" ||
 			strings.TrimSpace(text[span.Start:span.End]) == "" {
 			return nil, ragy.ErrProtocol
 		}
 		out[i] = text[span.Start:span.End]
 		previous = span.End
+	}
+	if strings.TrimSpace(text[previous:]) != "" {
+		return nil, ragy.ErrProtocol
 	}
 	return out, nil
 }

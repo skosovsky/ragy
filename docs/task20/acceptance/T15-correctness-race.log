@@ -1,0 +1,9 @@
+ok  	github.com/skosovsky/ragy/source	1.285s
+ok  	github.com/skosovsky/ragy/chunking	1.257s
+ok  	github.com/skosovsky/ragy/layout	1.195s
+ok  	github.com/skosovsky/ragy/documents	1.459s
+ok  	github.com/skosovsky/ragy/multimodal	1.401s
+ok  	github.com/skosovsky/ragy/evidence	1.344s
+ok  	github.com/skosovsky/ragy/recipe	1.385s
+ok  	github.com/skosovsky/ragy/graphingest/materialization	1.505s
+ok  	github.com/skosovsky/ragy/graphingest/resolution	1.187s

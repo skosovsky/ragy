@@ -25,3 +25,22 @@ its cell/image profile expects individually retained originals. Validation/proje
 of whole-artifact sharing does not certify that profile as a whole-artifact selector
 loader. A host using such sharing must supply a loader with the required selectors.
 Parsers, retained storage, authorization and media rendering remain host-owned.
+
+## Coverage, OCR and original resolution
+
+Whole-document coverage propagates to every projected element; a page may have
+recognized text while the document remains Partial. ApplyOCR keeps original page
+text untouched, emits derived support-only recognized text and retains partial
+coverage; successful recognition is not verbatim source or complete extraction.
+When ImageText is supplied, its result replaces OCR mapping. An empty result drops
+that image text even when OCR exists. Host may explicitly combine policies outside
+Project; core does not silently fall back.
+
+Resolved.Bytes is the whole original media, never cropped/generated pixels.
+Original/OriginalRegion identify source geometry; caller performs crop/rendering.
+Region text includes admitted original word evidence while Slice/Join preserve
+broader support ancestry. OCR scheduling and media UI remain host responsibilities.
+
+[Current integration guide](../source/README.md) links authorized Catalog/Loader,
+layout projection, chunk/index and fresh exact resolution profiles. Metadata may
+remain borrowed unless an explicit host cloner promises ownership.

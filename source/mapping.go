@@ -46,13 +46,41 @@ type MappedText struct {
 
 // OriginalText extracts one exact span from the retained source representation.
 func OriginalText(location Locator, retainedText string) (MappedText, error) {
+	if !utf8.ValidString(retainedText) {
+		return MappedText{}, invalidLocation()
+	}
+	return originalValidText(location, retainedText)
+}
+
+// OriginalTexts returns an owned ordered batch or no payload on any invalid locator
+// or span. UTF-8 is checked once for the supplied retained snapshot. Like OriginalText,
+// this validates structure; host authorization and source authenticity remain required.
+func OriginalTexts(locations []Locator, retainedText string) ([]MappedText, error) {
+	if len(locations) == 0 {
+		return nil, nil
+	}
+	if !utf8.ValidString(retainedText) {
+		return nil, invalidLocation()
+	}
+	parts := make([]MappedText, len(locations))
+	for i, location := range locations {
+		part, err := originalValidText(location, retainedText)
+		if err != nil {
+			return nil, err
+		}
+		parts[i] = part
+	}
+	return parts, nil
+}
+
+func originalValidText(location Locator, retainedText string) (MappedText, error) {
 	if err := location.Validate(); err != nil {
 		return MappedText{}, err
 	}
 	if location.Kind != TextLocation {
 		return MappedText{}, invalidLocation()
 	}
-	if err := location.Span.ValidateText(retainedText); err != nil {
+	if err := location.Span.validateValidText(retainedText); err != nil {
 		return MappedText{}, err
 	}
 	text := retainedText[location.Span.Start:location.Span.End]
@@ -129,7 +157,7 @@ func (m MappedText) Validate() error {
 		if fragment.Rendered.Start != previous {
 			return invalidLocation()
 		}
-		if err := fragment.Rendered.ValidateText(m.text); err != nil {
+		if err := fragment.Rendered.validateValidText(m.text); err != nil {
 			return err
 		}
 		if err := validateFragment(fragment); err != nil {

@@ -107,3 +107,24 @@ contributions; update stored-record consumers explicitly.
 `Policy.AllowDecisions` explicitly permits attempt-local query and selected-input ordinals, contributor ranks, fusion observation, per-query selection/delivery/uncertainty, actual sufficiency signal and fixed stop reason. These associations are omitted by default. They contain no domain document IDs, metadata, hashes or rationale. Retrieved means a captured retrieval completed, including an empty response; it does not claim evidence existed. Selected delivery means the contributor was directly returned when artifact rendering was disabled, or appeared in actual packed output when rendering was requested; uncertainty retains partial/derived source delivery. Recipe Result.ArtifactRequested distinguishes disabled rendering from a requested render that returned no artifact. The latter remains undelivered and uncertain.
 
 Variant text independently requires AllowQuery. Recording Config.Revisions contains separately host-supplied model/prompt/config/recipe revisions, each independently gated by AllowIdentifier; missing values remain unavailable. A nil sufficiency signal means assessment output was not captured, distinct from a captured false signal. Captured decisions support audit of available input, not deterministic model replay.
+
+## Original-source membership, rank and work bounds
+
+Capture checks original-source namespace/source/revision/access membership. It
+does not attest published index transformation/target membership: an original PDF
+or UTF-8 quote can have a different transform from the retrieval index. Source
+Reader's exact retained artifact admission remains required to authenticate quotes.
+No source support is manufactured from a document ID or index transformation.
+
+Document.Rank is a collection ordinal: zero unavailable, positive values at most
+MaxExactRank (2^53-1), so float64 export preserves it exactly. Larger external
+numeric IDs are rejected before hit identity callbacks; earlier attempt/stage
+export callbacks may already have run. Hosts should bound rank by their collection.
+Contributor ranks remain explicitly typed integer ordinals on their own wire path.
+
+Finite stage/hit/source/location and accepted wire caps do not bound all input
+allocation/CPU. Host pre-bounds nested document mappings/supports, contribution
+locations, BYOT metadata and pure bounded callback work before Capture. Output
+bounds are not an input-size or RSS guarantee. Full batch source/scope admission,
+owned immutable record and fail-zero protection remain unchanged; sink side effects
+after revocation and retention are host-owned.

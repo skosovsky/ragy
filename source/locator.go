@@ -31,7 +31,15 @@ type ByteSpan struct {
 
 // ValidateText verifies bounds and code point boundaries against retained text.
 func (s ByteSpan) ValidateText(text string) error {
-	if !utf8.ValidString(text) || s.Start < 0 || s.End <= s.Start || s.End > len(text) {
+	if !utf8.ValidString(text) {
+		return invalidLocation()
+	}
+	return s.validateValidText(text)
+}
+
+// validateValidText requires a UTF-8 snapshot already validated by this package.
+func (s ByteSpan) validateValidText(text string) error {
+	if s.Start < 0 || s.End <= s.Start || s.End > len(text) {
 		return invalidLocation()
 	}
 	if !utf8.RuneStart(text[s.Start]) || (s.End < len(text) && !utf8.RuneStart(text[s.End])) {

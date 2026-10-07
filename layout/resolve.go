@@ -293,19 +293,21 @@ func pageText(retained Retained, span source.ByteSpan) (source.MappedText, error
 	return source.OriginalText(location, retained.Text)
 }
 func regionText(retained Retained, region source.Rectangle) (source.MappedText, error) {
-	var parts []source.MappedText
+	var locations []source.Locator
 	for _, word := range retained.Words {
 		if !intersects(region, word.Region) {
 			continue
 		}
-		mapped, err := pageText(retained, word.Span)
-		if err != nil {
-			return source.MappedText{}, err
-		}
-		parts = append(parts, mapped)
+		var location source.Locator
+		location.Reference, location.Kind, location.Span = retained.Original.Reference, source.TextLocation, word.Span
+		locations = append(locations, location)
 	}
-	if len(parts) == 0 {
+	if len(locations) == 0 {
 		return source.MappedText{}, nil
+	}
+	parts, err := source.OriginalTexts(locations, retained.Text)
+	if err != nil {
+		return source.MappedText{}, err
 	}
 	return source.JoinMapped(" ", parts...)
 }

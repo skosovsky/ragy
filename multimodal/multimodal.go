@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
@@ -32,6 +33,14 @@ type Part struct {
 
 // Validate checks part invariants.
 func (p Part) Validate() error {
+	if !utf8.ValidString(p.Text) {
+		return ragy.ErrInvalidArgument
+	}
+	if (p.Kind == PartText && (p.URL != "" || p.MIME != "")) ||
+		(p.Kind == PartBytes && (p.Text != "" || p.URL != "")) ||
+		(p.Kind == PartURL && (p.Text != "" || p.MIME != "")) {
+		return ragy.ErrInvalidArgument
+	}
 	text := strings.TrimSpace(p.Text)
 	mime := strings.TrimSpace(p.MIME)
 	rawURL := strings.TrimSpace(p.URL)

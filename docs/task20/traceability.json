@@ -411,81 +411,126 @@
       "id": "D34",
       "task": "T15",
       "requirement": "Chunk overlap/separators: Overlap применяется лишь fixed-splitting fallback; описать best-effort либо реализовать boundary overlap. Custom non-whitespace delimiters могут исчезать — explicit keep/drop policy и coverage properties.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain fallback-only best-effort overlap and explicit conditional boundary separator omissions; source coordinate and readable grammar regressions document retained behavior.",
+      "evidence": [
+        "chunking/README.md",
+        "chunking/remediation_contract_test.go",
+        "chunking/ranges_fuzz_test.go"
+      ]
     },
     {
       "id": "D35",
       "task": "T15",
       "requirement": "Markdown/sentence heuristics: Hash-line splitter не полноценный Markdown, punctuation sentence splitter не NLP. Назвать поддерживаемую грамматику, учесть code fences/Setext либо дать BYO ports, без скрытых моделей.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain hash-line Markdown and punctuation sentence heuristics with explicit fenced-code/Setext/abbreviation limitations and BYO segmenter. No hidden model/NLP fallback.",
+      "evidence": [
+        "chunking/README.md",
+        "chunking/remediation_contract_test.go"
+      ]
     },
     {
       "id": "D36",
       "task": "T15",
       "requirement": "Segment/chunk admission: Определить allowed gaps, Total0, unmapped UTF-8 и Index ordering. Проверять trusted callback contract пропорционально; не выдумывать source coordinates без оригинала.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Reject substantive segment omissions and invalid UTF-8 chunk/context. Entire ordered contextual batch admitted before callbacks with Total0 convention, source/index/knownTotal/exact supplied InputSpan validation; remove sort that rescued invalid indices.",
+      "evidence": [
+        "chunking/contextual_admission.go",
+        "chunking/chunk.go",
+        "chunking/ranges.go",
+        "chunking/remediation_contract_test.go"
+      ]
     },
     {
       "id": "D37",
       "task": "T15",
       "requirement": "Projection partial/identity: Унифицировать all-or-nothing vs partial projection. Descriptor/chunk identity precedence, StorageID для всех chunks и URI MergeKey требуют ясной authority; не global ID service.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Projection errors uniformly return no payload. Default descriptor/chunk source IDs must agree; optional ID fallback, URI MergeKey and source-level shared StorageID explicitly remain host identity policy.",
+      "evidence": [
+        "chunking/project.go",
+        "chunking/remediation_contract_test.go",
+        "chunking/README.md"
+      ]
     },
     {
       "id": "D38",
       "task": "T15",
       "requirement": "Source ownership/RawStore: Reader Catalog→admitted Loader и no-latest гарантии сохранить. RawStore — explicit unscoped administration. Project получает уже authorized document, Binding сам не доказывает его принадлежность scope.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Retain authoritative Catalog/admitted Loader/owned payload/rechecks/no-latest and unscoped RawStore; borrowed immutable metadata and already-authorized layout input remain explicit host preconditions.",
+      "evidence": [
+        "source/README.md",
+        "documents/README.md",
+        "layout/project.go",
+        "documents/chunking_integration_test.go"
+      ]
     },
     {
       "id": "D39",
       "task": "T15",
       "requirement": "Mapping strictness/attestation: Persisted mapping JSON менее строг locator/evidence wire; решить duplicate/case/Unicode policy. Structural mapping не доказательство exact source text — нужен authorized resolve, не «защита» hash-ом.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep ordinary mapping JSON profile with documented duplicate later-value/case aliases/Unicode repair/missing-zero semantics rather than imply strict untrusted-wire authentication. Existing structural validation and retained authenticated Resolve remain authority; canonical host storage accepts Marshal output only.",
+      "evidence": [
+        "source/README.md",
+        "source/mapping_profile_test.go",
+        "source/mapping_json.go"
+      ]
     },
     {
       "id": "D40",
       "task": "T15",
       "requirement": "Source/layout cost/supports: Повторное UTF-8 scanning каждого span может быть O(words×text). Validate once на trusted snapshot boundary. Slice сохраняет broad support ancestry; whole media Resolve не crop API.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Realistic 512/2048-word baseline justified one UTF-8 snapshot validation per OriginalTexts batch and MappedText.Validate. Region resolution uses batch; beforeafter measurements and boundary/ownership/order differential tests preserve all shape checks and broad support ancestry, whole media unchanged.",
+      "evidence": [
+        "source/scaling.md",
+        "source/mapping.go",
+        "source/locator.go",
+        "source/original_batch_test.go",
+        "layout/resolve.go"
+      ]
     },
     {
       "id": "D41",
       "task": "T15",
       "requirement": "OCR/image projection: Partial coverage и original-vs-derived distinctions сохранить. ImageText callback явно заменяет OCR даже при empty output; описать или explicit host policy, не hidden fallback.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain partial derived OCR, whole-document coverage and explicit ImageText replacement including empty override; no implicit fallback or fabricated original text.",
+      "evidence": [
+        "layout/README.md",
+        "layout/project.go",
+        "layout/project_test.go",
+        "layout/ocr_test.go"
+      ]
     },
     {
       "id": "D42",
       "task": "T15",
       "requirement": "Multimodal URL: Transport-neutral URL не downloader/SSRF policy service. Providers валидируют supported schemes/MIME, host — network allowlist; trim/normalization и inactive fields согласовать.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Require valid UTF-8 text and literal empty inactive fields; preserve transport-neutral trimmed absolute URL validation without rewriting, provider schemes/wire and host network credentials/allowlist.",
+      "evidence": [
+        "multimodal/multimodal.go",
+        "multimodal/multimodal_test.go",
+        "multimodal/README.md"
+      ]
     },
     {
       "id": "D43",
       "task": "T15",
       "requirement": "Evidence scope/bounds: Membership tuple без Transformation может означать original source, не index artifact. Зафиксировать семантику; rank int→float64 ограничить meaningful ordinal domain; output wire cap не входной CPU bound.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Original-source membership deliberately excludes index transformation/target. Capture and Decode enforce exact positive float64 ordinal domain MaxExactRank; work/metadata/mapping/contribution prebounds explicitly host-owned beyond output caps.",
+      "evidence": [
+        "evidence/README.md",
+        "evidence/capture.go",
+        "evidence/record.go",
+        "evidence/rank_contract_test.go"
+      ]
     },
     {
       "id": "D44",
@@ -1629,9 +1674,13 @@
       "source": "reviews/ingestion.md",
       "line": 20,
       "requirement": "Overlap has fallback-only semantics.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain fallback-only best-effort overlap and explicit conditional boundary separator omissions; source coordinate and readable grammar regressions document retained behavior.",
+      "evidence": [
+        "chunking/README.md",
+        "chunking/remediation_contract_test.go",
+        "chunking/ranges_fuzz_test.go"
+      ]
     },
     {
       "id": "ingestion:02",
@@ -1639,9 +1688,12 @@
       "source": "reviews/ingestion.md",
       "line": 21,
       "requirement": "Markdown is a hash-line heuristic.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain hash-line Markdown and punctuation sentence heuristics with explicit fenced-code/Setext/abbreviation limitations and BYO segmenter. No hidden model/NLP fallback.",
+      "evidence": [
+        "chunking/README.md",
+        "chunking/remediation_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:03",
@@ -1649,9 +1701,13 @@
       "source": "reviews/ingestion.md",
       "line": 22,
       "requirement": "Custom separators can discard non-whitespace delimiters.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain fallback-only best-effort overlap and explicit conditional boundary separator omissions; source coordinate and readable grammar regressions document retained behavior.",
+      "evidence": [
+        "chunking/README.md",
+        "chunking/remediation_contract_test.go",
+        "chunking/ranges_fuzz_test.go"
+      ]
     },
     {
       "id": "ingestion:04",
@@ -1659,9 +1715,14 @@
       "source": "reviews/ingestion.md",
       "line": 23,
       "requirement": "Semantic segment coverage not enforced.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Reject substantive segment omissions and invalid UTF-8 chunk/context. Entire ordered contextual batch admitted before callbacks with Total0 convention, source/index/knownTotal/exact supplied InputSpan validation; remove sort that rescued invalid indices.",
+      "evidence": [
+        "chunking/contextual_admission.go",
+        "chunking/chunk.go",
+        "chunking/ranges.go",
+        "chunking/remediation_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:05",
@@ -1669,9 +1730,12 @@
       "source": "reviews/ingestion.md",
       "line": 24,
       "requirement": "Default sentence segmentation is punctuation only.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain hash-line Markdown and punctuation sentence heuristics with explicit fenced-code/Setext/abbreviation limitations and BYO segmenter. No hidden model/NLP fallback.",
+      "evidence": [
+        "chunking/README.md",
+        "chunking/remediation_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:06",
@@ -1679,9 +1743,14 @@
       "source": "reviews/ingestion.md",
       "line": 25,
       "requirement": "Contextual sorting after ordered map.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Reject substantive segment omissions and invalid UTF-8 chunk/context. Entire ordered contextual batch admitted before callbacks with Total0 convention, source/index/knownTotal/exact supplied InputSpan validation; remove sort that rescued invalid indices.",
+      "evidence": [
+        "chunking/contextual_admission.go",
+        "chunking/chunk.go",
+        "chunking/ranges.go",
+        "chunking/remediation_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:07",
@@ -1689,9 +1758,14 @@
       "source": "reviews/ingestion.md",
       "line": 26,
       "requirement": "Contextual output validation gap is a contract choice.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Reject substantive segment omissions and invalid UTF-8 chunk/context. Entire ordered contextual batch admitted before callbacks with Total0 convention, source/index/knownTotal/exact supplied InputSpan validation; remove sort that rescued invalid indices.",
+      "evidence": [
+        "chunking/contextual_admission.go",
+        "chunking/chunk.go",
+        "chunking/ranges.go",
+        "chunking/remediation_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:08",
@@ -1699,9 +1773,14 @@
       "source": "reviews/ingestion.md",
       "line": 27,
       "requirement": "Chunk validation granularity.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Reject substantive segment omissions and invalid UTF-8 chunk/context. Entire ordered contextual batch admitted before callbacks with Total0 convention, source/index/knownTotal/exact supplied InputSpan validation; remove sort that rescued invalid indices.",
+      "evidence": [
+        "chunking/contextual_admission.go",
+        "chunking/chunk.go",
+        "chunking/ranges.go",
+        "chunking/remediation_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:09",
@@ -1709,9 +1788,13 @@
       "source": "reviews/ingestion.md",
       "line": 28,
       "requirement": "Projection partial-result asymmetry.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Projection errors uniformly return no payload. Default descriptor/chunk source IDs must agree; optional ID fallback, URI MergeKey and source-level shared StorageID explicitly remain host identity policy.",
+      "evidence": [
+        "chunking/project.go",
+        "chunking/remediation_contract_test.go",
+        "chunking/README.md"
+      ]
     },
     {
       "id": "ingestion:10",
@@ -1719,9 +1802,13 @@
       "source": "reviews/ingestion.md",
       "line": 29,
       "requirement": "Default identity fallback precedence.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Projection errors uniformly return no payload. Default descriptor/chunk source IDs must agree; optional ID fallback, URI MergeKey and source-level shared StorageID explicitly remain host identity policy.",
+      "evidence": [
+        "chunking/project.go",
+        "chunking/remediation_contract_test.go",
+        "chunking/README.md"
+      ]
     },
     {
       "id": "ingestion:11",
@@ -1729,9 +1816,13 @@
       "source": "reviews/ingestion.md",
       "line": 30,
       "requirement": "StorageID reused for all chunks.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Projection errors uniformly return no payload. Default descriptor/chunk source IDs must agree; optional ID fallback, URI MergeKey and source-level shared StorageID explicitly remain host identity policy.",
+      "evidence": [
+        "chunking/project.go",
+        "chunking/remediation_contract_test.go",
+        "chunking/README.md"
+      ]
     },
     {
       "id": "ingestion:12",
@@ -1739,9 +1830,14 @@
       "source": "reviews/ingestion.md",
       "line": 31,
       "requirement": "Metadata borrowing is intentional but needs end-to-end ownership docs.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Retain authoritative Catalog/admitted Loader/owned payload/rechecks/no-latest and unscoped RawStore; borrowed immutable metadata and already-authorized layout input remain explicit host preconditions.",
+      "evidence": [
+        "source/README.md",
+        "documents/README.md",
+        "layout/project.go",
+        "documents/chunking_integration_test.go"
+      ]
     },
     {
       "id": "ingestion:13",
@@ -1749,9 +1845,14 @@
       "source": "reviews/ingestion.md",
       "line": 32,
       "requirement": "Source reader architecture is justified.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Retain authoritative Catalog/admitted Loader/owned payload/rechecks/no-latest and unscoped RawStore; borrowed immutable metadata and already-authorized layout input remain explicit host preconditions.",
+      "evidence": [
+        "source/README.md",
+        "documents/README.md",
+        "layout/project.go",
+        "documents/chunking_integration_test.go"
+      ]
     },
     {
       "id": "ingestion:14",
@@ -1759,9 +1860,14 @@
       "source": "reviews/ingestion.md",
       "line": 33,
       "requirement": "RawStore boundary is correctly explicit.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Retain authoritative Catalog/admitted Loader/owned payload/rechecks/no-latest and unscoped RawStore; borrowed immutable metadata and already-authorized layout input remain explicit host preconditions.",
+      "evidence": [
+        "source/README.md",
+        "documents/README.md",
+        "layout/project.go",
+        "documents/chunking_integration_test.go"
+      ]
     },
     {
       "id": "ingestion:15",
@@ -1769,9 +1875,14 @@
       "source": "reviews/ingestion.md",
       "line": 34,
       "requirement": "Ingestion authorization vs Project binding.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Retain authoritative Catalog/admitted Loader/owned payload/rechecks/no-latest and unscoped RawStore; borrowed immutable metadata and already-authorized layout input remain explicit host preconditions.",
+      "evidence": [
+        "source/README.md",
+        "documents/README.md",
+        "layout/project.go",
+        "documents/chunking_integration_test.go"
+      ]
     },
     {
       "id": "ingestion:16",
@@ -1779,9 +1890,13 @@
       "source": "reviews/ingestion.md",
       "line": 35,
       "requirement": "Mapping wire strictness differs from locator/evidence.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep ordinary mapping JSON profile with documented duplicate later-value/case aliases/Unicode repair/missing-zero semantics rather than imply strict untrusted-wire authentication. Existing structural validation and retained authenticated Resolve remain authority; canonical host storage accepts Marshal output only.",
+      "evidence": [
+        "source/README.md",
+        "source/mapping_profile_test.go",
+        "source/mapping_json.go"
+      ]
     },
     {
       "id": "ingestion:17",
@@ -1789,9 +1904,13 @@
       "source": "reviews/ingestion.md",
       "line": 36,
       "requirement": "Reference/locator trust distinction must remain explicit.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Keep ordinary mapping JSON profile with documented duplicate later-value/case aliases/Unicode repair/missing-zero semantics rather than imply strict untrusted-wire authentication. Existing structural validation and retained authenticated Resolve remain authority; canonical host storage accepts Marshal output only.",
+      "evidence": [
+        "source/README.md",
+        "source/mapping_profile_test.go",
+        "source/mapping_json.go"
+      ]
     },
     {
       "id": "ingestion:18",
@@ -1799,9 +1918,15 @@
       "source": "reviews/ingestion.md",
       "line": 37,
       "requirement": "Potential quadratic range validation cost.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Realistic 512/2048-word baseline justified one UTF-8 snapshot validation per OriginalTexts batch and MappedText.Validate. Region resolution uses batch; beforeafter measurements and boundary/ownership/order differential tests preserve all shape checks and broad support ancestry, whole media unchanged.",
+      "evidence": [
+        "source/scaling.md",
+        "source/mapping.go",
+        "source/locator.go",
+        "source/original_batch_test.go",
+        "layout/resolve.go"
+      ]
     },
     {
       "id": "ingestion:19",
@@ -1809,9 +1934,15 @@
       "source": "reviews/ingestion.md",
       "line": 38,
       "requirement": "Whole-source supports retained by Slice.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Realistic 512/2048-word baseline justified one UTF-8 snapshot validation per OriginalTexts batch and MappedText.Validate. Region resolution uses batch; beforeafter measurements and boundary/ownership/order differential tests preserve all shape checks and broad support ancestry, whole media unchanged.",
+      "evidence": [
+        "source/scaling.md",
+        "source/mapping.go",
+        "source/locator.go",
+        "source/original_batch_test.go",
+        "layout/resolve.go"
+      ]
     },
     {
       "id": "ingestion:20",
@@ -1819,9 +1950,15 @@
       "source": "reviews/ingestion.md",
       "line": 39,
       "requirement": "Resolve region returns whole media.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Realistic 512/2048-word baseline justified one UTF-8 snapshot validation per OriginalTexts batch and MappedText.Validate. Region resolution uses batch; beforeafter measurements and boundary/ownership/order differential tests preserve all shape checks and broad support ancestry, whole media unchanged.",
+      "evidence": [
+        "source/scaling.md",
+        "source/mapping.go",
+        "source/locator.go",
+        "source/original_batch_test.go",
+        "layout/resolve.go"
+      ]
     },
     {
       "id": "ingestion:21",
@@ -1829,9 +1966,14 @@
       "source": "reviews/ingestion.md",
       "line": 40,
       "requirement": "Coverage conservatism is deliberate.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain partial derived OCR, whole-document coverage and explicit ImageText replacement including empty override; no implicit fallback or fabricated original text.",
+      "evidence": [
+        "layout/README.md",
+        "layout/project.go",
+        "layout/project_test.go",
+        "layout/ocr_test.go"
+      ]
     },
     {
       "id": "ingestion:22",
@@ -1839,9 +1981,14 @@
       "source": "reviews/ingestion.md",
       "line": 41,
       "requirement": "Optional ImageText replaces OCR mapping rather than merges/fallbacks.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Retain partial derived OCR, whole-document coverage and explicit ImageText replacement including empty override; no implicit fallback or fabricated original text.",
+      "evidence": [
+        "layout/README.md",
+        "layout/project.go",
+        "layout/project_test.go",
+        "layout/ocr_test.go"
+      ]
     },
     {
       "id": "ingestion:23",
@@ -1849,9 +1996,13 @@
       "source": "reviews/ingestion.md",
       "line": 42,
       "requirement": "Multimodal URL is transport-neutral.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Require valid UTF-8 text and literal empty inactive fields; preserve transport-neutral trimmed absolute URL validation without rewriting, provider schemes/wire and host network credentials/allowlist.",
+      "evidence": [
+        "multimodal/multimodal.go",
+        "multimodal/multimodal_test.go",
+        "multimodal/README.md"
+      ]
     },
     {
       "id": "ingestion:24",
@@ -1859,9 +2010,14 @@
       "source": "reviews/ingestion.md",
       "line": 43,
       "requirement": "Evidence admission and payload privacy are mostly well bounded.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Original-source membership deliberately excludes index transformation/target. Capture and Decode enforce exact positive float64 ordinal domain MaxExactRank; work/metadata/mapping/contribution prebounds explicitly host-owned beyond output caps.",
+      "evidence": [
+        "evidence/README.md",
+        "evidence/capture.go",
+        "evidence/record.go",
+        "evidence/rank_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:25",
@@ -1869,9 +2025,14 @@
       "source": "reviews/ingestion.md",
       "line": 44,
       "requirement": "Evidence publication membership excludes Transformation.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Original-source membership deliberately excludes index transformation/target. Capture and Decode enforce exact positive float64 ordinal domain MaxExactRank; work/metadata/mapping/contribution prebounds explicitly host-owned beyond output caps.",
+      "evidence": [
+        "evidence/README.md",
+        "evidence/capture.go",
+        "evidence/record.go",
+        "evidence/rank_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:26",
@@ -1879,9 +2040,14 @@
       "source": "reviews/ingestion.md",
       "line": 45,
       "requirement": "Evidence numeric representation of Rank.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Original-source membership deliberately excludes index transformation/target. Capture and Decode enforce exact positive float64 ordinal domain MaxExactRank; work/metadata/mapping/contribution prebounds explicitly host-owned beyond output caps.",
+      "evidence": [
+        "evidence/README.md",
+        "evidence/capture.go",
+        "evidence/record.go",
+        "evidence/rank_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:27",
@@ -1889,9 +2055,14 @@
       "source": "reviews/ingestion.md",
       "line": 46,
       "requirement": "Evidence input work bounds vs wire bounds.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Original-source membership deliberately excludes index transformation/target. Capture and Decode enforce exact positive float64 ordinal domain MaxExactRank; work/metadata/mapping/contribution prebounds explicitly host-owned beyond output caps.",
+      "evidence": [
+        "evidence/README.md",
+        "evidence/capture.go",
+        "evidence/record.go",
+        "evidence/rank_contract_test.go"
+      ]
     },
     {
       "id": "ingestion:28",
@@ -1899,9 +2070,14 @@
       "source": "reviews/ingestion.md",
       "line": 47,
       "requirement": "Package-local docs discoverability.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Add current source/documents/multimodal guides and expand layout/chunk/evidence contracts with runnable deterministic retained-source and layout profiles.",
+      "evidence": [
+        "source/README.md",
+        "documents/README.md",
+        "layout/project.go",
+        "documents/chunking_integration_test.go"
+      ]
     },
     {
       "id": "tensor:01",
