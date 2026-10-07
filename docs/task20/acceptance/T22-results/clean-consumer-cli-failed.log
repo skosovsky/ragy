@@ -1,0 +1,2 @@
+usage: check_release_consumer.py [-h] reviewed_source
+check_release_consumer.py: error: unrecognized arguments: --source-sha

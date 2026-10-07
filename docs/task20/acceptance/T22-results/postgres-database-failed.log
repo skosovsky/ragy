@@ -1,0 +1,15 @@
+=== RUN   TestRealPostgresCanonicalCodecAndQuotedTable
+    bridge_pg_test.go:32: psql: exit status 2: psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  database "ragy" does not exist
+
+--- FAIL: TestRealPostgresCanonicalCodecAndQuotedTable (0.31s)
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity
+    filter_pg_test.go:200: psql: exit status 2: psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  database "ragy" does not exist
+
+--- FAIL: TestRealPostgresPortableQueryAndDeleteParity (0.29s)
+=== RUN   TestRealPostgresScopedTenantPairsAndPinnedAdmission
+    scope_pg_test.go:35: psql: exit status 2: psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  database "ragy" does not exist
+
+--- FAIL: TestRealPostgresScopedTenantPairsAndPinnedAdmission (0.28s)
+FAIL
+FAIL	github.com/skosovsky/ragy/adapters/pgvector	1.183s
+FAIL

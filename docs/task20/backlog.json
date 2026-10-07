@@ -884,7 +884,7 @@
         "report": "acceptance/T21-correctness.md"
       }
     },
-    "commit_sha": null,
+    "commit_sha": "fc2040c45a1ae50d147f801ff4b8f42c50044db6",
     "acceptance_report_sha256": {
       "completeness": "b895e71249499dc520322770a0bc7eb3c7b87c80d6e08164bb96a1d1566efc45",
       "correctness": "603bd84209ea1e95f10b9713166ff0fc4a2e5dfd7a545ffa89b32bd40c6e7c27"
@@ -893,7 +893,7 @@
   {
     "id": "T22",
     "title": "final acceptance",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "test: remediation acceptance",
     "criteria": [
       {
@@ -922,9 +922,23 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "6/6",
+        "percent": 100,
+        "coverage": "262/262",
+        "coverage_percent": 100,
+        "report": "acceptance/T22-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T22-correctness.md"
+      }
     },
-    "commit_sha": null
+    "commit_sha": "HEAD",
+    "acceptance_report_sha256": {
+      "completeness": "b93a35947d34871906e5382ff18b6a91e490a260d32edea9cef7bccac24a16cf",
+      "correctness": "f93733248a61cfb3c71f0c43dbe5a71a6bb697e718d7e6f210d8ebc263a0f871"
+    },
+    "commit_sha_resolution": "At final acceptance HEAD resolves the signed T22 task commit. Its exact immutable SHA is recorded in refs/notes/ragy-remediation on that commit and in the final user report; symbolic HEAD is not a promise about later repository HEADs."
   }
 ]

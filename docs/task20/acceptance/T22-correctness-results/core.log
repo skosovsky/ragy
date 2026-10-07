@@ -1,0 +1,14 @@
+ok  	github.com/skosovsky/ragy/recipe	1.750s
+ok  	github.com/skosovsky/ragy/recipe/budget	1.604s
+ok  	github.com/skosovsky/ragy/recipe/graphexpand	1.961s
+ok  	github.com/skosovsky/ragy/recipe/graphsummary	2.394s
+ok  	github.com/skosovsky/ragy/recipe/recording	1.484s
+ok  	github.com/skosovsky/ragy/graphingest	1.688s
+ok  	github.com/skosovsky/ragy/graphingest/extraction	1.497s
+ok  	github.com/skosovsky/ragy/graphingest/materialization	2.150s
+ok  	github.com/skosovsky/ragy/graphingest/resolution	1.489s
+ok  	github.com/skosovsky/ragy/graphingest/resolution/history	1.592s
+ok  	github.com/skosovsky/ragy/layout	1.560s
+ok  	github.com/skosovsky/ragy/lexical	1.446s
+ok  	github.com/skosovsky/ragy/lexical/managed	4.384s
+ok  	github.com/skosovsky/ragy/source	1.463s

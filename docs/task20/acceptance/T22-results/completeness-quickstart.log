@@ -1,0 +1,6 @@
+=== RUN   TestQuickstartMatchesExecutableSource
+=== PAUSE TestQuickstartMatchesExecutableSource
+=== CONT  TestQuickstartMatchesExecutableSource
+--- PASS: TestQuickstartMatchesExecutableSource (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy	1.180s

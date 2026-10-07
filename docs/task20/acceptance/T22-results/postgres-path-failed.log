@@ -1,0 +1,12 @@
+=== RUN   TestRealPostgresCanonicalCodecAndQuotedTable
+    bridge_pg_test.go:26: isolated profile label required exec: "docker": executable file not found in $PATH
+--- FAIL: TestRealPostgresCanonicalCodecAndQuotedTable (0.00s)
+=== RUN   TestRealPostgresPortableQueryAndDeleteParity
+    filter_pg_test.go:192: container must carry ragy.task20=T09 isolation label exec: "docker": executable file not found in $PATH
+--- FAIL: TestRealPostgresPortableQueryAndDeleteParity (0.00s)
+=== RUN   TestRealPostgresScopedTenantPairsAndPinnedAdmission
+    scope_pg_test.go:30: isolated profile label required exec: "docker": executable file not found in $PATH
+--- FAIL: TestRealPostgresScopedTenantPairsAndPinnedAdmission (0.00s)
+FAIL
+FAIL	github.com/skosovsky/ragy/adapters/pgvector	0.504s
+FAIL

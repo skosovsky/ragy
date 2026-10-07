@@ -1,0 +1,386 @@
+{
+  "source_hashes": "PASS9/9",
+  "historical_tracked_blobs_unchanged": 454,
+  "accepted_separate_signed_commits": [
+    {
+      "task": "T00",
+      "sha": "517179b87209a1fb2a41c47057f766dfdce3f959",
+      "message": "docs: remediation backlog",
+      "completeness": {
+        "criteria": "6/6",
+        "percent": 100,
+        "coverage": "262/262",
+        "coverage_percent": 100,
+        "report": "acceptance/T00-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T00-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T01",
+      "sha": "4776e89c12b83d1db41385426d982f25f5a51145",
+      "message": "docs: remediation contracts",
+      "completeness": {
+        "criteria": "6/6",
+        "percent": 100,
+        "coverage": "16/16",
+        "coverage_percent": 100,
+        "report": "acceptance/T01-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T01-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T02",
+      "sha": "6d18bca7403386643bc4b7a0e6be3039785a86e5",
+      "message": "fix: deadline precedence",
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "report": "acceptance/T02-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T02-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T03",
+      "sha": "b32a7e35106b8442f5a306559bf5589ff8e391ad",
+      "message": "fix: release isolation",
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T03-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T03-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T04",
+      "sha": "f282696c8fdf15e13bcbba70fca8e6bb146e6b14",
+      "message": "fix: release recovery",
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T04-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T04-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T05",
+      "sha": "fd70ce6fc493620ec33448a40aacc7c19011f65e",
+      "message": "fix: extraction deadlines",
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "4/4",
+        "coverage_percent": 100,
+        "report": "acceptance/T05-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T05-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T06",
+      "sha": "2b9d3c5918764b61488f2adfc245a92db70060c4",
+      "message": "fix: resolution identity",
+      "completeness": {
+        "criteria": "3/3",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T06-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T06-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T07",
+      "sha": "dd81b21abe6e49f1f52b4c03c09c5496a6f25c83",
+      "message": "fix: layout references",
+      "completeness": {
+        "criteria": "3/3",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T07-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T07-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T08",
+      "sha": "528164b711ef219b510a6056ae0335ba1ff0df7f",
+      "message": "fix: lexical callback gates",
+      "completeness": {
+        "criteria": "3/3",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T08-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T08-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T09",
+      "sha": "a2fc0a48ed24112cf3a1579e153ce2936454effb",
+      "message": "fix: filter parity",
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T09-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T09-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T10",
+      "sha": "e960f9e645433e1b8b93d95b18797a8e5156fa47",
+      "message": "fix: neo4j delivery",
+      "completeness": {
+        "criteria": "3/3",
+        "percent": 100,
+        "coverage": "2/2",
+        "coverage_percent": 100,
+        "report": "acceptance/T10-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T10-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T11",
+      "sha": "63e775d8e1faee624d04429a63e6958b1efa30a3",
+      "message": "fix: structured transport",
+      "completeness": {
+        "criteria": "4/4",
+        "percent": 100,
+        "coverage": "5/5",
+        "coverage_percent": 100,
+        "report": "acceptance/T11-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T11-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T12",
+      "sha": "4846cd00f71a0c031416b5f9856e146b2ca19e26",
+      "message": "refactor!: retrieval composition",
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "35/35",
+        "coverage_percent": 100,
+        "report": "acceptance/T12-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T12-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T13",
+      "sha": "45ef3d6ded230578e8f7572c91ad89c1c6dd39fc",
+      "message": "fix: lifecycle contracts",
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "28/28",
+        "coverage_percent": 100,
+        "report": "acceptance/T13-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T13-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T14",
+      "sha": "e5e9d1e18407b1c02a5a4df6be4e3df5cb1f23e5",
+      "message": "docs: graph contracts",
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "29/29",
+        "coverage_percent": 100,
+        "report": "acceptance/T14-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T14-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T15",
+      "sha": "5775f4ee0b1aeb11feb634cbb480a670ace0c7ce",
+      "message": "fix!: source contracts",
+      "completeness": {
+        "criteria": "6/6",
+        "percent": 100,
+        "coverage": "38/38",
+        "coverage_percent": 100,
+        "report": "acceptance/T15-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T15-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T16",
+      "sha": "e6578d18eeab6e8030727025f5cd57e974afa619",
+      "message": "fix!: local retrieval contracts",
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "27/27",
+        "coverage_percent": 100,
+        "report": "acceptance/T16-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T16-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T17",
+      "sha": "98ff5c013c756724fdb286035fa72777dda30137",
+      "message": "fix!: storage bridge contracts",
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "21/21",
+        "coverage_percent": 100,
+        "report": "acceptance/T17-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T17-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T18",
+      "sha": "c6986c5cbc62834e9b66b30b2cb2029be564735d",
+      "message": "fix!: provider contracts",
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "22/22",
+        "coverage_percent": 100,
+        "report": "acceptance/T18-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T18-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T19",
+      "sha": "1672c0e029f81480003f797dac174e16f5e141e2",
+      "message": "docs: observation contracts",
+      "completeness": {
+        "criteria": "2/2",
+        "percent": 100,
+        "coverage": "5/5",
+        "coverage_percent": 100,
+        "report": "acceptance/T19-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T19-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T20",
+      "sha": "b92813c472105ebf2f654c15e912048fafb37a79",
+      "message": "docs: public guides",
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "7/7",
+        "coverage_percent": 100,
+        "report": "acceptance/T20-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T20-correctness.md"
+      },
+      "ssh_signature_present": true
+    },
+    {
+      "task": "T21",
+      "sha": "fc2040c45a1ae50d147f801ff4b8f42c50044db6",
+      "message": "test: fresh acceptance",
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "7/7",
+        "coverage_percent": 100,
+        "report": "acceptance/T21-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T21-correctness.md"
+      },
+      "ssh_signature_present": true
+    }
+  ],
+  "registry_counts": {
+    "master": 72,
+    "role_findings": 161,
+    "role_defects": 12,
+    "documentation": 9,
+    "definition_of_done": 8
+  },
+  "missing_evidence": []
+}

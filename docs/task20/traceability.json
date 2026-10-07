@@ -3397,7 +3397,15 @@
       "source": "reviews/retrieval.md",
       "id": "R-01",
       "master": "F01",
-      "task": "T02"
+      "task": "T02",
+      "disposition": "fix",
+      "rationale": "Alias of F01: Settlement preserves callback/accounting/gate causes. Independent stage failure provenance prevents mixed deadline from becoming bounded success; pure local timeout still permits captured core evidence.",
+      "evidence": [
+        "T02.md",
+        "acceptance/T02-race.log",
+        "acceptance/T02-completeness.md",
+        "acceptance/T02-correctness.md"
+      ]
     },
     {
       "source": "reviews/graph.md",
@@ -3410,7 +3418,9 @@
         "acceptance/T05-race.log",
         "acceptance/T05-completeness.md",
         "acceptance/T05-correctness.md"
-      ]
+      ],
+      "disposition": "fix",
+      "rationale": "Alias of F04: Extraction composes independent local and ledger remaining durations, gates each clock at host callback/project/clone/delivery boundaries and settles once. MaxInputBytes is explicitly source-text only; CountInputTokens covers the actual complete provider envelope."
     },
     {
       "source": "reviews/graph.md",
@@ -3523,13 +3533,30 @@
       "source": "reviews/arch-docs.md",
       "id": "A-F01",
       "master": "F02",
-      "task": "T03"
+      "task": "T03",
+      "disposition": "fix",
+      "rationale": "Alias of F02: Reviewed source is fetched into isolated checkout; tracked publishable-module manifest and exact staged file/ref allowlists exclude caller private files/unrelated tags. Dirty index and tag collisions fail before candidate preparation.",
+      "evidence": [
+        "T03.md",
+        "acceptance/T03-fixtures.log",
+        "acceptance/T03-completeness.md",
+        "acceptance/T03-correctness.md"
+      ]
     },
     {
       "source": "reviews/arch-docs.md",
       "id": "A-F02",
       "master": "F03",
-      "task": "T04"
+      "task": "T04",
+      "disposition": "fix",
+      "rationale": "Alias of F03: Persist exact source/version/candidate and owned refs before publication, reconcile exact remote objects to explicit none/partial/complete/unknown/collision, and resume the same candidate without altering caller checkout or deleting refs.",
+      "evidence": [
+        "T04.md",
+        "acceptance/T04-isolation.log",
+        "acceptance/T04-recovery.log",
+        "acceptance/T04-completeness.md",
+        "acceptance/T04-correctness.md"
+      ]
     },
     {
       "source": "reviews/lifecycle.md",
@@ -3561,6 +3588,12 @@
         "docs/release/runbook.md",
         "docs/project-policies.md",
         "docs/task20/history.md"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3580,12 +3613,28 @@
         "docs/release/runbook.md",
         "docs/project-policies.md",
         "docs/task20/history.md"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T13-completeness.md",
+        "docs/task20/acceptance/T13-correctness.md",
+        "docs/task20/acceptance/T15-completeness.md",
+        "docs/task20/acceptance/T15-correctness.md",
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
       "id": "DOC3",
       "tasks": [
         "T14"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T14-completeness.md",
+        "docs/task20/acceptance/T14-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3608,6 +3657,22 @@
         "docs/release/runbook.md",
         "docs/project-policies.md",
         "docs/task20/history.md"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T05-completeness.md",
+        "docs/task20/acceptance/T05-correctness.md",
+        "docs/task20/acceptance/T12-completeness.md",
+        "docs/task20/acceptance/T12-correctness.md",
+        "docs/task20/acceptance/T14-completeness.md",
+        "docs/task20/acceptance/T14-correctness.md",
+        "docs/task20/acceptance/T16-completeness.md",
+        "docs/task20/acceptance/T16-correctness.md",
+        "docs/task20/acceptance/T18-completeness.md",
+        "docs/task20/acceptance/T18-correctness.md",
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3629,6 +3694,20 @@
         "docs/release/runbook.md",
         "docs/project-policies.md",
         "docs/task20/history.md"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T01-completeness.md",
+        "docs/task20/acceptance/T01-correctness.md",
+        "docs/task20/acceptance/T02-completeness.md",
+        "docs/task20/acceptance/T02-correctness.md",
+        "docs/task20/acceptance/T04-completeness.md",
+        "docs/task20/acceptance/T04-correctness.md",
+        "docs/task20/acceptance/T13-completeness.md",
+        "docs/task20/acceptance/T13-correctness.md",
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3649,6 +3728,18 @@
         "docs/release/runbook.md",
         "docs/project-policies.md",
         "docs/task20/history.md"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T12-completeness.md",
+        "docs/task20/acceptance/T12-correctness.md",
+        "docs/task20/acceptance/T14-completeness.md",
+        "docs/task20/acceptance/T14-correctness.md",
+        "docs/task20/acceptance/T15-completeness.md",
+        "docs/task20/acceptance/T15-correctness.md",
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3668,6 +3759,14 @@
         "docs/release/runbook.md",
         "docs/project-policies.md",
         "docs/task20/history.md"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T17-completeness.md",
+        "docs/task20/acceptance/T17-correctness.md",
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3689,6 +3788,18 @@
         "docs/release/runbook.md",
         "docs/project-policies.md",
         "docs/task20/history.md"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T03-completeness.md",
+        "docs/task20/acceptance/T03-correctness.md",
+        "docs/task20/acceptance/T04-completeness.md",
+        "docs/task20/acceptance/T04-correctness.md",
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/acceptance/T21-completeness.md",
+        "docs/task20/acceptance/T21-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3706,6 +3817,12 @@
         "docs/release/runbook.md",
         "docs/project-policies.md",
         "docs/task20/history.md"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     }
   ],
@@ -3714,6 +3831,12 @@
       "id": "DOD1",
       "tasks": [
         "T01"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T01-completeness.md",
+        "docs/task20/acceptance/T01-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3721,6 +3844,14 @@
       "tasks": [
         "T02",
         "T03"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T02-completeness.md",
+        "docs/task20/acceptance/T02-correctness.md",
+        "docs/task20/acceptance/T03-completeness.md",
+        "docs/task20/acceptance/T03-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3734,6 +3865,26 @@
         "T09",
         "T10",
         "T11"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T04-completeness.md",
+        "docs/task20/acceptance/T04-correctness.md",
+        "docs/task20/acceptance/T05-completeness.md",
+        "docs/task20/acceptance/T05-correctness.md",
+        "docs/task20/acceptance/T06-completeness.md",
+        "docs/task20/acceptance/T06-correctness.md",
+        "docs/task20/acceptance/T07-completeness.md",
+        "docs/task20/acceptance/T07-correctness.md",
+        "docs/task20/acceptance/T08-completeness.md",
+        "docs/task20/acceptance/T08-correctness.md",
+        "docs/task20/acceptance/T09-completeness.md",
+        "docs/task20/acceptance/T09-correctness.md",
+        "docs/task20/acceptance/T10-completeness.md",
+        "docs/task20/acceptance/T10-correctness.md",
+        "docs/task20/acceptance/T11-completeness.md",
+        "docs/task20/acceptance/T11-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3743,6 +3894,18 @@
         "T07",
         "T09",
         "T11"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T06-completeness.md",
+        "docs/task20/acceptance/T06-correctness.md",
+        "docs/task20/acceptance/T07-completeness.md",
+        "docs/task20/acceptance/T07-correctness.md",
+        "docs/task20/acceptance/T09-completeness.md",
+        "docs/task20/acceptance/T09-correctness.md",
+        "docs/task20/acceptance/T11-completeness.md",
+        "docs/task20/acceptance/T11-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3756,12 +3919,38 @@
         "T17",
         "T18",
         "T19"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T12-completeness.md",
+        "docs/task20/acceptance/T12-correctness.md",
+        "docs/task20/acceptance/T13-completeness.md",
+        "docs/task20/acceptance/T13-correctness.md",
+        "docs/task20/acceptance/T14-completeness.md",
+        "docs/task20/acceptance/T14-correctness.md",
+        "docs/task20/acceptance/T15-completeness.md",
+        "docs/task20/acceptance/T15-correctness.md",
+        "docs/task20/acceptance/T16-completeness.md",
+        "docs/task20/acceptance/T16-correctness.md",
+        "docs/task20/acceptance/T17-completeness.md",
+        "docs/task20/acceptance/T17-correctness.md",
+        "docs/task20/acceptance/T18-completeness.md",
+        "docs/task20/acceptance/T18-correctness.md",
+        "docs/task20/acceptance/T19-completeness.md",
+        "docs/task20/acceptance/T19-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
       "id": "DOD6",
       "tasks": [
         "T20"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T20-completeness.md",
+        "docs/task20/acceptance/T20-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3769,6 +3958,12 @@
       "tasks": [
         "T21",
         "T22"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T21-completeness.md",
+        "docs/task20/acceptance/T21-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     },
     {
@@ -3781,6 +3976,22 @@
         "T16",
         "T18",
         "T22"
+      ],
+      "acceptance": "final verification in T22",
+      "evidence": [
+        "docs/task20/acceptance/T12-completeness.md",
+        "docs/task20/acceptance/T12-correctness.md",
+        "docs/task20/acceptance/T13-completeness.md",
+        "docs/task20/acceptance/T13-correctness.md",
+        "docs/task20/acceptance/T14-completeness.md",
+        "docs/task20/acceptance/T14-correctness.md",
+        "docs/task20/acceptance/T15-completeness.md",
+        "docs/task20/acceptance/T15-correctness.md",
+        "docs/task20/acceptance/T16-completeness.md",
+        "docs/task20/acceptance/T16-correctness.md",
+        "docs/task20/acceptance/T18-completeness.md",
+        "docs/task20/acceptance/T18-correctness.md",
+        "docs/task20/final-audit.md"
       ]
     }
   ]

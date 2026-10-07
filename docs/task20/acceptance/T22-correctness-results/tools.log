@@ -1,0 +1,41 @@
+EEE
+======================================================================
+ERROR: verify_test (unittest.loader._FailedTest.verify_test)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: verify_test
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+  File "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/Загрузки/Projects/ai/ragy/scripts/verify_test.py", line 10, in <module>
+    import verify
+ModuleNotFoundError: No module named 'verify'
+
+
+======================================================================
+ERROR: check_release_consumer_test (unittest.loader._FailedTest.check_release_consumer_test)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: check_release_consumer_test
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+  File "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/Загрузки/Projects/ai/ragy/scripts/check_release_consumer_test.py", line 13, in <module>
+    import check_release_consumer as consumer
+ModuleNotFoundError: No module named 'check_release_consumer'
+
+
+======================================================================
+ERROR: process_runner_test (unittest.loader._FailedTest.process_runner_test)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: process_runner_test
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+  File "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/Загрузки/Projects/ai/ragy/scripts/process_runner_test.py", line 14, in <module>
+    import check_release_consumer
+ModuleNotFoundError: No module named 'check_release_consumer'
+
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+FAILED (errors=3)
