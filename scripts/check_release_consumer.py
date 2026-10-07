@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import shutil
+import sys
 import tempfile
 import zipfile
 
@@ -175,9 +176,17 @@ def verify(source, version=None, published=False, exact_candidate=False):
             raise ValueError("Consumer verification mutated the isolated candidate")
         command(consumer, go, "test", "-count=1", "-race", "./...", env=env)
         command(consumer, go, "build", "./...", env=env)
+        bridge_evidence = None
+        if published:
+            bridge_output = root / "published-context-bridge.json"
+            command(repo, sys.executable, "scripts/check_context_bridge.py", "published",
+                    "--ragy-ref", version, "--output", str(bridge_output), env=env, timeout=900)
+            bridge_evidence = json.loads(bridge_output.read_text())
+            if bridge_evidence["status"] != "passed" or bridge_evidence["dependencies"]["ragy"]["Version"] != version:
+                raise ValueError("Published context consumer did not verify exact new version")
         print(json.dumps({"PASS": True, "source": source, "candidate": record["candidate"], "version": record["version"],
                           "modules": paths, "packages": packages, "tags": sorted(expected), "GOWORK": "off", "ragy_replacements": False,
-                          "resolved_modules": modules, "downloads": downloads,
+                          "resolved_modules": modules, "downloads": downloads, "context_bridge": bridge_evidence,
                           "publication": "public proxy with checksum verification" if published else "isolated artifact proxy, no refs"}), flush=True)
 
 
