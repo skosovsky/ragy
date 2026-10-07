@@ -90,7 +90,7 @@ class ReleaseIsolation(unittest.TestCase):
             self.assertEqual(fixture.remote_git("rev-parse", "adapters/test/v0.0.1"), candidate)
             self.assertEqual(fixture.remote_git("rev-parse", candidate + "^"), fixture.source)
             self.assertEqual(fixture.remote_git("diff", "--name-only", fixture.source, candidate),
-                             "adapters/test/go.mod")
+                             "adapters/test/go.mod\nadapters/test/go.sum")
             files = fixture.remote_git("ls-tree", "-r", "--name-only", candidate).splitlines()
             self.assertNotIn("private-untracked.txt", files)
             self.assertNotIn("adapters/test/private.txt", files)
@@ -101,6 +101,48 @@ class ReleaseIsolation(unittest.TestCase):
             self.assertNotIn("replace", manifest)
             self.assertEqual(fixture.remote_git("show", candidate + ":examples/demo/go.mod"),
                              (fixture.repo / "examples/demo/go.mod").read_text().strip())
+
+    def test_absent_source_sums_are_prepared_for_readonly_candidate_gate(self):
+        # Arrange: source has no adapter go.sum, but its package imports the root module.
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Fixture(directory)
+            fixture.write("root.go", "package ragy\nconst Marker = 1\n")
+            fixture.write("adapters/test/adapter.go", 'package adapter\nimport "example.invalid/ragy"\nconst Marker = ragy.Marker\n')
+            gate = (fixture.repo / "scripts/verify.py").read_text()
+            candidate_probe = """if '--candidate' in args:
+ import os, subprocess
+ from check_release_consumer import proxy_module
+ output=pathlib.Path(args[args.index('--output')+1])
+ version=args[args.index('--version')+1]
+ files=subprocess.check_output(['git','ls-tree','-r','--name-only','HEAD'],text=True).splitlines()
+ proxy=output/'proxy'
+ proxy_module(root,'.',version,files,proxy,os.environ.copy())
+ env={**os.environ,'GOWORK':'off','GOENV':'off','GOFLAGS':'','GOPROXY':proxy.as_uri(),'GONOSUMDB':'example.invalid/ragy','GONOPROXY':'none','GOMODCACHE':str(output/'modcache'),'GOCACHE':str(output/'buildcache')}
+ sums=root/'adapters/test/go.sum'; before=sums.read_bytes()
+ subprocess.run([os.environ.get('GO','go'),'test','-mod=readonly','./...'],cwd=root/'adapters/test',env=env,check=True)
+ if sums.read_bytes()!=before: raise ValueError('Readonly gate changed prepared sums')
+ print('READONLY CANDIDATE GO TEST PASS',flush=True)
+"""
+            gate = gate.replace("failure=(root/'gate-failure').exists()", candidate_probe+"failure='--candidate' in args")
+            fixture.write("scripts/verify.py", gate)
+            fixture.git("add", ".")
+            fixture.git("commit", "--quiet", "-m", "absent sum readonly candidate fixture")
+            fixture.source = fixture.git("rev-parse", "HEAD")
+            before = fixture.snapshot()
+            self.assertFalse((fixture.repo / "adapters/test/go.sum").exists())
+            # Act: actual readonly Go consumer passes, then required candidate lane fails.
+            result = fixture.invoke()
+            candidate = fixture.repo / ".git/ragy-releases/active/checkout"
+            # Assert: only deterministic intended sums were created; failure publishes no refs.
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("READONLY CANDIDATE GO TEST PASS", result.stdout, result.stdout+result.stderr)
+            self.assertEqual((candidate / "adapters/test/go.sum").read_text().count("h1:"), 2)
+            self.assertEqual(subprocess.check_output(["git", "diff", "--name-only", fixture.source, "HEAD"], cwd=candidate, text=True).splitlines(),
+                             ["adapters/test/go.mod", "adapters/test/go.sum"])
+            self.assertEqual(subprocess.check_output(["git", "status", "--porcelain"], cwd=candidate, text=True), "")
+            self.assertEqual(fixture.snapshot(), before)
+            self.assertEqual(fixture.remote_git("tag", "--list"), "")
+            self.assertEqual(subprocess.check_output(["git", "tag", "--list"], cwd=candidate, text=True), "")
 
     def test_required_gate_failure_creates_no_refs(self):
         # Arrange: committed required-lane failure on selected source, newer caller HEAD is green.
@@ -242,7 +284,7 @@ class ReleaseIsolation(unittest.TestCase):
             files = fixture.remote_git("ls-tree", "-r", "--name-only", "v0.0.1").splitlines()
             self.assertNotIn("hook-private.txt", files)
             self.assertEqual(fixture.remote_git("diff", "--name-only", fixture.source, "v0.0.1"),
-                             "adapters/test/go.mod")
+                             "adapters/test/go.mod\nadapters/test/go.sum")
 
     def test_rejected_push_preserves_caller_and_unrelated_refs(self):
         # Arrange: an actual bare-remote hook rejects the complete atomic transaction.

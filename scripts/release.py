@@ -59,7 +59,7 @@ def release_scope(repo, source):
             raise ReleaseError(f"Unexpected module path: {modfile}")
         files.append(modfile)
         sumfile = modfile.removesuffix("go.mod") + "go.sum"
-        if git(repo, "ls-tree", source, "--", sumfile):
+        if module != "." or git(repo, "ls-tree", source, "--", sumfile):
             files.append(sumfile)
     return modules, files, root
 
@@ -153,7 +153,7 @@ def rewrite_manifests(checkout, files, root, version, source_repo=None, source="
             raise ReleaseError("Cannot determine exact candidate module checksums")
         additions = [f"{root} {version} {downloaded['Sum']}", f"{root} {version}/go.mod {downloaded['GoModSum']}"]
         for path in sums:
-            lines = (checkout / path).read_text().splitlines()
+            lines = (checkout / path).read_text().splitlines() if (checkout / path).exists() else []
             # Replace only this intended version, keeping historical/public dependency sums.
             lines = [line for line in lines if not line.startswith(root+" "+version+" ") and not line.startswith(root+" "+version+"/go.mod ")]
             (checkout / path).write_text("\n".join(sorted(set(lines+additions)))+"\n")
@@ -175,13 +175,20 @@ def intended_manifests(checkout, record):
     with tempfile.TemporaryDirectory(prefix="ragy-manifests-") as temporary:
         tree = Path(temporary)
         for path in record["files"]:
-            original[path] = subprocess.check_output(
-                ["git", "show", f"{record['source']}:{path}"], cwd=checkout,
-                env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
-            )
+            entry = git(checkout, "ls-tree", record["source"], "--", path).split()
+            if not entry and path.endswith("/go.sum"):
+                original[path] = None
+            else:
+                if len(entry) != 4 or entry[0] not in ("100644", "100755") or entry[3] != path:
+                    raise ReleaseError(f"Not a tracked regular manifest file: {path}")
+                original[path] = subprocess.check_output(
+                    ["git", "show", f"{record['source']}:{path}"], cwd=checkout,
+                    env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+                )
             target = tree / path
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(original[path])
+            if original[path] is not None:
+                target.write_bytes(original[path])
         rewrite_manifests(tree, record["files"], record["root_module"], record["version"], checkout, record["source"])
         expected = {path: (tree / path).read_bytes() for path in record["files"]}
     return original, expected
@@ -195,7 +202,8 @@ def validate_preparing_files(checkout, original, expected):
             cursor = cursor / part
             if cursor.is_symlink():
                 raise ReleaseError("Stored manifest paths must not be symlinks")
-        if target.read_bytes() not in (original[path], content):
+        actual = target.read_bytes() if target.exists() else None
+        if actual not in (original[path], content):
             raise ReleaseError("Incomplete preparation contains unreviewed manifest content")
 
 
