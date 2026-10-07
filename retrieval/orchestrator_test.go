@@ -3077,10 +3077,8 @@ func TestResultPipelinePlanBinderCanBindMissingOptions(t *testing.T) {
 	t.Parallel()
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
-		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{
-				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
-			},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
 		},
 	}
 	pipeline, err := newResultPipelineBuilderNoMeta[intentWithMode, struct{}]().
@@ -3134,10 +3132,8 @@ func TestRetrieverNodePassesRequestEnvelopeToBackend(t *testing.T) {
 	t.Parallel()
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
-		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{
-				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
-			},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
 		},
 	}
 	node := resultRetrieverNodeNoMeta[intentWithMode, struct{}]{Backend: spy}
@@ -3159,10 +3155,8 @@ func TestPipelinePlannerAttachesPlanBeforeBackend(t *testing.T) {
 	t.Parallel()
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
-		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{
-				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
-			},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
 		},
 	}
 	pipeline, err := newResultPipelineBuilderNoMeta[intentWithMode, struct{}]().
@@ -3272,10 +3266,8 @@ func TestPipelineUsesPreplannedQueryWithoutCallingPlanner(t *testing.T) {
 	t.Parallel()
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
-		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{
-				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
-			},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
 		},
 	}
 	plannerCalls := 0

@@ -86,10 +86,8 @@ func TestPipelineExecuteReturnsEnvelopeAndRunsPlanBinder(t *testing.T) {
 	t.Parallel()
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
-		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{
-				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
-			},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
 		},
 	}
 	pipeline, err := NewExecutionPipelineBuilder[intentWithMode, struct{}, NoExecutionMeta]().
@@ -142,10 +140,8 @@ func TestExecutionPipelineBinderRunsForPreplannedRequest(t *testing.T) {
 	t.Parallel()
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
-		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{
-				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
-			},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
 		},
 	}
 	plannerCalls := 0
@@ -204,10 +200,8 @@ func TestExecutionPipelineSeedAndBinderCanBindMissingOptions(t *testing.T) {
 	t.Parallel()
 
 	spy := &querySpyBackend[intentWithMode, struct{}]{
-		orchestratorStubBackend: orchestratorStubBackend[intentWithMode, struct{}]{
-			docs: []Document[struct{}]{
-				{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
-			},
+		docs: []Document[struct{}]{
+			{ScoreSemantics: "fixture-similarity", ScoreState: ScorePresent, ID: "hit", Content: "ok", Score: 1},
 		},
 	}
 	pipeline, err := NewExecutionPipelineBuilder[intentWithMode, struct{}, executionMetaFixture]().

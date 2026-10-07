@@ -1,6 +1,6 @@
 module github.com/skosovsky/ragy/examples/resilience
 
-go 1.26.1
+go 1.27.1
 
 replace github.com/skosovsky/ragy => ../..
 

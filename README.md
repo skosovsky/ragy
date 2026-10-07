@@ -4,7 +4,7 @@ Ragy is a typed, capability-specific retrieval toolkit for host-defined business
 
 ## Install and run locally
 
-The core module requires Go **1.26.1 or later** (`go.mod`). The remediation baseline was verified using Go 1.26.5; record the actual compiler/profile for your deployment. The core has no external runtime dependency. Choose a reviewed module version when reproducibility is required.
+The core module requires Go **1.27.1 or later** (`go.mod`). Validated compiler and linter versions are pinned in `scripts/toolchain.json`; record the actual compiler/profile for your deployment. The core has no external runtime dependency. Choose a reviewed module version when reproducibility is required.
 
 ```sh
 mkdir ragy-demo

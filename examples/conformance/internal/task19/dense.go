@@ -110,11 +110,9 @@ func task19BuildStores(ctx context.Context, root string, c Corpus) (task19Stores
 		schema:      schema,
 		tenant:      tenant,
 		tensorBytes: map[string]uint64{},
-		task19Profiles: task19Profiles{
-			refs:       map[string]source.Reference{},
-			denseRoot:  filepath.Join(root, "dense"),
-			tensorRoot: filepath.Join(root, "tensor"),
-		},
+		refs:        map[string]source.Reference{},
+		denseRoot:   filepath.Join(root, "dense"),
+		tensorRoot:  filepath.Join(root, "tensor"),
 	}
 	out.denseStore, err = filestore.New(filepath.Join(root, "dense-manifests"), task19ManifestBytes)
 	if err != nil {
