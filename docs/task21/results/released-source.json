@@ -1,0 +1,22 @@
+{
+  "tag": "v0.8.1",
+  "commit": "b12fedb529edfa7304fa713e823d114e496254ef",
+  "source_commit": "730e94137f5aee0e0213be1a1e90e0c405e54f97",
+  "optional_consumer_present": true,
+  "optional_consumer_sha256": {
+    "examples/context-bridge/README.md": "3171f2d61b9a0fda770b442ed9cb51344e4d4f47540eb7f3dea1447b59698148",
+    "examples/context-bridge/adversarial_test.go": "9ea172a052b5beffe426f7da9450239b781fb3d2cd928f785ba13cc7e06b6c63",
+    "examples/context-bridge/bridge.go": "d113c3badf311c388130f8ee7aec0cef1b1467540b122541f3bbb3ff440d9ed4",
+    "examples/context-bridge/bridge_test.go": "4d9a893161a383241f898910bba76221b0f9e7161b3f1fe6e7aa7c379fb9827e",
+    "examples/context-bridge/cleanup_unix_test.go": "72fab55ee12641cdb82b193c7430147c3f1d4627bb9149746993978bfe42535d",
+    "examples/context-bridge/cmd/demo/main.go": "cd21c20dca7eb91ef642b6bf8f169c897456ee17eac384e716402911ab83ff72",
+    "examples/context-bridge/contracts.go": "a307df867ce74569b6d534ef0884fc233aba3dea87988856d25a09e0e2ea11b3",
+    "examples/context-bridge/go.mod": "4a65b52ba61b8300b534214ad58d7084fb571d9077dd0847b327731a8ee85604",
+    "examples/context-bridge/go.sum": "f4fbe2cff4bcf1d4e04abeffe7bfb2639f530a492935e1b058c886d1fd8a68a8",
+    "examples/context-bridge/search.go": "723a47a87d45193b05b3a9bc9a129bb9cd98bb2d9f45d91d8151819bd963e249",
+    "examples/context-bridge/sidecar.go": "fb741bbc52171728cb89987e348c9db323ce727fa3c4a5f96ef8156311b15239",
+    "examples/context-bridge/sidecar.schema.json": "f3a9a7f33a04630434500c997f6a01acdc56793df5ecb6300d8b677ad646814a",
+    "examples/context-bridge/sink.go": "fc67ea0506654275748b8be6e40fb4fb67a04b9b40292d08589f2417dba926e1"
+  },
+  "local_consumer_mismatches": []
+}

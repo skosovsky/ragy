@@ -39,9 +39,30 @@ No implementation AC remains incomplete. The root authoritatively confirmed full
 
 ## Delivery and closeout verdict
 
-**NOT COMPLETE / pending.** The implementation AC result is not a delivery completion claim. Both dependency modes now pass. Delivery remains separate: verify CI and execute the justified make release-patch command, repeat published runner with --ragy-ref NEW_RELEASE_TAG and verify the actual released composition contains this optional example implementation (required by https://github.com/skosovsky/ragy/issues/4#issuecomment-6035141390), preserve release evidence, explicitly notify the issue author with real API symbols and before/after host glue changes plus migration/reviews/CI/release links, then close https://github.com/skosovsky/ragy/issues/4. No release or closeout is credited merely because its guidance or draft exists.
+**Implementation 100%; release and published delivery VERIFIED; issue closeout PENDING.** Final authoritative records supersede the historical pending states below. make release-patch on exact reviewed source730e94137f5aee0e0213be1a1e90e0c405e54f97 finished exit0. Published v0.8.1 candidateb12fedb529edfa7304fa713e823d114e496254ef has complete matching observed/expected 11 remote refs; release-state status=complete and no last_error/observation_error. release.log records the successful publication.
+
+CI source730e94137f5aee0e0213be1a1e90e0c405e54f97 has all34 jobs success. released-source.json records the fresh tag clone with all13 optional consumer files, zero local mismatches. I independently compared all13 SHA256 values against current local files and published-release.json runner source files: zero mismatches in both comparisons.
+
+The runner from the released source explicitly applied -require=github.com/skosovsky/ragy@v0.8.1, removed local replaces, used GOWORK=off, and passed fresh go test -race -count=1 ./... plus executable demo (exit0). published-release.json records ragy originb12fedb529edfa7304fa713e823d114e496254ef refs/tags/v0.8.1 and published memy/contexty origins and checksums. This meets the additional post-release --ragy-ref NEW_RELEASE_TAG gate requested at https://github.com/skosovsky/ragy/issues/4#issuecomment-6035141390.
+
+Remaining requirement before overall goal completion: explicitly notify the issue author with actual APIs, migration/before-after snippets and implementation/reviews/CI/release links, then close issue4 and independently verify comment URL/body and closed state. No issue closeout is credited yet.
+
+Artifacts inspected: docs/task21/results/ci.json, release.log, release-state.json, released-source.json, published-release.json and published-release.log. No tests were repeated because source/evidence checks exposed no new risk.
 
 
 Final published origin evidence: ragy v0.8.0 -> 3a06cb47a91463badb5ec1e240bb72cca6f82a83 (refs/tags/v0.8.0); memy v0.3.1 -> 27b788e8d56ee33ccb3dd5a8fc99d5dee75fedff (refs/tags/v0.3.1); contexty v0.13.1 -> 3ce901169b09b7136b126d9baa98e1875b33fa82 (refs/tags/v0.13.1). Each includes module Sum and GoModSum in published.json. The runner's logging-only change adds identity evidence and preserves semantic/race/demo gates.
 
 Completion is implementation-only: current published lane uses existing ragy v0.8.0 and proves composition semantics, but does not prove publication of this newly implemented optional example. Delivery therefore still requires release/CI and a post-release published runner using --ragy-ref NEW_RELEASE_TAG, followed by the explicit author notification and issue closure.
+
+
+Source identity audit: current HEAD 42062c9b00c6d6f9bf3b9a1de9f9ffbba206e14a on the implementation branch. Its only commit diff is CI push branch filter addition of codex/** (one workflow line); consumer source hashes still match both passed records with zero mismatches. This change enables branch CI and does not alter implementation semantics or invalidate prior consumer acceptance. CI run https://github.com/skosovsky/ragy/actions/runs/37605363190 and exact-source make release-patch are pending, not credited as successful. Final delivery audit must verify release tag/source identity, published runner with that new ragy tag, and issue notification/closure.
+
+
+CI dependency-profile repair audit: source 730e94137f5aee0e0213be1a1e90e0c405e54f97 explicitly checks out reviewed memy9719bc7967031c56daba9ef302edc4994ec8554a and contexty912c0413994b2b3a1a7d3849a0aa09c71350f915, exactly matching previously accepted checkout identities. The prior CI failed because remote default branches predated the required contracts, not because the consumer semantics failed. The README documents deliberate ref selection and published tag independence. No consumer Go/schema semantics changed. Current prerelease records /tmp/task21-checkout-prerelease.json and /tmp/task21-published-prerelease.json both status=passed with zero current source-file hash mismatches; the older repository records differ only on the README documentation change. Implementation acceptance remains 100%.
+
+Delivery remains pending: previous release attempt was interrupted exit1 during acceptance before publication and is not credited. Its retained artifact is docs/task21/results/release-initial-interrupted.log. Failed initial CI evidence is retained in docs/task21/results/ci-checkout-initial-failed.log. Corrected CI run https://github.com/skosovsky/ragy/actions/runs/37605796008 is pending. Release should proceed only against the corrected source and successful gates, then verify new-tag published composition and issue closeout.
+
+
+Corrected CI completion audit: inspected /tmp/task21-ci-final.json. Run status completed/conclusion success on exact source730e94137f5aee0e0213be1a1e90e0c405e54f97; all 34 jobs concluded success, including context-bridge checkout and published semantic lanes, optional consumer lint/tests, all module checks and release-consumer. URL https://github.com/skosovsky/ragy/actions/runs/37605796008. This supersedes the prior pending CI state; implementation AC1–AC10 remains 100%.
+
+Release session35401 is still live and is not credited as successful by this review. Delivery remains pending until exact-source release success, published check using the new release tag and author notification/issue closeout are independently audited. CI success alone does not complete the overall goal.

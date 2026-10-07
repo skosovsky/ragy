@@ -3,14 +3,14 @@
   "dependencies": {
     "ragy": {
       "Path": "github.com/skosovsky/ragy",
-      "Version": "v0.8.0",
-      "Sum": "h1:U6+ItzoIbw9rChX4e4/mfwml/hUB8ZmgC/ftHNtz5pg=",
+      "Version": "v0.8.1",
+      "Sum": "h1:FMmxH9s8YxfPvv7ajNAwFsGgUmDFIi32uQj5uSPSxm0=",
       "GoModSum": "h1:czJrWaKvukDTD9TbQJgz5oGPlgAnSQ4tUlCdoqwXlMg=",
       "Origin": {
         "VCS": "git",
         "URL": "https://github.com/skosovsky/ragy",
-        "Hash": "3a06cb47a91463badb5ec1e240bb72cca6f82a83",
-        "Ref": "refs/tags/v0.8.0"
+        "Hash": "b12fedb529edfa7304fa713e823d114e496254ef",
+        "Ref": "refs/tags/v0.8.1"
       }
     },
     "memy": {
@@ -73,10 +73,20 @@
       "command": [
         "go",
         "mod",
-        "tidy"
+        "edit",
+        "-require=github.com/skosovsky/ragy@v0.8.1"
       ],
       "exit_code": 0,
       "output": ""
+    },
+    {
+      "command": [
+        "go",
+        "mod",
+        "tidy"
+      ],
+      "exit_code": 0,
+      "output": "go: downloading github.com/skosovsky/ragy v0.8.1\n"
     },
     {
       "command": [
@@ -86,7 +96,7 @@
         "-json"
       ],
       "exit_code": 0,
-      "output": "{\n\t\"Module\": {\n\t\t\"Path\": \"example.com/ragy-context-bridge\"\n\t},\n\t\"Go\": \"1.27.1\",\n\t\"Require\": [\n\t\t{\n\t\t\t\"Path\": \"github.com/santhosh-tekuri/jsonschema/v6\",\n\t\t\t\"Version\": \"v6.0.3\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/contexty\",\n\t\t\t\"Version\": \"v0.13.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/memy\",\n\t\t\t\"Version\": \"v0.3.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/ragy\",\n\t\t\t\"Version\": \"v0.8.0\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"golang.org/x/text\",\n\t\t\t\"Version\": \"v0.42.0\",\n\t\t\t\"Indirect\": true\n\t\t}\n\t]\n}\n"
+      "output": "{\n\t\"Module\": {\n\t\t\"Path\": \"example.com/ragy-context-bridge\"\n\t},\n\t\"Go\": \"1.27.1\",\n\t\"Require\": [\n\t\t{\n\t\t\t\"Path\": \"github.com/santhosh-tekuri/jsonschema/v6\",\n\t\t\t\"Version\": \"v6.0.3\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/contexty\",\n\t\t\t\"Version\": \"v0.13.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/memy\",\n\t\t\t\"Version\": \"v0.3.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/ragy\",\n\t\t\t\"Version\": \"v0.8.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"golang.org/x/text\",\n\t\t\t\"Version\": \"v0.42.0\",\n\t\t\t\"Indirect\": true\n\t\t}\n\t]\n}\n"
     },
     {
       "command": [
@@ -96,7 +106,7 @@
         "all"
       ],
       "exit_code": 0,
-      "output": "example.com/ragy-context-bridge\ngithub.com/dlclark/regexp2 v1.11.0\ngithub.com/mattn/go-sqlite3 v1.14.52\ngithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3\ngithub.com/skosovsky/contexty v0.13.1\ngithub.com/skosovsky/memy v0.3.1\ngithub.com/skosovsky/ragy v0.8.0\ngithub.com/stretchr/testify v1.12.1\ngo.yaml.in/yaml/v3 v3.0.5\ngolang.org/x/mod v0.41.0\ngolang.org/x/sync v0.23.0\ngolang.org/x/text v0.42.0\ngolang.org/x/tools v0.49.0\n"
+      "output": "example.com/ragy-context-bridge\ngithub.com/dlclark/regexp2 v1.11.0\ngithub.com/mattn/go-sqlite3 v1.14.52\ngithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3\ngithub.com/skosovsky/contexty v0.13.1\ngithub.com/skosovsky/memy v0.3.1\ngithub.com/skosovsky/ragy v0.8.1\ngithub.com/stretchr/testify v1.12.1\ngo.yaml.in/yaml/v3 v3.0.5\ngolang.org/x/mod v0.41.0\ngolang.org/x/sync v0.23.0\ngolang.org/x/text v0.42.0\ngolang.org/x/tools v0.49.0\n"
     },
     {
       "command": [
@@ -104,10 +114,10 @@
         "mod",
         "download",
         "-json",
-        "github.com/skosovsky/ragy@v0.8.0"
+        "github.com/skosovsky/ragy@v0.8.1"
       ],
       "exit_code": 0,
-      "output": "{\n\t\"Path\": \"github.com/skosovsky/ragy\",\n\t\"Version\": \"v0.8.0\",\n\t\"Info\": \"/tmp/ragy-task21-modcache/cache/download/github.com/skosovsky/ragy/@v/v0.8.0.info\",\n\t\"GoMod\": \"/tmp/ragy-task21-modcache/cache/download/github.com/skosovsky/ragy/@v/v0.8.0.mod\",\n\t\"Zip\": \"/tmp/ragy-task21-modcache/cache/download/github.com/skosovsky/ragy/@v/v0.8.0.zip\",\n\t\"Dir\": \"/tmp/ragy-task21-modcache/github.com/skosovsky/ragy@v0.8.0\",\n\t\"Sum\": \"h1:U6+ItzoIbw9rChX4e4/mfwml/hUB8ZmgC/ftHNtz5pg=\",\n\t\"GoModSum\": \"h1:czJrWaKvukDTD9TbQJgz5oGPlgAnSQ4tUlCdoqwXlMg=\",\n\t\"Origin\": {\n\t\t\"VCS\": \"git\",\n\t\t\"URL\": \"https://github.com/skosovsky/ragy\",\n\t\t\"Hash\": \"3a06cb47a91463badb5ec1e240bb72cca6f82a83\",\n\t\t\"Ref\": \"refs/tags/v0.8.0\"\n\t}\n}\n"
+      "output": "{\n\t\"Path\": \"github.com/skosovsky/ragy\",\n\t\"Version\": \"v0.8.1\",\n\t\"Info\": \"/tmp/ragy-task21-modcache/cache/download/github.com/skosovsky/ragy/@v/v0.8.1.info\",\n\t\"GoMod\": \"/tmp/ragy-task21-modcache/cache/download/github.com/skosovsky/ragy/@v/v0.8.1.mod\",\n\t\"Zip\": \"/tmp/ragy-task21-modcache/cache/download/github.com/skosovsky/ragy/@v/v0.8.1.zip\",\n\t\"Dir\": \"/tmp/ragy-task21-modcache/github.com/skosovsky/ragy@v0.8.1\",\n\t\"Sum\": \"h1:FMmxH9s8YxfPvv7ajNAwFsGgUmDFIi32uQj5uSPSxm0=\",\n\t\"GoModSum\": \"h1:czJrWaKvukDTD9TbQJgz5oGPlgAnSQ4tUlCdoqwXlMg=\",\n\t\"Origin\": {\n\t\t\"VCS\": \"git\",\n\t\t\"URL\": \"https://github.com/skosovsky/ragy\",\n\t\t\"Hash\": \"b12fedb529edfa7304fa713e823d114e496254ef\",\n\t\t\"Ref\": \"refs/tags/v0.8.1\"\n\t}\n}\n"
     },
     {
       "command": [
@@ -140,7 +150,7 @@
         "./..."
       ],
       "exit_code": 0,
-      "output": "ok  \texample.com/ragy-context-bridge\t14.192s\n?   \texample.com/ragy-context-bridge/cmd/demo\t[no test files]\n"
+      "output": "ok  \texample.com/ragy-context-bridge\t14.983s\n?   \texample.com/ragy-context-bridge/cmd/demo\t[no test files]\n"
     },
     {
       "command": [
@@ -168,5 +178,5 @@
     "sidecar.schema.json": "f3a9a7f33a04630434500c997f6a01acdc56793df5ecb6300d8b677ad646814a",
     "sink.go": "fc67ea0506654275748b8be6e40fb4fb67a04b9b40292d08589f2417dba926e1"
   },
-  "resolved_modules": "example.com/ragy-context-bridge\ngithub.com/dlclark/regexp2 v1.11.0\ngithub.com/mattn/go-sqlite3 v1.14.52\ngithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3\ngithub.com/skosovsky/contexty v0.13.1\ngithub.com/skosovsky/memy v0.3.1\ngithub.com/skosovsky/ragy v0.8.0\ngithub.com/stretchr/testify v1.12.1\ngo.yaml.in/yaml/v3 v3.0.5\ngolang.org/x/mod v0.41.0\ngolang.org/x/sync v0.23.0\ngolang.org/x/text v0.42.0\ngolang.org/x/tools v0.49.0\n"
+  "resolved_modules": "example.com/ragy-context-bridge\ngithub.com/dlclark/regexp2 v1.11.0\ngithub.com/mattn/go-sqlite3 v1.14.52\ngithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3\ngithub.com/skosovsky/contexty v0.13.1\ngithub.com/skosovsky/memy v0.3.1\ngithub.com/skosovsky/ragy v0.8.1\ngithub.com/stretchr/testify v1.12.1\ngo.yaml.in/yaml/v3 v3.0.5\ngolang.org/x/mod v0.41.0\ngolang.org/x/sync v0.23.0\ngolang.org/x/text v0.42.0\ngolang.org/x/tools v0.49.0\n"
 }

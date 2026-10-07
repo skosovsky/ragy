@@ -1,28 +1,21 @@
-{"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/ragy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
-{"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/memy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
-{"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/contexty"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
+{"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/ragy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
+{"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/memy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
+{"command": ["go", "mod", "edit", "-dropreplace=github.com/skosovsky/contexty"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
 {"command": ["git", "rev-parse", "HEAD"], "cwd": "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438/Projects/ai/ragy", "GOWORK": "off"}
-be98dba21faceb900c8afa4611238ae86fa6ea9a
+730e94137f5aee0e0213be1a1e90e0c405e54f97
 {"command": ["git", "status", "--porcelain"], "cwd": "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438/Projects/ai/ragy", "GOWORK": "off"}
- M .github/workflows/ci.yml
- M scripts/check-modules.txt
-?? docs/context-bridge-migration.md
-?? docs/context-bridge.md
 ?? "docs/task18/correctness 2.md"
-?? docs/task21/
-?? examples/context-bridge/
-?? scripts/check_context_bridge.py
-{"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/ragy=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/ragy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
+{"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/ragy=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/ragy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
 {"command": ["git", "rev-parse", "HEAD"], "cwd": "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438/Projects/ai/memy", "GOWORK": "off"}
 9719bc7967031c56daba9ef302edc4994ec8554a
 {"command": ["git", "status", "--porcelain"], "cwd": "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438/Projects/ai/memy", "GOWORK": "off"}
-{"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/memy=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/memy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
+{"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/memy=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/memy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
 {"command": ["git", "rev-parse", "HEAD"], "cwd": "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438/Projects/ai/contexty", "GOWORK": "off"}
 912c0413994b2b3a1a7d3849a0aa09c71350f915
 {"command": ["git", "status", "--porcelain"], "cwd": "/Users/skosovsky/Library/Mobile Documents/com~apple~CloudDocs/\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438/Projects/ai/contexty", "GOWORK": "off"}
-{"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/contexty=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/contexty"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
-{"command": ["go", "mod", "tidy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
-{"command": ["go", "mod", "edit", "-json"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
+{"command": ["go", "mod", "edit", "-replace=github.com/skosovsky/contexty=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/contexty"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
+{"command": ["go", "mod", "tidy"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
+{"command": ["go", "mod", "edit", "-json"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
 {
 	"Module": {
 		"Path": "example.com/ragy-context-bridge"
@@ -57,7 +50,7 @@ be98dba21faceb900c8afa4611238ae86fa6ea9a
 				"Path": "github.com/skosovsky/ragy"
 			},
 			"New": {
-				"Path": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/ragy"
+				"Path": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/ragy"
 			}
 		},
 		{
@@ -65,7 +58,7 @@ be98dba21faceb900c8afa4611238ae86fa6ea9a
 				"Path": "github.com/skosovsky/memy"
 			},
 			"New": {
-				"Path": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/memy"
+				"Path": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/memy"
 			}
 		},
 		{
@@ -73,29 +66,29 @@ be98dba21faceb900c8afa4611238ae86fa6ea9a
 				"Path": "github.com/skosovsky/contexty"
 			},
 			"New": {
-				"Path": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/contexty"
+				"Path": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/contexty"
 			}
 		}
 	]
 }
-{"command": ["go", "list", "-m", "all"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
+{"command": ["go", "list", "-m", "all"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
 example.com/ragy-context-bridge
 github.com/dlclark/regexp2 v1.11.0
 github.com/mattn/go-sqlite3 v1.14.52
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
-github.com/skosovsky/contexty v0.13.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/contexty
-github.com/skosovsky/memy v0.3.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/memy
-github.com/skosovsky/ragy v0.8.0 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/ragy
+github.com/skosovsky/contexty v0.13.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/contexty
+github.com/skosovsky/memy v0.3.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/memy
+github.com/skosovsky/ragy v0.8.0 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/ragy
 github.com/stretchr/testify v1.12.1
 go.yaml.in/yaml/v3 v3.0.5
 golang.org/x/mod v0.41.0
 golang.org/x/sync v0.23.0
 golang.org/x/text v0.42.0
 golang.org/x/tools v0.49.0
-{"command": ["go", "test", "-race", "-count=1", "./..."], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
-ok  	example.com/ragy-context-bridge	14.589s
+{"command": ["go", "test", "-race", "-count=1", "./..."], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
+ok  	example.com/ragy-context-bridge	14.055s
 ?   	example.com/ragy-context-bridge/cmd/demo	[no test files]
-{"command": ["go", "run", "./cmd/demo"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/consumer", "GOWORK": "off"}
+{"command": ["go", "run", "./cmd/demo"], "cwd": "/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/consumer", "GOWORK": "off"}
 {"role":"user","text":"\u003cdata\u003e\nretrieved content is untrusted\n\n[1] canonical\nКанонический текст 😀\n\u003c/data\u003e"}
 roundtrip references=1 precision=preserved score-state=0
 forget=complete managed-contexts=0

@@ -2,8 +2,8 @@
   "mode": "checkout",
   "dependencies": {
     "ragy": {
-      "source": "be98dba21faceb900c8afa4611238ae86fa6ea9a",
-      "dirty": "M .github/workflows/ci.yml\n M scripts/check-modules.txt\n?? docs/context-bridge-migration.md\n?? docs/context-bridge.md\n?? \"docs/task18/correctness 2.md\"\n?? docs/task21/\n?? examples/context-bridge/\n?? scripts/check_context_bridge.py",
+      "source": "730e94137f5aee0e0213be1a1e90e0c405e54f97",
+      "dirty": "?? \"docs/task18/correctness 2.md\"",
       "input_sha256": {
         "access/access.go": "54b11fdefe74f366f08244809a6e19485e34f298ed85d0c9fd586d0c89b434a6",
         "access/access_test.go": "29852252ad619cac52aacfae35cc89f4ba5c1d2ccc426cf1b19fd380d25fb24a",
@@ -235,9 +235,9 @@
         "docs/task20/backlog.json": "aff7d64595f26bfc10bb1857e7e0a997717a146574e5694c0b5aeb75c7cff243",
         "docs/task20/sources.json": "c5394d7627789beab8170152dd45190c89fdbb952cb5e4633970641b39091ee8",
         "docs/task20/traceability.json": "273618f1a1cd7b385949457edc6c54b52d5587fd1be92dc6e3cc7f53ec249a00",
-        "docs/task21/results/checkout.json": "6adb3d589fdd6c000825adede97007242449972a6d0f1a32fcbd0166ade0b541",
+        "docs/task21/results/checkout.json": "2d0e82f9b2b1efad3004507705ef8923f18ed8ee64510c7b3f462551b508a115",
         "docs/task21/results/dependency-wait.json": "ce690b9d97f9b879599ccd3e17a45c90231818692b7461f39f23d555b51b228a",
-        "docs/task21/results/published.json": "f29bdf3b6476fbd35c73328e37067a0d5e2a65bda255fd89eeb507a4a4daf887",
+        "docs/task21/results/published.json": "3c6e378a4a413a8194faea522d5294e9cd6bbd68173ddcbb375c53b2e7297ed0",
         "docs_test.go": "44e05d445597def9a7dc358c4c0db2e970d3da0fe35e9f8844f66d0407aff13f",
         "documents/chunking_integration_test.go": "365724c2bd5173c82fe6ed1c873e81c57c28b94eeedb368311d278127131a837",
         "documents/documents.go": "8a2e652af6ef2ed7588184bfe8533240151438aebb9225f839fbc61564902225",
@@ -1380,7 +1380,7 @@
         "HEAD"
       ],
       "exit_code": 0,
-      "output": "be98dba21faceb900c8afa4611238ae86fa6ea9a\n"
+      "output": "730e94137f5aee0e0213be1a1e90e0c405e54f97\n"
     },
     {
       "command": [
@@ -1389,14 +1389,14 @@
         "--porcelain"
       ],
       "exit_code": 0,
-      "output": " M .github/workflows/ci.yml\n M scripts/check-modules.txt\n?? docs/context-bridge-migration.md\n?? docs/context-bridge.md\n?? \"docs/task18/correctness 2.md\"\n?? docs/task21/\n?? examples/context-bridge/\n?? scripts/check_context_bridge.py\n"
+      "output": "?? \"docs/task18/correctness 2.md\"\n"
     },
     {
       "command": [
         "go",
         "mod",
         "edit",
-        "-replace=github.com/skosovsky/ragy=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/ragy"
+        "-replace=github.com/skosovsky/ragy=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/ragy"
       ],
       "exit_code": 0,
       "output": ""
@@ -1424,7 +1424,7 @@
         "go",
         "mod",
         "edit",
-        "-replace=github.com/skosovsky/memy=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/memy"
+        "-replace=github.com/skosovsky/memy=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/memy"
       ],
       "exit_code": 0,
       "output": ""
@@ -1452,7 +1452,7 @@
         "go",
         "mod",
         "edit",
-        "-replace=github.com/skosovsky/contexty=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/contexty"
+        "-replace=github.com/skosovsky/contexty=/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/contexty"
       ],
       "exit_code": 0,
       "output": ""
@@ -1474,7 +1474,7 @@
         "-json"
       ],
       "exit_code": 0,
-      "output": "{\n\t\"Module\": {\n\t\t\"Path\": \"example.com/ragy-context-bridge\"\n\t},\n\t\"Go\": \"1.27.1\",\n\t\"Require\": [\n\t\t{\n\t\t\t\"Path\": \"github.com/santhosh-tekuri/jsonschema/v6\",\n\t\t\t\"Version\": \"v6.0.3\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/contexty\",\n\t\t\t\"Version\": \"v0.13.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/memy\",\n\t\t\t\"Version\": \"v0.3.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/ragy\",\n\t\t\t\"Version\": \"v0.8.0\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"golang.org/x/text\",\n\t\t\t\"Version\": \"v0.42.0\",\n\t\t\t\"Indirect\": true\n\t\t}\n\t],\n\t\"Replace\": [\n\t\t{\n\t\t\t\"Old\": {\n\t\t\t\t\"Path\": \"github.com/skosovsky/ragy\"\n\t\t\t},\n\t\t\t\"New\": {\n\t\t\t\t\"Path\": \"/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/ragy\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"Old\": {\n\t\t\t\t\"Path\": \"github.com/skosovsky/memy\"\n\t\t\t},\n\t\t\t\"New\": {\n\t\t\t\t\"Path\": \"/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/memy\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"Old\": {\n\t\t\t\t\"Path\": \"github.com/skosovsky/contexty\"\n\t\t\t},\n\t\t\t\"New\": {\n\t\t\t\t\"Path\": \"/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/contexty\"\n\t\t\t}\n\t\t}\n\t]\n}\n"
+      "output": "{\n\t\"Module\": {\n\t\t\"Path\": \"example.com/ragy-context-bridge\"\n\t},\n\t\"Go\": \"1.27.1\",\n\t\"Require\": [\n\t\t{\n\t\t\t\"Path\": \"github.com/santhosh-tekuri/jsonschema/v6\",\n\t\t\t\"Version\": \"v6.0.3\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/contexty\",\n\t\t\t\"Version\": \"v0.13.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/memy\",\n\t\t\t\"Version\": \"v0.3.1\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"github.com/skosovsky/ragy\",\n\t\t\t\"Version\": \"v0.8.0\"\n\t\t},\n\t\t{\n\t\t\t\"Path\": \"golang.org/x/text\",\n\t\t\t\"Version\": \"v0.42.0\",\n\t\t\t\"Indirect\": true\n\t\t}\n\t],\n\t\"Replace\": [\n\t\t{\n\t\t\t\"Old\": {\n\t\t\t\t\"Path\": \"github.com/skosovsky/ragy\"\n\t\t\t},\n\t\t\t\"New\": {\n\t\t\t\t\"Path\": \"/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/ragy\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"Old\": {\n\t\t\t\t\"Path\": \"github.com/skosovsky/memy\"\n\t\t\t},\n\t\t\t\"New\": {\n\t\t\t\t\"Path\": \"/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/memy\"\n\t\t\t}\n\t\t},\n\t\t{\n\t\t\t\"Old\": {\n\t\t\t\t\"Path\": \"github.com/skosovsky/contexty\"\n\t\t\t},\n\t\t\t\"New\": {\n\t\t\t\t\"Path\": \"/var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/contexty\"\n\t\t\t}\n\t\t}\n\t]\n}\n"
     },
     {
       "command": [
@@ -1484,7 +1484,7 @@
         "all"
       ],
       "exit_code": 0,
-      "output": "example.com/ragy-context-bridge\ngithub.com/dlclark/regexp2 v1.11.0\ngithub.com/mattn/go-sqlite3 v1.14.52\ngithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3\ngithub.com/skosovsky/contexty v0.13.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/contexty\ngithub.com/skosovsky/memy v0.3.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/memy\ngithub.com/skosovsky/ragy v0.8.0 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/ragy\ngithub.com/stretchr/testify v1.12.1\ngo.yaml.in/yaml/v3 v3.0.5\ngolang.org/x/mod v0.41.0\ngolang.org/x/sync v0.23.0\ngolang.org/x/text v0.42.0\ngolang.org/x/tools v0.49.0\n"
+      "output": "example.com/ragy-context-bridge\ngithub.com/dlclark/regexp2 v1.11.0\ngithub.com/mattn/go-sqlite3 v1.14.52\ngithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3\ngithub.com/skosovsky/contexty v0.13.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/contexty\ngithub.com/skosovsky/memy v0.3.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/memy\ngithub.com/skosovsky/ragy v0.8.0 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/ragy\ngithub.com/stretchr/testify v1.12.1\ngo.yaml.in/yaml/v3 v3.0.5\ngolang.org/x/mod v0.41.0\ngolang.org/x/sync v0.23.0\ngolang.org/x/text v0.42.0\ngolang.org/x/tools v0.49.0\n"
     },
     {
       "command": [
@@ -1495,7 +1495,7 @@
         "./..."
       ],
       "exit_code": 0,
-      "output": "ok  \texample.com/ragy-context-bridge\t14.589s\n?   \texample.com/ragy-context-bridge/cmd/demo\t[no test files]\n"
+      "output": "ok  \texample.com/ragy-context-bridge\t14.055s\n?   \texample.com/ragy-context-bridge/cmd/demo\t[no test files]\n"
     },
     {
       "command": [
@@ -1509,7 +1509,7 @@
   ],
   "status": "passed",
   "source_files": {
-    "README.md": "2c65b617ae9ca11af955e920bd47ac3c9cc96cb6d38f336b946800ddb5de50f7",
+    "README.md": "3171f2d61b9a0fda770b442ed9cb51344e4d4f47540eb7f3dea1447b59698148",
     "adversarial_test.go": "9ea172a052b5beffe426f7da9450239b781fb3d2cd928f785ba13cc7e06b6c63",
     "bridge.go": "d113c3badf311c388130f8ee7aec0cef1b1467540b122541f3bbb3ff440d9ed4",
     "bridge_test.go": "4d9a893161a383241f898910bba76221b0f9e7161b3f1fe6e7aa7c379fb9827e",
@@ -1523,5 +1523,5 @@
     "sidecar.schema.json": "f3a9a7f33a04630434500c997f6a01acdc56793df5ecb6300d8b677ad646814a",
     "sink.go": "fc67ea0506654275748b8be6e40fb4fb67a04b9b40292d08589f2417dba926e1"
   },
-  "resolved_modules": "example.com/ragy-context-bridge\ngithub.com/dlclark/regexp2 v1.11.0\ngithub.com/mattn/go-sqlite3 v1.14.52\ngithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3\ngithub.com/skosovsky/contexty v0.13.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/contexty\ngithub.com/skosovsky/memy v0.3.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/memy\ngithub.com/skosovsky/ragy v0.8.0 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-utltg_t8/dependencies/ragy\ngithub.com/stretchr/testify v1.12.1\ngo.yaml.in/yaml/v3 v3.0.5\ngolang.org/x/mod v0.41.0\ngolang.org/x/sync v0.23.0\ngolang.org/x/text v0.42.0\ngolang.org/x/tools v0.49.0\n"
+  "resolved_modules": "example.com/ragy-context-bridge\ngithub.com/dlclark/regexp2 v1.11.0\ngithub.com/mattn/go-sqlite3 v1.14.52\ngithub.com/santhosh-tekuri/jsonschema/v6 v6.0.3\ngithub.com/skosovsky/contexty v0.13.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/contexty\ngithub.com/skosovsky/memy v0.3.1 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/memy\ngithub.com/skosovsky/ragy v0.8.0 => /var/folders/46/5ywmz5gj26n7mnky51gd60g00000gn/T/ragy-context-bridge-5907iu8e/dependencies/ragy\ngithub.com/stretchr/testify v1.12.1\ngo.yaml.in/yaml/v3 v3.0.5\ngolang.org/x/mod v0.41.0\ngolang.org/x/sync v0.23.0\ngolang.org/x/text v0.42.0\ngolang.org/x/tools v0.49.0\n"
 }

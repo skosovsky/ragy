@@ -1,0 +1,47 @@
+{
+  "source": "730e94137f5aee0e0213be1a1e90e0c405e54f97",
+  "release_tag": "v0.8.1",
+  "release_commit": "b12fedb529edfa7304fa713e823d114e496254ef",
+  "commands": [
+    {
+      "command": [
+        "make",
+        "acceptance"
+      ],
+      "GOWORK": "off",
+      "exit_code": 0,
+      "log": "acceptance-final.log"
+    },
+    {
+      "command": [
+        "make",
+        "release-patch",
+        "RELEASE_SOURCE=730e94137f5aee0e0213be1a1e90e0c405e54f97"
+      ],
+      "GOWORK": "off",
+      "exit_code": 0,
+      "log": "release.log"
+    },
+    {
+      "command": [
+        "python3",
+        "scripts/check_context_bridge.py",
+        "published",
+        "--ragy-ref",
+        "v0.8.1",
+        "--output",
+        "/tmp/task21-published-release.json"
+      ],
+      "executed_from": "fresh released source checkout",
+      "GOWORK": "off",
+      "exit_code": 0,
+      "log": "published-release.log"
+    }
+  ],
+  "ci_url": "https://github.com/skosovsky/ragy/actions/runs/37605796008",
+  "ci_conclusion": "success",
+  "remaining": [
+    "issue migration notification",
+    "issue closure"
+  ]
+}
