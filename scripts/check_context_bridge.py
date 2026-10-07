@@ -25,12 +25,14 @@ def run(command, cwd, env, log):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("checkout", "published"))
+    parser.add_argument("mode", choices=("checkout", "published", "unsupported"))
     parser.add_argument("--dependency-root", type=Path, default=ROOT.parent)
     parser.add_argument("--ragy-ref")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    env = {**os.environ, "GOWORK": "off"}
+    env = {**os.environ, "GOWORK": "off", "GOENV": "off", "GOFLAGS": ""}
+    if args.mode == "published":
+        env.update(GOPRIVATE="", GONOSUMDB="", GONOPROXY="none", GOSUMDB="sum.golang.org", GOPROXY="https://proxy.golang.org")
     record = {"mode": args.mode, "dependencies": {}, "commands": [], "status": "failed"}
     try:
         with tempfile.TemporaryDirectory(prefix="ragy-context-bridge-") as temporary:
@@ -41,21 +43,33 @@ def main():
             go = os.environ.get("GO", "go")
             for name in ("ragy", "memy", "contexty"):
                 run([go, "mod", "edit", f"-dropreplace=github.com/skosovsky/{name}"], module, env, record["commands"])
-            if args.mode == "checkout":
+            if args.mode in ("checkout", "unsupported"):
                 for name in ("ragy", "memy", "contexty"):
-                    checkout = ROOT if name == "ragy" else args.dependency_root.resolve() / name
-                    if not (checkout / "go.mod").is_file():
-                        raise ValueError(f"Missing dependency checkout: {name}")
-                    identity = run(["git", "rev-parse", "HEAD"], checkout, env, record["commands"]).strip()
-                    dirty = run(["git", "status", "--porcelain"], checkout, env, record["commands"]).strip()
                     frozen = Path(temporary) / "dependencies" / name
-                    shutil.copytree(checkout, frozen, ignore=shutil.ignore_patterns(".git", ".cursor", ".codex", ".agents", "__pycache__"))
-                    fingerprints = {p.relative_to(frozen).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
-                                    for p in sorted(frozen.rglob("*")) if p.is_file() and (p.suffix in (".go", ".json") or p.name in ("go.mod", "go.sum"))}
-                    record["dependencies"][name] = {"source": identity, "dirty": dirty, "input_sha256": fingerprints}
+                    frozen.mkdir(parents=True)
+                    if name == "ragy":
+                        origin = str(ROOT)
+                        identity = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+                    else:
+                        registry = json.loads((ROOT / "scripts/check-registry.json").read_text())
+                        peer = registry["peers"][name]
+                        identity = peer["unsupported_ref"] if args.mode == "unsupported" and name == "memy" else peer["ref"]
+                        origin = peer.get("repository", f"https://github.com/skosovsky/{name}.git") if isinstance(peer, dict) else f"https://github.com/skosovsky/{name}.git"
+                    run(["git", "init", "--quiet"], frozen, env, record["commands"])
+                    run(["git", "fetch", "--quiet", "--no-tags", origin, identity], frozen, env, record["commands"])
+                    run(["git", "checkout", "--quiet", "--detach", identity], frozen, env, record["commands"])
+                    actual = run(["git", "rev-parse", "HEAD"], frozen, env, record["commands"]).strip()
+                    if actual != identity:
+                        raise ValueError("Peer/source ref identity mismatch: "+name)
+                    record["dependencies"][name] = {"source": identity, "dirty": "", "repository": origin}
                     run([go, "mod", "edit", f"-replace=github.com/skosovsky/{name}={frozen}"], module, env, record["commands"])
-            elif args.ragy_ref:
-                run([go, "mod", "edit", f"-require=github.com/skosovsky/ragy@{args.ragy_ref}"], module, env, record["commands"])
+            else:
+                registry = json.loads((ROOT / "scripts/check-registry.json").read_text())
+                for name in ("memy", "contexty"):
+                    version = registry["peers"][name]["published_version"]
+                    run([go, "mod", "edit", f"-require=github.com/skosovsky/{name}@{version}"], module, env, record["commands"])
+                if args.ragy_ref:
+                    run([go, "mod", "edit", f"-require=github.com/skosovsky/ragy@{args.ragy_ref}"], module, env, record["commands"])
             run([go, "mod", "tidy"], module, env, record["commands"])
             manifests = json.loads(run([go, "mod", "edit", "-json"], module, env, record["commands"]))
             if args.mode == "published" and manifests.get("Replace"):
@@ -69,6 +83,18 @@ def main():
                                                 module, env, record["commands"]))
                     record["dependencies"][name] = {key: downloaded[key] for key in
                                                    ("Path", "Version", "Sum", "GoModSum", "Origin") if key in downloaded}
+            if args.mode == "unsupported":
+                try:
+                    run([go, "test", "-race", "-count=1", "./..."], module, env, record["commands"])
+                except subprocess.CalledProcessError:
+                    diagnostics = record["commands"][-1]["output"]
+                    required_reason = "unknown field MaxCandidates in struct literal of type memy.SearchOptions"
+                    if required_reason not in diagnostics:
+                        raise ValueError("Unsupported peer failed for unexpected reason; expected: "+required_reason)
+                    record["expected_failure"] = required_reason
+                    record["status"] = "passed"
+                    return 0
+                raise ValueError("Unsupported peer unexpectedly compiled; negative contract is stale")
             run([go, "test", "-race", "-count=1", "./..."], module, env, record["commands"])
             run([go, "run", "./cmd/demo"], module, env, record["commands"])
             record["status"] = "passed"

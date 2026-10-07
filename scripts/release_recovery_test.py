@@ -70,6 +70,55 @@ sys.exit(r.returncode)
 
 
 class Recovery(unittest.TestCase):
+    def test_prepared_candidate_checksums_are_allowlisted_and_tampering_rejected(self):
+        # Arrange: publishable adapter has a tracked checksum file, unlike tiny legacy fixture.
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Fixture(directory)
+            fixture.write("adapters/test/go.sum", "")
+            fixture.git("add", "adapters/test/go.sum")
+            fixture.git("commit", "--quiet", "-m", "tracked adapter checksum fixture")
+            fixture.source = fixture.git("rev-parse", "HEAD")
+            hook = rejecting_hook(fixture)
+            # Act: exact artifact sum preparation precedes a rejected real atomic push.
+            failed = fixture.invoke()
+            pending = record(fixture)
+            checkout = active(fixture) / "checkout"
+            checksum = checkout / "adapters/test/go.sum"
+            intended = checksum.read_text()
+            checksum.write_text(intended.replace("h1:", "h1:tampered", 1))
+            resumed = command(fixture, "resume")
+            # Assert: versioned ZIP and mod sums exist, only exact intended bytes may resume.
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("adapters/test/go.sum", pending["files"])
+            self.assertRegex(intended, r"example.invalid/ragy v0.0.1 h1:")
+            self.assertRegex(intended, r"example.invalid/ragy v0.0.1/go.mod h1:")
+            self.assertNotEqual(resumed.returncode, 0)
+            self.assertIn("candidate checkout is dirty", resumed.stderr)
+            self.assertEqual(fixture.remote_git("tag", "--list"), "")
+            hook.unlink()
+
+    def test_public_verification_failure_preserves_tags_until_verified_resume(self):
+        # Arrange: actual atomic publication followed by failing disposable public verifier.
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Fixture(directory)
+            before = fixture.snapshot()
+            # Act: fail postpublication verification, refuse finish, then retry evidence only.
+            failed = invoke(fixture, {"FIXTURE_PUBLIC_FAILURE": "1"})
+            pending = record(fixture)
+            tags = fixture.remote_git("show-ref")
+            refused = command(fixture, "finish")
+            resumed = command(fixture, "resume")
+            # Assert: unknown evidence never reports success or archives unfinished verification.
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(pending["status"], "complete")
+            self.assertFalse(pending["publication_verified"])
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertEqual(resumed.returncode, 0, resumed.stderr)
+            self.assertTrue(record(fixture)["publication_verified"])
+            self.assertEqual(record(fixture)["candidate"], pending["candidate"])
+            self.assertEqual(fixture.remote_git("show-ref"), tags)
+            self.assertEqual(fixture.snapshot(), before)
+
     def test_incomplete_and_recovered_commit_reject_unreviewed_manifest_content(self):
         for committed in (False, True):
             for mutation in ("module", "dependency"):

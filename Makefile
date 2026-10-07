@@ -2,17 +2,26 @@ GO := go
 PYTHON := python3
 VERIFY := GO="$(GO)" $(PYTHON) scripts/verify.py
 
-.PHONY: lint fix test acceptance examples test-examples bench fuzz cover versions release-patch release-break
+.PHONY: check check-linux check-plan test-fast lint fix test acceptance examples test-examples bench fuzz cover versions release-patch release-break
 
 lint:
 	@$(VERIFY) lint
 
-# Cached developer checks; use acceptance for a fresh, recorded review gate.
+# All required lanes, including integration and consumers.
 test:
 	@$(VERIFY) test
 
-acceptance:
-	@$(VERIFY) acceptance
+check acceptance:
+	@$(VERIFY) check
+
+check-plan:
+	@$(VERIFY) plan
+
+check-linux:
+	@$(PYTHON) scripts/check_linux.py check
+
+test-fast:
+	@$(VERIFY) test-fast
 
 versions:
 	@$(VERIFY) versions
@@ -32,8 +41,8 @@ fuzz:
 cover:
 	@$(VERIFY) cover
 
-release-patch: acceptance
+release-patch:
 	@./scripts/release.sh patch "$(RELEASE_SOURCE)"
 
-release-break: acceptance
+release-break:
 	@./scripts/release.sh break "$(RELEASE_SOURCE)"

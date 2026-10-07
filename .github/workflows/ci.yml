@@ -2,130 +2,56 @@ name: CI
 
 on:
   push:
-    branches: [ "main", "master", "codex/**" ]
+    branches: ["main", "master", "codex/**"]
+    tags: ["v*"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
 
 env:
   GOWORK: "off"
 
 jobs:
-  prepare-matrix:
+  check:
     runs-on: ubuntu-latest
-    outputs:
-      modules: ${{ steps.set-matrix.outputs.modules }}
-      go: ${{ steps.set-matrix.outputs.go }}
-      lint: ${{ steps.set-matrix.outputs.lint }}
-    steps:
-      - uses: actions/checkout@v6
-      - id: set-matrix
-        run: |
-          echo "modules=$(python3 scripts/verify.py modules --json)" >> "$GITHUB_OUTPUT"
-          python3 - <<'PYTHON' >> "$GITHUB_OUTPUT"
-          import json
-          pins = json.load(open("scripts/toolchain.json"))
-          print("go=" + pins["go"])
-          print("lint=v" + pins["golangci_lint"])
-          PYTHON
-
-  lint:
-    needs: prepare-matrix
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        module: ${{ fromJson(needs.prepare-matrix.outputs.modules) }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ needs.prepare-matrix.outputs.go }}
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: ${{ needs.prepare-matrix.outputs.lint }}
-          working-directory: ${{ matrix.module }}
-          args: --timeout=5m
-
-  test:
-    name: Test
-    needs: [prepare-matrix, lint]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        module: ${{ fromJson(needs.prepare-matrix.outputs.modules) }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          cache: true
-          go-version: ${{ needs.prepare-matrix.outputs.go }}
-      - name: Run tests
-        working-directory: ${{ matrix.module }}
-        run: go test -count=1 -race ./...
-
-      - name: Compile examples from their owning module
-        if: startsWith(matrix.module, 'examples/')
-        working-directory: ${{ matrix.module }}
-        run: go build ./...
-      - name: Compile local onboarding
-        if: matrix.module == '.'
-        run: go build -o /dev/null ./examples/local-bm25
-      - name: Verify tooling contracts
-        if: matrix.module == '.'
-        run: |
-          PYTHONDONTWRITEBYTECODE=1 python3 scripts/verify_test.py -v
-          PYTHONDONTWRITEBYTECODE=1 python3 scripts/check_release_consumer_test.py -v
-          PYTHONDONTWRITEBYTECODE=1 python3 scripts/process_runner_test.py -v
-
-  release-consumer:
-    needs: [prepare-matrix, test]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - id: pins
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          pins = json.load(open('scripts/toolchain.json'))
+          print('go=' + pins['go'])
+          PY
       - uses: actions/setup-go@v6
         with:
-          go-version: ${{ needs.prepare-matrix.outputs.go }}
-      - name: Exact reviewed candidate with disposable local publication
-        run: PYTHONDONTWRITEBYTECODE=1 python3 scripts/check_release_consumer.py "$GITHUB_SHA"
-
-  context-bridge:
-    needs: prepare-matrix
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        mode: [checkout, published]
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          path: ragy
-      - uses: actions/checkout@v6
-        if: matrix.mode == 'checkout'
-        with:
-          repository: skosovsky/memy
-          # Reviewed current source; default branch predates this canonical contract.
-          ref: 9719bc7967031c56daba9ef302edc4994ec8554a
-          path: memy
-      - uses: actions/checkout@v6
-        if: matrix.mode == 'checkout'
-        with:
-          repository: skosovsky/contexty
-          # Reviewed current source, independent of published-module resolution.
-          ref: 912c0413994b2b3a1a7d3849a0aa09c71350f915
-          path: contexty
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ needs.prepare-matrix.outputs.go }}
-      - name: Semantic fixtures and executable example
-        working-directory: ragy
-        run: python3 scripts/check_context_bridge.py "${{ matrix.mode }}" --dependency-root .. --output "docs/task21/results/${{ matrix.mode }}.json"
+          go-version: ${{ steps.pins.outputs.go }}
+      - name: Provision isolated actual parser and PostgreSQL prerequisites
+        run: |
+          python3 -m venv /tmp/ragy-pdf
+          python3 - <<'PY'
+          import json, subprocess
+          registry = json.load(open('scripts/check-registry.json'))
+          subprocess.run(['/tmp/ragy-pdf/bin/pip', 'install', *[name + '==' + version for name, version in registry['pdf'].items()]], check=True)
+          subprocess.run(['docker', 'run', '-d', '--name', 'ragy-ci-pg', '--label', 'ragy.task20=T09', '-e', 'POSTGRES_PASSWORD=isolated-test-only', '-e', 'POSTGRES_DB=ragy', registry['postgres_image']], check=True)
+          subprocess.run(['docker', 'exec', 'ragy-ci-pg', 'sh', '-c', "until psql -U postgres -d ragy -tAc 'SELECT 1' >/dev/null 2>&1; do sleep 1; done"], timeout=60, check=True)
+          subprocess.run(['docker', 'exec', 'ragy-ci-pg', 'psql', '-U', 'postgres', '-d', 'ragy', '-c', 'CREATE EXTENSION vector'], check=True)
+          PY
+      - name: Canonical full Linux gate
+        env:
+          RAGY_PDF_PYTHON: /tmp/ragy-pdf/bin/python
+          RAGY_PG_TEST_CONTAINER: ragy-ci-pg
+        run: python3 scripts/verify.py check --source "$GITHUB_SHA" --output /tmp/ragy-check
+      - name: Exact public tag verification
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: python3 scripts/check_release_consumer.py "$GITHUB_SHA" --version "${GITHUB_REF_NAME}" --published
       - uses: actions/upload-artifact@v6
         if: always()
         with:
-          name: context-bridge-${{ matrix.mode }}
-          path: ragy/docs/task21/results/*.json
+          name: verification-${{ github.sha }}
+          path: /tmp/ragy-check
+      - name: Remove isolated database
+        if: always()
+        run: docker rm -f ragy-ci-pg || true

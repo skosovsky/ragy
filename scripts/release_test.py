@@ -20,8 +20,18 @@ class Fixture:
                            ("commit.gpgsign", "false"), ("tag.gpgsign", "false")):
             self.git("config", key, value)
         self.git("remote", "add", "origin", str(self.remote))
-        for name in ("release.sh", "release.py", "release_state.py"):
-            self.write("scripts/" + name, (SCRIPTS / name).read_text())
+        for name in ("release.sh", "release.py", "release_state.py", "check_release_consumer.py", "process_runner.py"):
+            self.write("scripts/" + name, (SCRIPTS / name).read_text().replace("time.sleep(10)", "time.sleep(0)"))
+        # Fixture-owned registry runner validates immutable input and emits real required evidence.
+        self.write("scripts/verify.py", "import json, pathlib, sys\n"
+                   "args=sys.argv; root=pathlib.Path.cwd()\n"
+                   "if '--list' in args: print(json.dumps([{'id':'fixture-required'}])); sys.exit(0)\n"
+                   "failure=(root/'gate-failure').exists()\n"
+                   "if (root/'gate-mutation').exists() and '--candidate' in args: (root/'reviewed.txt').write_text('mutated')\n"
+                   "output=pathlib.Path(args[args.index('--output')+1]); output.mkdir(exist_ok=True)\n"
+                   "(output/'summary.json').write_text(json.dumps({'source':args[args.index('--source')+1],'profile':'check','candidate':'--candidate' in args,'version':args[args.index('--version')+1],'status':'FAIL' if failure else 'PASS','results':[{'id':'fixture-required','required':True,'status':'FAIL' if failure else 'PASS'}]}))\n"
+                   "sys.exit(1 if failure else 0)\n")
+        self.write("scripts/check_release_consumer.py", (SCRIPTS / "check_release_consumer.py").read_text().split('if __name__ == "__main__":')[0] + 'if __name__ == "__main__":\n import os,sys\n sys.exit(1 if os.environ.get("FIXTURE_PUBLIC_FAILURE") else 0)\n')
         self.write("scripts/release-modules.txt", ".\nadapters/test\n")
         self.write("go.mod", "module example.invalid/ragy\n\ngo 1.26.1\n")
         self.write("adapters/test/go.mod", "module example.invalid/ragy/adapters/test\n\ngo 1.26.1\n"
@@ -91,6 +101,45 @@ class ReleaseIsolation(unittest.TestCase):
             self.assertNotIn("replace", manifest)
             self.assertEqual(fixture.remote_git("show", candidate + ":examples/demo/go.mod"),
                              (fixture.repo / "examples/demo/go.mod").read_text().strip())
+
+    def test_required_gate_failure_creates_no_refs(self):
+        # Arrange: committed required-lane failure on selected source, newer caller HEAD is green.
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Fixture(directory)
+            fixture.write("gate-failure", "ordinary required lane failure")
+            fixture.git("add", "gate-failure")
+            fixture.git("commit", "--quiet", "-m", "failing selected source")
+            fixture.source = fixture.git("rev-parse", "HEAD")
+            fixture.git("rm", "gate-failure")
+            fixture.git("commit", "--quiet", "-m", "green caller is irrelevant")
+            before = fixture.snapshot()
+            # Act: invoke actual isolated release with failing older source.
+            result = fixture.invoke()
+            # Assert: caller, isolated tags and public bare remote all remain without new refs.
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(fixture.snapshot(), before)
+            self.assertEqual(fixture.remote_git("tag", "--list"), "")
+            isolated = fixture.repo / ".git/ragy-releases/active/checkout"
+            self.assertEqual(subprocess.check_output(["git", "tag", "--list"], cwd=isolated, text=True), "")
+
+    def test_post_gate_candidate_mutation_invalidates_pass(self):
+        # Arrange: fixture lane reports PASS but mutates the checked candidate afterwards.
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Fixture(directory)
+            fixture.write("gate-mutation", "mutate candidate")
+            fixture.git("add", "gate-mutation")
+            fixture.git("commit", "--quiet", "-m", "mutation fixture")
+            fixture.source = fixture.git("rev-parse", "HEAD")
+            before = fixture.snapshot()
+            # Act.
+            result = fixture.invoke()
+            # Assert: false PASS cannot authorize even isolated tags, much less publication.
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("mutated source/candidate", result.stderr)
+            self.assertEqual(fixture.remote_git("tag", "--list"), "")
+            self.assertEqual(fixture.snapshot(), before)
+            isolated = fixture.repo / ".git/ragy-releases/active/checkout"
+            self.assertEqual(subprocess.check_output(["git", "tag", "--list"], cwd=isolated, text=True), "")
 
     def test_dirty_tracked_and_staged_reject_before_mutation(self):
         for staged in (False, True):

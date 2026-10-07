@@ -3,6 +3,7 @@
 
 Persistent candidate identity and remote observations govern every retry.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 
 import release_state as state
 
@@ -56,6 +58,9 @@ def release_scope(repo, source):
         if module_path(tracked_source(repo, source, modfile)) != expected:
             raise ReleaseError(f"Unexpected module path: {modfile}")
         files.append(modfile)
+        sumfile = modfile.removesuffix("go.mod") + "go.sum"
+        if git(repo, "ls-tree", source, "--", sumfile):
+            files.append(sumfile)
     return modules, files, root
 
 
@@ -104,8 +109,10 @@ def commit_config(repo):
     return result
 
 
-def rewrite_manifests(checkout, files, root, version):
+def rewrite_manifests(checkout, files, root, version, source_repo=None, source="HEAD"):
     for modfile in files:
+        if not modfile.endswith("go.mod"):
+            continue
         data = json.loads(run(checkout, "go", "mod", "edit", "-json", modfile))
         options = []
         for requirement in data.get("Require") or []:
@@ -118,6 +125,38 @@ def rewrite_manifests(checkout, files, root, version):
                 target = old["Path"] + ("@" + old["Version"] if old.get("Version") else "")
                 options.append(f"-dropreplace={target}")
         run(checkout, "go", "mod", "edit", *options, "-fmt", modfile)
+
+    # Candidate adapter go.sum must carry the exact future root artifact checksums.
+    # Root has no own-module dependencies; nested-module manifests/sums are excluded
+    # from its archive, so this does not introduce a checksum cycle.
+    if source_repo is None:
+        source_repo = checkout
+    sums = [path for path in files if path != "go.sum" and path.endswith("go.sum")]
+    if not sums:
+        return
+    root_requirements = json.loads(run(checkout, "go", "mod", "edit", "-json", "go.mod")).get("Require") or []
+    if any(item["Path"] == root or item["Path"].startswith(root+"/") for item in root_requirements):
+        raise ReleaseError("Root own-module dependencies need separately reviewed checksum preparation")
+    from check_release_consumer import proxy_module
+    with tempfile.TemporaryDirectory(prefix="ragy-candidate-sums-") as temporary:
+        directory = Path(temporary)
+        proxy = directory / "proxy"
+        listing = git(source_repo, "ls-tree", "-r", "--name-only", source).splitlines()
+        env = {**os.environ, "GOWORK": "off", "GOENV": "off", "GOFLAGS": "", "GOPRIVATE": "",
+               "GOPROXY": proxy.as_uri(), "GONOSUMDB": root, "GONOPROXY": "none", "GOSUMDB": "sum.golang.org",
+               "GOMODCACHE": str(directory / "modcache"), "GOPATH": str(directory / "gopath")}
+        proxy_module(source_repo, ".", version, listing, proxy, env, revision=source,
+                     overrides={"go.mod": (checkout / "go.mod").read_bytes()})
+        (directory / "go.mod").write_text("module example.invalid/checksum-preparation\n")
+        downloaded = json.loads(subprocess.check_output([os.environ.get("GO", "go"), "mod", "download", "-json", root+"@"+version], cwd=directory, env=env, text=True))
+        if downloaded.get("Error") or not downloaded.get("Sum") or not downloaded.get("GoModSum"):
+            raise ReleaseError("Cannot determine exact candidate module checksums")
+        additions = [f"{root} {version} {downloaded['Sum']}", f"{root} {version}/go.mod {downloaded['GoModSum']}"]
+        for path in sums:
+            lines = (checkout / path).read_text().splitlines()
+            # Replace only this intended version, keeping historical/public dependency sums.
+            lines = [line for line in lines if not line.startswith(root+" "+version+" ") and not line.startswith(root+" "+version+"/go.mod ")]
+            (checkout / path).write_text("\n".join(sorted(set(lines+additions)))+"\n")
 
 
 def caller_repo(repo, clean=True):
@@ -143,7 +182,7 @@ def intended_manifests(checkout, record):
             target = tree / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(original[path])
-        rewrite_manifests(tree, record["files"], record["root_module"], record["version"])
+        rewrite_manifests(tree, record["files"], record["root_module"], record["version"], checkout, record["source"])
         expected = {path: (tree / path).read_bytes() for path in record["files"]}
     return original, expected
 
@@ -205,7 +244,7 @@ def prepare(repo, active, record):
             record["candidate"] = recovered["candidate"]
         if not record["candidate"]:
             validate_preparing_files(checkout, original, expected)
-            rewrite_manifests(checkout, record["files"], record["root_module"], record["version"])
+            rewrite_manifests(checkout, record["files"], record["root_module"], record["version"], checkout, record["source"])
             changed = git(checkout, "diff", "--name-only").splitlines()
             if not set(changed) <= set(record["files"]):
                 raise ReleaseError("Candidate changed files outside manifest allowlist")
@@ -219,6 +258,8 @@ def prepare(repo, active, record):
         record["expected_refs"] = dict.fromkeys(record["expected_refs"], record["candidate"])
         state.save(active, record)
     verify_candidate(checkout, record, expected)
+    # Full gate precedes even isolated release tag creation.
+    validate_gates(repo, active, checkout, record, expected)
     caller_refs = git(repo, "for-each-ref", "--format=%(refname) %(objectname)", "refs/tags").splitlines()
     for entry in caller_refs:
         ref, oid = entry.split()
@@ -239,6 +280,84 @@ def prepare(repo, active, record):
     return checkout
 
 
+def checkout_fingerprint(checkout):
+    if git(checkout, "status", "--porcelain", "--untracked-files=all"):
+        raise ReleaseError("Check mutated source/candidate checkout")
+    files = git(checkout, "ls-tree", "-r", "--name-only", "HEAD").splitlines()
+    return hashlib.sha256(b"".join(path.encode()+b"\0"+(checkout/path).read_bytes() for path in files)).hexdigest()
+
+
+def full_gate(checkout, active, label, record, candidate=False):
+    identity = git(checkout, "rev-parse", "HEAD")
+    fingerprint = checkout_fingerprint(checkout)
+    output = Path(tempfile.mkdtemp(prefix=label+"-check-", dir=active))
+    report = output / "summary.json"
+    argv = [sys.executable, "scripts/verify.py", "check", "--output", str(output),
+            "--source", identity, "--version", record["version"]]
+    if candidate:
+        argv.append("--candidate")
+    env = {**os.environ, "GOWORK": "off", "PYTHONDONTWRITEBYTECODE": "1", "RAGY_CANDIDATE_VERSION": record["version"]}
+    plan = json.loads(subprocess.check_output([sys.executable, "scripts/verify.py", "check", "--list"], cwd=checkout, env=env, text=True))
+    report.unlink(missing_ok=True)
+    subprocess.run(argv, cwd=checkout, env=env, check=True)
+    if git(checkout, "rev-parse", "HEAD") != identity or checkout_fingerprint(checkout) != fingerprint:
+        raise ReleaseError("Source/candidate changed after check; gate invalidated")
+    evidence = json.loads(report.read_text())
+    # Runner exit status is mandatory; required lane evidence also cannot be omitted.
+    lanes = evidence["results"]
+    required = {row["id"] for row in plan if not row.get("optional", False)}
+    observed = {row["id"]: row for row in lanes}
+    if (not required or len(observed) != len(lanes) or set(observed) != {row["id"] for row in plan}
+            or evidence.get("source") != identity or evidence.get("status") != "PASS"
+            or evidence.get("version") != record["version"] or evidence.get("candidate") is not candidate
+            or evidence.get("profile") != "check"
+            or any(not observed[name].get("required") or observed[name]["status"] != "PASS" for name in required)):
+        raise ReleaseError("Full gate has missing/non-PASS required evidence")
+    return {"commit": identity, "fingerprint": fingerprint, "report": str(report),
+            "report_sha256": hashlib.sha256(report.read_bytes()).hexdigest()}
+
+
+def validate_gates(repo, active, checkout, record, expected):
+    # Always rerun on recovery: saved PASS is evidence, never authority to push later bytes.
+    source_tree = active / "source"
+    if not source_tree.exists():
+        source_tree.mkdir()
+        git(source_tree, "init", "--quiet")
+        hooks = source_tree / ".git/disabled-hooks"
+        hooks.mkdir()
+        git(source_tree, "config", "core.hooksPath", str(hooks))
+        git(source_tree, "fetch", "--quiet", "--no-tags", "--", str(repo), record["source"])
+        git(source_tree, "checkout", "--quiet", "--detach", record["source"])
+    if git(source_tree, "rev-parse", "HEAD") != record["source"]:
+        raise ReleaseError("Selected source checkout identity changed")
+    record["source_gate"] = full_gate(source_tree, active, "source", record)
+    record["candidate_gate"] = full_gate(checkout, active, "candidate", record, candidate=True)
+    verify_candidate(checkout, record, expected)
+    state.save(active, record)
+
+
+def verify_publication(active, checkout, record):
+    record["publication_verified"] = False
+    state.save(active, record)
+    log = active / "published-consumer.log"
+    env = {**os.environ, "GOWORK": "off", "PYTHONDONTWRITEBYTECODE": "1", "GOPRIVATE": "", "GONOSUMDB": "", "GONOPROXY": "none", "GOSUMDB": "sum.golang.org"}
+    # Fresh module caches per attempt inside consumer; bounded proxy propagation retries.
+    for attempt in range(6):
+        with log.open("a") as output:
+            result = subprocess.run([sys.executable, "scripts/check_release_consumer.py", record["candidate"],
+                                     "--published", "--version", record["version"]], cwd=checkout,
+                                    env=env, stdout=output, stderr=subprocess.STDOUT, check=False)
+        if result.returncode == 0:
+            record.update(publication_verified=True, published_evidence=str(log), verified_at=state.timestamp())
+            state.save(active, record)
+            return
+        if attempt < 5:
+            time.sleep(10)
+    record["last_error"] = "Public proxy/checksum/consumer verification failed; resume retries verification without rewriting tags"
+    state.save(active, record)
+    raise ReleaseError(record["last_error"])
+
+
 def publish(repo, active, record):
     if record["status"] == "unknown":
         raise ReleaseError("Publication is unknown; run inspect before resume")
@@ -252,6 +371,7 @@ def publish(repo, active, record):
         raise
     status = state.observe(repo, active, record, remote_refs)
     if status == "complete":
+        verify_publication(active, checkout, record)
         print(f"Already published {record['version']} at {record['candidate']}")
         return
     if status not in ("none", "partial"):
@@ -270,6 +390,7 @@ def publish(repo, active, record):
         status = state.observe(repo, active, record, remote_refs)
     if status != "complete":
         raise ReleaseError(f"Publication {status}; preserved {record['version']} candidate. {failure or ''}")
+    verify_publication(active, checkout, record)
     print(f"Published {record['version']} at {record['candidate']}")
 
 
@@ -325,8 +446,8 @@ def recovery(repo, operation):
             status = state.observe(repo, active, record, remote_refs)
             print(json.dumps(record, indent=2, sort_keys=True))
             if operation == "finish":
-                if status != "complete":
-                    raise ReleaseError("Only inspected complete candidates can be finished; preserve outstanding state")
+                if status != "complete" or not record.get("publication_verified"):
+                    raise ReleaseError("Only complete tags plus verified public checksums/consumer can be finished; preserve outstanding state")
                 history = root / "history"
                 history.mkdir(exist_ok=True)
                 active.rename(history / (record["version"] + "-" + record["candidate"]))

@@ -1,0 +1,401 @@
+{
+  "schema": "ragy.check/v1",
+  "inventories": {
+    "test": "scripts/check-modules.txt",
+    "release": "scripts/release-modules.txt"
+  },
+  "toolchain": "scripts/toolchain.json",
+  "pdf": {
+    "pdfplumber": "0.11.10",
+    "pypdf": "6.19.0"
+  },
+  "postgres_image": "pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d",
+  "lanes": [
+    {
+      "id": "source-integrity",
+      "profiles": [
+        "lint",
+        "test",
+        "check"
+      ],
+      "action": "source-integrity"
+    },
+    {
+      "id": "toolchain",
+      "profiles": [
+        "lint",
+        "test",
+        "check"
+      ],
+      "action": "toolchain",
+      "needs": [
+        "source-integrity"
+      ]
+    },
+    {
+      "id": "lint-baseline",
+      "profiles": [
+        "lint",
+        "check"
+      ],
+      "action": "baseline"
+    },
+    {
+      "id": "lint-config",
+      "profiles": [
+        "lint",
+        "check"
+      ],
+      "command": [
+        "{lint}",
+        "config",
+        "verify"
+      ],
+      "needs": [
+        "toolchain",
+        "lint-baseline"
+      ]
+    },
+    {
+      "id": "format:{module}",
+      "profiles": [
+        "lint",
+        "check"
+      ],
+      "modules": true,
+      "command": [
+        "{lint}",
+        "fmt",
+        "--diff",
+        "./..."
+      ],
+      "needs": [
+        "lint-config"
+      ],
+      "no_output": true
+    },
+    {
+      "id": "lint:{module}",
+      "profiles": [
+        "lint",
+        "check"
+      ],
+      "modules": true,
+      "command": [
+        "{lint}",
+        "run",
+        "--allow-serial-runners",
+        "--timeout=10m",
+        "./..."
+      ],
+      "needs": [
+        "lint-config"
+      ]
+    },
+    {
+      "id": "tests:{module}",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "modules": true,
+      "command": [
+        "{go}",
+        "test",
+        "-json",
+        "-count=1",
+        "-race",
+        "./..."
+      ],
+      "needs": [
+        "toolchain"
+      ],
+      "test_events": true
+    },
+    {
+      "id": "script:check_release_consumer_test.py",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/check_release_consumer_test.py",
+        "-v"
+      ],
+      "needs": [
+        "toolchain"
+      ]
+    },
+    {
+      "id": "script:process_runner_test.py",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/process_runner_test.py",
+        "-v"
+      ],
+      "needs": [
+        "toolchain"
+      ]
+    },
+    {
+      "id": "script:release_recovery_test.py",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/release_recovery_test.py",
+        "-v"
+      ],
+      "needs": [
+        "toolchain"
+      ]
+    },
+    {
+      "id": "script:release_test.py",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/release_test.py",
+        "-v"
+      ],
+      "needs": [
+        "toolchain"
+      ]
+    },
+    {
+      "id": "script:task19_runner_test.py",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/task19_runner_test.py",
+        "-v"
+      ],
+      "needs": [
+        "toolchain"
+      ]
+    },
+    {
+      "id": "script:verify_test.py",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/verify_test.py",
+        "-v"
+      ],
+      "needs": [
+        "toolchain"
+      ]
+    },
+    {
+      "id": "examples:{module}",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "action": "example-build",
+      "needs": [
+        "toolchain"
+      ],
+      "modules": true,
+      "module_filter": "examples"
+    },
+    {
+      "id": "generation",
+      "profiles": [
+        "check"
+      ],
+      "action": "generation",
+      "needs": [
+        "toolchain"
+      ]
+    },
+    {
+      "id": "pdf",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "action": "pdf",
+      "needs": [
+        "toolchain"
+      ],
+      "prerequisites": [
+        "RAGY_PDF_PYTHON with pinned pdf dependencies"
+      ]
+    },
+    {
+      "id": "postgres",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{go}",
+        "test",
+        "-json",
+        "-count=1",
+        "-race",
+        "-tags=integration_pg",
+        "./..."
+      ],
+      "needs": [
+        "toolchain"
+      ],
+      "prerequisites": [
+        "Docker",
+        "RAGY_PG_TEST_CONTAINER isolated pgvector label ragy.task20=T09"
+      ],
+      "test_events": true,
+      "reject_skips": true,
+      "module": "adapters/pgvector"
+    },
+    {
+      "id": "release-consumer",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/check_release_consumer.py",
+        "{source}",
+        "--version",
+        "{version}"
+      ],
+      "needs": [
+        "toolchain"
+      ],
+      "prerequisites": [
+        "git",
+        "network"
+      ]
+    },
+    {
+      "id": "context-checkout",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/check_context_bridge.py",
+        "checkout",
+        "--output",
+        "{output}/context-checkout.json"
+      ],
+      "needs": [
+        "toolchain"
+      ],
+      "prerequisites": [
+        "git",
+        "network",
+        "exact registry peer refs"
+      ]
+    },
+    {
+      "id": "context-published",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/check_context_bridge.py",
+        "published",
+        "--output",
+        "{output}/context-published.json"
+      ],
+      "needs": [
+        "toolchain"
+      ],
+      "prerequisites": [
+        "network",
+        "public baseline versions"
+      ]
+    },
+    {
+      "id": "context-unsupported",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "command": [
+        "{python}",
+        "scripts/check_context_bridge.py",
+        "unsupported",
+        "--output",
+        "{output}/context-unsupported.json"
+      ],
+      "needs": [
+        "toolchain"
+      ],
+      "prerequisites": [
+        "git",
+        "network",
+        "exact unsupported peer ref; specific MaxCandidates incompatibility required"
+      ]
+    },
+    {
+      "id": "linux",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "action": "linux",
+      "prerequisites": [
+        "Linux or Docker full Linux profile"
+      ],
+      "needs": [
+        "source-integrity"
+      ]
+    },
+    {
+      "id": "live-providers",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "optional": true,
+      "reason": "Paid provider credentials and explicit human opt-in: separate live profile"
+    },
+    {
+      "id": "performance-manual",
+      "profiles": [
+        "test",
+        "check"
+      ],
+      "optional": true,
+      "reason": "Benchmarks, fuzz campaigns and subjective retrieval quality are separate non-release profiles"
+    }
+  ],
+  "peers": {
+    "memy": {
+      "ref": "9719bc7967031c56daba9ef302edc4994ec8554a",
+      "repository": "https://github.com/skosovsky/memy.git",
+      "unsupported_ref": "c0bcc491e243f78a1dbb51602cd8c844c2cb972d",
+      "published_version": "v0.3.1"
+    },
+    "contexty": {
+      "ref": "912c0413994b2b3a1a7d3849a0aa09c71350f915",
+      "repository": "https://github.com/skosovsky/contexty.git",
+      "published_version": "v0.13.1"
+    }
+  },
+  "linux_image": "golang@sha256:8d48e12ec56735e9358640898b9d9b9fcca110612ed8a5567438c0a1baa24e66"
+}

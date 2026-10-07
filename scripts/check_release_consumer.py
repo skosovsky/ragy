@@ -28,9 +28,10 @@ def command(directory, *argv, env=None, input_text=None, timeout=300):
     return result.stdout.strip()
 
 
-def proxy_module(candidate, module, version, files, proxy, env):
+def proxy_module(candidate, module, version, files, proxy, env, revision="HEAD", overrides=None):
     modfile = "go.mod" if module == "." else module + "/go.mod"
-    manifest = subprocess.check_output(["git", "show", "HEAD:"+modfile], cwd=candidate, env=env)
+    overrides = overrides or {}
+    manifest = overrides.get(modfile) or subprocess.check_output(["git", "show", revision+":"+modfile], cwd=candidate, env=env)
     path = re.search(rb"^module\s+(\S+)", manifest, re.MULTILINE).group(1).decode()
     if any(character.isupper() for character in path):
         raise ValueError("This repository profile expects lowercase module paths")
@@ -48,23 +49,27 @@ def proxy_module(candidate, module, version, files, proxy, env):
             relative = name[len(prefix):]
             if "/vendor/" in "/"+relative or relative.startswith("vendor/"):
                 continue
-            payload = subprocess.check_output(["git", "show", "HEAD:"+name], cwd=candidate, env=env)
+            payload = overrides.get(name) or subprocess.check_output(["git", "show", revision+":"+name], cwd=candidate, env=env)
             archive.writestr(path+"@"+version+"/"+relative, payload)
     return path
 
 
-def verify(source):
+def verify(source, version=None, published=False, exact_candidate=False):
+    version = version or os.environ.get("RAGY_CANDIDATE_VERSION", "v0.0.1")
+    if not re.fullmatch(r"v[01]\.[0-9]+\.[0-9]+", version):
+        raise ValueError("Exact patch version required")
     if not re.fullmatch(r"[0-9a-f]{40}", source):
         raise ValueError("Reviewed source must be an exact full commit SHA")
     resolved = command(ROOT, "git", "rev-parse", "--verify", source+"^{commit}")
     if resolved != source:
         raise ValueError("Source is not an exact commit object")
+    pins = json.loads(subprocess.check_output(["git", "show", source+":scripts/toolchain.json"], cwd=ROOT, text=True))
     # Only readonly original Git commands; every mutation/publication is disposable.
     with tempfile.TemporaryDirectory(prefix="ragy-clean-consumer-") as temporary:
         root = Path(temporary)
-        repo, remote = root / "reviewed", root / "remote.git"
+        repo = root / "reviewed"
         repo.mkdir()
-        env = {**os.environ, "GOWORK": "off", "PYTHONDONTWRITEBYTECODE": "1", "GOENV": "off", "GOFLAGS": "", "GOTOOLCHAIN": "local"}
+        env = {**os.environ, "GOWORK": "off", "PYTHONDONTWRITEBYTECODE": "1", "GOENV": "off", "GOFLAGS": "", "GOTOOLCHAIN": "go"+pins["go"]}
         for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY",
                     "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE", "GIT_CONFIG"):
             env.pop(key, None)
@@ -80,23 +85,19 @@ def verify(source):
         for key, value in (("user.name", "Clean consumer fixture"), ("user.email", "fixture@example.invalid"),
                            ("commit.gpgsign", "false"), ("tag.gpgsign", "false")):
             command(repo, "git", "config", key, value, env=env)
-        command(root, "git", "init", "--bare", "--quiet", str(remote), env=env)
-        command(repo, "git", "remote", "add", "origin", str(remote), env=env)
-        before = command(repo, "git", "rev-parse", "HEAD", env=env)
-        command(repo, "bash", "scripts/release.sh", "patch", source, env=env, input_text="y\n")
-        record = json.loads((repo / ".git/ragy-releases/active/state.json").read_text())
-        candidate = repo / ".git/ragy-releases/active/checkout"
-        if record["source"] != source or record["status"] != "complete":
-            raise ValueError("Candidate does not retain complete exact reviewed source")
-        if command(repo, "git", "rev-parse", "HEAD", env=env) != before or command(repo, "git", "status", "--porcelain", env=env):
-            raise ValueError("Release mutated fixture caller")
-        parents = command(candidate, "git", "rev-list", "--parents", "-n", "1", "HEAD", env=env).split()
-        if record["candidate"] != source and parents != [record["candidate"], source]:
-            raise ValueError("Manifest-rewritten candidate must derive directly from source")
-        tags = command(root, "git", "--git-dir="+str(remote), "for-each-ref", "--format=%(refname) %(objectname)", "refs/tags", env=env)
-        expected = {ref+" "+oid for ref, oid in record["expected_refs"].items()}
-        if set(tags.splitlines()) != expected or any("examples/" in line for line in tags.splitlines()):
-            raise ValueError("Candidate remote tags differ from exact publishable scope")
+        # Artifact preparation never invokes the release entrypoint: a check cannot publish.
+        import release
+        modules, manifests, module_root = release.release_scope(repo, source)
+        release.rewrite_manifests(repo, manifests, module_root, version)
+        if exact_candidate and command(repo, "git", "diff", "--name-only", env=env):
+            raise ValueError("Immutable candidate manifests differ from intended version")
+        command(repo, "git", "add", "--", *manifests, env=env)
+        if command(repo, "git", "diff", "--cached", "--name-only", env=env):
+            command(repo, "git", "commit", "--quiet", "-m", "isolated artifact manifests", env=env)
+        candidate = repo
+        record = {"source": source, "candidate": command(repo, "git", "rev-parse", "HEAD", env=env),
+                  "version": version, "modules": modules, "files": manifests, "root_module": module_root}
+        expected = {("refs/tags/" + (version if item == "." else item + "/" + version)) + " " + record["candidate"] for item in modules}
         files = command(candidate, "git", "ls-tree", "-r", "--name-only", "HEAD", env=env).splitlines()
         changed = command(candidate, "git", "diff", "--name-only", source, "HEAD", env=env).splitlines()
         if not set(changed) <= set(record["files"]):
@@ -105,8 +106,10 @@ def verify(source):
         paths = [proxy_module(candidate, module, record["version"], files, proxy, env) for module in record["modules"]]
         consumer = root / "consumer"
         consumer.mkdir()
-        env.update(GOPROXY=proxy.as_uri()+",https://proxy.golang.org", GOMODCACHE=str(root / "modcache"), GOPATH=str(root / "gopath"),
-                   GONOSUMDB=record["root_module"]+","+record["root_module"]+"/*", GONOPROXY="none", GOSUMDB="sum.golang.org")
+        env.update(GOPROXY="https://proxy.golang.org" if published else proxy.as_uri()+",https://proxy.golang.org",
+                   GOMODCACHE=str(root / "modcache"), GOPATH=str(root / "gopath"), GOPRIVATE="",
+                   GONOSUMDB="" if published else record["root_module"]+","+record["root_module"]+"/*",
+                   GONOPROXY="none", GOSUMDB="sum.golang.org")
         command(consumer, go, "mod", "init", "example.invalid/ragy-clean-consumer", env=env)
         for path in paths:
             command(consumer, go, "mod", "edit", "-require="+path+"@"+record["version"], env=env)
@@ -144,19 +147,45 @@ def verify(source):
         for path in paths:
             downloaded = Path(env["GOMODCACHE"]) / "cache/download" / path / "@v" / (record["version"]+".zip")
             authored = proxy / path / "@v" / (record["version"]+".zip")
-            if hashlib.sha256(downloaded.read_bytes()).digest() != hashlib.sha256(authored.read_bytes()).digest():
+            if published:
+                with zipfile.ZipFile(downloaded) as actual, zipfile.ZipFile(authored) as intended:
+                    expected_bytes = {name: intended.read(name) for name in intended.namelist()}
+                    actual_bytes = {name: actual.read(name) for name in actual.namelist()}
+                prefix = path+"@"+version+"/"
+                # Go includes a repository root LICENSE in a nested module archive.
+                license_path = prefix+"LICENSE"
+                if license_path in actual_bytes and license_path not in expected_bytes and "LICENSE" in files:
+                    expected_bytes[license_path] = subprocess.check_output(["git", "show", "HEAD:LICENSE"], cwd=candidate, env=env)
+                if actual_bytes != expected_bytes:
+                    raise ValueError("Public module ZIP contents differ from exact candidate: "+path)
+            elif hashlib.sha256(downloaded.read_bytes()).digest() != hashlib.sha256(authored.read_bytes()).digest():
                 raise ValueError("Consumer downloaded a different candidate archive for "+path)
+        downloads = []
+        for path in paths:
+            downloaded = json.loads(command(consumer, go, "mod", "download", "-json", path+"@"+version, env=env))
+            if downloaded.get("Error") or not downloaded.get("Sum") or not downloaded.get("GoModSum"):
+                raise ValueError("Missing checksum evidence for "+path)
+            if published:
+                authored_mod = proxy / path / "@v" / (version+".mod")
+                if Path(downloaded["GoMod"]).read_bytes() != authored_mod.read_bytes():
+                    raise ValueError("Public .mod differs from exact candidate: "+path)
+            downloads.append(downloaded)
+        command(consumer, go, "mod", "verify", env=env)
         if command(candidate, "git", "status", "--porcelain", env=env):
             raise ValueError("Consumer verification mutated the isolated candidate")
         command(consumer, go, "test", "-count=1", "-race", "./...", env=env)
         command(consumer, go, "build", "./...", env=env)
         print(json.dumps({"PASS": True, "source": source, "candidate": record["candidate"], "version": record["version"],
                           "modules": paths, "packages": packages, "tags": sorted(expected), "GOWORK": "off", "ragy_replacements": False,
-                          "publication": "disposable local bare remote only"}), flush=True)
+                          "resolved_modules": modules, "downloads": downloads,
+                          "publication": "public proxy with checksum verification" if published else "isolated artifact proxy, no refs"}), flush=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("reviewed_source")
+    parser.add_argument("--version")
+    parser.add_argument("--published", action="store_true")
+    parser.add_argument("--exact-candidate", action="store_true")
     args = parser.parse_args()
-    verify(args.reviewed_source)
+    verify(args.reviewed_source, args.version, args.published, args.exact_candidate or args.published)

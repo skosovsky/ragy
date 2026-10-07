@@ -16,6 +16,7 @@ class VerificationContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "scripts").mkdir()
+            (root / "scripts/check-registry.json").write_text('{"inventories":{"test":"scripts/check-modules.txt","release":"scripts/release-modules.txt"}}')
             (root / "go.mod").write_text("module example.invalid/root\n")
             (root / "nested").mkdir()
             (root / "nested/go.mod").write_text("module example.invalid/nested\n")
@@ -88,7 +89,7 @@ class VerificationContract(unittest.TestCase):
         # Arrange: a root plus development example, no release behavior.
         inventory = [".", "examples/demo"]
         for fresh in (False, True):
-            argv = ["verify.py", "test"] + (["--fresh"] if fresh else [])
+            argv = ["verify.py", "test-fast"] + (["--fresh"] if fresh else [])
             calls = []
             with mock.patch.object(verify, "modules", return_value=inventory), \
                  mock.patch.object(verify, "run", side_effect=lambda command, directory, **kw: calls.append((command, directory))), \
@@ -146,6 +147,120 @@ class VerificationContract(unittest.TestCase):
             self.assertEqual(output.strip(), "off")
             with self.assertRaises(subprocess.CalledProcessError):
                 verify.run([sys.executable, "-c", "raise SystemExit(7)"], verify.ROOT)
+
+    def test_gate_accumulates_independent_failures_and_blocks_dependents(self):
+        # Arrange: all four mandatory failure classes plus a dependent lane.
+        plan = [{"id": name} for name in ("ordinary", "linter", "script", "consumer")]
+        plan.append({"id": "dependent", "needs": ["consumer"]})
+        calls = []
+        def execute(row):
+            calls.append(row["id"])
+            raise ValueError(row["id"] + " injected failure")
+        # Act.
+        results, success = verify.execute_plan(plan, execute)
+        # Assert: every independent failure is visible; no successful aggregate.
+        self.assertFalse(success)
+        self.assertEqual(calls, ["ordinary", "linter", "script", "consumer"])
+        self.assertEqual([row["status"] for row in results], ["FAIL"] * 4 + ["BLOCKED"])
+
+    def test_missing_required_prerequisites_never_pass(self):
+        # Arrange: mandatory missing Docker, peer, toolchain cases.
+        for prerequisite in ("Docker", "exact peer ref", "pinned toolchain"):
+            def execute(row):
+                raise FileNotFoundError(prerequisite)
+            # Act.
+            results, success = verify.execute_plan([{"id": prerequisite}], execute)
+            # Assert.
+            self.assertFalse(success)
+            self.assertEqual(results[0]["status"], "BLOCKED")
+            self.assertIn(prerequisite, results[0]["reason"])
+
+    def test_required_skipped_and_empty_integration_fail(self):
+        # Arrange: Go can exit zero for no selected tests or skipped prerequisites.
+        import json
+        package = json.dumps({"Action": "pass", "Package": "fixture"})
+        skip = json.dumps({"Action": "skip", "Package": "fixture", "Test": "TestRequired"})
+        # Act / Assert: neither zero-exit shape establishes required execution.
+        with self.assertRaisesRegex(ValueError, "skipped"):
+            verify.validate_test_events(skip + "\n" + package, reject_skips=True, require_tests=True)
+        with self.assertRaisesRegex(ValueError, "no tests"):
+            verify.validate_test_events(package, reject_skips=True, require_tests=True)
+
+    def test_optional_skips_classified_without_waiving_required_skips(self):
+        # Arrange: an explicit optional profile next to real required evidence.
+        plan = [{"id": "required"}, {"id": "paid-live", "optional": True, "reason": "paid opt-in"}]
+        # Act.
+        rows, success = verify.execute_plan(plan, lambda row: {})
+        # Assert: optional absence has a reason; required execution controls success.
+        self.assertTrue(success)
+        self.assertEqual(rows[1]["status"], "SKIP")
+        self.assertFalse(rows[1]["required"])
+        self.assertEqual(rows[1]["reason"], "paid opt-in")
+
+    def test_registry_covers_all_script_tests_and_linux(self):
+        # Arrange: read real registry and actual script inventory, not an implementation mock.
+        plan = verify.registry_plan("check", verify.modules())
+        # Act.
+        scripts = {row["command"][1] for row in plan if row["id"].startswith("script:")}
+        # Assert: adding a runner test requires registration; Linux is mandatory.
+        self.assertEqual(scripts, {str(p.relative_to(verify.ROOT)) for p in (verify.ROOT / "scripts").glob("*_test.py")})
+        self.assertTrue(any(row["id"] == "linux" and not row.get("optional") for row in plan))
+        self.assertEqual([row["id"] for row in verify.registry_plan("test", verify.modules()) if row["id"].startswith("tests:")],
+                         ["tests:" + module for module in verify.modules()])
+
+
+    def test_real_full_runner_collects_command_failures_and_exits_nonzero(self):
+        # Arrange: isolated committed repository, actual failing child processes.
+        import json
+        import os
+        import shutil
+        import subprocess
+        import sys
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "repo"
+            root.mkdir()
+            (root / "scripts").mkdir()
+            for name in ("verify.py", "process_runner.py", "toolchain.json"):
+                shutil.copy2(verify.ROOT / "scripts" / name, root / "scripts" / name)
+            (root / "go.mod").write_text("module example.invalid/fixture\n")
+            for name in ("check-modules.txt", "release-modules.txt"):
+                (root / "scripts" / name).write_text(".\n")
+            (root / "script.py").write_text("raise SystemExit(5)\n")
+            (root / "consumer.py").write_text("raise SystemExit(6)\n")
+            registry = {"inventories": {"test": "scripts/check-modules.txt", "release": "scripts/release-modules.txt"},
+                        "toolchain": "scripts/toolchain.json", "peers": {}, "lanes": [
+                {"id": "toolchain", "profiles": ["check"], "action": "toolchain"},
+                {"id": "ordinary", "profiles": ["check"], "command": ["{go}", "test", "./..."]},
+                {"id": "linter", "profiles": ["check"], "command": ["{lint}", "run", "./..."]},
+                {"id": "script", "profiles": ["check"], "command": ["{python}", "script.py"]},
+                {"id": "consumer", "profiles": ["check"], "command": ["{python}", "consumer.py"]},
+                {"id": "dependent", "profiles": ["check"], "command": ["{python}", "consumer.py"], "needs": ["consumer"]}]}
+            (root / "scripts/check-registry.json").write_text(json.dumps(registry))
+            pins = json.loads((root / "scripts/toolchain.json").read_text())
+            binaries = Path(temporary) / "bin"
+            binaries.mkdir()
+            go = binaries / "go"
+            lint = binaries / "lint"
+            go.write_text("#!" + sys.executable + "\nimport sys\nprint('go version go" + pins["go"] + " linux/amd64')\nraise SystemExit(0 if sys.argv[1]=='version' else 3)\n")
+            lint.write_text("#!" + sys.executable + "\nimport sys\nprint('golangci-lint has version " + pins["golangci_lint"] + "')\nraise SystemExit(0 if sys.argv[1]=='version' else 4)\n")
+            go.chmod(0o755)
+            lint.chmod(0o755)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "-c", "user.name=fixture", "-c", "user.email=f@example.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture"], check=True)
+            output = Path(temporary) / "report"
+            env = dict(os.environ, GO=str(go), GOLANGCI_LINT=str(lint), PYTHONDONTWRITEBYTECODE="1")
+            # Act: run the real CLI and actual executable/script child failures.
+            completed = subprocess.run([sys.executable, str(root / "scripts/verify.py"), "check", "--version", "v0.0.1", "--output", str(output)], cwd=root, env=env, capture_output=True, text=True)
+            report = json.loads((output / "summary.json").read_text())
+            # Assert: nonzero exit, all four commands attempted, dependent blocked.
+            self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            rows = {row["id"]: row for row in report["results"]}
+            for name in ("ordinary", "linter", "script", "consumer"):
+                self.assertEqual(rows[name]["status"], "FAIL")
+                self.assertEqual(len(rows[name]["commands"]), 1)
+            self.assertEqual(rows["dependent"]["status"], "BLOCKED")
+            self.assertEqual(report["status"], "FAIL")
 
 
 if __name__ == "__main__":
