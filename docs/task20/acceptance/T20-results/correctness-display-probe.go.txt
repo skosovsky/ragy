@@ -1,0 +1,28 @@
+package main
+import("testing";"os";"io";"strings";"errors";"context";"github.com/skosovsky/ragy/access";"github.com/skosovsky/ragy/retrieval")
+func capture(t *testing.T,f func()error)(string,error){t.Helper();old:=os.Stdout;r,w,e:=os.Pipe();if e!=nil{t.Fatal(e)};os.Stdout=w;err:=f();w.Close();os.Stdout=old;b,e:=io.ReadAll(r);r.Close();if e!=nil{t.Fatal(e)};return string(b),err}
+func TestDisplayAuthority(t *testing.T){
+ admitted:=retrieval.NewResultSet([]retrieval.Document[docMeta]{{ID:"safe",Content:"admitted",Meta:docMeta{Tenant:"acme"}}},nil)
+ secret:=retrieval.NewResultSet([]retrieval.Document[docMeta]{{ID:"SECRET",Content:"SECRET"}},nil)
+ partial:=&retrieval.PartialFailureError[docMeta]{Result:secret,Errors:[]error{errors.New("HOST_SECRET")}}
+ tests:=[]struct{name string; result retrieval.ResultSet[docMeta];err error;want string;failure bool}{
+ {"joined-protection",admitted,errors.Join(partial,access.Protect(context.DeadlineExceeded)),"",true},
+ {"diagnostic-only",nil,partial,"Partial retrieval:",false},
+ {"ordinary-empty",nil,errors.New("HOST_SECRET"),"",true},
+ {"ordinary-partial",admitted,errors.New("HOST_SECRET"),"safe [acme]: admitted",false},
+ {"normal",admitted,nil,"safe [acme]: admitted",false},
+ }
+ for _,tc:=range tests{t.Run(tc.name,func(t *testing.T){
+  result:=retrieval.RetrievalResult[docMeta,retrieval.NoExecutionMeta]{ResultSet:tc.result}
+  output,err:=capture(t,func()error{return display(result,tc.err)})
+  if (err!=nil)!=tc.failure{t.Fatalf("failure=%v err=%v",tc.failure,err)}
+  if tc.want==""&&output!=""{t.Fatalf("unexpected output %q",output)}
+  if tc.want!=""&&!strings.Contains(output,tc.want){t.Fatalf("output %q",output)}
+  if strings.Contains(output,"SECRET") || (err!=nil&&strings.Contains(err.Error(),"SECRET")){t.Fatal("secret leak")}
+ })}
+}
+func TestFullRunAndCancellation(t *testing.T){
+ output,err:=capture(t,func()error{return run(context.Background())});if err!=nil||output!="reset [acme]: Reset your password from account settings.\n"{t.Fatalf("output %q err %v",output,err)}
+ ctx,cancel:=context.WithCancel(context.Background());cancel()
+ output,err=capture(t,func()error{return run(ctx)});if err==nil||output!=""{t.Fatalf("cancel output %q err %v",output,err)}
+}

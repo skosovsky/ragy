@@ -792,7 +792,7 @@
         "report": "acceptance/T19-correctness.md"
       }
     },
-    "commit_sha": null,
+    "commit_sha": "1672c0e029f81480003f797dac174e16f5e141e2",
     "acceptance_report_sha256": {
       "completeness": "008d8c1c82e1f10f6f3d3997bd47b0ce3bf78e530212f6b81f80e0775ed33cae",
       "correctness": "67cb803fda42a8147cfcb7b1bd89cf7a378c8c55a043cd3bd9981d9b2ab6a3b3"
@@ -801,7 +801,7 @@
   {
     "id": "T20",
     "title": "public documentation",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "docs: public guides",
     "criteria": [
       {
@@ -826,10 +826,23 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "7/7",
+        "coverage_percent": 100,
+        "report": "acceptance/T20-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T20-correctness.md"
+      }
     },
-    "commit_sha": null
+    "commit_sha": null,
+    "acceptance_report_sha256": {
+      "completeness": "cbe2bc40a7fd0faac4425922f8a2acff255a632a3ffcdf142e0a0d92c987e625",
+      "correctness": "2f0bfc4866cceefbe8c75f862512e0714cd2edacb61ba2c39c559040d11dc2ad"
+    }
   },
   {
     "id": "T21",

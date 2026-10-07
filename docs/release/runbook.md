@@ -42,7 +42,7 @@ Repeating `patch|break` with the original source/kind also resumes its existing 
 
 The tool writes `unknown` before dispatching push, then observes exact remote objects regardless of push exit. A failed transport exit can still be proven complete; a successful exit with unavailable observation remains unknown. There is no non-atomic fallback when the server lacks atomic support. Failure before tags retains the source/version with an incomplete preparation record; failure between tags resumes the same commit and fills only missing isolated refs. Completed candidates retain their identity independently of later version calculations and caller local tags.
 
-Keep the configured origin push identity equal to the persisted destination during recovery. If it changes, restore/resolve that host configuration explicitly; the tool refuses to silently publish the candidate elsewhere. Canonical manifest bytes are reconstructed from the exact source using only the allowed Go edits. Incomplete preparation accepts only original or canonical manifest content; a recovered/already-recorded commit must contain exactly canonical manifests. Unreviewed module identities, external dependencies or other manifest edits fail closed. Malformed/missing records, changed candidate HEAD, dirty isolated checkout or differing owned refs also fail closed and preserve evidence for investigation. Do not remove recovery state or tags blindly. The final clean-consumer/profile checks remain T21/T22; they are not inferred from release command exits.
+Keep the configured origin push identity equal to the persisted destination during recovery. If it changes, restore/resolve that host configuration explicitly; the tool refuses to silently publish the candidate elsewhere. Canonical manifest bytes are reconstructed from the exact source using only the allowed Go edits. Incomplete preparation accepts only original or canonical manifest content; a recovered/already-recorded commit must contain exactly canonical manifests. Unreviewed module identities, external dependencies or other manifest edits fail closed. Malformed/missing records, changed candidate HEAD, dirty isolated checkout or differing owned refs also fail closed and preserve evidence for investigation. Do not remove recovery state or tags blindly. Clean-consumer/profile checks are independent gates; they are not inferred from release command exits.
 
 ## Local acceptance
 
@@ -53,3 +53,22 @@ bash -n scripts/release.sh
 ```
 
 Fixtures use actual Git and Go, synthetic source/files and disposable bare remotes. They check exact source ancestry, manifest-only candidate diff, excluded private files/tags/examples, unchanged caller checkout, dirty/index rejection, tag collisions and rejected atomic push. Recovery fixtures additionally exercise failures before/between tags, same-candidate retry, partial external publication, unavailable observation, transport exit ambiguity, exact annotated-object collisions, unsupported atomic capability and explicit completed-record archival. They do not perform production publication.
+
+## Clean consumer verification
+
+For each reviewed candidate, build outside this checkout with `GOWORK=off` and a fresh module/cache/proxy profile, without source-tree replacements. Verify the root and every publishable adapter from the exact candidate source; building examples through local replacements is insufficient. The source manifest has eleven publishable modules: root and ten adapter modules. The three nested planner/resilience/conformance example modules are development consumers and receive no independent release tags.
+
+After an owner-authorized publication, a clean consumer can select the exact published version as follows (replace the placeholders; these are installation commands, not release dispatch):
+
+```sh
+mkdir ragy-consumer
+cd ragy-consumer
+GOWORK=off go mod init example.com/ragy-consumer
+GOWORK=off go get github.com/skosovsky/ragy@<candidate-version>
+GOWORK=off go get github.com/skosovsky/ragy/adapters/openai@<candidate-version>
+# Add the reviewed complete onboarding or adapter consumer source.
+GOWORK=off go test -count=1 -race ./...
+GOWORK=off go build ./...
+```
+
+Pre-publication acceptance uses an isolated local module proxy built from the exact candidate and disposable bare remotes; it must cover all manifest modules, correct source ancestry/version selection and absence of local ragy replacements. A local candidate install does not prove public proxy availability. Record platform, Go/Python/Git versions, exact candidate SHA/version, commands, exit status and executed backend/parser profiles. Never run production release commands merely to validate the consumer.

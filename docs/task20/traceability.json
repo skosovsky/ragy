@@ -802,9 +802,15 @@
       "id": "D61",
       "task": "T20",
       "requirement": "Docs/CI/release surface: Current guides вынести из task/.cursor chronology; убрать blanket word blacklist в пользу symbol/snippet tests. Standalone GOWORK=off CI, fresh acceptance и publishable-module manifest отдельно от example modules.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Current public guides and runnable onboarding published. Existing reviewed release manifest/v2 guard documented. Targeted blacklist replacement, fresh GOWORK-off CI/module/fuzz tooling remain explicit T21 dependencies and final verification T22; not claimed implemented here.",
+      "evidence": [
+        "README.md",
+        "docs/integration.md",
+        "docs/release/runbook.md",
+        "docs/task20/T20.md",
+        "docs/task20/plan.md"
+      ]
     },
     {
       "id": "F01",
@@ -3207,9 +3213,12 @@
       "source": "reviews/arch-docs.md",
       "line": 50,
       "requirement": "root README now ~500+ lines and mixes Russian wire table with English API prose; Quick start is a parameterized helper, no schema/provider setup.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Concise English README with install/Go and exact executable local typed BM25/schema/Read example, including protection-first and partial delivery.",
+      "evidence": [
+        "README.md",
+        "examples/local-bm25/main.go"
+      ]
     },
     {
       "id": "arch-docs:10",
@@ -3217,9 +3226,15 @@
       "source": "reviews/arch-docs.md",
       "line": 51,
       "requirement": "Public README links `.cursor/docs/INTEGRATION.md` and `docs/task18/19` as core contract locations.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Current contracts in public topic paths/package guides; no primary .cursor/task API authority. Old integration text retained with dated pointer.",
+      "evidence": [
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/task20/historical-integration.md"
+      ]
     },
     {
       "id": "arch-docs:11",
@@ -3227,9 +3242,12 @@
       "source": "reviews/arch-docs.md",
       "line": 52,
       "requirement": "No root LICENSE/CHANGELOG/CONTRIBUTING/SECURITY tracked in inspected checkout.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Owner policy inventory records absent license/private channel/changelog/external contribution policy and actual versioning. No invented terms/contact/publication. License choice excluded by goal; missing templates not runtime blockers.",
+      "evidence": [
+        "docs/project-policies.md",
+        "docs/release/runbook.md"
+      ]
     },
     {
       "id": "arch-docs:12",
@@ -3247,9 +3265,14 @@
       "source": "reviews/arch-docs.md",
       "line": 54,
       "requirement": "`contracttest` public scoped suite accepts BYOT and instruments payload I/O; older structmeta/index suites use fixed fixtures.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Keep generic scoped suite and fixed older fixtures; explicitly document instrumented direct-leaf checks and profile limits, no universal certification.",
+      "evidence": [
+        "contracttest/doc.go",
+        "contracttest/read_scope.go",
+        "contracttest/structmeta.go",
+        "docs/capabilities.md"
+      ]
     },
     {
       "id": "arch-docs:14",
@@ -3307,9 +3330,13 @@
       "source": "reviews/arch-docs.md",
       "line": 60,
       "requirement": "README exposes typed documents and filter schema but private wire maps allowed.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Business metadata remains host TMeta; private maps/RawAttributes only wire representations. Explicit copy/clone ownership retained.",
+      "evidence": [
+        "README.md",
+        "docs/architecture.md",
+        "docs/ownership.md"
+      ]
     },
     {
       "id": "arch-docs:20",
@@ -3317,9 +3344,13 @@
       "source": "reviews/arch-docs.md",
       "line": 61,
       "requirement": "TASK19 accepted with 100% task checklist and quality profiles failing promotion; public matrix qualifies dated/profile limits.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "contract",
+      "rationale": "Historical tracked acceptance/quality evidence unchanged; separate references added. Matrix distinguishes local/wire/real-service/process-crash/quality. Checklist100% not readiness; failed promotion preserved.",
+      "evidence": [
+        "docs/capabilities.md",
+        "docs/task20/history.md",
+        "docs/task20/acceptance/T20-results/docs-check.log"
+      ]
     }
   ],
   "role_defects": [
@@ -3480,6 +3511,17 @@
       "id": "DOC1",
       "tasks": [
         "T20"
+      ],
+      "evidence_T20": [
+        "README.md",
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/capabilities.md",
+        "docs/release/runbook.md",
+        "docs/project-policies.md",
+        "docs/task20/history.md"
       ]
     },
     {
@@ -3488,6 +3530,17 @@
         "T13",
         "T15",
         "T20"
+      ],
+      "evidence_T20": [
+        "README.md",
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/capabilities.md",
+        "docs/release/runbook.md",
+        "docs/project-policies.md",
+        "docs/task20/history.md"
       ]
     },
     {
@@ -3505,6 +3558,17 @@
         "T16",
         "T18",
         "T20"
+      ],
+      "evidence_T20": [
+        "README.md",
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/capabilities.md",
+        "docs/release/runbook.md",
+        "docs/project-policies.md",
+        "docs/task20/history.md"
       ]
     },
     {
@@ -3515,6 +3579,17 @@
         "T04",
         "T13",
         "T20"
+      ],
+      "evidence_T20": [
+        "README.md",
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/capabilities.md",
+        "docs/release/runbook.md",
+        "docs/project-policies.md",
+        "docs/task20/history.md"
       ]
     },
     {
@@ -3524,6 +3599,17 @@
         "T14",
         "T15",
         "T20"
+      ],
+      "evidence_T20": [
+        "README.md",
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/capabilities.md",
+        "docs/release/runbook.md",
+        "docs/project-policies.md",
+        "docs/task20/history.md"
       ]
     },
     {
@@ -3532,6 +3618,17 @@
         "T17",
         "T20",
         "T22"
+      ],
+      "evidence_T20": [
+        "README.md",
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/capabilities.md",
+        "docs/release/runbook.md",
+        "docs/project-policies.md",
+        "docs/task20/history.md"
       ]
     },
     {
@@ -3542,12 +3639,34 @@
         "T20",
         "T21",
         "T22"
+      ],
+      "evidence_T20": [
+        "README.md",
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/capabilities.md",
+        "docs/release/runbook.md",
+        "docs/project-policies.md",
+        "docs/task20/history.md"
       ]
     },
     {
       "id": "DOC9",
       "tasks": [
         "T20"
+      ],
+      "evidence_T20": [
+        "README.md",
+        "docs/integration.md",
+        "docs/ownership.md",
+        "docs/limits.md",
+        "docs/errors-and-recovery.md",
+        "docs/capabilities.md",
+        "docs/release/runbook.md",
+        "docs/project-policies.md",
+        "docs/task20/history.md"
       ]
     }
   ],
