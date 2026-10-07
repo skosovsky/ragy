@@ -261,6 +261,57 @@ class VerificationContract(unittest.TestCase):
                 self.assertEqual(len(rows[name]["commands"]), 1)
             self.assertEqual(rows["dependent"]["status"], "BLOCKED")
             self.assertEqual(report["status"], "FAIL")
+            # Arrange: a test process exits zero with an unknown individual skip and package PASS.
+            unknown = "\n".join(json.dumps(event) for event in [
+                {"Action": "output", "Package": "fixture", "Test": "TestRequired", "Output": "    fixture_test.go:9: missing required dependency\n"},
+                {"Action": "skip", "Package": "fixture", "Test": "TestRequired"},
+                {"Action": "pass", "Package": "fixture"}])
+            go.write_text("#!" + sys.executable + "\nimport sys\nif sys.argv[1]=='version': print('go version go" + pins["go"] + " linux/amd64')\nelif sys.argv[1]=='env': print('amd64')\nelse: print(" + repr(unknown) + ")\n")
+            registry["lanes"][1]["test_events"] = True
+            (root / "scripts/check-registry.json").write_text(json.dumps(registry))
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "-c", "user.name=fixture", "-c", "user.email=f@example.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "unknown skip fixture"], check=True)
+            # Act: the actual CLI must reject the nominally green child.
+            completed = subprocess.run([sys.executable, str(root / "scripts/verify.py"), "check", "--version", "v0.0.1", "--output", str(output)], cwd=root, env=env, capture_output=True, text=True)
+            report = json.loads((output / "summary.json").read_text())
+            # Assert: no package-level PASS may hide an unknown required test skip.
+            self.assertNotEqual(completed.returncode, 0)
+            ordinary = next(row for row in report["results"] if row["id"] == "ordinary")
+            self.assertEqual(ordinary["status"], "FAIL")
+            self.assertIn("Unexpected required test skip", ordinary["reason"])
+
+
+
+    def test_intentional_skip_requires_exact_identity_reason_and_architecture(self):
+        # Arrange: one explicit paid-test policy, same test with changed reason, 32-bit boundary.
+        import json
+        def events(reason, test="TestLive"):
+            return "\n".join(json.dumps(event) for event in [
+                {"Action": "output", "Package": "fixture", "Test": test, "Output": "    file_test.go:9: " + reason + "\n"},
+                {"Action": "skip", "Package": "fixture", "Test": test},
+                {"Action": "pass", "Package": "fixture"}])
+        policy = [{"package": "fixture", "test": "TestLive", "reason": "paid opt-in disabled", "classification": "paid-live-provider"}]
+        # Act / Assert: exact intentional case is annotated; identity/reason drift fails.
+        allowed = verify.validate_test_events(events("paid opt-in disabled"), skip_policy=policy)
+        self.assertEqual(allowed[0]["skip_classification"], "paid-live-provider")
+        for output in (events("credentials unexpectedly absent"), events("paid opt-in disabled", "TestOrdinary")):
+            with self.assertRaisesRegex(ValueError, "Unexpected required test skip"):
+                verify.validate_test_events(output, skip_policy=policy)
+        policy[0]["go_arch"] = ["386"]
+        with self.assertRaisesRegex(ValueError, "Unexpected required test skip"):
+            verify.validate_test_events(events("paid opt-in disabled"), skip_policy=policy, go_arch="amd64")
+        self.assertEqual(len(verify.validate_test_events(events("paid opt-in disabled"), skip_policy=policy, go_arch="386")), 1)
+
+    def test_package_no_test_files_is_explicitly_classified(self):
+        # Arrange: Go's package-only no-test result is different from an individual SKIP.
+        import json
+        output = "\n".join(json.dumps(event) for event in [
+            {"Action": "output", "Package": "fixture", "Output": "? fixture [no test files]\n"},
+            {"Action": "skip", "Package": "fixture"}])
+        # Act.
+        skips = verify.validate_test_events(output)
+        # Assert: package absence is recorded with its exact reason.
+        self.assertEqual(skips[0]["skip_classification"], "no-test-files")
 
 
 if __name__ == "__main__":

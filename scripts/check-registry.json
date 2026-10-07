@@ -397,5 +397,68 @@
       "published_version": "v0.13.1"
     }
   },
-  "linux_image": "golang@sha256:8d48e12ec56735e9358640898b9d9b9fcca110612ed8a5567438c0a1baa24e66"
+  "linux_image": "golang@sha256:8d48e12ec56735e9358640898b9d9b9fcca110612ed8a5567438c0a1baa24e66",
+  "intentional_test_skips": [
+    {
+      "package": "github.com/skosovsky/ragy/adapters/cohere/rerank",
+      "test": "TestProviderSmoke",
+      "reason": "set RAGY_PROVIDER_SMOKE=1, COHERE_API_KEY and COHERE_RERANK_MODEL for a paid live call",
+      "classification": "paid-live-provider"
+    },
+    {
+      "package": "github.com/skosovsky/ragy/adapters/openai/dense",
+      "test": "TestLiveProviderSmoke",
+      "reason": "opt-in live provider smoke disabled",
+      "classification": "paid-live-provider"
+    },
+    {
+      "package": "github.com/skosovsky/ragy/adapters/jina/dense",
+      "test": "TestLiveProviderSmoke",
+      "reason": "opt-in live provider smoke disabled",
+      "classification": "paid-live-provider"
+    },
+    {
+      "package": "github.com/skosovsky/ragy/adapters/jina/tensor",
+      "test": "TestLiveProviderSmoke",
+      "reason": "opt-in live provider smoke disabled",
+      "classification": "paid-live-provider"
+    },
+    {
+      "package": "github.com/skosovsky/ragy/adapters/gemini/dense",
+      "test": "TestLiveGemini",
+      "reason": "opt-in live request requires RAGY_LIVE_GEMINI=1 and GEMINI_API_KEY",
+      "classification": "paid-live-provider"
+    },
+    {
+      "package": "github.com/skosovsky/ragy/adapters/gemini/multimodal",
+      "test": "TestLiveGeminiMultimodal",
+      "reason": "opt-in requires RAGY_LIVE_GEMINI=1, GEMINI_API_KEY and RAGY_GEMINI_IMAGE PNG path",
+      "classification": "paid-live-provider"
+    },
+    {
+      "package": "github.com/skosovsky/ragy/dense/persistent",
+      "test": "TestActualPhysicalCrashChild",
+      "reason": "subprocess helper",
+      "classification": "parent-test-invokes-subprocess"
+    },
+    {
+      "package": "github.com/skosovsky/ragy/tensor/persistent",
+      "test": "TestActualPhysicalCrashChild",
+      "reason": "subprocess helper",
+      "classification": "parent-test-invokes-subprocess"
+    },
+    {
+      "package": "github.com/skosovsky/ragy/evidence",
+      "test": "TestEvidenceRankExactOrdinalBoundary",
+      "reason": "all representable int ranks on this platform fit exact float64",
+      "classification": "unrepresentable-boundary",
+      "go_arch": [
+        "386",
+        "arm",
+        "mips",
+        "mipsle",
+        "wasm"
+      ]
+    }
+  ]
 }

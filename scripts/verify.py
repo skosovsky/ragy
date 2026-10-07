@@ -166,6 +166,7 @@ def check_profile(args):
     lint = os.environ.get("GOLANGCI_LINT")
     commands = []
     active_row = None
+    go_arch = None
     def command(argv, directory=ROOT, **kwargs):
         entry = {"command": argv, "cwd": str(directory)}
         commands.append(entry)
@@ -188,7 +189,7 @@ def check_profile(args):
         log.write_text(text)
         return text
     def execute(row):
-        nonlocal lint, active_row
+        nonlocal lint, active_row, go_arch
         active_row = row
         begin = len(commands)
         action = row.get("action")
@@ -226,6 +227,7 @@ def check_profile(args):
                         else:
                             os.environ["GOBIN"] = previous
             versions(go, lint, enforce=True, run_command=command)
+            go_arch = command([go, "env", "GOARCH"], capture=True).strip()
         elif action == "baseline":
             if (ROOT / ".golangci.yml").read_bytes() != (ROOT / "scripts/lint-baseline.yml").read_bytes():
                 raise ValueError("Linter baseline drift: update reviewed versioned baseline with justified exclusions")
@@ -284,7 +286,7 @@ def check_profile(args):
             if row.get("no_output") and result.strip():
                 raise ValueError("Format drift: " + result[:4000])
             if row.get("test_events"):
-                skips = validate_test_events(result, reject_skips=row.get("reject_skips", False), require_tests=row["id"] == "postgres")
+                skips = validate_test_events(result, reject_skips=row.get("reject_skips", False), require_tests=row["id"] == "postgres", skip_policy=registry.get("intentional_test_skips", []), go_arch=go_arch)
                 return {"commands": commands[begin:], "test_skips": skips}
         return {"commands": commands[begin:]}
     tracked = run(["git", "ls-files", "-z"], ROOT, capture=True).split("\0")
@@ -306,7 +308,7 @@ def check_profile(args):
     return 0 if success else 1
 
 
-def validate_test_events(output, reject_skips=False, require_tests=False):
+def validate_test_events(output, reject_skips=False, require_tests=False, skip_policy=None, go_arch=None):
     events = []
     for line in output.splitlines():
         try:
@@ -315,16 +317,33 @@ def validate_test_events(output, reject_skips=False, require_tests=False):
             continue
         if isinstance(value, dict):
             events.append(value)
-    if not any(e.get("Action") in ("pass", "fail") and not e.get("Test") for e in events):
+    if not any(e.get("Action") in ("pass", "fail", "skip") and not e.get("Test") for e in events):
         raise ValueError("Missing Go package terminal events")
     if any(e.get("Action") in ("fail", "build-fail") for e in events):
         raise ValueError("Go test failure in recorded events")
     skips = [e for e in events if e.get("Action") == "skip"]
     if reject_skips and skips:
         raise ValueError("Required integration test skipped: " + json.dumps(skips))
+    classified = []
+    for event in skips:
+        messages = [e.get("Output", "").strip() for e in events
+                    if e.get("Action") == "output" and e.get("Package") == event.get("Package") and e.get("Test") == event.get("Test")]
+        if not event.get("Test"):
+            if not any(message.endswith("[no test files]") for message in messages):
+                raise ValueError("Unknown package skip: " + json.dumps(event))
+            event = dict(event, skip_classification="no-test-files", skip_reason="[no test files]")
+        else:
+            policies = [policy for policy in (skip_policy or [])
+                        if policy["package"] == event.get("Package") and policy["test"] == event.get("Test")
+                        and (not policy.get("go_arch") or go_arch in policy["go_arch"])
+                        and any(message.endswith(": " + policy["reason"]) for message in messages)]
+            if len(policies) != 1:
+                raise ValueError("Unexpected required test skip: " + json.dumps(event))
+            event = dict(event, skip_classification=policies[0]["classification"], skip_reason=policies[0]["reason"])
+        classified.append(event)
     if require_tests and not any(e.get("Action") == "pass" and e.get("Test") for e in events):
         raise ValueError("Required integration executed no tests")
-    return skips
+    return classified
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
