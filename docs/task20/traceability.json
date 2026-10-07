@@ -720,41 +720,70 @@
       "id": "D55",
       "task": "T18",
       "requirement": "Provider transports: Shared URL/error contract tests предотвращают F10/F11 drift; structured usage/schema semantics не обязательно объединять с embedding client. Consistent cancellation/I/O/protocol taxonomy и credential preflight.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Shared T11 URL/context helpers retained; ordinary structured Doer failures align with ErrUnavailable, body failures stay ErrProtocol. Shared UTF-8/control/blank credential admission runs in all constructors before dispatch.",
+      "evidence": [
+        "internal/providerhttp/credential.go",
+        "internal/providerhttp/credential_test.go",
+        "adapters/openai/structured/transport_regression_test.go"
+      ]
     },
     {
       "id": "D56",
       "task": "T18",
       "requirement": "Provider JSON/schema: Unknown fields evolution отдельно от duplicate/case/surrogate policy. Structured choice Index missing/null требует explicit admission; executable domain schema host-owned, не новый universal validator.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Structured choice index requires nonnull zero with known usage preserved. Unknown-field evolution, exact decoded duplicate rejection, case aliases and surrogate normalization have separate explicit policies; host executable schema retained.",
+      "evidence": [
+        "adapters/openai/structured/decode.go",
+        "adapters/openai/structured/client_test.go",
+        "embedding/README.md"
+      ]
     },
     {
       "id": "D57",
       "task": "T18",
       "requirement": "Space/config naming: Model/Space.Model дублируются; ModelRevision/Configuration — host attestation, не remote fact. MaxOutputTokens для tensor rows лучше MaxVectorRows. Defaults/explicit limits и Cohere query+docs accounting описать таблицей.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Space remains authoritative; Model convenience equality assertion retained explicitly. Host attestation is separate from optional model echo. MaxVectorRows clean rename completed after inventory; shared defaults/explicit units table published.",
+      "evidence": [
+        "embedding/embedding.go",
+        "embedding/README.md",
+        "docs/task20/T18.md",
+        "adapters/jina/tensor/client.go"
+      ]
     },
     {
       "id": "D58",
       "task": "T18",
       "requirement": "Usage/error materialization: Известный usage не должен теряться только из-за rejected vectors; где неизвестен, не оценивать как known. Cohere retained input/prefix с error не считать reranked success; billing/prices остаются host.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Independent valid usage precedes delayed raw model/vector/shape/index JSON decode and semantic admission; known usage survives malformed payload members/float32 overflow, rejected model/cardinality/vectors and postdecode cancellation without embeddings. Invalid/absent counters and malformed/truncated whole envelopes remain unknown. Shared optional model echo decoder has post-decode context gates.",
+      "evidence": [
+        "adapters/openai/dense/client.go",
+        "adapters/jina/dense/client.go",
+        "adapters/jina/tensor/client.go",
+        "adapters/gemini/internal/wire/client.go",
+        "adapters/openai/dense/usage_contract_test.go",
+        "adapters/jina/tensor/usage_contract_test.go",
+        "internal/providerhttp/model.go",
+        "adapters/gemini/internal/wire/usage_contract_test.go"
+      ]
     },
     {
       "id": "D59",
       "task": "T18",
       "requirement": "PDF limits/errors: Catch-all invalid_pdf скрывает engine bugs; sanitized internal class рассмотреть отдельно. Output limits не гарантируют RSS/CPU. Документировать tested Python deps/fingerprint/real parser opt-in, host process isolation вне core.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Recognized parser read/syntax errors are invalid input; only private declared limit/geometry exceptions select invalid/unsupported. Unexpected dependency OverflowError/NotImplementedError and implementation errors are internal unavailable without raw text. Actual runtime/dependency/fingerprint and 11-class fault profile published; no RSS/CPU claim.",
+      "evidence": [
+        "adapters/pdf/engine.py",
+        "adapters/pdf/normalize.go",
+        "adapters/pdf/engine_contract_test.go",
+        "adapters/pdf/testdata/verify_engine_errors.py",
+        "adapters/pdf/README.md",
+        "docs/task20/acceptance/T18-pdf-revised-actual.log"
+      ]
     },
     {
       "id": "D60",
@@ -2806,9 +2835,13 @@
       "source": "reviews/providers.md",
       "line": 37,
       "requirement": "JSON strictness is different.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Structured choice index requires nonnull zero with known usage preserved. Unknown-field evolution, exact decoded duplicate rejection, case aliases and surrogate normalization have separate explicit policies; host executable schema retained.",
+      "evidence": [
+        "adapters/openai/structured/decode.go",
+        "adapters/openai/structured/client_test.go",
+        "embedding/README.md"
+      ]
     },
     {
       "id": "providers:03",
@@ -2816,9 +2849,13 @@
       "source": "reviews/providers.md",
       "line": 38,
       "requirement": "Structured choice index presence.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Structured choice index requires nonnull zero with known usage preserved. Unknown-field evolution, exact decoded duplicate rejection, case aliases and surrogate normalization have separate explicit policies; host executable schema retained.",
+      "evidence": [
+        "adapters/openai/structured/decode.go",
+        "adapters/openai/structured/client_test.go",
+        "embedding/README.md"
+      ]
     },
     {
       "id": "providers:04",
@@ -2826,9 +2863,13 @@
       "source": "reviews/providers.md",
       "line": 39,
       "requirement": "Error classes vary by transport.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Shared T11 URL/context helpers retained; ordinary structured Doer failures align with ErrUnavailable, body failures stay ErrProtocol. Shared UTF-8/control/blank credential admission runs in all constructors before dispatch.",
+      "evidence": [
+        "internal/providerhttp/credential.go",
+        "internal/providerhttp/credential_test.go",
+        "adapters/openai/structured/transport_regression_test.go"
+      ]
     },
     {
       "id": "providers:05",
@@ -2836,9 +2877,13 @@
       "source": "reviews/providers.md",
       "line": 40,
       "requirement": "Credentials validation differs.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Shared T11 URL/context helpers retained; ordinary structured Doer failures align with ErrUnavailable, body failures stay ErrProtocol. Shared UTF-8/control/blank credential admission runs in all constructors before dispatch.",
+      "evidence": [
+        "internal/providerhttp/credential.go",
+        "internal/providerhttp/credential_test.go",
+        "adapters/openai/structured/transport_regression_test.go"
+      ]
     },
     {
       "id": "providers:06",
@@ -2846,9 +2891,14 @@
       "source": "reviews/providers.md",
       "line": 41,
       "requirement": "Config.Model duplication.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Space remains authoritative; Model convenience equality assertion retained explicitly. Host attestation is separate from optional model echo. MaxVectorRows clean rename completed after inventory; shared defaults/explicit units table published.",
+      "evidence": [
+        "embedding/embedding.go",
+        "embedding/README.md",
+        "docs/task20/T18.md",
+        "adapters/jina/tensor/client.go"
+      ]
     },
     {
       "id": "providers:07",
@@ -2856,9 +2906,14 @@
       "source": "reviews/providers.md",
       "line": 42,
       "requirement": "Host attestation vs remote fact.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Space remains authoritative; Model convenience equality assertion retained explicitly. Host attestation is separate from optional model echo. MaxVectorRows clean rename completed after inventory; shared defaults/explicit units table published.",
+      "evidence": [
+        "embedding/embedding.go",
+        "embedding/README.md",
+        "docs/task20/T18.md",
+        "adapters/jina/tensor/client.go"
+      ]
     },
     {
       "id": "providers:08",
@@ -2866,9 +2921,14 @@
       "source": "reviews/providers.md",
       "line": 43,
       "requirement": "Mixed defaults and strict configuration.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Space remains authoritative; Model convenience equality assertion retained explicitly. Host attestation is separate from optional model echo. MaxVectorRows clean rename completed after inventory; shared defaults/explicit units table published.",
+      "evidence": [
+        "embedding/embedding.go",
+        "embedding/README.md",
+        "docs/task20/T18.md",
+        "adapters/jina/tensor/client.go"
+      ]
     },
     {
       "id": "providers:09",
@@ -2876,9 +2936,12 @@
       "source": "reviews/providers.md",
       "line": 44,
       "requirement": "Output admission vs allocation bounds.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Wire byte/output admission follows allocation/extraction; no peak-memory/CPU guarantee. Host process isolation remains outside library, explicitly documented.",
+      "evidence": [
+        "embedding/README.md",
+        "adapters/pdf/README.md"
+      ]
     },
     {
       "id": "providers:10",
@@ -2886,9 +2949,13 @@
       "source": "reviews/providers.md",
       "line": 45,
       "requirement": "Cohere MaxInputs includes query.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "MaxInputs includes query (default maximum127 documents); original input/validated prefix plus error is not successful reranking. Existing final access delivery and observed search-unit policy retained without helper/retry/fallback framework.",
+      "evidence": [
+        "adapters/cohere/rerank/client.go",
+        "adapters/cohere/README.md",
+        "embedding/README.md"
+      ]
     },
     {
       "id": "providers:11",
@@ -2896,9 +2963,13 @@
       "source": "reviews/providers.md",
       "line": 46,
       "requirement": "Cohere partial/error contract.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "MaxInputs includes query (default maximum127 documents); original input/validated prefix plus error is not successful reranking. Existing final access delivery and observed search-unit policy retained without helper/retry/fallback framework.",
+      "evidence": [
+        "adapters/cohere/rerank/client.go",
+        "adapters/cohere/README.md",
+        "embedding/README.md"
+      ]
     },
     {
       "id": "providers:12",
@@ -2906,9 +2977,18 @@
       "source": "reviews/providers.md",
       "line": 47,
       "requirement": "Usage on failed embedding materialization.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Independent valid usage precedes delayed raw model/vector/shape/index JSON decode and semantic admission; known usage survives malformed payload members/float32 overflow, rejected model/cardinality/vectors and postdecode cancellation without embeddings. Invalid/absent counters and malformed/truncated whole envelopes remain unknown. Shared optional model echo decoder has post-decode context gates.",
+      "evidence": [
+        "adapters/openai/dense/client.go",
+        "adapters/jina/dense/client.go",
+        "adapters/jina/tensor/client.go",
+        "adapters/gemini/internal/wire/client.go",
+        "adapters/openai/dense/usage_contract_test.go",
+        "adapters/jina/tensor/usage_contract_test.go",
+        "internal/providerhttp/model.go",
+        "adapters/gemini/internal/wire/usage_contract_test.go"
+      ]
     },
     {
       "id": "providers:13",
@@ -2916,9 +2996,13 @@
       "source": "reviews/providers.md",
       "line": 48,
       "requirement": "Purpose/metric semantics are well bounded.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Explicit purpose/identity/metric profiles, validation and float64 scoring retained. No speedup/optimization claim (before/after N/A); model routing, retries, pricing, agent modes and universal schemas stay outside adapters.",
+      "evidence": [
+        "embedding/README.md",
+        "dense/embedding.go",
+        "docs/task20/T18.md"
+      ]
     },
     {
       "id": "providers:14",
@@ -2926,9 +3010,16 @@
       "source": "reviews/providers.md",
       "line": 49,
       "requirement": "PDF catch-all hides implementation failures.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Recognized parser read/syntax errors are invalid input; only private declared limit/geometry exceptions select invalid/unsupported. Unexpected dependency OverflowError/NotImplementedError and implementation errors are internal unavailable without raw text. Actual runtime/dependency/fingerprint and 11-class fault profile published; no RSS/CPU claim.",
+      "evidence": [
+        "adapters/pdf/engine.py",
+        "adapters/pdf/normalize.go",
+        "adapters/pdf/engine_contract_test.go",
+        "adapters/pdf/testdata/verify_engine_errors.py",
+        "adapters/pdf/README.md",
+        "docs/task20/acceptance/T18-pdf-revised-actual.log"
+      ]
     },
     {
       "id": "providers:15",
@@ -2936,9 +3027,16 @@
       "source": "reviews/providers.md",
       "line": 50,
       "requirement": "PDF reproducibility.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Recognized parser read/syntax errors are invalid input; only private declared limit/geometry exceptions select invalid/unsupported. Unexpected dependency OverflowError/NotImplementedError and implementation errors are internal unavailable without raw text. Actual runtime/dependency/fingerprint and 11-class fault profile published; no RSS/CPU claim.",
+      "evidence": [
+        "adapters/pdf/engine.py",
+        "adapters/pdf/normalize.go",
+        "adapters/pdf/engine_contract_test.go",
+        "adapters/pdf/testdata/verify_engine_errors.py",
+        "adapters/pdf/README.md",
+        "docs/task20/acceptance/T18-pdf-revised-actual.log"
+      ]
     },
     {
       "id": "providers:16",
@@ -2946,9 +3044,15 @@
       "source": "reviews/providers.md",
       "line": 51,
       "requirement": "GoDoc discoverability and examples.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "change",
+      "rationale": "Current GoDoc and compilable client examples describe ownership, host identity, finite limits, context and known/unknown accounting. Deterministic examples dispatch no paid provider calls.",
+      "evidence": [
+        "embedding/README.md",
+        "adapters/openai/dense/example_test.go",
+        "adapters/jina/dense/example_test.go",
+        "adapters/jina/tensor/example_test.go",
+        "adapters/gemini/dense/example_test.go"
+      ]
     },
     {
       "id": "providers:17",
@@ -2956,9 +3060,13 @@
       "source": "reviews/providers.md",
       "line": 52,
       "requirement": "Dense metric implementation.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Explicit purpose/identity/metric profiles, validation and float64 scoring retained. No speedup/optimization claim (before/after N/A); model routing, retries, pricing, agent modes and universal schemas stay outside adapters.",
+      "evidence": [
+        "embedding/README.md",
+        "dense/embedding.go",
+        "docs/task20/T18.md"
+      ]
     },
     {
       "id": "providers:18",
@@ -2966,9 +3074,13 @@
       "source": "reviews/providers.md",
       "line": 53,
       "requirement": "No extra mandatory library needed for adapters.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Explicit purpose/identity/metric profiles, validation and float64 scoring retained. No speedup/optimization claim (before/after N/A); model routing, retries, pricing, agent modes and universal schemas stay outside adapters.",
+      "evidence": [
+        "embedding/README.md",
+        "dense/embedding.go",
+        "docs/task20/T18.md"
+      ]
     },
     {
       "id": "arch-docs:01",

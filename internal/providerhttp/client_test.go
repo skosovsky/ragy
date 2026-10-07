@@ -53,7 +53,7 @@ func TestConfiguration(t *testing.T) {
 	limits := client.Limits()
 	if limits.MaxInputs <= 0 || limits.MaxInputBytes <= 0 || limits.MaxRequestBytes <= 0 ||
 		limits.MaxResponseBytes <= 0 ||
-		limits.MaxOutputTokens <= 0 ||
+		limits.MaxVectorRows <= 0 ||
 		limits.Timeout <= 0 {
 		t.Fatalf("nonfinite defaults: %+v", limits)
 	}

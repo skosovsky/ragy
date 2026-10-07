@@ -33,3 +33,8 @@ or attests remote duration/page limits. The host owns valid image payloads.
 Protocol fixtures do not claim live provider execution. Live smoke tests require
 `RAGY_LIVE_GEMINI=1` and `GEMINI_API_KEY`; multimodal additionally requires
 `RAGY_GEMINI_IMAGE` pointing to a PNG. They explicitly skip otherwise.
+
+See [identity, units, JSON normalization, accounting and ownership](../../embedding/README.md).
+Valid observed usage survives rejected vector/result materialization; error
+results carry no successful embeddings. Inspect errors before using payloads.
+Credentials are admitted before dispatch; clients are concurrent when host Doers are.

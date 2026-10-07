@@ -3,8 +3,9 @@ package wire
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
-	"strings"
 
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/dense"
@@ -30,7 +31,7 @@ type Client struct {
 }
 
 func New(cfg Config) (*Client, error) {
-	if strings.TrimSpace(cfg.APIKey) == "" || strings.ContainsAny(cfg.APIKey, "\r\n") {
+	if providerhttp.ValidateAPIKey(cfg.APIKey) != nil {
 		return nil, ragy.ErrInvalidArgument
 	}
 	if cfg.Model != "" && cfg.Model != cfg.Space.Model {
@@ -126,12 +127,9 @@ func (c *Client) Item(parts []Part, purpose embedding.Purpose) Item {
 }
 
 type Response struct {
-	Model      string `json:"model"`
-	Embeddings []struct {
-		Values []float32 `json:"values"`
-		Shape  []int     `json:"shape"`
-	} `json:"embeddings"`
-	Usage *struct {
+	Model      json.RawMessage `json:"model"`
+	Embeddings json.RawMessage `json:"embeddings"`
+	Usage      *struct {
 		Tokens *int64 `json:"promptTokenCount"`
 	} `json:"usageMetadata"`
 }
@@ -145,34 +143,77 @@ func (c *Client) Embed(ctx context.Context, items []Item) (dense.Result, error) 
 		Batch{Requests: items},
 		&response,
 	); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			if usage, usageErr := response.usage(); usageErr == nil {
+				return dense.Result{Embeddings: nil, Usage: usage}, err
+			}
+		}
 		return dense.Result{}, err
 	}
-	if len(response.Embeddings) != len(items) ||
-		(response.Model != "" && response.Model != c.space.Model && response.Model != "models/"+c.space.Model) {
-		return dense.Result{}, ragy.ErrProtocol
+	return c.materialize(ctx, len(items), response)
+}
+
+func (c *Client) materialize(ctx context.Context, inputCount int, response Response) (dense.Result, error) {
+	usage, err := response.usage()
+	if gateErr := ctx.Err(); gateErr != nil {
+		return dense.Result{Embeddings: nil, Usage: usage}, gateErr
+	}
+	if err != nil {
+		return dense.Result{}, err
+	}
+	model, present, modelErr := providerhttp.ModelEcho(response.Model)
+	if gateErr := ctx.Err(); gateErr != nil {
+		return dense.Result{Embeddings: nil, Usage: usage}, gateErr
+	}
+	if modelErr != nil {
+		return dense.Result{Embeddings: nil, Usage: usage}, modelErr
+	}
+
+	var vectors []struct {
+		Values []float32 `json:"values"`
+		Shape  []int     `json:"shape"`
+	}
+	decodeErr := json.Unmarshal(response.Embeddings, &vectors)
+	if gateErr := ctx.Err(); gateErr != nil {
+		return dense.Result{Embeddings: nil, Usage: usage}, gateErr
+	}
+	if decodeErr != nil {
+		return dense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
+	}
+	if len(vectors) != inputCount ||
+		(present && model != "" && model != c.space.Model && model != "models/"+c.space.Model) {
+		return dense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 	}
 	result := dense.Result{
-		Embeddings: make([]dense.Embedding, len(items)),
-		Usage:      embedding.Usage{InputTokens: 0, InputTokensKnown: false, BilledUnits: 0, BilledUnitsKnown: false},
+		Embeddings: make([]dense.Embedding, inputCount),
+		Usage:      usage,
 	}
-	for i, item := range response.Embeddings {
+	for i, item := range vectors {
 		if err := ctx.Err(); err != nil {
-			return dense.Result{}, err
+			return dense.Result{Embeddings: nil, Usage: usage}, err
 		}
 		if len(item.Shape) > 0 {
-			return dense.Result{}, ragy.ErrProtocol
+			return dense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 		}
 		if err := c.space.ValidateVector(item.Values); err != nil {
-			return dense.Result{}, ragy.ErrProtocol
+			return dense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 		}
 		result.Embeddings[i] = dense.Embedding{Space: c.space, Vector: item.Values}
 	}
-	if response.Usage != nil && response.Usage.Tokens != nil {
-		result.Usage.InputTokensKnown = true
-		result.Usage.InputTokens = *response.Usage.Tokens
+	if err := ctx.Err(); err != nil {
+		return dense.Result{Embeddings: nil, Usage: usage}, err
 	}
-	if err := result.Usage.Validate(); err != nil {
-		return dense.Result{}, err
+	return result, nil
+}
+
+func (r Response) usage() (embedding.Usage, error) {
+	var usage embedding.Usage
+	if r.Usage != nil && r.Usage.Tokens != nil {
+		usage.InputTokensKnown = true
+		usage.InputTokens = *r.Usage.Tokens
 	}
-	return result, ctx.Err()
+	if err := usage.Validate(); err != nil {
+		return embedding.Usage{}, err
+	}
+	return usage, nil
 }

@@ -1,0 +1,6 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+adapters/gemini/internal/wire/client.go:189:11: embedding.Usage is missing fields InputTokens, InputTokensKnown, BilledUnits, BilledUnitsKnown (exhaustruct)
+	usage := embedding.Usage{}
+	         ^
+1 issues:
+* exhaustruct: 1

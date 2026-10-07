@@ -253,7 +253,7 @@ func TestTensorRowsBound(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"index":0,"embeddings":[[1],[1]]}]}`))
 	}))
 	defer server.Close()
-	c := testClient(t, server.URL, embedding.Limits{MaxOutputTokens: 1})
+	c := testClient(t, server.URL, embedding.Limits{MaxVectorRows: 1})
 	_, err := c.Embed(context.Background(), roottensor.Request{Inputs: []string{"hi"}, Purpose: embedding.Query})
 	if !errors.Is(err, ragy.ErrProtocol) {
 		t.Fatal(err)

@@ -5,6 +5,17 @@ import sys
 
 import pdfplumber
 from pypdf import PdfReader
+from pypdf.errors import PdfReadError
+from pdfminer.pdfparser import PDFSyntaxError
+from pdfminer.psparser import PSEOF, PSSyntaxError
+
+
+class _UnsupportedGeometry(Exception):
+    """Declared unsupported native geometry; not a dependency exception."""
+
+
+class _LimitExceeded(Exception):
+    """Declared output element admission failure."""
 
 
 def rectangle(box, width, height, rotation):
@@ -28,11 +39,11 @@ def cells_for(page, width, height, rotation, limit):
         ys = sorted({y for cell in table.cells for y in (cell[1], cell[3])})
         for number, cell in enumerate(table.cells):
             if len(result) >= limit:
-                raise OverflowError("cell limit")
+                raise _LimitExceeded("cell limit")
             # Rotation changes orientation of native table grids. A rotated table
             # requires an explicit grid normalization profile, not inferred rows.
             if rotation:
-                raise NotImplementedError("rotated table grid")
+                raise _UnsupportedGeometry("rotated table grid")
             text = page.crop(cell).extract_text() or ""
             result.append(dict(table=f"t{index}", element=f"c{number}",
                                row=ys.index(cell[1]), column=xs.index(cell[0]),
@@ -54,11 +65,11 @@ def parse(data, page_limit, word_limit, cell_limit, image_limit):
             crop = [float(value) for value in reader.pages[index].cropbox]
             rotation = int(page.rotation or 0)
             if media[:2] != [0., 0.] or crop != media or rotation not in (0, 90, 180, 270):
-                raise NotImplementedError("native page geometry")
+                raise _UnsupportedGeometry("native page geometry")
             width, height = media[2], media[3]
             words = page.extract_words()
             if len(words) > word_limit or len(page.images) > image_limit:
-                raise OverflowError("element limit")
+                raise _LimitExceeded("element limit")
             text_parts, normalized_words, offset = [], [], 0
             for number, word in enumerate(words):
                 text = word["text"]
@@ -85,13 +96,20 @@ def parse(data, page_limit, word_limit, cell_limit, image_limit):
     return result
 
 
-try:
-    output = parse(sys.stdin.buffer.read(), *(int(value) for value in sys.argv[1:]))
-except NotImplementedError:
-    output = dict(page_count=0, diagnostics=[], pages=[], error="unsupported_geometry")
-except OverflowError:
-    output = dict(page_count=0, diagnostics=[], pages=[], error="limit_exceeded")
-except Exception:
-    # Never echo parser exception text or source data into the result/error stream.
-    output = dict(page_count=0, diagnostics=[], pages=[], error="invalid_pdf")
-json.dump(output, sys.stdout, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+def main():
+    try:
+        output = parse(sys.stdin.buffer.read(), *(int(value) for value in sys.argv[1:]))
+    except _UnsupportedGeometry:
+        output = dict(page_count=0, diagnostics=[], pages=[], error="unsupported_geometry")
+    except _LimitExceeded:
+        output = dict(page_count=0, diagnostics=[], pages=[], error="limit_exceeded")
+    except (PdfReadError, PDFSyntaxError, PSEOF, PSSyntaxError):
+        output = dict(page_count=0, diagnostics=[], pages=[], error="invalid_pdf")
+    except Exception:
+        # No parser exception text or source data enters the result/error stream.
+        output = dict(page_count=0, diagnostics=[], pages=[], error="engine_internal_error")
+    json.dump(output, sys.stdout, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+
+
+if __name__ == "__main__":
+    main()

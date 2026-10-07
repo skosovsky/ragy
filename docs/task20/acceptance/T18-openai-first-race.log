@@ -1,0 +1,7 @@
+ok  	github.com/skosovsky/ragy/adapters/openai/dense	1.541s
+--- FAIL: TestStructuredContextTransport (2.00s)
+    --- FAIL: TestStructuredContextTransport/transport_io (0.00s)
+        transport_regression_test.go:32: {} {0 0 false} unavailable 1
+FAIL
+FAIL	github.com/skosovsky/ragy/adapters/openai/structured	2.824s
+FAIL

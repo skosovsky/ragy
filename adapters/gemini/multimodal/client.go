@@ -16,9 +16,14 @@ const DefaultBaseURL = wire.DefaultBaseURL
 const maxImages = 6
 
 type Doer = providerhttp.Doer
+
+// Config declares authoritative host space, optional equal Model and finite limits.
 type Config = wire.Config
+
+// Client supports concurrent calls when the host Doer does.
 type Client struct{ wire *wire.Client }
 
+// New validates credentials, declared identity and the supported wire profile.
 func New(cfg Config) (*Client, error) {
 	if cfg.Space.Model != "gemini-embedding-2" {
 		return nil, ragy.ErrUnsupported
@@ -29,7 +34,12 @@ func New(cfg Config) (*Client, error) {
 	}
 	return &Client{wire: client}, nil
 }
+
+// Space returns the host attestation without asserting remote revision.
 func (c *Client) Space() embedding.Space { return c.wire.Space() }
+
+// Embed borrows immutable input payloads during one exchange; successful vectors
+// transfer to caller. Errors suppress vectors and retain independently known usage.
 func (c *Client) Embed(ctx context.Context, request root.Request) (root.Result, error) {
 	if err := ctx.Err(); err != nil {
 		return root.Result{}, err

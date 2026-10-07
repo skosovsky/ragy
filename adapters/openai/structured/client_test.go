@@ -133,6 +133,8 @@ func TestResponseFailuresPreserveKnownUsageWithoutRetry(t *testing.T) {
 		{name: "trailing-domain", body: envelope(`{"value":1} {}`, "stop"), want: ragy.ErrProtocol, known: true},
 		{name: "truncated", body: envelope(`{"value":1}`, "length"), want: structured.ErrIncomplete, known: true},
 		{name: "refused", body: `{"choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","refusal":"private explanation"}}],"usage":{"prompt_tokens":40,"completion_tokens":5,"total_tokens":45}}`, want: structured.ErrRefused, known: true},
+		{name: "missing-choice-index", body: `{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"{\"value\":1}"}}],"usage":{"prompt_tokens":40,"completion_tokens":5,"total_tokens":45}}`, want: ragy.ErrProtocol, known: true},
+		{name: "null-choice-index", body: `{"choices":[{"index":null,"finish_reason":"stop","message":{"role":"assistant","content":"{\"value\":1}"}}],"usage":{"prompt_tokens":40,"completion_tokens":5,"total_tokens":45}}`, want: ragy.ErrProtocol, known: true},
 		{name: "missing-usage", body: `{"choices":[]}`, want: ragy.ErrProtocol, known: false},
 		{name: "invalid-total", body: `{"choices":[],"usage":{"prompt_tokens":40,"completion_tokens":5,"total_tokens":46}}`, want: ragy.ErrProtocol, known: false},
 		{name: "duplicate-envelope", body: `{"choices":[],"choices":[],"usage":{"prompt_tokens":40,"completion_tokens":5,"total_tokens":45}}`, want: ragy.ErrProtocol, known: false},

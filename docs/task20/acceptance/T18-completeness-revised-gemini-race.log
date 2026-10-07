@@ -1,0 +1,3 @@
+ok  	github.com/skosovsky/ragy/adapters/gemini/dense	1.268s
+ok  	github.com/skosovsky/ragy/adapters/gemini/internal/wire	1.216s
+ok  	github.com/skosovsky/ragy/adapters/gemini/multimodal	1.240s

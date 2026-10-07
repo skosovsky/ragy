@@ -1,0 +1,190 @@
+=== RUN   TestDocumentedWire
+=== RUN   TestDocumentedWire/query
+=== RUN   TestDocumentedWire/document
+--- PASS: TestDocumentedWire (0.01s)
+    --- PASS: TestDocumentedWire/query (0.00s)
+    --- PASS: TestDocumentedWire/document (0.01s)
+=== RUN   TestAdversarialResponses
+=== RUN   TestAdversarialResponses/missing
+=== RUN   TestAdversarialResponses/extra
+=== RUN   TestAdversarialResponses/nan
+=== RUN   TestAdversarialResponses/usage
+=== RUN   TestAdversarialResponses/missing-index
+=== RUN   TestAdversarialResponses/out-of-range
+=== RUN   TestAdversarialResponses/empty
+=== RUN   TestAdversarialResponses/wrong-shape
+=== RUN   TestAdversarialResponses/overflow
+=== RUN   TestAdversarialResponses/model
+=== RUN   TestAdversarialResponses/trailing
+--- PASS: TestAdversarialResponses (0.02s)
+    --- PASS: TestAdversarialResponses/missing (0.00s)
+    --- PASS: TestAdversarialResponses/extra (0.00s)
+    --- PASS: TestAdversarialResponses/nan (0.00s)
+    --- PASS: TestAdversarialResponses/usage (0.00s)
+    --- PASS: TestAdversarialResponses/missing-index (0.00s)
+    --- PASS: TestAdversarialResponses/out-of-range (0.00s)
+    --- PASS: TestAdversarialResponses/empty (0.00s)
+    --- PASS: TestAdversarialResponses/wrong-shape (0.00s)
+    --- PASS: TestAdversarialResponses/overflow (0.00s)
+    --- PASS: TestAdversarialResponses/model (0.00s)
+    --- PASS: TestAdversarialResponses/trailing (0.00s)
+=== RUN   TestDuplicateAndMissingOutput
+--- PASS: TestDuplicateAndMissingOutput (0.00s)
+=== RUN   TestUnknownUsage
+--- PASS: TestUnknownUsage (0.00s)
+=== RUN   TestLocalRejectionBeforeDispatch
+--- PASS: TestLocalRejectionBeforeDispatch (0.00s)
+=== RUN   TestBoundsAndSanitizedErrors
+=== RUN   TestBoundsAndSanitizedErrors/302
+=== RUN   TestBoundsAndSanitizedErrors/400
+=== RUN   TestBoundsAndSanitizedErrors/429
+=== RUN   TestBoundsAndSanitizedErrors/503
+=== RUN   TestBoundsAndSanitizedErrors/200
+--- PASS: TestBoundsAndSanitizedErrors (0.01s)
+    --- PASS: TestBoundsAndSanitizedErrors/302 (0.00s)
+    --- PASS: TestBoundsAndSanitizedErrors/400 (0.00s)
+    --- PASS: TestBoundsAndSanitizedErrors/429 (0.00s)
+    --- PASS: TestBoundsAndSanitizedErrors/503 (0.00s)
+    --- PASS: TestBoundsAndSanitizedErrors/200 (0.00s)
+=== RUN   TestTimeout
+--- PASS: TestTimeout (0.01s)
+=== RUN   TestInvalidConfiguration
+--- PASS: TestInvalidConfiguration (0.00s)
+=== RUN   TestLiveProviderSmoke
+    client_test.go:222: opt-in live provider smoke disabled
+--- SKIP: TestLiveProviderSmoke (0.00s)
+=== RUN   TestUnsupportedDimension
+--- PASS: TestUnsupportedDimension (0.00s)
+=== RUN   TestRejectedPayloadRetainsObservedUsage
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#01
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#02
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#03
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#04
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#05
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#06
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#07
+--- PASS: TestRejectedPayloadRetainsObservedUsage (0.01s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#01 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#02 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#03 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#04 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#05 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#06 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#07 (0.00s)
+=== RUN   TestCredentialRejectedBeforeDispatch
+--- PASS: TestCredentialRejectedBeforeDispatch (0.00s)
+=== RUN   TestMaterializationCancellationPreservesAccounting
+--- PASS: TestMaterializationCancellationPreservesAccounting (0.00s)
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage/unknown
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage/unknown#01
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage/unknown#02
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage/unknown#03
+--- PASS: TestRejectedEnvelopeDoesNotInventUsage (0.01s)
+    --- PASS: TestRejectedEnvelopeDoesNotInventUsage/unknown (0.00s)
+    --- PASS: TestRejectedEnvelopeDoesNotInventUsage/unknown#01 (0.00s)
+    --- PASS: TestRejectedEnvelopeDoesNotInventUsage/unknown#02 (0.00s)
+    --- PASS: TestRejectedEnvelopeDoesNotInventUsage/unknown#03 (0.00s)
+=== RUN   ExampleClient_Embed
+--- PASS: ExampleClient_Embed (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/jina/dense	1.559s
+=== RUN   TestDocumentedWire
+=== RUN   TestDocumentedWire/query
+=== RUN   TestDocumentedWire/document
+--- PASS: TestDocumentedWire (0.01s)
+    --- PASS: TestDocumentedWire/query (0.01s)
+    --- PASS: TestDocumentedWire/document (0.00s)
+=== RUN   TestAdversarialResponses
+=== RUN   TestAdversarialResponses/model
+=== RUN   TestAdversarialResponses/usage
+=== RUN   TestAdversarialResponses/trailing
+=== RUN   TestAdversarialResponses/missing
+=== RUN   TestAdversarialResponses/missing-index
+=== RUN   TestAdversarialResponses/extra
+=== RUN   TestAdversarialResponses/empty
+=== RUN   TestAdversarialResponses/nan
+=== RUN   TestAdversarialResponses/out-of-range
+=== RUN   TestAdversarialResponses/wrong-shape
+=== RUN   TestAdversarialResponses/overflow
+--- PASS: TestAdversarialResponses (0.02s)
+    --- PASS: TestAdversarialResponses/model (0.00s)
+    --- PASS: TestAdversarialResponses/usage (0.00s)
+    --- PASS: TestAdversarialResponses/trailing (0.00s)
+    --- PASS: TestAdversarialResponses/missing (0.00s)
+    --- PASS: TestAdversarialResponses/missing-index (0.01s)
+    --- PASS: TestAdversarialResponses/extra (0.00s)
+    --- PASS: TestAdversarialResponses/empty (0.00s)
+    --- PASS: TestAdversarialResponses/nan (0.00s)
+    --- PASS: TestAdversarialResponses/out-of-range (0.00s)
+    --- PASS: TestAdversarialResponses/wrong-shape (0.00s)
+    --- PASS: TestAdversarialResponses/overflow (0.00s)
+=== RUN   TestDuplicateAndMissingOutput
+--- PASS: TestDuplicateAndMissingOutput (0.00s)
+=== RUN   TestUnknownUsage
+--- PASS: TestUnknownUsage (0.00s)
+=== RUN   TestLocalRejectionBeforeDispatch
+--- PASS: TestLocalRejectionBeforeDispatch (0.00s)
+=== RUN   TestBoundsAndSanitizedErrors
+=== RUN   TestBoundsAndSanitizedErrors/302
+=== RUN   TestBoundsAndSanitizedErrors/400
+=== RUN   TestBoundsAndSanitizedErrors/429
+=== RUN   TestBoundsAndSanitizedErrors/503
+=== RUN   TestBoundsAndSanitizedErrors/200
+--- PASS: TestBoundsAndSanitizedErrors (0.01s)
+    --- PASS: TestBoundsAndSanitizedErrors/302 (0.00s)
+    --- PASS: TestBoundsAndSanitizedErrors/400 (0.00s)
+    --- PASS: TestBoundsAndSanitizedErrors/429 (0.00s)
+    --- PASS: TestBoundsAndSanitizedErrors/503 (0.00s)
+    --- PASS: TestBoundsAndSanitizedErrors/200 (0.00s)
+=== RUN   TestTimeout
+--- PASS: TestTimeout (0.01s)
+=== RUN   TestInvalidConfiguration
+--- PASS: TestInvalidConfiguration (0.00s)
+=== RUN   TestLiveProviderSmoke
+    client_test.go:230: opt-in live provider smoke disabled
+--- SKIP: TestLiveProviderSmoke (0.00s)
+=== RUN   TestTensorRowsBound
+--- PASS: TestTensorRowsBound (0.00s)
+=== RUN   TestRaggedTokenMatrix
+--- PASS: TestRaggedTokenMatrix (0.00s)
+=== RUN   TestUnsupportedDimension
+--- PASS: TestUnsupportedDimension (0.00s)
+=== RUN   TestRejectedPayloadRetainsObservedUsage
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#01
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#02
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#03
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#04
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#05
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#06
+=== RUN   TestRejectedPayloadRetainsObservedUsage/rejected#07
+--- PASS: TestRejectedPayloadRetainsObservedUsage (0.02s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#01 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#02 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#03 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#04 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#05 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#06 (0.00s)
+    --- PASS: TestRejectedPayloadRetainsObservedUsage/rejected#07 (0.01s)
+=== RUN   TestCredentialRejectedBeforeDispatch
+--- PASS: TestCredentialRejectedBeforeDispatch (0.00s)
+=== RUN   TestMaterializationCancellationPreservesAccounting
+--- PASS: TestMaterializationCancellationPreservesAccounting (0.00s)
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage/unknown
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage/unknown#01
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage/unknown#02
+=== RUN   TestRejectedEnvelopeDoesNotInventUsage/unknown#03
+--- PASS: TestRejectedEnvelopeDoesNotInventUsage (0.01s)
+    --- PASS: TestRejectedEnvelopeDoesNotInventUsage/unknown (0.00s)
+    --- PASS: TestRejectedEnvelopeDoesNotInventUsage/unknown#01 (0.00s)
+    --- PASS: TestRejectedEnvelopeDoesNotInventUsage/unknown#02 (0.00s)
+    --- PASS: TestRejectedEnvelopeDoesNotInventUsage/unknown#03 (0.00s)
+=== RUN   ExampleClient_Embed
+--- PASS: ExampleClient_Embed (0.00s)
+PASS
+ok  	github.com/skosovsky/ragy/adapters/jina/tensor	1.526s

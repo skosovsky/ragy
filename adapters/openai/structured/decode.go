@@ -13,7 +13,7 @@ import (
 
 type response struct {
 	Choices []struct {
-		Index        int    `json:"index"`
+		Index        *int   `json:"index"`
 		FinishReason string `json:"finish_reason"`
 		Message      struct {
 			Role    string  `json:"role"`
@@ -46,7 +46,7 @@ func (c *Client[T]) decode(payload []byte, limits Limits) (T, Usage, error) {
 	if usage.InputTokens > limits.InputTokens || usage.OutputTokens > limits.OutputTokens {
 		return empty, usage, budget.ErrUsageExceeded
 	}
-	if len(wire.Choices) != 1 || wire.Choices[0].Index != 0 {
+	if len(wire.Choices) != 1 || wire.Choices[0].Index == nil || *wire.Choices[0].Index != 0 {
 		return empty, usage, ragy.ErrProtocol
 	}
 	choice := wire.Choices[0]

@@ -20,6 +20,8 @@ const (
 	SquaredL2     Metric = "negative-squared-l2"
 )
 
+// Space declares host-attested encoder identity and explicit scoring semantics.
+// ModelRevision and Configuration are not verified remote facts.
 type Space struct {
 	Model         string `json:"model"`
 	ModelRevision string `json:"model_revision"`
@@ -124,7 +126,9 @@ func (u Usage) Validate() error {
 	return nil
 }
 
-// Result is ordered like Request.Inputs. Payload ownership transfers to caller.
+// Result is ordered like Request.Inputs on success; payload ownership transfers
+// to caller. Providers may return empty embeddings, observed Usage and an error
+// after rejected materialization. Callers must inspect the error before use.
 type Result[T any] struct {
 	Embeddings []T
 	Usage      Usage
@@ -135,24 +139,24 @@ const (
 	defaultMaxInputBytes    = 1 << 20
 	defaultMaxRequestBytes  = 2 << 20
 	defaultMaxResponseBytes = 16 << 20
-	defaultMaxOutputTokens  = 8192
+	defaultMaxVectorRows    = 8192
 	defaultTimeout          = 30 * time.Second
 )
 
 // Limits bound local work, not remote tokenization or price. Zero fields select
-// finite defaults. MaxOutputTokens bounds rows per returned token matrix.
+// finite defaults. MaxVectorRows bounds rows per returned token matrix.
 type Limits struct {
 	MaxInputs        int
 	MaxInputBytes    int
 	MaxRequestBytes  int64
 	MaxResponseBytes int64
-	MaxOutputTokens  int
+	MaxVectorRows    int
 	Timeout          time.Duration
 }
 
 func (l Limits) Resolve() (Limits, error) {
 	if l.MaxInputs < 0 || l.MaxInputBytes < 0 || l.MaxRequestBytes < 0 || l.MaxResponseBytes < 0 ||
-		l.MaxOutputTokens < 0 ||
+		l.MaxVectorRows < 0 ||
 		l.Timeout < 0 {
 		return Limits{}, ragy.ErrInvalidArgument
 	}
@@ -168,8 +172,8 @@ func (l Limits) Resolve() (Limits, error) {
 	if l.MaxResponseBytes == 0 {
 		l.MaxResponseBytes = defaultMaxResponseBytes
 	}
-	if l.MaxOutputTokens == 0 {
-		l.MaxOutputTokens = defaultMaxOutputTokens
+	if l.MaxVectorRows == 0 {
+		l.MaxVectorRows = defaultMaxVectorRows
 	}
 	if l.Timeout == 0 {
 		l.Timeout = defaultTimeout

@@ -1,0 +1,67 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+adapters/jina/dense/client.go:129:12: embedding.Result is missing field Embeddings (exhaustruct)
+				return rootdense.Result{Usage: usage}, err
+				       ^
+adapters/jina/dense/client.go:140:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return rootdense.Result{Usage: usage}, gateErr
+		       ^
+adapters/jina/dense/client.go:143:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return rootdense.Result{Usage: usage}, err
+		       ^
+adapters/jina/dense/client.go:146:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return rootdense.Result{Usage: usage}, ragy.ErrProtocol
+		       ^
+adapters/jina/dense/client.go:149:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return rootdense.Result{Usage: usage}, ragy.ErrProtocol
+		       ^
+adapters/jina/dense/client.go:155:11: embedding.Result is missing field Embeddings (exhaustruct)
+			return rootdense.Result{Usage: usage}, err
+			       ^
+adapters/jina/dense/client.go:158:11: embedding.Result is missing field Embeddings (exhaustruct)
+			return rootdense.Result{Usage: usage}, ragy.ErrProtocol
+			       ^
+adapters/jina/dense/client.go:162:11: embedding.Result is missing field Embeddings (exhaustruct)
+			return rootdense.Result{Usage: usage}, ragy.ErrProtocol
+			       ^
+adapters/jina/dense/client.go:168:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return rootdense.Result{Usage: usage}, err
+		       ^
+adapters/jina/tensor/client.go:126:12: embedding.Result is missing field Embeddings (exhaustruct)
+				return roottensor.Result{Usage: usage}, err
+				       ^
+adapters/jina/tensor/client.go:137:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return roottensor.Result{Usage: usage}, gateErr
+		       ^
+adapters/jina/tensor/client.go:140:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return roottensor.Result{Usage: usage}, err
+		       ^
+adapters/jina/tensor/client.go:143:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return roottensor.Result{Usage: usage}, ragy.ErrProtocol
+		       ^
+adapters/jina/tensor/client.go:146:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return roottensor.Result{Usage: usage}, ragy.ErrProtocol
+		       ^
+adapters/jina/tensor/client.go:152:11: embedding.Result is missing field Embeddings (exhaustruct)
+			return roottensor.Result{Usage: usage}, err
+			       ^
+adapters/jina/tensor/client.go:155:11: embedding.Result is missing field Embeddings (exhaustruct)
+			return roottensor.Result{Usage: usage}, ragy.ErrProtocol
+			       ^
+adapters/jina/tensor/client.go:158:11: embedding.Result is missing field Embeddings (exhaustruct)
+			return roottensor.Result{Usage: usage}, ragy.ErrProtocol
+			       ^
+adapters/jina/tensor/client.go:162:11: embedding.Result is missing field Embeddings (exhaustruct)
+			return roottensor.Result{Usage: usage}, ragy.ErrProtocol
+			       ^
+adapters/jina/tensor/client.go:168:10: embedding.Result is missing field Embeddings (exhaustruct)
+		return roottensor.Result{Usage: usage}, err
+		       ^
+adapters/jina/dense/usage_contract_test.go:25:78: unused-parameter: parameter 'r' seems to be unused, consider removing or renaming it as _ (revive)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; _, _ = io.WriteString(w, body) }))
+			                                                                          ^
+adapters/jina/tensor/usage_contract_test.go:25:78: unused-parameter: parameter 'r' seems to be unused, consider removing or renaming it as _ (revive)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; _, _ = io.WriteString(w, body) }))
+			                                                                          ^
+21 issues:
+* exhaustruct: 19
+* revive: 2

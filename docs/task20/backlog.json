@@ -712,7 +712,7 @@
         "report": "acceptance/T17-correctness.md"
       }
     },
-    "commit_sha": null,
+    "commit_sha": "98ff5c013c756724fdb286035fa72777dda30137",
     "acceptance_report_sha256": {
       "completeness": "7a9917a24d9af746eb447f195d0a3a96a61114220a2ccdcefa5f53241cf73631",
       "correctness": "edc1466ebb16a78dbac680ac053fd5a288e28690db013d87c881b32787efe81c"
@@ -721,7 +721,7 @@
   {
     "id": "T18",
     "title": "provider and PDF contracts",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "fix!: provider contracts",
     "criteria": [
       {
@@ -746,10 +746,23 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "5/5",
+        "percent": 100,
+        "coverage": "22/22",
+        "coverage_percent": 100,
+        "report": "acceptance/T18-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T18-correctness.md"
+      }
     },
-    "commit_sha": null
+    "commit_sha": null,
+    "acceptance_report_sha256": {
+      "completeness": "edc41a4d2cb99f023e1ee6ab9499a32396308622ffde60e3af8509d80345f540",
+      "correctness": "f21974bd8c7e29c141d4e4af0d9de8d1ca5cc9e32c2e8f1d7f2bd325aa693b56"
+    }
   },
   {
     "id": "T19",

@@ -78,3 +78,27 @@ Partial coverage and original/derived mappings survive r1/r2 publication; pinned
 citations resolve through an explicitly retained host source. Deleted or denied r1
 fails before payload loading even while r2 exists. This test establishes durable
 index/manifest integration; its original layout/blob retention host is in memory.
+
+The executed local profile uses macOS 27.0.1 arm64, Python3.12.14,
+pdfplumber0.11.9, pypdf6.10.0, pdfminer.six20251230 and fixture generator
+reportlab4.4.9. These identify the tested interpreter/dependencies; other platforms
+or versions require their own actual profile and are not attested by local tests.
+Fingerprint the embedded engine bytes/normalization version, all parser dependency
+versions, limits and selected host configuration. The host must update transformation
+identity when any input changes; no automatic remote attestation is claimed.
+
+Recognized PDF read/syntax/EOF errors map to ErrInvalidArgument, unsupported
+geometry to ErrUnsupported, private declared limits to ErrInvalidArgument. Unexpected dependency OverflowError/
+NotImplementedError are internal errors. Unexpected engine
+errors return bounded engine_internal_error→ErrUnavailable; source/exception text
+and partial documents are suppressed. Dependency/import/startup failures also return
+ErrUnavailable. Context cancellation precedes other process failures. Declared output
+and element limits do not bound parser peak memory or discovery/extraction CPU;
+host process isolation remains required when those resources must be bounded.
+
+With the same interpreter as RAGY_PDF_PYTHON, run
+`python testdata/verify_fixture.py` to independently inspect text/table/image/rotation,
+`python testdata/verify_engine_errors.py` for real-import sanitized exception classes,
+and `python testdata/create_fixture.py` only when deliberately regenerating fixture
+artifacts. The existing PDF/PNG are retained during acceptance. Go fake protocol
+fixtures do not establish actual layout quality.

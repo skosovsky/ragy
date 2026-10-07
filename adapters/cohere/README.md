@@ -7,3 +7,10 @@
 These bounds are not a hard remote token or billing limit. Cohere may truncate documents according to its service policy. The adapter preserves original document content, metadata, resolver, score history and protected delivery behavior. Returned model-native scores are finite and retained without assuming normalization.
 
 Protocol fixtures are grounded in [Cohere v2 rerank reference](https://docs.cohere.com/v2/reference/rerank), verified 2026-10-06. Ordinary tests use local fixtures and adversarial HTTP servers. Live smoke is explicitly skipped unless `RAGY_PROVIDER_SMOKE=1`, `COHERE_API_KEY`, and host-selected `COHERE_RERANK_MODEL` are supplied; enabling it authorizes a paid call.
+
+See [identity, units, JSON normalization, accounting and ownership](../../embedding/README.md).
+Valid billing survives rejected ranked-result materialization. Original input or
+validated prefix retained with error is not successful reranking. Inspect errors
+before using scores. MaxInputs includes query: default maximum documents127,
+MaxInputs1 admits no nonempty rerank.
+Credentials are admitted before dispatch; clients are concurrent when host Doers are.

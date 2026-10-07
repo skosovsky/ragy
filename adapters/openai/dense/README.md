@@ -23,3 +23,8 @@ Wire fixtures cite the [official API](https://developers.openai.com/api/referenc
 verified 2026-10-06; they do not attest live service. Smoke tests require
 `RAGY_LIVE_PROVIDERS=1` and `OPENAI_API_KEY`, explicitly skipping otherwise.
 Enabled smoke makes a billable request.
+
+See [identity, units, JSON normalization, accounting and ownership](../../../embedding/README.md).
+Valid observed usage survives rejected vector/result materialization; error
+results carry no successful embeddings. Inspect errors before using payloads.
+Credentials are admitted before dispatch; clients are concurrent when host Doers are.

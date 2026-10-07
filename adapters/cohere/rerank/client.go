@@ -43,7 +43,7 @@ type Client[TMeta any] struct {
 
 // New constructs a reranker.
 func New[TMeta any](cfg Config) (*Client[TMeta], error) {
-	if strings.TrimSpace(cfg.APIKey) == "" {
+	if providerhttp.ValidateAPIKey(cfg.APIKey) != nil {
 		return nil, fmt.Errorf("%w: cohere api key", ragy.ErrInvalidArgument)
 	}
 

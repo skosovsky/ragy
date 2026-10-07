@@ -1,0 +1,4 @@
+ok  	github.com/skosovsky/ragy/embedding	1.176s
+ok  	github.com/skosovsky/ragy/dense	1.182s
+ok  	github.com/skosovsky/ragy/tensor	1.180s
+ok  	github.com/skosovsky/ragy/internal/providerhttp	1.334s

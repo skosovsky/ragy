@@ -1,0 +1,6 @@
+level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
+adapters/gemini/internal/wire/usage_contract_test.go:18:5: shadow: declaration of "err" shadows declaration at line 13 (govet)
+	if err := json.Unmarshal([]byte(`{"embeddings":[],"usageMetadata":{"promptTokenCount":7}}`), &wire); err != nil {
+	   ^
+1 issues:
+* govet: 1

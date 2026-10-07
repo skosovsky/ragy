@@ -100,4 +100,12 @@ that explicit host configuration and execution.
 
 BaseURL is parsed through the shared internal provider URL policy: absolute HTTP(S), no credentials, query (including bare `?`), fragment or opaque payload. Endpoints append to the parsed base path with one separator; custom and escaped path segments remain intact. Admission errors occur before dispatch.
 
-Transport and response-body failures prioritize request context cancellation/deadline, including wrapped context sentinels. Ordinary I/O errors retain the sanitized ErrProtocol class. Incomplete transport returns zero typed output and unknown usage even when some response bytes were read; response bodies close and no retry occurs. Cancellation observed on receipt of headers also wins over HTTP status classification. Complete decoded envelopes retain the usage policy described above.
+Transport and response-body failures prioritize request context cancellation/deadline, including wrapped context sentinels. Ordinary transport failures are sanitized ErrUnavailable; body-read failures are ErrProtocol. Incomplete transport returns zero typed output and unknown usage even when some response bytes were read; response bodies close and no retry occurs. Cancellation observed on receipt of headers also wins over HTTP status classification. Complete decoded envelopes retain the usage policy described above.
+
+Provider choice `index` is required and must be nonnull zero. Missing/null index
+rejects ErrProtocol with valid observed usage retained. Envelope unknown fields
+are allowed; decoded duplicate keys and nesting beyond 64 reject. Field-name case
+aliases and escaped unpaired surrogates retain encoding/json normalization
+(case-insensitive matching and U+FFFD replacement). This is separate from the host
+executable content schema. Credentials reject blank, invalid UTF-8 and ASCII
+control/DEL values at construction. [Shared units and ownership](../../../embedding/README.md).

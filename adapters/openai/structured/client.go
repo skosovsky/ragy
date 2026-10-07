@@ -58,7 +58,7 @@ type Usage struct {
 }
 
 func New[T any](cfg Config) (*Client[T], error) {
-	if strings.TrimSpace(cfg.APIKey) == "" || strings.ContainsAny(cfg.APIKey, "\r\n") ||
+	if providerhttp.ValidateAPIKey(cfg.APIKey) != nil ||
 		strings.TrimSpace(cfg.Model) == "" || cfg.Instructions == "" || !validName(cfg.SchemaName) ||
 		cfg.MaxRequestBytes <= 0 || cfg.MaxResponseBytes <= 0 || cfg.MaxResponseBytes == math.MaxInt || cfg.Duration <= 0 ||
 		cfg.Validate == nil || cfg.CountTokens == nil {
@@ -222,7 +222,7 @@ func (c *Client[T]) exchange(ctx context.Context, req *http.Request, limits Limi
 		defer resp.Body.Close()
 	}
 	if err != nil {
-		return empty, Usage{}, providerhttp.SanitizedError(ctx, err, ragy.ErrProtocol)
+		return empty, Usage{}, providerhttp.SanitizedError(ctx, err, ragy.ErrUnavailable)
 	}
 	if err = ctx.Err(); err != nil {
 		return empty, Usage{}, err

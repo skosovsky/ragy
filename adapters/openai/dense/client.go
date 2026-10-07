@@ -2,8 +2,9 @@ package dense
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
-	"strings"
 
 	ragy "github.com/skosovsky/ragy"
 	rootdense "github.com/skosovsky/ragy/dense"
@@ -28,14 +29,17 @@ type Config struct {
 	BaseURL    string
 	HTTPClient Doer
 }
+
+// Client captures configuration and supports concurrent calls when its Doer does.
 type Client struct {
 	apiKey string
 	space  embedding.Space
 	http   *providerhttp.Client
 }
 
+// New validates credentials, space, supported profile and finite local limits.
 func New(cfg Config) (*Client, error) {
-	if strings.TrimSpace(cfg.APIKey) == "" || (cfg.Model != "" && cfg.Model != cfg.Space.Model) {
+	if providerhttp.ValidateAPIKey(cfg.APIKey) != nil || (cfg.Model != "" && cfg.Model != cfg.Space.Model) {
 		return nil, ragy.ErrInvalidArgument
 	}
 	if err := cfg.Space.Validate(); err != nil {
@@ -68,6 +72,8 @@ func New(cfg Config) (*Client, error) {
 	}
 	return &Client{apiKey: cfg.APIKey, space: cfg.Space, http: client}, nil
 }
+
+// Space returns the host-declared identity, not a remote revision attestation.
 func (c *Client) Space() embedding.Space { return c.space }
 
 type embedRequest struct {
@@ -81,14 +87,17 @@ type embedItem struct {
 	Embedding []float32 `json:"embedding"`
 }
 type embedResponse struct {
-	Model *string     `json:"model"`
-	Data  []embedItem `json:"data"`
+	Model json.RawMessage `json:"model"`
+	Data  json.RawMessage `json:"data"`
 	Usage *struct {
 		PromptTokens     *int64 `json:"prompt_tokens"`
 		TotalTokensCheck *int64 `json:"total_tokens"`
 	} `json:"usage"`
 }
 
+// Embed borrows immutable inputs during one exchange and transfers successful
+// embeddings to caller. On rejected materialization it returns no embeddings,
+// an error and independently valid observed usage.
 func (c *Client) Embed(ctx context.Context, request rootdense.Request) (rootdense.Result, error) {
 	if err := ctx.Err(); err != nil {
 		return rootdense.Result{}, err
@@ -115,40 +124,67 @@ func (c *Client) Embed(ctx context.Context, request rootdense.Request) (rootdens
 		body,
 		&decoded,
 	); err != nil {
+		// Post only returns a context error with populated output after complete
+		// JSON admission; earlier transport/read failures leave decoded zero.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			if usage, usageErr := readUsage(decoded); usageErr == nil {
+				return rootdense.Result{Embeddings: nil, Usage: usage}, err
+			}
+		}
 		return rootdense.Result{}, err
 	}
 	return c.materialize(ctx, len(request.Inputs), decoded)
 }
 
 func (c *Client) materialize(ctx context.Context, inputCount int, decoded embedResponse) (rootdense.Result, error) {
-	if decoded.Model != nil && *decoded.Model != c.space.Model {
-		return rootdense.Result{}, ragy.ErrProtocol
+	usage, err := readUsage(decoded)
+	if gateErr := ctx.Err(); gateErr != nil {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, gateErr
 	}
-	if len(decoded.Data) != inputCount {
-		return rootdense.Result{}, ragy.ErrProtocol
+	if err != nil {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, err
 	}
-	out := rootdense.Result{Embeddings: make([]rootdense.Embedding, inputCount), Usage: unknownUsage()}
+	model, present, modelErr := providerhttp.ModelEcho(decoded.Model)
+	if gateErr := ctx.Err(); gateErr != nil {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, gateErr
+	}
+	if modelErr != nil {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, modelErr
+	}
+	if present && model != c.space.Model {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
+	}
+	var data []embedItem
+	decodeErr := json.Unmarshal(decoded.Data, &data)
+	if gateErr := ctx.Err(); gateErr != nil {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, gateErr
+	}
+	if decodeErr != nil {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
+	}
+	if len(data) != inputCount {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
+	}
+	out := rootdense.Result{Embeddings: make([]rootdense.Embedding, inputCount), Usage: usage}
 	seen := make([]bool, inputCount)
-	for _, item := range decoded.Data {
+	for _, item := range data {
 		if err := ctx.Err(); err != nil {
-			return rootdense.Result{}, err
+			return rootdense.Result{Embeddings: nil, Usage: usage}, err
 		}
 		if item.Index == nil || *item.Index < 0 || *item.Index >= len(seen) || seen[*item.Index] {
-			return rootdense.Result{}, ragy.ErrProtocol
+			return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 		}
 		value := rootdense.Embedding{Space: c.space, Vector: item.Embedding}
 		if err := value.Validate(); err != nil {
-			return rootdense.Result{}, ragy.ErrProtocol
+			return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 		}
 		out.Embeddings[*item.Index] = value
 		seen[*item.Index] = true
 	}
-	usage, err := readUsage(decoded)
-	if err != nil {
-		return rootdense.Result{}, err
+	if err := ctx.Err(); err != nil {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, err
 	}
-	out.Usage = usage
-	return out, ctx.Err()
+	return out, nil
 }
 
 var _ rootdense.Embedder = (*Client)(nil)

@@ -65,6 +65,9 @@ func checkStructuredContextTransport(t *testing.T, name string) {
 	output, usage, err := client.Call(ctx, struct{}{}, structured.Limits{InputTokens: 100, OutputTokens: 10})
 	// Assert.
 	want := ragy.ErrProtocol
+	if name == "transport_io" {
+		want = ragy.ErrUnavailable
+	}
 	if strings.HasSuffix(name, "deadline") {
 		want = context.DeadlineExceeded
 	}

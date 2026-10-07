@@ -43,6 +43,8 @@ func normalize(output engineOutput, reference source.Reference) (layout.Document
 	case "":
 	case "unsupported_geometry":
 		return layout.Document{}, ragy.ErrUnsupported
+	case "engine_internal_error":
+		return layout.Document{}, ragy.ErrUnavailable
 	case "invalid_pdf", "limit_exceeded":
 		return layout.Document{}, ragy.ErrInvalidArgument
 	default:
