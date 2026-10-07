@@ -142,10 +142,13 @@ type Config struct {
 	Observer  Observer
 }
 
-// Stats reports local exporter health without storing failed payloads/errors.
+// Stats reports cumulative session callback health without storing payloads/errors.
 type Stats struct {
-	Events   uint64
-	Dropped  uint64
+	// Events counts attempted start/end callbacks, including errors or panics.
+	Events uint64
+	// Dropped counts rejected operation pairs, not individual callbacks.
+	Dropped uint64
+	// Failures counts callback attempts returning an error or panicking.
 	Failures uint64
 }
 
@@ -335,7 +338,9 @@ func (s *Session) Stats() Stats {
 	return s.stats
 }
 
-// Classify never calls Error() and accepts only stable error sentinels.
+// Classify emits fixed classes without calling Error(). It uses [errors.Is] and
+// [errors.As], which invoke custom Is/As/Unwrap methods. These must be bounded
+// and cooperative. It does not sandbox hostile error objects or catch their panics.
 func Classify(err error) ErrorClass {
 	switch {
 	case err == nil:

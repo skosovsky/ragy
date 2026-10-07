@@ -789,9 +789,14 @@
       "id": "D60",
       "task": "T19",
       "requirement": "Observation boundaries: Сохранить bounded enums, known/unknown, payload-free events и synchronous serialized callbacks. Pair/drop/event units описать; custom error.Is/Unwrap не sandbox. Adapter to metry optional, без exporter daemon.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Fixed payload-free diagnostic enums, observed known/unknown counters and synchronous serialized sessions retained; exact pair/callback/failure units and cooperative custom-error boundary published. Optional OTel/metry remains host port without core exporter workers/retries.",
+      "evidence": [
+        "observation/README.md",
+        "observation/observation.go",
+        "observation/example_test.go",
+        "adapters/observability/otel/README.md"
+      ]
     },
     {
       "id": "D61",
@@ -3115,9 +3120,13 @@
       "source": "reviews/arch-docs.md",
       "line": 44,
       "requirement": "Core observation and OTel module plus metry elsewhere.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Core diagnostic facts remain dependency-free. OTel stays optional separate module; host metry/offload can consume immutable events without collector/export queues or daemons in core.",
+      "evidence": [
+        "observation/README.md",
+        "observation/example_test.go",
+        "adapters/observability/otel/README.md"
+      ]
     },
     {
       "id": "arch-docs:04",
@@ -3125,9 +3134,13 @@
       "source": "reviews/arch-docs.md",
       "line": 45,
       "requirement": "`observation/README.md`; synchronous serialized callbacks may delay/cannot recursively re-enable session.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Callbacks remain synchronous/cooperative/serialized; ordinary callback contexts disable nested observation, Stats is safe, explicit same-session reentry forbidden and no forced callback timeout. Executable host queue owns finite event drops, draining and lifetime.",
+      "evidence": [
+        "observation/README.md",
+        "observation/example_test.go",
+        "observation/observation_test.go"
+      ]
     },
     {
       "id": "arch-docs:05",
@@ -3135,9 +3148,14 @@
       "source": "reviews/arch-docs.md",
       "line": 46,
       "requirement": "Fixed enum observation, counts and usage can have different units and unknown state.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Events count callback attempts including observer error/panic; Dropped counts rejected operation pairs; Failures counts failed callbacks. Stage counts and tokens/billedunits have distinct declared units, knownzero vs unknown retained, OTel one actual completion span per two callbacks.",
+      "evidence": [
+        "observation/README.md",
+        "observation/observation.go",
+        "adapters/observability/otel/README.md",
+        "examples/conformance/observation_contract/README.md"
+      ]
     },
     {
       "id": "arch-docs:06",
@@ -3145,9 +3163,13 @@
       "source": "reviews/arch-docs.md",
       "line": 47,
       "requirement": "`observation.Classify` errors.Is invokes custom Is/Unwrap.",
-      "disposition": "pending",
-      "rationale": "",
-      "evidence": []
+      "disposition": "retain",
+      "rationale": "Classify never formats Error() but invokes cooperative host Is/As/Unwrap; no sandbox/termination/panic guarantee. GoDoc and regression demonstrate actual host method execution without message access; observer callback isolation remains separate.",
+      "evidence": [
+        "observation/observation.go",
+        "observation/README.md",
+        "observation/error_boundary_test.go"
+      ]
     },
     {
       "id": "arch-docs:07",

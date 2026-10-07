@@ -2,7 +2,7 @@
 
 This independent `example.com/ragyconsumer` module uses actual in-memory BM25,
 public cache, and typed retrieval pipeline with host-owned metadata. Run with
-`GOWORK=off go test -race ./observation_contract` from `examples/conformance`.
+`GOWORK=off go test -race -count=1 ./observation_contract` from `examples/conformance`.
 
 The tests exercise disabled observation, failing diagnostic exporters, cache hits,
 fallback and rescue branches, partial evidence, unsupported execution, canceled
@@ -16,3 +16,11 @@ These diagnostic events contain no arbitrary host strings. Required immutable
 evidence recording is a separate contract; diagnostic callback failures do not
 establish that a required evidence sink persisted a record or that remote billing
 was canceled.
+
+The current [session contract](../../../observation/README.md) distinguishes
+Events (attempted callbacks, including failures), Dropped (rejected operation
+pairs) and Failures (error/panic callback attempts). Completion count units belong
+to the instrumented stage; knownzero is separate from unknown. Cooperative custom
+Is/As/Unwrap methods are outside a sandbox guarantee even though no Error() text
+is read. The tests establish these selected mechanical/profile boundaries, not
+host exporter termination, downstream persistence, remote billing or global order.

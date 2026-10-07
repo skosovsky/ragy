@@ -54,3 +54,55 @@ allocation or callbacks; query/branch propagation is also a no-op. Instrumented
 boundaries guard diagnostic count extraction when the span is disabled. Enabling
 observation does not replay a pipeline, retrieval, model, or lifecycle dispatch.
 Do not use operation/query/branch ordinals as metric labels.
+
+## Session accounting and units
+
+| Counter | Cumulative session unit |
+|---|---|
+| `Stats.Events` | Attempted start/end callback invocations; incremented before Observe, including callback errors/panics |
+| `Stats.Dropped` | Rejected operation pairs due to capacity or invalid stage; no callbacks emitted |
+| `Stats.Failures` | Callback attempts returning error or panicking; not operation retries or remote exporter failure acknowledgments |
+| `MaxEvents` | Lifetime callback budget, two reserved per accepted operation; odd capacity may leave one unused slot |
+
+For capacity2, one operation emits two callback attempts; a second Begin is one
+dropped pair, not two dropped events. Failed callbacks still count toward Events.
+There is no reset or implicit session drain. Every accepted span must be ended;
+reserving a terminal callback does not fabricate End when a caller abandons it.
+Cancellation does not auto-close a span or interrupt a blocked callback. Callback
+latency and host methods remain cooperative; bounds limit cardinality, not elapsed
+callback execution time.
+
+`Completion.Count` uses the instrumented stage's declared unit: returned retrieval
+records, selected evidence elements, encoding records/matrices or stage-specific
+work. It is not automatically a document count or token count. Lifecycle or planner
+boundaries without observed cardinality retain unknown. `Usage.InputTokens` and
+`OutputTokens` are observed tokens; `BilledUnits` is the supplying provider/host
+accounting unit. Those units are not interchangeable and imply no price. `Known=false`
+normalizes Value to zero; observed zero is `Known=true`. Host-supplied numeric facts
+must be truthful. Fixed enums reject or normalize invalid numeric values and accept
+no arbitrary labels, query/content/metadata/identities or raw error text.
+
+`Classify` never calls `Error()` to format host errors. It uses `errors.Is` and
+protection classification via `errors.As`: custom `Is`, `As`, `Unwrap` may execute,
+block or panic. Such host methods must be bounded/cooperative. The library does
+not sandbox arbitrary error objects or catch classification panics. This differs
+from the explicit isolation of errors/panics in Observer callbacks.
+
+## Optional host offload
+
+The executable [host queue example](example_test.go) enqueues copied Event values
+into a finite host-owned channel without waiting. A full queue increments its own
+**event** drop counter and returns promptly; the core Dropped counter still counts
+**operation pairs** rejected before callbacks. This example has no library worker;
+the host owns draining, producer completion, queue closure, downstream errors and
+any worker or cancellation policy. Never close the queue while callbacks can send.
+Returning nil after host queue drop means core Failures remains zero; only the
+host's counter records that drop. A host metry bridge can consume these same fixed
+facts without adding metry, OTel or an exporter daemon to core.
+
+The optional [OTel observer](../adapters/observability/otel/README.md) receives both
+callbacks but exports only real completions: one accepted ended operation means
+two core Events and one diagnostic span. Abandoned spans emit no synthetic
+completion. OTel SDK processor/exporter health is host-managed; asynchronous
+export failures are not automatically core Failures. Correlation ordinals remain
+session-local attributes and are never metric label dimensions.

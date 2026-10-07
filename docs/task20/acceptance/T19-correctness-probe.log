@@ -1,0 +1,8 @@
+=== RUN   TestClassificationPanicNotSuppressed
+--- PASS: TestClassificationPanicNotSuppressed (0.00s)
+=== RUN   TestAccountingAndNormalization
+--- PASS: TestAccountingAndNormalization (0.00s)
+=== RUN   TestCancellationDoesNotForceCallbackExit
+--- PASS: TestCancellationDoesNotForceCallbackExit (0.01s)
+PASS
+ok  	t19probe	1.408s

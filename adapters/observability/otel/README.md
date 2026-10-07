@@ -8,9 +8,19 @@ The observer creates a span only for a real completion, with local elapsed start
 
 Semantic conventions use the **OpenTelemetry 1.38.0 GenAI development subset**, with `gen_ai.operation.name=embeddings` and known `gen_ai.usage.input_tokens` only for identified encoding operations; `error.type` follows the general error convention. These generic library spans do not assert complete provider/client GenAI conformance: provider/model are unavailable and intentionally omitted; wrapper span names and all library-specific diagnostics are `ragy.*`. A generic model port does not prove a chat operation, so no `gen_ai.operation.name=chat` is guessed. There is no content export opt-in in this diagnostic adapter; controlled evidence export belongs to the core evidence API.
 
-The current official docs were checked during TASK-17. GenAI has moved out of the current 1.44.0 general semantic conventions to a separate development repository with no release yet. A released, explicit 1.38.0 subset is selected rather than claiming conformance to a moving unreleased branch:
+TASK-17 selected the explicit released 1.38.0 subset. Its upstream verification is dated evidence; this adapter does not assert conformance to newer or moving upstream conventions. The links below include the pinned contract and upstream documentation/release inventory; they do not attest present release versions:
 
 - [Pinned 1.38.0 GenAI span conventions](https://github.com/open-telemetry/semantic-conventions/blob/v1.38.0/docs/gen-ai/gen-ai-spans.md)
-- [Current official semantic conventions and GenAI move](https://opentelemetry.io/docs/specs/semconv/)
-- [Current GenAI development span conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-spans.md)
+- [Upstream semantic conventions](https://opentelemetry.io/docs/specs/semconv/)
+- [Upstream GenAI development span conventions](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-spans.md)
 - [GenAI repository releases](https://github.com/open-telemetry/semantic-conventions-genai/releases)
+
+Core [session accounting](../../../observation/README.md) counts callback attempts,
+rejected operation pairs and callback failures separately. This observer ignores
+start callbacks: two core Events for an ended operation produce one span. Unknown
+counters omit numeric attributes; known zero is explicit and signed saturation is
+annotated. OTel SDK processor/export queue and downstream error handler health are
+host-owned, not acknowledged by a successful Observe return or core Failures.
+Custom error classification may invoke host Is/As/Unwrap; the no-Error() payload
+policy is not a sandbox for those methods. Same-session callback reentry is forbidden;
+context cancellation cannot forcibly terminate SDK/exporter callbacks.

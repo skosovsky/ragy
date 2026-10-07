@@ -758,7 +758,7 @@
         "report": "acceptance/T18-correctness.md"
       }
     },
-    "commit_sha": null,
+    "commit_sha": "c6986c5cbc62834e9b66b30b2cb2029be564735d",
     "acceptance_report_sha256": {
       "completeness": "edc41a4d2cb99f023e1ee6ab9499a32396308622ffde60e3af8509d80345f540",
       "correctness": "f21974bd8c7e29c141d4e4af0d9de8d1ca5cc9e32c2e8f1d7f2bd325aa693b56"
@@ -767,7 +767,7 @@
   {
     "id": "T19",
     "title": "observation contracts",
-    "status": "pending",
+    "status": "accepted",
     "commit_message": "docs: observation contracts",
     "criteria": [
       {
@@ -780,10 +780,23 @@
       }
     ],
     "acceptance": {
-      "completeness": null,
-      "correctness": null
+      "completeness": {
+        "criteria": "2/2",
+        "percent": 100,
+        "coverage": "5/5",
+        "coverage_percent": 100,
+        "report": "acceptance/T19-completeness.md"
+      },
+      "correctness": {
+        "verdict": "PASS",
+        "report": "acceptance/T19-correctness.md"
+      }
     },
-    "commit_sha": null
+    "commit_sha": null,
+    "acceptance_report_sha256": {
+      "completeness": "008d8c1c82e1f10f6f3d3997bd47b0ce3bf78e530212f6b81f80e0775ed33cae",
+      "correctness": "67cb803fda42a8147cfcb7b1bd89cf7a378c8c55a043cd3bd9981d9b2ab6a3b3"
+    }
   },
   {
     "id": "T20",
