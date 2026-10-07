@@ -40,8 +40,12 @@
   ],
   "ci_url": "https://github.com/skosovsky/ragy/actions/runs/37605796008",
   "ci_conclusion": "success",
-  "remaining": [
-    "issue migration notification",
-    "issue closure"
-  ]
+  "remaining": [],
+  "closeout": {
+    "issue_url": "https://github.com/skosovsky/ragy/issues/4",
+    "state": "CLOSED",
+    "closed_at": "2026-10-07T10:24:15Z",
+    "comment_url": "https://github.com/skosovsky/ragy/issues/4#issuecomment-6035955505",
+    "comment_body_matches_saved_closeout": true
+  }
 }
