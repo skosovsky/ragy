@@ -186,10 +186,10 @@ func TestRealPostgresPortableQueryAndDeleteParity(t *testing.T) {
 	if container == "" {
 		t.Fatal("integration_pg requires RAGY_PG_TEST_CONTAINER; no SKIP")
 	}
-	label, err := exec.CommandContext(t.Context(), "docker", "inspect", "--format", "{{index .Config.Labels \"ragy.task20\"}}", container).
+	label, err := exec.CommandContext(t.Context(), "docker", "inspect", "--format", "{{index .Config.Labels \"ragy.test\"}}", container).
 		CombinedOutput()
-	if err != nil || strings.TrimSpace(string(label)) != "T09" {
-		t.Fatal("container must carry ragy.task20=T09 isolation label", err)
+	if err != nil || strings.TrimSpace(string(label)) != "postgres" {
+		t.Fatal("container must carry ragy.test=postgres isolation label", err)
 	}
 	db := &psqlDB{container: container}
 	table := fmt.Sprintf("ragy_t09_%d", os.Getpid())

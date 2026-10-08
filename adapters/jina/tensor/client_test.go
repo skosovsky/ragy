@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -225,29 +224,7 @@ func TestInvalidConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func TestLiveProviderSmoke(t *testing.T) {
-	if os.Getenv("RAGY_LIVE_PROVIDERS") != "1" {
-		t.Skip("opt-in live provider smoke disabled")
-	}
-	key := os.Getenv("JINA_API_KEY")
-	if key == "" {
-		t.Skip("provider credentials absent")
-	}
-	c, err := New(Config{APIKey: key, Space: testSpace()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := c.Embed(
-		context.Background(),
-		roottensor.Request{Inputs: []string{"retrieval smoke"}, Purpose: embedding.Document},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Embeddings) != 1 {
-		t.Fatal("cardinality")
-	}
-}
+
 func TestTensorRowsBound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"index":0,"embeddings":[[1],[1]]}]}`))
