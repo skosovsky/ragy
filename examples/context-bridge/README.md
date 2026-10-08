@@ -22,10 +22,11 @@ The durable codec stores source evidence, native scores and uncertainty without 
 Portable verification from the repository root:
 
 ```sh
-python3 scripts/check_context_bridge.py checkout --dependency-root .. --output docs/task21/results/checkout.json
-python3 scripts/check_context_bridge.py published --output docs/task21/results/published.json
+make test-integration
 ```
 
-The runner copies the consumer to a disposable directory. Checkout mode explicitly selects the current local source for each dependency; published mode removes every replace and resolves the declared published packages with `GOWORK=off`. Both execute semantic race tests and the demo. A published package missing the required presence-aware Search API is a failing publication gate, not a fallback to an older API. Only the local root self-replace remains in this development module; independent checkout needs no sibling directory. CI checks out explicit reviewed current source commits for the canonical and context dependencies, because their default branches can predate the released contract. Update those refs deliberately with semantic acceptance. The runner records their HEAD and file hashes; published mode independently resolves module tags and records origin commits/checksums.
-
-See [contract](../../docs/context-bridge.md), [migration](../../docs/context-bridge-migration.md), and [wire schema](sidecar.schema.json). Claims are limited to offline canonical/renderer/codec and managed in-process index profiles exercised by the suite.
+Go integration tests copy the consumer into a temporary module. Checkout mode uses
+current ragy source and pinned memy/contexty revisions fetched into disposable
+repositories; no sibling checkout is required. Published mode drops all replacements
+and resolves a pinned baseline with GOWORK=off. Both run semantic race tests and the
+demo. Release supplies its exact new version to the published consumer test.

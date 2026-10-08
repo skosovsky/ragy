@@ -1,22 +1,36 @@
-# Repeatable verification
+# Repository verification
 
-The command runner uses Python 3.9+ and Unix process-group cancellation (macOS/Linux); CI exercises Linux and local remediation records the actual macOS toolchain.
-
-`scripts/check-modules.txt` is the validated fourteen-module development inventory. New/missing modules fail inventory validation. It includes the three nested example modules. `scripts/release-modules.txt` separately lists eleven publishable modules; development examples do not receive release tags. Root local BM25 is a package inside the core module.
+Run `make check` before release. Make invokes Go and the pinned linter directly;
+there is no Python verification runner. Go/tooling versions are in
+`scripts/toolchain.mk`. All modules run with GOWORK=off. Development and publishable
+inventories are explicit and independently checked by Go tests.
 
 | Command | Scope |
 |---|---|
-| `make test` | Cached developer race tests, once per module, standalone GOWORK=off. |
-| `make acceptance` | Recorded exact validated Go/lint versions, lint and fresh `-count=1 -race` tests once per module, then explicit owning-module example builds. |
-| `make lint` | All-module lint with standalone GOWORK=off. |
-| `make examples` / `make test-examples` | Compile nested examples and root local onboarding; no second test loop. |
-| `make fuzz FUZZ_SECONDS=2` | List actual packages/functions; independently fuzz each exact name with a 1–300 second per-function budget plus bounded process timeout. |
-| `make versions` | Print actual Go/lint and recorded validated pins. |
-| `python3 scripts/verify.py test --fresh --module adapters/openai` | Fresh changed-scope test selection; duplicate/unknown modules reject. |
-| `python3 scripts/check_release_consumer.py <reviewed-full-sha>` | Exact source-derived release candidate and external consumer through local module proxy/disposable bare remote; all publishable modules, no ragy replacements. |
+| `make test` | Race tests in every development module, including tooling tests. |
+| `make lint` | Configuration, formatting diff and all-module lint; no rewriting. |
+| `make check` | Prerequisites, lint, fresh race tests, example builds, PostgreSQL and consumer/release integrations. |
+| `make test-integration` | Isolated PostgreSQL, artifact/peer/published consumers and actual PDF parser. |
+| `make examples` | Build all examples in their owning modules. |
+| `make test-live` | Explicit paid-provider profile; missing credentials/configuration fail. |
+| `make fuzz FUZZ_SECONDS=2` | Every Go-listed fuzz function separately; 1–300 seconds each. |
+| `make bench` / `make cover` | Benchmarks / per-module coverage. |
+| `make versions` | Show and verify recorded Go/linter versions. |
 
-`GO`, `GOLANGCI_LINT` and `PYTHON` can select local executable paths. Use writable task-owned Go/GOPATH/module/lint caches in a restricted environment; keep public dependency checksum validation enabled. Fresh acceptance rejects a compiler/linter version mismatch against `scripts/toolchain.json`. The validated pin describes executed tooling, not a promise that it is the newest release or proof of every supported platform.
+Use `V=1` to show shell commands. `GO` and `GOLANGCI_LINT` override executable paths.
+For a targeted test use ordinary Go: `cd adapters/openai && GOWORK=off go test -race ./...`.
+The full check requires Git, Make, Bash, the pinned Go/linter, network access for
+pinned dependencies, and a running Docker daemon. PostgreSQL gets an isolated
+container with a fixed image digest, readiness deadline and cleanup on exit.
+No caller/sibling working tree or production database is used by integration tests.
 
-CI sets GOWORK=off globally, derives the matrix and Go/lint pins from the same files, performs each module's fresh race suite once and compiles its examples. Its separate full-history release-consumer job publishes only into a disposable local bare remote. The root documentation tests target current links, removed selectors and equality/parsing of the canonical executable onboarding; they do not ban natural-language migration words or rewrite historical acceptance.
+**Pending PDF migration:** the pure-Go candidates failed the existing PDF contract
+(see [evidence](pdf-go-feasibility.md)). The optional adapter is retained. Ordinary
+Go tests and tooling need no Python; the full actual-PDF profile currently requires
+`RAGY_PDF_PYTHON` pointing to the existing interpreter with pdfplumber/pypdf. Missing
+configuration fails `make check` explicitly. This exception must be removed only
+after a compatible backend or contract change is approved.
 
-These default commands verify local/wire/core contracts. Paid provider checks are opt-in. Actual PostgreSQL and configured native PDF-engine profiles have their own prerequisites, commands and captured runtime/corpus; use [capability verification scope](capabilities.md) and package guides. SKIP never proves an applicable required profile passed. Whole-module PASS does not certify remote service behavior, semantic quality or hardware power loss.
+Live provider calls, performance measurements and fuzz campaigns are separate from
+`check`. Core/fixture success does not attest live provider quality or hardware
+power-loss behavior. Historical task reports retain the commands used at that time.

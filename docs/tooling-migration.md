@@ -51,3 +51,18 @@ the existing adapter explicitly as a blocker; never silently reduce its contract
 Historical reports retain their original claims and commands as dated evidence.
 Active documentation must describe only the current implementation. Migration is
 complete only after a clean-source check, release fixtures and the PDF gate pass.
+
+## Implementation status
+
+The tooling migration is implemented: Make invokes tools directly, the unpublished
+tooling module contains schema/corpus/receipt and consumer tests, PostgreSQL is an
+owned Docker fixture, and release is Bash with plain-text recovery state. Live
+provider calls use the explicit `live` build tag. The Python dispatchers and their
+duplicate historical entrypoints have been removed: 25 of the 29 Python files.
+
+The remaining four files belong to the PDF adapter and its fixtures. Both pinned
+pure-Go candidates failed existing geometry/layout and cancellation requirements;
+see [the feasibility report](pdf-go-feasibility.md). No public PDF API or limits
+were weakened. Until the owner resolves that blocker, `make check` requires the
+retained actual parser and fails explicitly when its prerequisite is absent. This
+is a partial migration, not a Python-free acceptance claim.
