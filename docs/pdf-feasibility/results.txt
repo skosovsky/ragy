@@ -1,7 +1,0 @@
-gopdf 2660192c5d162855418503ad80ef32e2e8f14d77:
-page 0: spans = Alpha beta. Gamma.; Revenue; 2023; 2024; tables = []
-page 1: rotation 90, spans = [], tables = []
-ledongthuc/pdf 6c8c28e0e8a07a3452f9d8cf3090ed6e856d8f24:
-page 1: every glyph W=0; X repeated within each text run; Rect=[]
-page 2: Text=[], Rect=[]
-Both candidates: no context.Context in parsing API/source; full parity unverified.

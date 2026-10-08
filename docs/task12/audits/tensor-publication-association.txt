@@ -1,5 +1,0 @@
---- FAIL: TestAuditTensorRecorderUsesAllExecutedPublicationTargets (0.20s)
-    audit_overlay_test.go:13: complete record publication 38c9b2aad1fa01b134f10034df861e93c0557651aaa12d4c00ca6e38f286f2ef omits executed dense snapshot 2e1ee0940518664053562fec71ec43e36c3f70fa456a9175283ae1a972e549a3; stages=2
-FAIL
-FAIL	example.com/ragyconsumer/tensor_comparison	0.619s
-FAIL

@@ -1,3 +1,0 @@
-ok  	github.com/skosovsky/ragy/tensor/query	1.873s
-ok  	github.com/skosovsky/ragy/tensor/persistent	8.416s
-ok  	github.com/skosovsky/ragy/lifecycle/integration	72.977s

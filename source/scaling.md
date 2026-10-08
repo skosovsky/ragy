@@ -13,8 +13,8 @@ Actual before/after run on darwin/arm64 Apple M1 Max, GOMAXPROCS 10:
 | 512 words / 12800 retained bytes | 26962969; 5110926 | 9373958; 5132101 |
 | 2048 words / 51200 retained bytes | 429788500; 21184248 | 13083552; 21266343 |
 
-[Before log](../docs/task20/acceptance/T15-range-before.log),
-[after log](../docs/task20/acceptance/T15-range-after.log). Short 100ms samples
+Before log (local task archive),
+after log (local task archive). Short 100ms samples
 provide reference observations, not isolated statistical throughput guarantees.
 The larger workload improves measured elapsed time substantially; allocations
 remain dominated by immutable mapping/support construction. No memory reduction
@@ -25,7 +25,7 @@ After uses OriginalTexts plus the same join and final validation. Both construct
 all exact spans from repeated multibyte “длинноеслово ” text and verify the joined
 text; counts, callback absence and output remain identical. Before source is the
 T14 baseline `e5e9d1e18407b1c02a5a4df6be4e3df5cb1f23e5`; the baseline benchmark
-source is retained in [task evidence](../docs/task20/T15-before-benchmark.go.txt).
+source is retained in task evidence (local task archive).
 
 ```sh
 go test -run '^$' -bench BenchmarkLongPageWordMappings -benchmem -benchtime=100ms -count=1 ./source

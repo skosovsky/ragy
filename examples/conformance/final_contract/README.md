@@ -15,4 +15,4 @@ Existing `joint_read` proves real dense/lexical/tensor/graph scope and publicati
 
 A PublicationPin preserves lifecycle metadata only. Cleaner payload retention remains an explicit host policy. A registered old pin blocks metadata retirement while cleanup follows its declared retained references; releasing it permits explicit retirement. Tests must not be read as automatic payload availability promises.
 
-See [conformance evidence and limitations](../../../docs/task19/conformance.md).
+See conformance evidence and limitations (local task archive).

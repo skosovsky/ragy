@@ -3,7 +3,7 @@
 Run from `examples/conformance`:
 
 ```sh
-go run ./tensor_comparison -fixture tensor_comparison/fixture.json -output ../../docs/task12/results/tensor-comparison.json
+go run ./tensor_comparison -fixture tensor_comparison/fixture.json -output /tmp/tensor-comparison.json
 ```
 
 The saved fixture contains normalized float32 dense vectors, token matrices and

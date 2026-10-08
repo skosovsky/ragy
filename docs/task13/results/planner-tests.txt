@@ -1,4 +1,0 @@
-ok  	github.com/skosovsky/ragy/examples/planner/catalog_vector_fallback	0.518s
-ok  	github.com/skosovsky/ragy/examples/planner/partial_failure_aggregate	0.507s
-ok  	github.com/skosovsky/ragy/examples/planner/rescue_fallback_aggregate	0.543s
-ok  	github.com/skosovsky/ragy/examples/planner/vector_bm25_aggregate	0.517s

@@ -1,6 +1,0 @@
-level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
-adapters/elasticsearch/config_contract_test.go:31:1: File is not properly formatted (golines)
-	store, err := New(client, Config[contracttest.StructMeta]{Index: "docs", SearchFields: fields, Schema: schema, Synonyms: synonyms, Tokenizer: tokenizer}, structMetaCodec(t, schema))
-^
-1 issues:
-* golines: 1

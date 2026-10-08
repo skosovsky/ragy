@@ -1,6 +1,0 @@
-level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
-examples/conformance/graph_comparison/evidence_unix.go:45:1: File is not properly formatted (gofmt)
-		Decision:nil,
-^
-1 issues:
-* gofmt: 1

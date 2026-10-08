@@ -1,3 +1,0 @@
-ok  	github.com/skosovsky/ragy/adapters/gemini/dense	1.535s
-?   	github.com/skosovsky/ragy/adapters/gemini/internal/wire	[no test files]
-ok  	github.com/skosovsky/ragy/adapters/gemini/multimodal	1.510s

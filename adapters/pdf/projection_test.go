@@ -1,3 +1,5 @@
+//go:build e2e
+
 package pdf_test
 
 import (
@@ -12,7 +14,7 @@ import (
 	"github.com/skosovsky/ragy/source"
 )
 
-func TestActualParserOCRSimulationAndModalityIndexRender(t *testing.T) {
+func TestE2EParserOCRSimulationAndModalityIndexRender(t *testing.T) {
 	// Arrange: actual parsing and explicit simulated unreadable OCR are separate.
 	ctx := context.Background()
 	parser, err := pdfadapter.New(parserConfig(integrationPython(t)))

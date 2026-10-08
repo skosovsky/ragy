@@ -1,5 +1,0 @@
---- FAIL: TestIndependentAuditRejectsUnicodeStructFieldAliases (0.00s)
-    audit_overlay_test.go:73: Unicode field alias accepted: {Sufficient:false}
-FAIL
-FAIL	example.com/ragyconsumer/internal/codexcall	0.406s
-FAIL

@@ -10,7 +10,7 @@ go test -run '^$' -bench DeclaredUpperBound -benchmem -benchtime=100ms -count=1 
 ```
 
 Actual run: darwin/arm64 Apple M1 Max, Go benchmark default GOMAXPROCS 10. Raw
-[output](../../docs/task20/acceptance/T14-bench.log) includes ns/op, bytes/op and
+output (local task archive) includes ns/op, bytes/op and
 allocations. Concurrent verification and short sample time affect elapsed values;
 these are reference observations, not statistically isolated comparisons.
 

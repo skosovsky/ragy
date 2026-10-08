@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"example.com/ragyconsumer/internal/modelcounter"
+	"github.com/skosovsky/ragy/examples/conformance/internal/modelcounter"
 )
 
 const (

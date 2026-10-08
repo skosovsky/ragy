@@ -24,23 +24,25 @@ storage records by treating a failed cast as omission.
 
 `contracttest.PortableFilterParity` supplies an exhaustive 81-row absent/equal/unequal
 corpus and 56 predicates across all four kinds, numeric orders and nested NOT/AND/OR.
-Default tests retain exact integer and injection checks. The `integration_pg` profile
+Default tests retain exact integer and injection checks. The `integration` profile
 executes actual Upsert/Retrieve/DeleteByFilter on a process-unique table via a host
 psql bridge. PostgreSQL native PREPARE/EXECUTE binds the unchanged adapter predicates;
 RETURNING instrumentation observes actual deleted IDs. It compares queries/deletions
 with core matcher IDs and verifies remaining rows and metadata roundtrips. This
 certifies that SQL/profile, not every host driver or malformed external corpus.
 
-Run against an isolated Docker PostgreSQL with pgvector installed and label
-`ragy.task20=T09`:
+Each test starts its own Docker PostgreSQL container from a pinned pgvector image,
+waits for TCP readiness, installs the extension and registers cleanup with t.Cleanup.
+No external container, label or environment variable is required.
 
 ```sh
-RAGY_PG_TEST_CONTAINER=<isolated-container> go test -race -tags=integration_pg -count=1 -run '^TestRealPostgresPortable' -v ./adapters/pgvector/...
+cd adapters/pgvector
+GOWORK=off go test -race -tags=integration -run '^TestIntegration' -count=1 -timeout=10m ./...
 ```
 
-Missing container/label/extension/runtime is a failure, never SKIP. The profile
-creates/drops only its process-specific test table; supply an isolated runtime with
-no production data. Production transport remains the host's responsibility; no SQL
+A missing Docker executable, unavailable daemon or failed startup fails the profile;
+it never skips. Cleanup removes only the test's uniquely named container and volume.
+Production transport remains the host's responsibility; no SQL
 driver dependency or automatic server startup was added to this module.
 
 ## Host bridge outcomes and identifiers
@@ -71,14 +73,14 @@ counts fail protocol. Unknown/asynchronous outcomes require host observation or 
 explicit unsupported/error result; never infer affected count from submitted IDs.
 No transport, retry, migration or remote profile inspection is supplied here.
 
-The additional `TestRealPostgresCanonicalCodecAndQuotedTable` profile creates a
+The additional `TestIntegrationPostgresCanonicalCodecAndQuotedTable` profile creates a
 process-unique mixed-case table and asserts actual Upsert/Retrieve/FindByIDs/delete,
 custom-codec canonical int64 >2^53, empty attributes and exact deleted count.
-Use the same isolated container/label and `integration_pg` tag; run both profiles
-with `-run '^TestRealPostgres(Portable|Canonical|Scoped)'`. The T17-owned container adds
-`ragy.task20.owner=T17` while retaining the original profile isolation label T09.
+Use the `integration` tag; select these profiles with
+`-run '^TestIntegrationPostgres(Portable|Canonical|Scoped)'`. Each profile owns an isolated
+container, including when run directly through Go.
 
-`TestRealPostgresScopedTenantPairsAndPinnedAdmission` uses actual host-scoped
+`TestIntegrationPostgresScopedTenantPairsAndPinnedAdmission` uses actual host-scoped
 Bindings and mandatory tenant predicates on adjacent int64 identities above2^53.
 It checks both tenants, omitted metadata, a conflicting optional predicate, and
 unsupported pinned publication rejection before DB invocation. This certifies the

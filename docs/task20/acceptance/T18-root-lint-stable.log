@@ -1,6 +1,0 @@
-level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
-internal/providerhttp/model.go:12:3: return both a `nil` error and an invalid value: use a sentinel error instead (nilnil)
-		return nil, nil
-		^
-1 issues:
-* nilnil: 1

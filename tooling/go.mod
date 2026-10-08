@@ -1,4 +1,4 @@
-module example.com/ragy-tooling
+module github.com/skosovsky/ragy/tooling
 
 go 1.27.1
 

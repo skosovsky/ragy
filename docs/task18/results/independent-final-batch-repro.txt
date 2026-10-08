@@ -1,5 +1,0 @@
-=== RUN   TestRawCASBatchCannotAliasExactArtifact
-    batch_test.go:30: snapshot.Validate=<nil> replacementErr=lifecycle compare-and-swap conflict casErr=lifecycle compare-and-swap conflict returnedGeneration=0 retainedGeneration=0 retainedManifests=0 loadErr=<nil>
---- PASS: TestRawCASBatchCannotAliasExactArtifact (0.00s)
-PASS
-ok  	correctnessrepro	1.412s

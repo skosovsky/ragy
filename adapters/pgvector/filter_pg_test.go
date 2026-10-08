@@ -1,4 +1,4 @@
-//go:build integration_pg
+//go:build integration
 
 package pgvector
 
@@ -180,20 +180,11 @@ func (r *psqlRows) Scan(dest ...any) error {
 	return nil
 }
 
-func TestRealPostgresPortableQueryAndDeleteParity(t *testing.T) {
+func TestIntegrationPostgresPortableQueryAndDeleteParity(t *testing.T) {
 	// Arrange: explicitly isolated test container, process-unique table, complete corpus.
-	container := os.Getenv("RAGY_PG_TEST_CONTAINER")
-	if container == "" {
-		t.Fatal("integration_pg requires RAGY_PG_TEST_CONTAINER; no SKIP")
-	}
-	label, err := exec.CommandContext(t.Context(), "docker", "inspect", "--format", "{{index .Config.Labels \"ragy.test\"}}", container).
-		CombinedOutput()
-	if err != nil || strings.TrimSpace(string(label)) != "postgres" {
-		t.Fatal("container must carry ragy.test=postgres isolation label", err)
-	}
-	db := &psqlDB{container: container}
+	db := newPostgresDB(t)
 	table := fmt.Sprintf("ragy_t09_%d", os.Getpid())
-	if _, err = db.command(
+	if _, err := db.command(
 		t.Context(),
 		"CREATE TABLE "+table+" (id text PRIMARY KEY, content text NOT NULL, attributes jsonb NOT NULL, vector vector(1) NOT NULL);",
 	); err != nil {

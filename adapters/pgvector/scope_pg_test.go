@@ -1,4 +1,4 @@
-//go:build integration_pg
+//go:build integration
 
 package pgvector
 
@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
@@ -19,20 +17,11 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 )
 
-func TestRealPostgresScopedTenantPairsAndPinnedAdmission(t *testing.T) {
+func TestIntegrationPostgresScopedTenantPairsAndPinnedAdmission(t *testing.T) {
 	// Arrange: actual records for adjacent int64 tenant identities and an omitted one.
-	container := os.Getenv("RAGY_PG_TEST_CONTAINER")
-	if container == "" {
-		t.Fatal("integration_pg requires RAGY_PG_TEST_CONTAINER; no SKIP")
-	}
-	label, err := exec.CommandContext(t.Context(), "docker", "inspect", "--format", `{{index .Config.Labels "ragy.test"}}`, container).
-		CombinedOutput()
-	if err != nil || strings.TrimSpace(string(label)) != "postgres" {
-		t.Fatal("isolated profile label required", err)
-	}
-	db := &psqlDB{container: container}
+	db := newPostgresDB(t)
 	table := fmt.Sprintf("ragy_t17_scope_%d", os.Getpid())
-	if _, err = db.command(
+	if _, err := db.command(
 		t.Context(),
 		"CREATE TABLE "+table+" (id text PRIMARY KEY, content text NOT NULL, attributes jsonb NOT NULL, vector vector(1) NOT NULL);",
 	); err != nil {

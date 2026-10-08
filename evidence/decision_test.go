@@ -75,7 +75,7 @@ func TestDecisionPrivacyAndUnavailableRevisions(t *testing.T) {
 	}
 }
 func TestDecisionIndependentSchemaCorpus(t *testing.T) {
-	data, err := os.ReadFile("../docs/task17/fixtures/evidence-v2.json")
+	data, err := os.ReadFile("testdata/evidence-v2.json")
 	if err != nil {
 		t.Fatal(err)
 	}

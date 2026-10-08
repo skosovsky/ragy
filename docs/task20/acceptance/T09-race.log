@@ -1,7 +1,0 @@
-Command: GOCACHE=/private/tmp/ragy-task20-go-cache go test -race -count=1 ./filter/... ./contracttest/... ./adapters/pgvector/...
-ok github.com/skosovsky/ragy/filter 1.553s
-ok github.com/skosovsky/ragy/contracttest 1.798s
-ok github.com/skosovsky/ragy/adapters/pgvector 1.562s
-Exit: 0
-Tagged lint: golangci-lint run --allow-serial-runners --build-tags=integration_pg ./filter/... ./contracttest/... ./adapters/pgvector/...
-0 issues. Exit: 0

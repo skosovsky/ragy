@@ -1,6 +1,0 @@
-level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
-adapters/gemini/internal/wire/client.go:137:1: cognitive complexity 25 of func `(*Client).Embed` is high (> 20) (gocognit)
-func (c *Client) Embed(ctx context.Context, items []Item) (dense.Result, error) {
-^
-1 issues:
-* gocognit: 1

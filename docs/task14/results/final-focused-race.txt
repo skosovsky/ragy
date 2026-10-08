@@ -1,4 +1,0 @@
-ok  	github.com/skosovsky/ragy/chunking	1.467s
-ok  	github.com/skosovsky/ragy/documents	(cached)
-ok  	github.com/skosovsky/ragy/graphingest	(cached)
-ok  	github.com/skosovsky/ragy/internal/parallel	(cached)

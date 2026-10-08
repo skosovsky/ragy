@@ -1,3 +1,0 @@
-ok  	example.com/ragyconsumer/final_contract	1.940s
-ok  	example.com/ragyconsumer/joint_read	37.744s
-ok  	example.com/ragyconsumer/observation_contract	2.065s

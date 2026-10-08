@@ -8,7 +8,7 @@ import (
 	"errors"
 	"os"
 
-	"example.com/ragyconsumer/internal/task19"
+	"github.com/skosovsky/ragy/examples/conformance/internal/task19"
 
 	"github.com/skosovsky/ragy/retrieval"
 )

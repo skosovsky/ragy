@@ -1,9 +1,0 @@
-GOCACHE=/private/tmp/ragy-task20-go-cache go test -race -count=1 ./internal/readfailure/... ./lexical/... ./retrieval/...
-
-ok github.com/skosovsky/ragy/internal/readfailure 1.706s
-ok github.com/skosovsky/ragy/lexical 1.649s
-ok github.com/skosovsky/ragy/lexical/managed 3.913s
-ok github.com/skosovsky/ragy/retrieval 1.622s
-
-Exit 0.
-Targeted lint: 0 issues, exit0.

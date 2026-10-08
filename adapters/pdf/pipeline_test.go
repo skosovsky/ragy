@@ -1,3 +1,5 @@
+//go:build e2e
+
 package pdf_test
 
 import (
@@ -123,7 +125,7 @@ func parserScope(t *testing.T) (filter.Schema, access.Binding) {
 	return schema, read
 }
 
-func TestActualParserProjectionIndexRetrieveAndScopedResolve(t *testing.T) {
+func TestE2EParserProjectionIndexRetrieveAndScopedResolve(t *testing.T) {
 	// Arrange: parse actual PDF bytes, then project host-owned scalar metadata.
 	ctx := context.Background()
 	parser, err := pdfadapter.New(parserConfig(integrationPython(t)))

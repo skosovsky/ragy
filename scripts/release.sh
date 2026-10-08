@@ -66,7 +66,7 @@ observe() {
 }
 load() {
   [[ -d "$active" && ! -L "$active" ]] || fail 'no active shell release'
-  [[ $(get format) == 2 ]] || fail 'unsupported active record format; recover using its original tooling revision'
+  [[ $(get format) == 3 ]] || fail 'unsupported active record format; recover using its original tooling revision'
   [[ $(get branch) == refs/heads/main ]] || fail 'release branch record changed'
   [[ $(get remote) == "$remote" ]] || fail 'origin destination changed'
   source=$(get source); version=$(get version); kind=$(get kind)
@@ -78,7 +78,7 @@ load() {
 validate() {
   local candidate parent changed path expected module ref allowed
   for path in modules refs files module-paths; do get "$path" >/dev/null; done
-  [[ "$(cd "$checkout" && unset MAKEFLAGS MAKEOVERRIDES MODULES PUBLISH_MODULES && make --no-print-directory -s release-modules)" == "$(cat "$active/modules")" ]] || fail 'module inventory record changed'
+  [[ "$(cd "$checkout" && unset MAKEFLAGS MAKEOVERRIDES MODULES && make --no-print-directory -s modules)" == "$(cat "$active/modules")" ]] || fail 'module inventory record changed'
   candidate=$(get candidate)
   [[ "$candidate" =~ ^[0-9a-f]{40}$ && $(git -C "$checkout" rev-parse HEAD) == "$candidate" ]] || fail 'candidate identity changed'
   [[ -z $(git -C "$checkout" status --porcelain --untracked-files=no) ]] || fail 'candidate is dirty'
@@ -104,10 +104,6 @@ validate() {
     [[ $(git -C "$checkout" rev-parse "$ref") == "$candidate" ]] || fail 'candidate tag changed'
   done < "$active/refs"
 }
-project() {
-  (cd "$checkout" && RELEASE_SOURCE="$source" RELEASE_CANDIDATE_DIR="$checkout" RELEASE_VERSION="$version" RELEASE_ARTIFACT_DIR="$active/proxy" \
-    make --no-print-directory "$1")
-}
 seal() {
   local module ref oid existing
   : > "$active/refs"
@@ -125,29 +121,25 @@ prepare() {
   # Rebuild incomplete preparation from the same immutable source in the owned checkout.
   git -C "$checkout" reset --hard --quiet "$source"
   git -C "$checkout" clean -fdq
-  for target in release-prepare-project release-check-project release-published-project; do
-    (cd "$checkout" && make -n "$target" >/dev/null) || fail "required project target is unavailable: $target"
-  done
-  (cd "$checkout" && make check)
+  (cd "$checkout" && make lint && make test && make test-integration && make test-e2e)
   : > "$active/files"
   while IFS= read -r module; do
     [[ "$module" == . || "$module" =~ ^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$ ]] || fail "invalid module: $module"
     [[ "$module" != *..* ]] || fail 'invalid module traversal'
     modpath="$checkout/$module/go.mod"
     [[ -f "$modpath" && ! -L "$modpath" ]] || fail "invalid manifest: $module"
-    canonical=$(cd "$checkout/$module" && "${GO:-go}" mod edit -print)
+    canonical=$(cd "$checkout/$module" && go mod edit -print)
     while IFS= read -r dependency; do
       [[ -n "$dependency" ]] || continue
       if printf '%s\n' "$canonical" | awk -v p="$dependency" '$1=="require" && $2==p {found=1} $1=="require" && $2=="(" {block=1;next} block && $1==")" {block=0} block && $1==p {found=1} END {exit !found}'; then
-        (cd "$checkout/$module" && "${GO:-go}" mod edit "-require=$dependency@$version")
+        (cd "$checkout/$module" && go mod edit "-require=$dependency@$version")
       fi
-      (cd "$checkout/$module" && "${GO:-go}" mod edit "-dropreplace=$dependency")
+      (cd "$checkout/$module" && go mod edit "-dropreplace=$dependency")
     done < "$active/module-paths"
     file=go.mod; [[ "$module" == . ]] || file="$module/go.mod"
     printf '%s\n' "$file" >> "$active/files"
     if [[ "$module" == . ]]; then printf 'go.sum\n' >> "$active/files"; else printf '%s/go.sum\n' "$module" >> "$active/files"; fi
   done < "$active/modules"
-  project release-prepare-project
   while IFS= read -r file; do
     [[ ! -L "$checkout/$file" ]] || fail "manifest must not be a symlink: $file"
     if [[ -f "$checkout/$file" ]]; then git -C "$checkout" add -- "$file"; fi
@@ -155,7 +147,6 @@ prepare() {
   if ! git -C "$checkout" diff --cached --quiet; then git -C "$checkout" commit --quiet -m "chore: release $version"; fi
   put candidate "$(git -C "$checkout" rev-parse HEAD)"
   seal
-  project release-check-project
   put phase prepared
 }
 operation=${1:-}
@@ -167,8 +158,7 @@ case "$operation" in
   exit 0;;
  finish)
   load; clean; validate; observe || fail 'cannot confirm publication'
-  [[ $(get status) == complete && -f "$active/smoke-passed" ]] || fail 'publication/smoke is not complete'
-  [[ $(get smoke-passed) == "$(get candidate)" ]] || fail 'smoke identity changed'
+  [[ $(get status) == complete ]] || fail 'publication is not complete'
   mkdir -p "$base/history"; mv "$active" "$base/history/$version-$(get candidate)-shell"; exit 0;;
  resume)
   load; clean; main_source
@@ -189,7 +179,7 @@ case "$operation" in
     if [[ "$operation" == patch ]]; then patch=$((patch+1)); elif (( major == 0 )); then minor=$((minor+1)); patch=0; else fail 'v2+ requires a semantic import-version migration'; fi
     version="v$major.$minor.$patch"; source="$requested"; kind="$operation"
     mkdir "$active"
-    put format 2; put branch refs/heads/main
+    put format 3; put branch refs/heads/main
     put source "$source"; put version "$version"; put kind "$kind"; put remote "$remote"; put phase preparing; put status none
     checkout="$active/checkout"
     git init --quiet "$checkout"
@@ -199,7 +189,7 @@ case "$operation" in
     for key in user.name user.email user.signingkey commit.gpgsign gpg.format gpg.program gpg.ssh.program; do
       value=$(git config --get "$key" || true); [[ -z "$value" ]] || git -C "$checkout" config "$key" "$value"
     done
-    (cd "$checkout" && unset MAKEFLAGS MAKEOVERRIDES MODULES PUBLISH_MODULES && make --no-print-directory -s release-modules) > "$active/modules"
+    (cd "$checkout" && unset MAKEFLAGS MAKEOVERRIDES MODULES && make --no-print-directory -s modules) > "$active/modules"
     [[ $(head -n 1 "$active/modules") == . && $(sort "$active/modules" | uniq -d | wc -l | tr -d ' ') == 0 ]] || fail 'invalid release module inventory'
     : > "$active/module-paths"
     while IFS= read -r module; do
@@ -208,7 +198,7 @@ case "$operation" in
       file=go.mod; [[ "$module" == . ]] || file="$module/go.mod"
       mode=$(git -C "$checkout" ls-tree "$source" -- "$file" | awk '{print $1}')
       [[ "$mode" == 100644 || "$mode" == 100755 ]] || fail "manifest must be a tracked regular file: $file"
-      path=$(cd "$checkout/$module" && "${GO:-go}" list -m -f '{{.Path}}')
+      path=$(cd "$checkout/$module" && go list -m -f '{{.Path}}')
       [[ "$module" == . || "$path" == "$(head -n 1 "$active/module-paths")/$module" ]] || fail "unexpected module path: $path"
       printf '%s\n' "$path" >> "$active/module-paths"
       ref="refs/tags/$version"; [[ "$module" == . ]] || ref="refs/tags/$module/$version"
@@ -223,7 +213,7 @@ if [[ $(get phase) != prepared ]]; then
   if [[ -f "$active/candidate" ]]; then
     [[ $(git -C "$checkout" rev-parse HEAD) == "$(get candidate)" ]] || fail 'interrupted candidate identity changed'
     [[ -z $(git -C "$checkout" status --porcelain --untracked-files=no) ]] || fail 'interrupted candidate is dirty'
-    seal; validate; project release-check-project; put phase prepared
+    seal; validate; put phase prepared
   else prepare; fi
 fi
 validate
@@ -243,12 +233,4 @@ if [[ $(get status) != complete ]]; then
   observe || fail 'publication unknown/collision; run inspect'
   [[ $(get status) == complete ]] || fail "publication $(get status); candidate retained"
 fi
-smoke=0
-for delay in 0 2 5; do
-  (( delay == 0 )) || sleep "$delay"
-  if project release-published-project; then smoke=1; break; fi
-done
-(( smoke == 1 )) || fail 'refs published, but exact-version smoke failed; candidate retained for resume'
-
-put smoke-passed "$(get candidate)"
-printf 'Published and verified %s (%s). Run release.sh finish to archive the record.\n' "$version" "$(get candidate)"
+printf 'Published and verified remote refs for %s (%s). Run release.sh finish to archive the record.\n' "$version" "$(get candidate)"

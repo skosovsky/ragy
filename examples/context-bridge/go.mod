@@ -1,4 +1,4 @@
-module example.com/ragy-context-bridge
+module github.com/skosovsky/ragy/examples/context-bridge
 
 go 1.27.1
 

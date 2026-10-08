@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"example.com/ragyconsumer/internal/codexcall"
+	"github.com/skosovsky/ragy/examples/conformance/internal/codexcall"
 )
 
 const (

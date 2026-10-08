@@ -54,7 +54,7 @@ func TestLocatorEnvelopeRoundTripEveryRepresentation(t *testing.T) {
 }
 func TestLocatorEnvelopeRejectsAmbiguousWireAndIncompatibleSchema(t *testing.T) {
 	// Arrange: the same positive fixture is independently JSON Schema validated.
-	encoded, err := os.ReadFile("../docs/task12/fixtures/locator.json")
+	encoded, err := os.ReadFile("testdata/locator.json")
 	if err != nil {
 		t.Fatal(err)
 	}

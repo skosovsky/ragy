@@ -1,7 +1,0 @@
-corpus.json PASS
-dev.json PASS
-boolean_grade REJECTED
-unknown_property REJECTED
-invalid_scope REJECTED
-null_qrels REJECTED
-Independent JSON Schema library: 4.26.0

@@ -1,9 +1,0 @@
-level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
-retrieval/execution.go:247:1: directive `//nolint:unused,unparam // injectExecutionNodeResolver discovers backend nodes through this internal hook.` is unused for linter "unused" (nolintlint)
-//nolint:unused,unparam // injectExecutionNodeResolver discovers backend nodes through this internal hook.
-^
-retrieval/execution.go:866:1: directive `//nolint:unused,unparam // injectExecutionNodeResolver discovers retriever nodes through this internal hook.` is unused for linter "unused" (nolintlint)
-//nolint:unused,unparam // injectExecutionNodeResolver discovers retriever nodes through this internal hook.
-^
-2 issues:
-* nolintlint: 2

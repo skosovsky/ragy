@@ -187,7 +187,7 @@ func TestPartialDoesNotSkipJoinedAdmissionFailures(t *testing.T) {
 
 func TestCoverageWireRoundtripRejectsUnknownSchemaAndMalformedReports(t *testing.T) {
 	// Arrange.
-	data, err := os.ReadFile("../docs/task12/fixtures/read_coverage.json")
+	data, err := os.ReadFile("testdata/read_coverage.json")
 	if err != nil {
 		t.Fatal(err)
 	}

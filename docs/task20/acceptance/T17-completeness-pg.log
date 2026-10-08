@@ -1,4 +1,0 @@
-# github.com/skosovsky/ragy/adapters/pgvector
-filter_pg_test.go:7:2: package encoding/csv is not in std (/opt/homebrew/Cellar/go/1.27.1/libexec/src/encoding/csv)
-FAIL	github.com/skosovsky/ragy/adapters/pgvector [setup failed]
-FAIL

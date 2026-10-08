@@ -1,4 +1,4 @@
-module example.com/ragyconsumer
+module github.com/skosovsky/ragy/examples/conformance
 
 go 1.27.1
 

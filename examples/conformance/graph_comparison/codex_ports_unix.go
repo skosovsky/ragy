@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"slices"
 
-	"example.com/ragyconsumer/internal/codexcall"
+	"github.com/skosovsky/ragy/examples/conformance/internal/codexcall"
 
 	"github.com/skosovsky/ragy/graphingest/extraction"
 	"github.com/skosovsky/ragy/recipe/budget"

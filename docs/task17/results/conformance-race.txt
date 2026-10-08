@@ -1,8 +1,0 @@
-ok  	example.com/ragyconsumer	22.099s
-ok  	example.com/ragyconsumer/graph_comparison	82.913s
-ok  	example.com/ragyconsumer/internal/codexcall	(cached)
-?   	example.com/ragyconsumer/internal/modelcounter	[no test files]
-ok  	example.com/ragyconsumer/joint_read	45.456s
-ok  	example.com/ragyconsumer/observation_contract	2.010s
-ok  	example.com/ragyconsumer/recipe_comparison	45.117s
-ok  	example.com/ragyconsumer/tensor_comparison	3.855s

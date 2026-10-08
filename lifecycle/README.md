@@ -149,5 +149,5 @@ schema snapshots are rejected; opening never auto-converts, deletes payloads or
 reindexes. Any offline host conversion must preserve all IDs, keys, inventories,
 checkpoints, receipts and retained source/target data, validate the resulting
 snapshot, and register active metadata profiles before enabling retirement. Keep
-historical evidence in [task18 maintenance notes](../docs/task18/lifecycle-maintenance.md);
+historical evidence in task18 maintenance notes (local task archive);
 use this guide for current runtime contracts.

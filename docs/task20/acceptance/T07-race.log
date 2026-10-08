@@ -1,9 +1,0 @@
-GOCACHE=/private/tmp/ragy-task20-go-cache go test -race -count=1 ./layout/... ./source/... ./chunking/... ./adapters/pdf/...
-
-ok github.com/skosovsky/ragy/layout 1.446s
-ok github.com/skosovsky/ragy/source 1.216s
-ok github.com/skosovsky/ragy/chunking 1.216s
-ok github.com/skosovsky/ragy/adapters/pdf 1.246s
-
-Exit 0.
-Corrected-scope targeted lint: 0 issues, exit0.

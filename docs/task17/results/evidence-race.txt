@@ -1,2 +1,0 @@
-ok  	github.com/skosovsky/ragy/evidence	2.077s
-ok  	github.com/skosovsky/ragy/recipe/recording	(cached)

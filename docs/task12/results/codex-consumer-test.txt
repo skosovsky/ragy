@@ -1,2 +1,0 @@
-ok  	example.com/ragyconsumer/internal/codexcall	1.939s
-ok  	example.com/ragyconsumer/recipe_comparison	43.820s

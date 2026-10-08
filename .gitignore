@@ -10,5 +10,5 @@ tmp/
 *.cpu
 *.mem
 
-# Verification tooling bytecode is a local cache.
+# Bytecode cache from the retained PDF backend and fixtures.
 __pycache__/

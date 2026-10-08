@@ -28,7 +28,7 @@ func embedding(tokens tensor.Tensor) tensor.Embedding {
 
 func TestMaxSimReferenceFixture(t *testing.T) {
 	// Arrange: load the specification's actual fixture, rather than duplicating it.
-	data, err := os.ReadFile("../docs/task12/fixtures/tensor_maxsim.json")
+	data, err := os.ReadFile("testdata/tensor_maxsim.json")
 	if err != nil {
 		t.Fatal(err)
 	}

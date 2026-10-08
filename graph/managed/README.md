@@ -13,4 +13,4 @@ Neither capacity has an implicit default. Existing consumers must set `MaxAdmiss
 
 Lifecycle store load/validation and retained-version selection still scan metadata independently of `MaxAdmissionRecords`. Support counts, identifiers and metadata byte sizes remain host controlled. Hosts need separate namespace retention, byte quotas and context deadlines; this adapter does not provide a complete memory-byte or CPU bound, graph ANN, a scheduler or distributed transactions.
 
-The [admission and traversal contract](../../docs/task18/graph-contract.md) describes ownership, failure boundaries and actual cost. Reproducible before/after workloads are in [TASK18 results](../../docs/task18/results/).
+The admission and traversal contract (local task archive) describes ownership, failure boundaries and actual cost. Reproducible before/after workloads are in TASK18 results (local task archive).

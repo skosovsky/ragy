@@ -1,6 +1,0 @@
-level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
-adapters/neo4j/filter_contract_test.go:39:1: File is not properly formatted (golines)
-	result, err := retrieveStore(t.Context(), store, "", retrieval.RetrieveOptions{TopK: 1, Filters: condition, Graph: &retrieval.GraphOptions{Seeds: []string{"n"}, Direction: graph.DirectionOutbound, Depth: 1}})
-^
-1 issues:
-* golines: 1

@@ -1,2 +1,0 @@
-ok  	example.com/ragyconsumer/joint_read	8.642s
-ok  	example.com/ragyconsumer/tensor_comparison	1.420s

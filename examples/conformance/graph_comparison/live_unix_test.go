@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"example.com/ragyconsumer/internal/modelcounter"
+	"github.com/skosovsky/ragy/examples/conformance/internal/modelcounter"
 )
 
 func graphCounterFixture(t *testing.T) modelcounter.Counter {

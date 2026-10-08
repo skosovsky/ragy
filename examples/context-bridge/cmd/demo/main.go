@@ -8,11 +8,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	bridge "example.com/ragy-context-bridge"
 	"github.com/skosovsky/contexty"
 	"github.com/skosovsky/memy"
 	"github.com/skosovsky/memy/reference"
 	"github.com/skosovsky/memy/store/memory"
+
+	bridge "github.com/skosovsky/ragy/examples/context-bridge"
 
 	"github.com/skosovsky/ragy/retrieval"
 	"github.com/skosovsky/ragy/source"

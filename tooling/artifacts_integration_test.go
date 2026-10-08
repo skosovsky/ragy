@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || e2e
 
 package tooling_test
 
@@ -19,7 +19,7 @@ import (
 
 func artifactProxy(t *testing.T, source, version, proxy string) []string {
 	t.Helper()
-	dirs := strings.Fields(command(t, source, nil, "make", "--no-print-directory", "-s", "release-modules"))
+	dirs := strings.Fields(command(t, source, nil, "make", "--no-print-directory", "-s", "modules"))
 	paths := make([]string, 0, len(dirs))
 	for _, dir := range dirs {
 		base := filepath.Join(source, dir)
@@ -70,7 +70,9 @@ func consume(t *testing.T, source, version string, env []string, paths []string)
 	}
 	imports := map[string]bool{}
 	for _, path := range paths {
-		packages := strings.Fields(
+		// Compile library, executable and test-only modules without running repository tests.
+		command(t, dir, env, "go", "test", "-mod=mod", "-run=^$", path+"/...")
+		packages := strings.FieldsSeq(
 			command(
 				t,
 				dir,
@@ -83,10 +85,7 @@ func consume(t *testing.T, source, version string, env []string, paths []string)
 				path+"/...",
 			),
 		)
-		if len(packages) == 0 {
-			t.Fatalf("no public packages in %s", path)
-		}
-		for _, p := range packages {
+		for p := range packages {
 			if !strings.Contains(p, "/internal/") {
 				imports[p] = true
 			}
@@ -100,6 +99,11 @@ func consume(t *testing.T, source, version string, env []string, paths []string)
 	code.WriteString(")\n")
 	write(t, filepath.Join(dir, "consumer.go"), []byte(code.String()))
 	command(t, dir, env, "go", "mod", "tidy")
+	// Tidy removes modules containing only commands/tests; still verify their exact versions.
+	for _, path := range paths {
+		command(t, dir, env, "go", "mod", "edit", "-require="+path+"@"+version)
+	}
+	command(t, dir, env, "go", "mod", "download")
 	checkResolvedModules(t, dir, env, paths, version)
 	command(t, dir, env, "go", "test", "-race", "-count=1", "./...")
 	command(t, dir, env, "go", "build", "./...")
@@ -137,8 +141,8 @@ func checkResolvedModules(t *testing.T, dir string, env []string, paths []string
 	}
 }
 
-func TestReleaseArtifacts(t *testing.T) {
-	// This test also runs normally against a disposable candidate. Explicit input is used by release.sh.
+func TestIntegrationReleaseArtifacts(t *testing.T) {
+	// By default, validate a disposable candidate; environment inputs allow manual candidate inspection.
 	source := os.Getenv("RAGY_CANDIDATE")
 	version := os.Getenv("RAGY_RELEASE_VERSION")
 	proxy := os.Getenv("RAGY_ARTIFACT_PROXY")
@@ -185,20 +189,37 @@ func sourceCandidate(t *testing.T, root string) string {
 		}
 		write(t, filepath.Join(target, name), data)
 	}
-	for dir := range strings.FieldsSeq(command(t, target, nil, "make", "--no-print-directory", "-s", "release-modules")) {
+	for dir := range strings.FieldsSeq(command(t, target, nil, "make", "--no-print-directory", "-s", "modules")) {
 		rewriteFixtureManifest(t, filepath.Join(target, dir))
 	}
 
 	return target
 }
 
-func TestPublishedRelease(t *testing.T) {
+func TestE2EPublishedRelease(t *testing.T) {
 	version := os.Getenv("RAGY_PUBLISHED_VERSION")
+	baseline := version == ""
 	if version == "" {
 		version = "v0.8.1"
-	} // Explicit published baseline; release supplies its exact new version.
+	} // Explicit published baseline; an environment override selects another version.
 	root := repoRoot(t)
-	dirs := strings.Fields(command(t, root, nil, "make", "--no-print-directory", "-s", "release-modules"))
+	dirs := strings.Fields(command(t, root, nil, "make", "--no-print-directory", "-s", "modules"))
+	if baseline {
+		// v0.8.1 predates publication of examples and tooling. This is its historical module set.
+		dirs = []string{
+			".",
+			"adapters/cohere",
+			"adapters/elasticsearch",
+			"adapters/gemini",
+			"adapters/jina",
+			"adapters/neo4j",
+			"adapters/observability/otel",
+			"adapters/openai",
+			"adapters/pdf",
+			"adapters/pgvector",
+			"adapters/qdrant",
+		}
+	}
 	paths := make([]string, 0, len(dirs))
 	for _, dir := range dirs {
 		m, err := modfile.Parse("go.mod", read(t, filepath.Join(root, dir, "go.mod")), nil)

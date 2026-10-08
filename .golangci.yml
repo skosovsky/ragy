@@ -22,7 +22,6 @@ formatters:
   exclusions:
     paths:
       # Project-specific historical audit fixtures.
-      - docs/task12/audits/
   enable:
     - goimports # checks if the code and import statements are formatted according to the 'goimports' command
     - golines # checks if code is formatted, and fixes long lines

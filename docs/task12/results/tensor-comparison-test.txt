@@ -1,2 +1,0 @@
-ok  	example.com/ragyconsumer	(cached)
-ok  	example.com/ragyconsumer/tensor_comparison	1.580s

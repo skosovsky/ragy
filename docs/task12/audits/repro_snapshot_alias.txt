@@ -1,2 +1,0 @@
-first 1 tenant a
-after caller mutation 0 error <nil> first batch changed b

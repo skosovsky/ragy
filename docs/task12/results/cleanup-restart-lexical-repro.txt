@@ -1,8 +1,0 @@
---- FAIL: TestLexicalCleanupRequiresRegisteredExactInventory (0.23s)
-    --- FAIL: TestLexicalCleanupRequiresRegisteredExactInventory/unregistered (0.10s)
-        cleanup_inventory_test.go:16: unverified cleanup accepted unregistered complete <nil>
-    --- FAIL: TestLexicalCleanupRequiresRegisteredExactInventory/forged-support (0.13s)
-        cleanup_inventory_test.go:16: unverified cleanup accepted forged-support complete <nil>
-FAIL
-FAIL	github.com/skosovsky/ragy/lexical/managed	0.840s
-FAIL

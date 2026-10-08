@@ -1,2 +1,0 @@
-ok  	github.com/skosovsky/ragy/lifecycle	5.193s
-ok  	github.com/skosovsky/ragy/lifecycle/filestore	3.281s

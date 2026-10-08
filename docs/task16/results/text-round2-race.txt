@@ -1,2 +1,0 @@
-ok  	github.com/skosovsky/ragy/recipe	2.016s
-ok  	github.com/skosovsky/ragy/recipe/recording	1.873s

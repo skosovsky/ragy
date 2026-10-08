@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"example.com/ragyconsumer/internal/task19"
+	"github.com/skosovsky/ragy/examples/conformance/internal/task19"
 )
 
 func TestTask19DevelopmentExecutionPolicy(t *testing.T) {

@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build !integration && !e2e
 
 package tooling_test
 
@@ -124,7 +124,7 @@ func validateGold(t *testing.T, row map[string]any, docs map[string]map[string]a
 
 func TestRecordedCLIReceipts(t *testing.T) {
 	// Arrange: historical responses, without model calls.
-	base := filepath.Join(repoRoot(t), "docs/task12/results")
+	base := filepath.Join("testdata", "recordings")
 	for _, name := range []string{"text-cli-live-capture.json", "graph-cli-live-capture.json", "graph-cli-v2-capture.json", "text-cli-v2-capture.json"} {
 		t.Run(name, func(t *testing.T) {
 			capture := decode(t, read(t, filepath.Join(base, name))).(map[string]any)

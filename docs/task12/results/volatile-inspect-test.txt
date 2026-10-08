@@ -1,7 +1,0 @@
-ok  	github.com/skosovsky/ragy/lifecycle	(cached)
-ok  	github.com/skosovsky/ragy/lifecycle/filestore	(cached)
-ok  	github.com/skosovsky/ragy/lifecycle/integration	18.001s
-ok  	github.com/skosovsky/ragy/lexical/managed	(cached)
-ok  	github.com/skosovsky/ragy/graph/managed	6.530s
-ok  	github.com/skosovsky/ragy/dense/persistent	6.134s
-ok  	github.com/skosovsky/ragy/tensor/persistent	6.572s

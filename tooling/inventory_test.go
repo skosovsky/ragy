@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build !integration && !e2e
 
 package tooling_test
 
@@ -12,7 +12,7 @@ import (
 func TestPublishableModuleInventory(t *testing.T) {
 	// Arrange: tracked source is the inventory authority, not ignored build artifacts.
 	root := repoRoot(t)
-	publish := strings.Fields(command(t, root, nil, "make", "--no-print-directory", "-s", "release-modules"))
+	publish := strings.Fields(command(t, root, nil, "make", "--no-print-directory", "-s", "modules"))
 	paths := strings.Split(
 		command(
 			t,
@@ -34,13 +34,7 @@ func TestPublishableModuleInventory(t *testing.T) {
 			found = append(found, filepath.ToSlash(filepath.Dir(path)))
 		}
 	}
-	// Every root/adapter module is publishable; examples and tooling are development-only.
-	wantPublish := make([]string, 0, len(found))
-	for _, module := range found {
-		if module == "." || strings.HasPrefix(module, "adapters/") {
-			wantPublish = append(wantPublish, module)
-		}
-	}
+	wantPublish := found
 	// Assert.
 	slices.Sort(wantPublish)
 	slices.Sort(publish)

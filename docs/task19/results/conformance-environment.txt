@@ -1,8 +1,0 @@
-Baseline: 13c37b67689be736bb05d575b41f2446d2b90c50; TASK19 tests uncommitted
-GOWORK=off
-GOCACHE=/tmp/ragy-task19-conformance-cache
-Race: -race -count=1; actual cache may be warm; not cold performance
-Lint: golangci-lint run --allow-parallel-runners ./final_contract/... ./joint_read/... ./observation_contract/...
-Go: go1.27.1 darwin/arm64
-Lint: 2.14.0 built with go1.27.1
-Local storage/contract integration only. No live model/DB/PDF engine exercised by this suite.

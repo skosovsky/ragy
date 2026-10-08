@@ -1,4 +1,4 @@
-//go:build darwin || linux
+//go:build e2e && (darwin || linux)
 
 package pdf_test
 
@@ -216,7 +216,7 @@ func bindParsedLayout(
 	}
 	return read
 }
-func TestActualPDFLayoutDurablePublicationReopenAndRetainedRevision(t *testing.T) {
+func TestE2EPDFLayoutDurablePublicationReopenAndRetainedRevision(t *testing.T) {
 	// Arrange: real PDF projection, typed partial coverage, persistent files and CAS ledger.
 	schema, _ := parserScope(t)
 	ledgerRoot := filepath.Join(t.TempDir(), "ledger")

@@ -1,11 +1,13 @@
 # Shell release
 
 The common release implementation uses Bash, Git, Make and the standard Go CLI.
-Repository-specific artifact and consumer checks are defined in `project.mk`.
 There is no Python release runner or additional Go executable.
 
 ```sh
-make check
+make lint
+make test
+make test-integration
+make test-e2e
 make release-patch
 make release-break
 # Optional older source on main:
@@ -24,15 +26,15 @@ unchanged throughout the transaction.
 
 Versions come from remote root tags. Patch increments patch; break increments
 minor before v1. A breaking transition from v1 to v2 is blocked until an import-path
-migration is implemented. The selected source's `make release-modules` discovers
-publication modules using the project rule, excluding development modules. Root tags
+migration is implemented. The selected source's `make modules` discovers
+all modules without a separate publication inventory. Root tags
 use `vX.Y.Z`; nested module tags use their directory prefix.
 
-The release runs the selected source's `make check` in an independent checkout.
+The release runs the selected source's lint, fresh unit tests,
+integration tests and e2e tests sequentially in an independent checkout.
 It updates internal requirements to the new version and removes internal development
-replacements only there. The project validates artifacts and consumers; only
-publishable go.mod/go.sum files may change in the release commit.
-A failed prerequisite, source gate, preparation or candidate check prevents push.
+replacements only there. Only go.mod/go.sum files may change in the release commit.
+A failed prerequisite, source gate, preparation or candidate identity check prevents push.
 
 After displaying the source, candidate, destination and exact refs for confirmation,
 one atomic push publishes:
@@ -43,33 +45,13 @@ one atomic push publishes:
 There is no force, broad `--tags`, or non-atomic fallback. Remote main is rechecked
 before push; a concurrent incompatible update rejects publication. Remote tags must
 match exact candidate identities. Remote main must equal source or contain it in
-its history. Finally, the exact published version is checked through public module
-resolution, with bounded retries for proxy delay. Published refs alone do not mean
-that the release has passed its consumer check.
-
-## Project contract
-
-The common Makefile provides standard developer commands and optional
-`prerequisites-project`, `examples-project`, `check-project` targets. Its release
-script requires these additional targets in the selected source:
-
-| Target | Contract |
-|---|---|
-| `release-prepare-project` | Optional project preparation (a no-op in ragy); any changes are limited to allowed manifests in the isolated checkout. |
-| `release-check-project` | Validate the final candidate without changing it. |
-| `release-published-project` | Verify exact-version public consumers without publishing refs. |
-
-All three receive `RELEASE_SOURCE` (source SHA), `RELEASE_CANDIDATE_DIR` (absolute
-checkout directory), `RELEASE_VERSION` and `RELEASE_ARTIFACT_DIR` (private artifact
-scratch directory). Missing targets fail before publication. The current ragy
-implementation delegates validation to Go integration tests. Consumers resolve
-dependencies and generate their own go.sum using standard Go commands; release
-does not precompute future dependency checksums in library manifests. These tests
-are not a release CLI.
+its history. Publication completes after these remote-ref checks; no consumer
+installation or proxy polling runs after push. Artifact and consumer checks remain
+ordinary Go integration/e2e tests in the source gate.
 
 ## Recovery
 
-Format-2 plain-text records live under `library-releases/active` in the Git common
+Format-3 plain-text records live under `library-releases/active` in the Git common
 directory. They retain destination, branch, observed remote main, source, candidate,
 version, phase and publication status. Records are never evaluated as shell code.
 A local lock prevents concurrent releases; after process termination, verify the
@@ -89,9 +71,9 @@ it using its original tooling revision before using the new script.
 
 Go tooling tests exercise the common protocol against disposable bare repositories,
 including libraries with nested modules outside `adapters/`. Real module artifacts,
-installability and consumer composition are checked by project integration tests.
-These checks never publish to the production remote. CI runs the same `make check`.
+installability and consumer composition are checked by Go integration tests.
+These checks never publish to the production remote. CI runs the same lint/unit/integration/e2e commands.
 
 The PDF backend migration remains blocked. ragy's full check/release still requires
 the retained PDF runtime documented in [verification](../verification.md); this
-prerequisite belongs to the project layer, not the common release implementation.
+prerequisite is enforced by the PDF tests.

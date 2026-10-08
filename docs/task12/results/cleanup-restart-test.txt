@@ -1,2 +1,0 @@
-ok  	github.com/skosovsky/ragy/lexical/managed	2.551s
-ok  	github.com/skosovsky/ragy/lifecycle/integration	19.726s

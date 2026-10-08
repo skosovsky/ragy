@@ -117,7 +117,7 @@ Calibration exercises planner → actual scoped BM25 → assessor, without sendi
 
 ```sh
 GOWORK=off go run ./recipe_comparison \
-  -calibrate-codex ../../docs/task12/results/codex-text-calibration.json \
+  -calibrate-codex /path/to/codex-text-calibration.json \
   -codex-bin /absolute/path/to/codex -model configured-model
 ```
 

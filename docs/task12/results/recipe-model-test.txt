@@ -1,5 +1,0 @@
-ok  	github.com/skosovsky/ragy/recipe	(cached)
-ok  	github.com/skosovsky/ragy/recipe/budget	(cached)
-ok  	github.com/skosovsky/ragy/recipe/graphexpand	(cached)
-ok  	github.com/skosovsky/ragy/recipe/graphsummary	(cached)
-ok  	github.com/skosovsky/ragy/recipe/recording	(cached)

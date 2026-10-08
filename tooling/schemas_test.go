@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build !integration && !e2e
 
 package tooling_test
 
@@ -13,20 +13,19 @@ import (
 
 func TestHistoricalWireSchemas(t *testing.T) {
 	// Arrange: preserve the exact positive/negative inputs of the retired validators.
-	root := repoRoot(t)
-	profiles := []struct{ task, name, schema string }{
-		{"task12", "coverage", "read_coverage"},
-		{"task12", "evidence", "evidence"},
-		{"task12", "lifecycle", "lifecycle"},
-		{"task12", "locator", "locator"},
-		{"task12", "tensor_run", "tensor-run"},
-		{"task18", "lifecycle", "lifecycle"},
+	profiles := []struct{ task, name, schema, directory string }{
+		{"task12", "coverage", "read_coverage", "v1"},
+		{"task12", "evidence", "evidence", "v1"},
+		{"task12", "lifecycle", "lifecycle", "v1"},
+		{"task12", "locator", "locator", "v1"},
+		{"task12", "tensor_run", "tensor-run", "v1"},
+		{"task18", "lifecycle", "lifecycle", "lifecycle-v2"},
 	}
 	for _, profile := range profiles {
 		t.Run(profile.task+"/"+profile.name, func(t *testing.T) {
 			compiler := jsonschema.NewCompiler()
 			compiler.AssertFormat()
-			base := filepath.Join(root, "docs", profile.task, "schemas")
+			base := filepath.Join("testdata", "contracts", profile.directory)
 			if profile.name == "tensor_run" {
 				doc := decode(t, read(t, filepath.Join(base, "evidence.schema.json")))
 				if err := compiler.AddResource(doc.(map[string]any)["$id"].(string), doc); err != nil {
@@ -56,7 +55,7 @@ func TestEvidenceV2SchemaCorpus(t *testing.T) {
 	// Arrange.
 	root := repoRoot(t)
 	compiler := jsonschema.NewCompiler()
-	schema, err := compiler.Compile(filepath.Join(root, "docs/task17/schemas/evidence.schema.json"))
+	schema, err := compiler.Compile(filepath.Join("testdata", "contracts", "evidence-v2", "evidence.schema.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +65,7 @@ func TestEvidenceV2SchemaCorpus(t *testing.T) {
 		Record json.RawMessage `json:"record"`
 	}
 	if err := json.Unmarshal(
-		read(t, filepath.Join(root, "docs/task17/fixtures/evidence-v2.json")),
+		read(t, filepath.Join(root, "evidence/testdata/evidence-v2.json")),
 		&cases,
 	); err != nil {
 		t.Fatal(err)
@@ -131,7 +130,7 @@ func number(value any) int {
 
 func TestTensorRecordedAssociation(t *testing.T) {
 	// Arrange: real frozen consumer envelope and independently recorded stages.
-	base := filepath.Join(repoRoot(t), "docs/task12/results")
+	base := filepath.Join("testdata", "recordings")
 	fixture := decode(t, read(t, filepath.Join(base, "tensor-recorded-run.json"))).(map[string]any)
 	record := fixture["record"].(map[string]any)
 	// Act / Assert: candidate identity, rank and score survive recording exactly.

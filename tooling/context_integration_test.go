@@ -1,4 +1,4 @@
-//go:build integration
+//go:build integration || e2e
 
 package tooling_test
 
@@ -82,7 +82,7 @@ func contextConsumer(t *testing.T, root, mode, version string, env []string) {
 	command(t, dir, env, "go", "run", "./cmd/demo")
 }
 
-func TestContextBridgeCheckout(t *testing.T) {
+func TestE2EContextBridgeCheckout(t *testing.T) {
 	// Arrange: explicit peer revisions, independent of ambient sibling checkouts.
 	root := repoRoot(t)
 	// Act / Assert: semantic fixtures and real executable demo against the current source.

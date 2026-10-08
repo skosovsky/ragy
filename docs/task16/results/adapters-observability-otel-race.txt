@@ -1,1 +1,0 @@
-ok  	github.com/skosovsky/ragy/adapters/observability/otel	1.486s

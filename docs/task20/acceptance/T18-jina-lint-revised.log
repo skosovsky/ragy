@@ -1,6 +1,0 @@
-level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
-adapters/jina/tensor/client.go:135:1: cognitive complexity 21 of func `(*Client).materialize` is high (> 20) (gocognit)
-func (c *Client) materialize(ctx context.Context, inputCount int, decoded embedResponse) (roottensor.Result, error) {
-^
-1 issues:
-* gocognit: 1

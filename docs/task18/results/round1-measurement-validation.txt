@@ -1,7 +1,0 @@
-54 paired benchmark profiles; three samples per stage, 324 raw paired samples.
-6 current-format retirement profiles; three samples each, 18 samples.
-9 process resource-stat sets, all successful with CPU/RSS.
-Original overlapping capture and sandbox-limited partial attempt retained separately.
-before isolated Go-source tree SHA256 2f76506e128d6831d2406dd25d96ef2d73ee570b85b612f0ac26ac65c6f69997
-after isolated Go-source tree SHA256 4ecff6fadf7faaa5e59baf3619e9bfc67b1e8227ce19c9b6f70f07a00c83f431
-Final candidate freeze: 195f84cfd9514f1d477acca75e1e1bf4868f2e64762d37f8058af8fbadc76da7

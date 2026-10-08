@@ -1,3 +1,5 @@
+//go:build e2e
+
 package pdf_test
 
 import (
@@ -32,7 +34,7 @@ func (h *layoutPayloadHost) Load(
 	return out, nil
 }
 
-func TestActualParserRetainedPageCellImageDocumentResolution(t *testing.T) {
+func TestE2EParserRetainedPageCellImageDocumentResolution(t *testing.T) {
 	// Arrange: source host retains original fixture bytes and actual parsed representations.
 	ctx := context.Background()
 	pdfBytes := loadFixture(t)

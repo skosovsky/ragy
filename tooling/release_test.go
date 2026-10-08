@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build !integration && !e2e
 
 package tooling_test
 
@@ -40,38 +40,10 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 		filepath.Join(repo, "packages/test/adapter.go"),
 		[]byte("package adapter\nimport _ \"example.invalid/fixture\"\n"),
 	)
-	write(t, filepath.Join(repo, "Makefile"), []byte(`check:
+	write(t, filepath.Join(repo, "Makefile"), []byte(`lint test test-integration test-e2e:
 	@test ! -f reject-check
-release-modules:
+modules:
 	@printf '.\npackages/test\n'
-release-prepare-project:
-	@$(MAKE) --no-print-directory release-check-project
-release-check-project:
-	@cd tooling && RAGY_CANDIDATE="$(RELEASE_CANDIDATE_DIR)" RAGY_RELEASE_VERSION="$(RELEASE_VERSION)" RAGY_ARTIFACT_PROXY="$(RELEASE_ARTIFACT_DIR)" go test -count=1 -run TestReleaseArtifacts .
-release-published-project:
-	@cd tooling && RAGY_PUBLISHED_VERSION="$(RELEASE_VERSION)" go test -count=1 -run TestPublishedRelease .
-`))
-	write(t, filepath.Join(repo, "tooling/go.mod"), []byte("module example.invalid/tooling\n\ngo 1.27.1\n"))
-	// The release protocol is exercised independently of the expensive artifact suite.
-	// This fixture exports a root module and an adapter depending on that root.
-	write(t, filepath.Join(repo, "tooling/artifacts_test.go"), []byte(`package fixture
-import("archive/zip";"bytes";"fmt";"os";"path/filepath";"strings";"testing")
-func TestReleaseArtifacts(t *testing.T){
- proxy:=os.Getenv("RAGY_ARTIFACT_PROXY");v:=os.Getenv("RAGY_RELEASE_VERSION");s:=os.Getenv("RAGY_CANDIDATE")
- if proxy==""||v==""||s==""{t.Fatal("missing artifact inputs")}
- for dir,file:=range map[string]string{".":"fixture.go","packages/test":"adapter.go"}{
-  m,err:=os.ReadFile(filepath.Join(s,dir,"go.mod"));if err!=nil{t.Fatal(err)}
-  path:=strings.Fields(string(m))[1];p:=filepath.Join(proxy,path,"@v")
-  if err:=os.MkdirAll(p,0755);err!=nil{t.Fatal(err)}
-  source,err:=os.ReadFile(filepath.Join(s,dir,file));if err!=nil{t.Fatal(err)}
-  var b bytes.Buffer;z:=zip.NewWriter(&b)
-  for n,d:=range map[string][]byte{"go.mod":m,file:source}{w,e:=z.Create(path+"@"+v+"/"+n);if e!=nil{t.Fatal(e)};if _,e=w.Write(d);e!=nil{t.Fatal(e)}}
-  if err:=z.Close();err!=nil{t.Fatal(err)}
-  for n,d:=range map[string][]byte{v+".mod":m,v+".zip":b.Bytes(),v+".info":[]byte(fmt.Sprintf("{\"Version\":%q,\"Time\":\"2026-01-01T00:00:00Z\"}",v)),"list":[]byte(v+"\n")}{if err:=os.WriteFile(filepath.Join(p,n),d,0600);err!=nil{t.Fatal(err)}}
- }
-}
-
-func TestPublishedRelease(t *testing.T){if os.Getenv("RAGY_PUBLISHED_VERSION")==""{t.Fatal("missing exact published version")}}
 `))
 	command(t, repo, nil, "git", "add", ".")
 	command(t, repo, nil, "git", "commit", "--quiet", "-m", "fixture")
@@ -433,7 +405,7 @@ func TestReleasePublishesSourceAndPreparedManifests(t *testing.T) {
 }
 
 func TestReleaseRejectsInvalidMain(t *testing.T) {
-	for _, mode := range []string{"detached", "feature", "foreign-source", "diverged", "missing-remote-main", "missing-hook", "legacy-record"} {
+	for _, mode := range []string{"detached", "feature", "foreign-source", "diverged", "missing-remote-main", "legacy-record", "previous-format"} {
 		t.Run(mode, func(t *testing.T) {
 			// Arrange.
 			f := newReleaseFixture(t)
@@ -454,16 +426,8 @@ func TestReleaseRejectsInvalidMain(t *testing.T) {
 				command(t, f.repo, nil, "git", "checkout", "main")
 			case "missing-remote-main":
 				command(t, f.repo, nil, "git", "--git-dir="+f.remote, "update-ref", "-d", "refs/heads/main")
-			case "missing-hook":
-				data := string(read(t, filepath.Join(f.repo, "Makefile")))
-				write(
-					t,
-					filepath.Join(f.repo, "Makefile"),
-					[]byte(strings.ReplaceAll(data, "release-published-project:", "unavailable:")),
-				)
-				command(t, f.repo, nil, "git", "add", "Makefile")
-				command(t, f.repo, nil, "git", "commit", "-m", "missing hook")
-				f.source = command(t, f.repo, nil, "git", "rev-parse", "HEAD")
+			case "previous-format":
+				write(t, filepath.Join(f.repo, ".git/library-releases/active/format"), []byte("2\n"))
 			case "legacy-record":
 				if err := os.MkdirAll(filepath.Join(f.repo, ".git/ragy-releases/shell-active"), 0755); err != nil {
 					t.Fatal(err)

@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build !integration && !e2e
 
 package tooling_test
 
@@ -39,8 +39,9 @@ func TestMakePropagatesToolFailures(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			// Arrange: use the actual Make recipes with a failing tool.
 			root := makeFixture(t)
-			cmd := exec.CommandContext(t.Context(), "make", target, "GO=false", "GOLANGCI_LINT=false")
+			cmd := exec.CommandContext(t.Context(), "make", target)
 			cmd.Dir = root
+			cmd.Env = makeToolPath(t, root, "#!/bin/sh\nexit 1\n")
 			// Act.
 			out, err := cmd.CombinedOutput()
 			// Assert.
@@ -54,13 +55,14 @@ func TestMakePropagatesToolFailures(t *testing.T) {
 func TestMakeLintRejectsFormattingDiff(t *testing.T) {
 	// Arrange: the pinned formatter returns a nonzero status when formatting differs.
 	root := makeFixture(t)
-	tool := filepath.Join(root, "lint")
+	tool := filepath.Join(root, "golangci-lint")
 	write(t, tool, []byte("#!/bin/sh\nif [ \"$1\" = fmt ]; then echo 'formatting differs'; exit 1; fi\n"))
 	if err := os.Chmod(tool, 0700); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.CommandContext(t.Context(), "make", "lint", "GOLANGCI_LINT="+tool)
+	cmd := exec.CommandContext(t.Context(), "make", "lint")
 	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "PATH="+root+string(os.PathListSeparator)+os.Getenv("PATH"))
 	// Act.
 	out, err := cmd.CombinedOutput()
 	// Assert.
@@ -71,8 +73,7 @@ func TestMakeLintRejectsFormattingDiff(t *testing.T) {
 
 func TestFuzzSelectsIndividualGoTargets(t *testing.T) {
 	// Arrange: Go list output includes two fuzz targets, Unicode and tool diagnostics.
-	root := t.TempDir()
-	write(t, filepath.Join(root, "scripts/fuzz.sh"), read(t, filepath.Join(repoRoot(t), "scripts/fuzz.sh")))
+	root := makeFixture(t)
 	tool := filepath.Join(root, "go")
 	log := filepath.Join(root, "calls")
 	write(t, tool, []byte(`#!/bin/sh
@@ -87,91 +88,118 @@ esac
 	if err := os.Chmod(tool, 0700); err != nil {
 		t.Fatal(err)
 	}
-	// Act: durations above five minutes are valid; the fake tool performs no campaign.
-	command(t, root, []string{"GO=" + tool, "CALLS=" + log}, "bash", "scripts/fuzz.sh", "600", ".")
+	// Act: discover targets using the normal Go executable lookup.
+	command(
+		t,
+		root,
+		[]string{"PATH=" + root + string(os.PathListSeparator) + os.Getenv("PATH"), "CALLS=" + log},
+		"make",
+		"fuzz",
+	)
 	// Assert: one anchored target per invocation, no broad pattern or diagnostic line.
 	calls := string(read(t, log))
 	if strings.Count(calls, "-fuzz=") != 2 || !strings.Contains(calls, "-fuzz=^FuzzOne$") ||
-		!strings.Contains(calls, "-fuzz=^FuzzТекст$") || strings.Count(calls, "-fuzztime=600s") != 2 {
+		!strings.Contains(calls, "-fuzz=^FuzzТекст$") || strings.Count(calls, "-fuzztime=30s") != 2 {
 		t.Fatalf("incorrect fuzz selection: %s", calls)
 	}
 }
 
-func TestCommonMakeCheckOrder(t *testing.T) {
-	for _, multi := range []bool{false, true} {
-		t.Run(map[bool]string{false: "single", true: "multiple"}[multi], func(t *testing.T) {
-			// Arrange: a foreign library uses only the common Makefile and project hooks.
-			root := makeFixture(t)
-			if multi {
-				write(t, filepath.Join(root, "packages/extra/go.mod"), []byte("module example.invalid/extra\n"))
-			}
-			log := filepath.Join(root, "calls")
-			tool := filepath.Join(root, "tool")
-			write(t, tool, []byte(`#!/bin/bash
-case "$1" in
-version) if [[ "$0" == *lint ]]; then echo 'golangci-lint version 2.14.0 '; else echo 'go version go1.27.1 test/arch'; fi ;;
-*) printf '%s\n' "$1" >> "$CALLS" ;;
-esac
-`))
-			if err := os.Chmod(tool, 0700); err != nil {
-				t.Fatal(err)
-			}
-			lint := filepath.Join(root, "lint")
-			if err := os.Symlink(tool, lint); err != nil {
-				t.Fatal(err)
-			}
-			write(t, filepath.Join(root, "project.mk"), []byte(`prerequisites-project:
-	@echo prerequisites >> "$$CALLS"
-examples-project:
-	@echo examples >> "$$CALLS"
-check-project:
-	@echo integration >> "$$CALLS"
-`))
-			// Act: parallel Make must still run check stages sequentially.
-			command(t, root, []string{"CALLS=" + log}, "make", "-j8", "check", "GO="+tool, "GOLANGCI_LINT="+lint)
-			// Assert.
-			expected := "prerequisites\nconfig\nfmt\nrun\ntest\nexamples\nintegration\n"
-			if multi {
-				expected = "prerequisites\nconfig\nfmt\nrun\nfmt\nrun\ntest\ntest\nexamples\nintegration\n"
-			}
-			if got := string(read(t, log)); got != expected {
-				t.Fatalf("stage order: %q, want %q", got, expected)
-			}
-		})
-	}
-}
-
-func TestCommonMakeOptionalAndFailingProjectHooks(t *testing.T) {
-	// Arrange: common targets work without a project file.
+func TestFuzzStopsAfterCampaignFailure(t *testing.T) {
+	// Arrange: listing succeeds; the first campaign fails before a second target.
 	root := makeFixture(t)
-	// Act / Assert.
-	command(t, root, nil, "make", "examples", "test-integration")
-	for _, target := range []string{"examples", "test-integration"} {
-		t.Run(target, func(t *testing.T) {
-			// Arrange: failure in a project hook must propagate.
-			write(t, filepath.Join(root, "project.mk"), []byte("examples-project check-project:\n\t@false\n"))
-			cmd := exec.CommandContext(t.Context(), "make", target)
-			cmd.Dir = root
-			// Act.
-			out, err := cmd.CombinedOutput()
-			// Assert.
-			if err == nil {
-				t.Fatalf("project failure swallowed: %s", out)
-			}
-		})
+	log := filepath.Join(root, "calls")
+	cmd := exec.CommandContext(t.Context(), "make", "fuzz")
+	cmd.Dir = root
+	cmd.Env = append(makeToolPath(t, root, `#!/bin/sh
+case "$1" in
+list) echo example.invalid/fuzz ;;
+test) case " $* " in
+*' -list='*) printf 'FuzzOne\nFuzzTwo\n' ;;
+*) printf '%s\n' "$*" >> "$CALLS"; exit 7 ;;
+esac ;;
+esac
+`), "CALLS="+log)
+	// Act.
+	out, err := cmd.CombinedOutput()
+	// Assert: the pipeline propagates failure and does not start another campaign.
+	if err == nil {
+		t.Fatalf("campaign failure swallowed: %s", out)
+	}
+	calls := string(read(t, log))
+	if strings.Count(calls, "-fuzz=") != 1 || !strings.Contains(calls, "-fuzz=^FuzzOne$") {
+		t.Fatalf("unexpected campaigns: %s", calls)
 	}
 }
 
-func TestMakePublicationExcludesDevelopmentModules(t *testing.T) {
-	// Arrange: automatic discovery includes development modules only in ordinary checks.
+func TestMakeTaggedProfilesExcludeOrdinaryTests(t *testing.T) {
+	// Arrange: an ordinary test fails if either tagged profile executes it.
+	root := makeFixture(t)
+	write(
+		t,
+		filepath.Join(root, "ordinary_test.go"),
+		[]byte(
+			"package fixture\nimport \"testing\"\nfunc TestOrdinary(t *testing.T) { t.Fatal(\"ordinary test executed\") }\n",
+		),
+	)
+	for _, profile := range []struct{ tag, prefix string }{{"integration", "TestIntegration"}, {"e2e", "TestE2E"}} {
+		code := "//go:build " + profile.tag + "\n\npackage fixture\nimport (\"os\"; \"testing\")\nfunc " + profile.prefix + "Marker(t *testing.T) { if err := os.WriteFile(os.Getenv(\"MARKER\"), []byte(\"executed\"),0600); err != nil { t.Fatal(err) } }\n"
+		write(t, filepath.Join(root, profile.tag+"_test.go"), []byte(code))
+		marker := filepath.Join(root, profile.tag+".marker")
+		// Act.
+		command(t, root, []string{"MARKER=" + marker}, "make", "test-"+profile.tag)
+		// Assert: tagged tests actually executed, without the ordinary failing test.
+		if string(read(t, marker)) != "executed" {
+			t.Fatal("tagged test did not execute")
+		}
+	}
+}
+
+func TestMakePublicationUsesAllModules(t *testing.T) {
+	// Arrange: every discovered module belongs to the same inventory.
 	root := makeFixture(t)
 	for _, dir := range []string{"packages/new", "examples/demo", "tooling", "vendor/ignored", ".cache/ignored"} {
 		write(t, filepath.Join(root, dir, "go.mod"), []byte("module example.invalid/fixture\n"))
 	}
 	// Act.
-	actual := command(t, root, nil, "make", "--no-print-directory", "-s", "release-modules")
+	actual := command(t, root, nil, "make", "--no-print-directory", "-s", "modules")
 	// Assert: a new library module requires no manually maintained list.
-	if actual != ".\npackages/new" {
+	if actual != ".\nexamples/demo\npackages/new\ntooling" {
 		t.Fatalf("publication modules: %q", actual)
 	}
+}
+
+func TestMakeStopsOnAnEarlierModuleFailure(t *testing.T) {
+	for _, target := range []string{"test", "test-integration", "test-e2e", "lint", "bench", "cover", "fix", "test-live", "fuzz"} {
+		t.Run(target, func(t *testing.T) {
+			// Arrange: the first module fails, but a later module would succeed.
+			root := makeFixture(t)
+			write(t, filepath.Join(root, "packages/last/go.mod"), []byte("module example.invalid/last\n"))
+			cmd := exec.CommandContext(t.Context(), "make", target)
+			cmd.Dir = root
+			cmd.Env = makeToolPath(
+				t,
+				root,
+				"#!/bin/sh\nif [ \"$1\" = config ]; then exit 0; fi\ncase \"$PWD\" in */last) exit 0;; *) exit 1;; esac\n",
+			)
+			// Act.
+			out, err := cmd.CombinedOutput()
+			// Assert: successful later modules cannot hide an earlier failure.
+			if err == nil {
+				t.Fatalf("earlier module failure swallowed: %s", out)
+			}
+		})
+	}
+}
+
+func makeToolPath(t *testing.T, root, script string) []string {
+	t.Helper()
+	bin := filepath.Join(root, "bin")
+	for _, name := range []string{"go", "golangci-lint"} {
+		path := filepath.Join(bin, name)
+		write(t, path, []byte(script))
+		if err := os.Chmod(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 }

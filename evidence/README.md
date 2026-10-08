@@ -57,7 +57,7 @@ to the record. Protection failure during capture/sink always fails closed in eve
 mode and clears result/receipt. A completed authorized sink write cannot be undone
 if revocation occurs afterward; final delivery is still suppressed.
 
-Current schema, fixtures and independent verifier live in docs/task17; task12 records remain historical and are rejected as incompatible. The verifier combines JSON Schema with explicit relational checks for sequential ordinals and query references, which standard JSON Schema cannot express. Go validates the same adversarial corpus and additionally exercises ownership, freshness and source authorization. Raw transport byte/depth limits remain separate from the declarative schema.
+The current schema lives in `tooling/testdata/contracts/evidence-v2`, with fixtures in `evidence/testdata` and independent validation in `tooling/schemas_test.go`. Earlier wire records remain historical and are rejected as incompatible. The verifier combines JSON Schema with explicit relational checks for sequential ordinals and query references, which standard JSON Schema cannot express. Go validates the same adversarial corpus and additionally exercises ownership, freshness and source authorization. Raw transport byte/depth limits remain separate from the declarative schema.
 
 ## Original location export
 

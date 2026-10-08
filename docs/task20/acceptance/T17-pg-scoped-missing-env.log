@@ -1,6 +1,0 @@
-=== RUN   TestRealPostgresScopedTenantPairsAndPinnedAdmission
-    scope_pg_test.go:26: integration_pg requires RAGY_PG_TEST_CONTAINER; no SKIP
---- FAIL: TestRealPostgresScopedTenantPairsAndPinnedAdmission (0.00s)
-FAIL
-FAIL	github.com/skosovsky/ragy/adapters/pgvector	0.416s
-FAIL

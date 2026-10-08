@@ -1,8 +1,0 @@
-=== RUN   TestLiveProviderSmoke
-    client_test.go:222: opt-in live provider smoke disabled
---- SKIP: TestLiveProviderSmoke (0.00s)
-PASS
-ok  	github.com/skosovsky/ragy/adapters/openai/dense	0.467s
-testing: warning: no tests to run
-PASS
-ok  	github.com/skosovsky/ragy/adapters/openai/structured	0.430s [no tests to run]

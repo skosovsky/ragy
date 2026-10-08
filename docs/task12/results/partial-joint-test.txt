@@ -1,3 +1,0 @@
-ok  	github.com/skosovsky/ragy/lifecycle	(cached)
-ok  	github.com/skosovsky/ragy/lifecycle/filestore	(cached)
-ok  	github.com/skosovsky/ragy/lifecycle/integration	8.317s

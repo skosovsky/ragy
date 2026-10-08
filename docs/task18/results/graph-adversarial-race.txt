@@ -1,1 +1,0 @@
-ok  	github.com/skosovsky/ragy/graph/managed	10.180s

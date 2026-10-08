@@ -8,8 +8,9 @@ import (
 	"errors"
 	"testing"
 
-	bridge "example.com/ragy-context-bridge"
 	"github.com/skosovsky/memy"
+
+	bridge "github.com/skosovsky/ragy/examples/context-bridge"
 
 	"github.com/skosovsky/ragy/retrieval"
 )

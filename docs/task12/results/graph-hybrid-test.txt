@@ -1,9 +1,0 @@
-=== RUN   TestActualPersistentDenseBM25HybridBaseline
-    baseline_unix_test.go:45: local [{n s1 v1 original a-public original-p1 utf8} {n s3 v1 original a-public original-p1 utf8} {n s2 v1 original a-public original-p1 utf8}] 1 5881959
-    baseline_unix_test.go:45: community [{n s1 v1 original a-public original-p1 utf8} {n s2 v1 original a-public original-p1 utf8} {n s4 v1 original a-public original-p1 utf8}] 1 4891208
-    baseline_unix_test.go:45: global [{n s1 v1 original a-public original-p1 utf8} {n s4 v1 original a-public original-p1 utf8} {n s2 v1 original a-public original-p1 utf8}] 1 5395750
---- PASS: TestActualPersistentDenseBM25HybridBaseline (0.47s)
-=== RUN   TestHybridBaselineCanceledParentDeliversNoObservation
---- PASS: TestHybridBaselineCanceledParentDeliversNoObservation (0.41s)
-PASS
-ok  	example.com/ragyconsumer/graph_comparison	2.318s

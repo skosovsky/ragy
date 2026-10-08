@@ -1,6 +1,0 @@
-level=warning msg="The linter 'exhaustruct' is deprecated (since v2.13.0) due to: new major version. Replaced by exhaustruct_v5."
-observation/observation.go:341:1: text "errors.Is" should be replaced with "[errors.Is]" to link to stdlib function (godoclint)
-// Classify emits fixed classes without calling Error(). Classification invokes
-^
-1 issues:
-* godoclint: 1

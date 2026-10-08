@@ -118,7 +118,7 @@ The final combined contract integration executes four extraction and four summar
 HTTP requests plus all actual durable/source/hybrid/local paths. Its tokenizer is
 an actual trusted executable emitting an explicitly fixed contract receipt. This
 is mechanical/protocol evidence, not model quality or tokenizer qualification.
-`docs/task12/results/graph-contract-capture.json` and the scored contract report
+the locally archived `graph-contract-capture.json` and the scored contract report
 retain those actual observations under an explicit contract-fixture label.
 Qualified tokenizer and live comparative acceptance remain pending. Manually
 submitted JSON metadata alone cannot prove execution provenance.

@@ -1,51 +1,56 @@
 # Repository verification
 
-Run `make check` before release. Make invokes Go and the pinned linter directly;
-there is no Python verification runner. Go/tooling versions are in
-`Makefile`. All modules run with GOWORK=off. Development modules are discovered from go.mod files, excluding hidden directories and vendor.
-Publication modules are also discovered automatically: project.mk selects root/adapter modules and excludes development modules. `make release-modules` shows the result; Go tests check it against tracked manifests.
+Make invokes standard Go commands and golangci-lint directly. Modules are discovered
+from go.mod files, excluding hidden directories and vendor. All commands use
+GOWORK=off. There is no aggregate check target or tool version validation target.
 
 | Command | Scope |
 |---|---|
-| `make modules` | List automatically discovered development modules. |
-| `make test` | Race tests in every development module, including tooling tests. |
-| `make lint` | Configuration, formatting diff and all-module lint; no rewriting. |
-| `make check` | Prerequisites, lint, fresh race tests, example builds, PostgreSQL and consumer/release integrations. |
-| `make test-integration` | Isolated PostgreSQL, artifact/peer/published consumers and actual PDF parser. |
-| `make examples` | Build all examples in their owning modules. |
-| `make test-live` | Tests named TestLive with the live build tag across all modules; missing credentials/configuration fail. |
-| `make fuzz FUZZ_SECONDS=2` | Every Go-listed fuzz function separately; a positive number of seconds each, default 30. |
+| `make modules` | List all discovered development modules. |
+| `make test` | Fresh ordinary race tests across all modules. |
+| `make test-integration` | Files with integration build tag; execute TestIntegration… functions only. |
+| `make test-e2e` | Files with e2e build tag; execute TestE2E… functions only. |
+| `make test-live` | Files with live build tag; execute TestLive… functions only, including paid calls. |
+| `make lint` | Formatting diff and lint without rewriting files. |
+| `make fix` | Go fix, formatting and lint fixes; modifies files. |
+| `make fuzz` | Every discovered fuzz function separately, 30 seconds per function. |
 | `make bench` / `make cover` | Benchmarks / per-module coverage. |
-| `make versions` | Show and verify recorded Go/linter versions. |
 
-Tooling unit/release-fixture tests and integration consumer tests use separate build profiles; they run once each in `check`.
+Build tags alone do not exclude ordinary test files. Profile targets combine the tag
+with a matching test-name prefix so a module without such tests executes none.
+Use the same convention for new tests; each profile runs directly through Go too:
 
-Use `V=1` to show shell commands. `GO` and `GOLANGCI_LINT` override executable paths.
-For a targeted test use ordinary Go: `cd adapters/openai && GOWORK=off go test -race ./...`.
-The full check requires Git, Make, Bash, the pinned Go/linter, network access for
-pinned dependencies, and a running Docker daemon. PostgreSQL gets an isolated
-container with a fixed image digest, readiness deadline and cleanup on exit.
-No caller/sibling working tree or production database is used by integration tests.
+```sh
+GOWORK=off go test -race -tags=integration -run '^TestIntegration' ./...
+GOWORK=off go test -race -tags=e2e -run '^TestE2E' ./...
+```
 
-**Pending PDF migration:** the pure-Go candidates failed the existing PDF contract
-(see [evidence](pdf-go-feasibility.md)). The optional adapter is retained. Ordinary
-Go tests and tooling need no Python; the full actual-PDF profile currently requires
-`RAGY_PDF_PYTHON` pointing to the existing interpreter with pdfplumber/pypdf. Missing
-configuration fails `make check` explicitly. This exception must be removed only
-after a compatible backend or contract change is approved.
+Recipes use tools from PATH and explicitly propagate command failures.
+Tool versions are pinned in CI, not enforced by Make. CI and source release gates
+run lint, fresh unit tests, integration and e2e sequentially.
 
-Live provider calls, performance measurements and fuzz campaigns are separate from
-`check`. Core/fixture success does not attest live provider quality or hardware
-power-loss behavior. Historical task reports retain the commands used at that time.
+## Project content
 
-## Shared infrastructure and project checks
+`examples/` contains runnable usage/consumer examples. `tooling/` is a separate
+Go test module for Make/release contracts, historical schema/receipt guarantees and
+consumer composition; its dependencies do not enter the core module. All discovered
+modules are tested and published, including examples and tooling.
+There is no separate publication inventory or directory exclusion.
 
-`Makefile` contains the reusable Go/lint commands and ordered check sequence.
-`project.mk` supplies ragy's prerequisites, example builds and integrations through
-`prerequisites-project`, `examples-project` and `check-project`. Without a project
-file these three extension points are empty. Release-specific project targets are
-mandatory and documented in the [release contract](release/runbook.md).
+Example packages compile as part of ordinary tests. Integration and e2e dispatch
+is common to every module and needs no project hooks.
+The complete linter configuration remains a regular .golangci.yml, with local
+import grouping and fixture exceptions marked in place.
 
-The full `.golangci.yml` remains directly consumable by the linter and editors.
-Project import grouping and fixture exceptions are marked in place; there is no
-configuration generation or merge step. Toolchain versions remain pinned.
+PostgreSQL tests use the integration tag. Each test starts a uniquely named container
+from a pinned image, waits for TCP readiness and cleans it up with t.Cleanup. Missing
+Docker or a failed prerequisite fails the selected profile, never skips it.
+
+PDF parser checks use integration; projection, durable publication and retrieval
+pipelines use e2e. The retained backend requires RAGY_PDF_PYTHON pointing to an
+interpreter with pdfplumber/pypdf. Missing configuration fails selected profiles.
+Ordinary PDF tests need no Python. The evaluated pure-Go replacements did not meet
+the required geometry/layout and cancellation contracts.
+
+Performance measurements, fuzz campaigns and paid provider calls remain separate.
+Historical reports retain the commands used when their results were recorded.

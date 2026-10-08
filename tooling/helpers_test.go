@@ -22,9 +22,6 @@ func repoRoot(t *testing.T) string {
 
 func command(t *testing.T, dir string, env []string, argv ...string) string {
 	t.Helper()
-	if argv[0] == "go" && os.Getenv("GO") != "" {
-		argv = append([]string{os.Getenv("GO")}, argv[1:]...)
-	}
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)

@@ -1,1 +1,0 @@
-evidence schema: 16 positive and 32 negative fixtures passed

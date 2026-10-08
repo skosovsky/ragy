@@ -1,2 +1,0 @@
-ok  	example.com/ragyconsumer/joint_read	25.174s
-ok  	example.com/ragyconsumer	12.879s

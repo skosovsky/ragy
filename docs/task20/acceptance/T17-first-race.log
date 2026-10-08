@@ -1,8 +1,0 @@
-ok  	github.com/skosovsky/ragy/filter	1.599s
-ok  	github.com/skosovsky/ragy/adapters/elasticsearch	1.473s
---- FAIL: TestRetrieveFinalDelivery (0.00s)
-    --- FAIL: TestRetrieveFinalDelivery/runner_error/canceled (0.00s)
-        delivery_test.go:53: private error leaked read protection failed
-FAIL
-FAIL	github.com/skosovsky/ragy/adapters/neo4j	0.468s
-FAIL

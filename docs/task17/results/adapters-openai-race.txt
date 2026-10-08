@@ -1,2 +1,0 @@
-ok  	github.com/skosovsky/ragy/adapters/openai/dense	1.802s
-ok  	github.com/skosovsky/ragy/adapters/openai/structured	2.908s

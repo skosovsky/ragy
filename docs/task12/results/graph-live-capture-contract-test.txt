@@ -1,3 +1,0 @@
-ok  	example.com/ragyconsumer/graph_comparison	15.742s
-ok  	example.com/ragyconsumer/recipe_comparison	43.184s
-?   	example.com/ragyconsumer/internal/modelcounter	[no test files]

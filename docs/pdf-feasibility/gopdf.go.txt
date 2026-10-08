@@ -1,3 +1,0 @@
-package main
-import("fmt";"os";"github.com/razvandimescu/gopdf/pdf")
-func main(){d,e:=pdf.OpenFile(os.Args[1]);if e!=nil{panic(e)};for i:=0;i<d.NumPages();i++{p:=d.Page(i);s,e:=p.TextSpans();fmt.Printf("page=%d rotation=%d box=%v spans=%+v error=%v\n",i,p.Rotation(),p.MediaBox(),s,e);ts,e:=p.Tables();fmt.Printf("tables=%+v error=%v\n",ts,e)}}

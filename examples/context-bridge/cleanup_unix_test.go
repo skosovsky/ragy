@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	bridge "example.com/ragy-context-bridge"
 	"github.com/skosovsky/memy"
+
+	bridge "github.com/skosovsky/ragy/examples/context-bridge"
 
 	"github.com/skosovsky/ragy/filter"
 	"github.com/skosovsky/ragy/lexical"

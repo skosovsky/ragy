@@ -1,3 +1,0 @@
-ok  	github.com/skosovsky/ragy/lexical	1.435s
-ok  	github.com/skosovsky/ragy/dense/persistent	7.854s
-ok  	github.com/skosovsky/ragy/tensor/persistent	7.984s

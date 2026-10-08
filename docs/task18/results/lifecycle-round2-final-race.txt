@@ -1,3 +1,0 @@
-ok  	github.com/skosovsky/ragy/lifecycle	5.143s
-ok  	github.com/skosovsky/ragy/lifecycle/filestore	3.133s
-ok  	github.com/skosovsky/ragy/graphingest/materialization	1.616s

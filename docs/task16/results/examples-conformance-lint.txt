@@ -1,5 +1,0 @@
-examples/conformance/graph_comparison/summary_unix.go:117:21: Magic number: 3, in <assign> detected (mnd)
-		MaxModelCalls:    3,
-		                  ^
-1 issues:
-* mnd: 1

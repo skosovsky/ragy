@@ -1,3 +1,0 @@
-ok  	github.com/skosovsky/ragy/adapters/gemini/dense	(cached)
-?   	github.com/skosovsky/ragy/adapters/gemini/internal/wire	[no test files]
-ok  	github.com/skosovsky/ragy/adapters/gemini/multimodal	(cached)
