@@ -1,0 +1,3 @@
+package main
+import("fmt";"os";"github.com/ledongthuc/pdf")
+func main(){f,r,e:=pdf.Open(os.Args[1]);if e!=nil{panic(e)};defer f.Close();for i:=1;i<=r.NumPage();i++{p:=r.Page(i);fmt.Printf("page=%d content=%+v\n",i,p.Content())}}
