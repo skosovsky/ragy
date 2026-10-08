@@ -536,3 +536,23 @@ func TestReleaseRejectsMainAdvancingDuringPreparation(t *testing.T) {
 		t.Fatal("remote changed")
 	}
 }
+
+func TestReleaseRecoversMissingRemoteMainBeforePreparation(t *testing.T) {
+	// Arrange: initial remote prerequisite fails before any candidate is prepared.
+	f := newReleaseFixture(t)
+	baseline := strings.Fields(f.initialRefs)[0]
+	command(t, f.repo, nil, "git", "--git-dir="+f.remote, "update-ref", "-d", "refs/heads/main")
+	if out, err := f.invoke(t, "patch", f.source); err == nil {
+		t.Fatal(out)
+	}
+	command(t, f.repo, nil, "git", "--git-dir="+f.remote, "update-ref", "refs/heads/main", baseline)
+	// Act.
+	out, err := f.invoke(t, "resume")
+	// Assert: initialized inventory permits safe preparation after the prerequisite is restored.
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if got := command(t, f.repo, nil, "git", "--git-dir="+f.remote, "rev-parse", "main"); got != f.source {
+		t.Fatal("source was not published")
+	}
+}

@@ -195,7 +195,6 @@ case "$operation" in
     git init --quiet "$checkout"
     git -C "$checkout" fetch --quiet --no-tags "$repo" "$source"
     git -C "$checkout" checkout --quiet --detach "$source"
-    fast_forward
     git -C "$checkout" config core.hooksPath /dev/null
     for key in user.name user.email user.signingkey commit.gpgsign gpg.format gpg.program gpg.ssh.program; do
       value=$(git config --get "$key" || true); [[ -z "$value" ]] || git -C "$checkout" config "$key" "$value"
@@ -216,6 +215,7 @@ case "$operation" in
       [[ -z $(git show-ref --verify "$ref" 2>/dev/null || true) ]] || fail "local tag collision: $ref"
       [[ -z $(printf '%s\n' "$rows" | awk -v r="$ref" '$2==r') ]] || fail "remote tag collision: $ref"
     done < "$active/modules"
+    fast_forward
   fi;;
  *) fail 'usage: release.sh patch|break [SOURCE] | inspect|resume|finish';;
 esac
