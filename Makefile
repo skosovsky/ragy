@@ -20,7 +20,7 @@ test:
 
 lint:
 	@$(GOLANGCI_LINT) config verify
-	@for module in $(MODULES); do printf '\n[lint] %s\n' "$$module"; (cd "$$module" && diff=$$($(GOLANGCI_LINT) fmt --diff); test -z "$$diff" || { printf "%s\n" "$$diff"; exit 1; }; $(GOLANGCI_LINT) run --allow-serial-runners ./...); done
+	@for module in $(MODULES); do printf '\n[lint] %s\n' "$$module"; (cd "$$module" && diff=$$($(GOLANGCI_LINT) fmt --diff) || { printf "%s\n" "$$diff"; exit 1; }; test -z "$$diff" || { printf "%s\n" "$$diff"; exit 1; }; $(GOLANGCI_LINT) run --allow-serial-runners ./...); done
 
 prerequisites: versions
 	@command -v git >/dev/null

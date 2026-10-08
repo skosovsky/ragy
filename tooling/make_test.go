@@ -33,23 +33,35 @@ func TestMakePropagatesToolFailures(t *testing.T) {
 }
 
 func TestMakeLintRejectsFormattingDiff(t *testing.T) {
-	// Arrange: formatting command exits successfully but reports required changes.
-	root := t.TempDir()
-	write(t, filepath.Join(root, "Makefile"), read(t, filepath.Join(repoRoot(t), "Makefile")))
-	write(t, filepath.Join(root, "scripts/toolchain.mk"), read(t, filepath.Join(repoRoot(t), "scripts/toolchain.mk")))
-	write(t, filepath.Join(root, "scripts/check-modules.txt"), []byte(".\n"))
-	tool := filepath.Join(root, "lint")
-	write(t, tool, []byte("#!/bin/sh\nif [ \"$1\" = fmt ]; then echo 'formatting differs'; fi\n"))
-	if err := os.Chmod(tool, 0700); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.CommandContext(t.Context(), "make", "lint", "GOLANGCI_LINT="+tool)
-	cmd.Dir = root
-	// Act.
-	out, err := cmd.CombinedOutput()
-	// Assert.
-	if err == nil || !strings.Contains(string(out), "formatting differs") {
-		t.Fatalf("format gate: %v %s", err, out)
+	for _, code := range []string{"0", "1"} {
+		t.Run(code, func(t *testing.T) {
+			// Arrange: a formatting diff is fatal with either formatter exit convention.
+			root := t.TempDir()
+			write(t, filepath.Join(root, "Makefile"), read(t, filepath.Join(repoRoot(t), "Makefile")))
+			write(
+				t,
+				filepath.Join(root, "scripts/toolchain.mk"),
+				read(t, filepath.Join(repoRoot(t), "scripts/toolchain.mk")),
+			)
+			write(t, filepath.Join(root, "scripts/check-modules.txt"), []byte(".\n"))
+			tool := filepath.Join(root, "lint")
+			write(
+				t,
+				tool,
+				[]byte("#!/bin/sh\nif [ \"$1\" = fmt ]; then echo 'formatting differs'; exit "+code+"; fi\n"),
+			)
+			if err := os.Chmod(tool, 0700); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.CommandContext(t.Context(), "make", "lint", "GOLANGCI_LINT="+tool)
+			cmd.Dir = root
+			// Act.
+			out, err := cmd.CombinedOutput()
+			// Assert.
+			if err == nil || !strings.Contains(string(out), "formatting differs") {
+				t.Fatalf("format gate: %v %s", err, out)
+			}
+		})
 	}
 }
 
