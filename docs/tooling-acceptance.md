@@ -32,3 +32,30 @@ removes its own container and anonymous volume. Final checks passed afterward.
 files remain. Both evaluated pure-Go backends failed the existing contract. These
 results certify tooling with the retained PDF prerequisite, not Python-free
 acceptance. See [the feasibility report](pdf-go-feasibility.md).
+
+## Shared library infrastructure follow-up
+
+Runtime source checked: `653ae36`, using fresh independent local clones. This
+supersedes the earlier command/release behavior; the PDF exception is unchanged.
+
+| Environment | Command | Result |
+|---|---|---|
+| macOS / darwin arm64, Go 1.27.1, golangci-lint 2.14.0 | `make check` with the retained PDF interpreter | PASS, exit 0 |
+| Linux / amd64, Docker Desktop on arm64, same pinned toolchain | `make check` with the retained PDF interpreter | PASS, exit 0 |
+
+Both clones remained clean; Linux source was mounted read-only. The complete gate
+covered all 16 development modules, lint, fresh race tests, example builds, real
+PostgreSQL, artifact/installability/published/context consumers and actual PDF
+fixtures. PostgreSQL containers and their anonymous volumes were removed by their
+own cleanup traps. The temporary Linux validation image was removed after the run.
+
+Additional Go fixtures verify the common Makefile with single and nested-module
+foreign libraries, optional/failing project hooks and sequential stages under
+`make -j8`. Release fixtures use disposable bare repositories and modules under
+`packages/`, independent of ragy's adapter layout. They verify source publication
+to main, candidate-only release manifests, older-source selection without moving
+the caller, branch/ancestry rejection, required project targets, legacy state
+rejection, remote advancement, interrupted/unknown publication and immutable
+candidate recovery. Recursive Make target preflight and recovery after an initial
+missing remote main are covered. No production refs or sibling repositories were
+modified, and no paid-provider tests were executed.

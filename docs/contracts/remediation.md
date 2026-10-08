@@ -88,11 +88,11 @@ Neo4j's public Retrieve applies the same final DeliverRead behavior as other sto
 
 ## Release scope and recovery (F02, F03, D61)
 
-Release is prepared from an explicitly reviewed source commit, in an isolated checkout. The caller's HEAD, branch, index, tracked files and untracked files remain unchanged on every exit. Before mutation, reject dirty tracked files and staged changes. Untracked files are ignored and never copied/staged/deleted. Repository-local ignored state for release recovery is separate from caller payload files.
+Release is prepared from an explicitly reviewed source commit on local main, in an isolated checkout. HEAD is the default; an explicit source must be an ancestor of local main. Existing remote main must be able to fast-forward to source. The caller's HEAD, branch, index, tracked files and untracked files remain unchanged on every exit. Before mutation, reject dirty tracked files and staged changes. Untracked files are ignored and never copied/staged/deleted. Repository-local ignored state for release recovery is separate from caller payload files.
 
 A version-controlled publishable-module manifest enumerates root and adapter modules, excluding example modules. Validate every module path and tracked go.mod before candidate creation. Caller-supplied module lists cannot expand this allowlist. Versioning preserves the current v0 patch/minor policy; a request requiring a >=v2 semantic import path change is rejected until a reviewed import-version migration exists. No automatic import rewrite is inferred from a version increment.
 
-The exact source commit, candidate version, modules, expected tag names and permitted changed files are reviewable before publication. Only allowlisted module go.mod/go.sum files whose changes are required for coherent release dependency manifests can enter a candidate commit. No broad `git add .`, no publishing arbitrary local tags/branches. Tags point to the exact candidate commit. Root and submodule tags are pushed via exact refs; examples receive no tags. Existing refs pointing to a different candidate are collisions, never overwritten. Existing matching refs are idempotent evidence, not a reason to advance the version.
+The exact source commit, candidate version, modules, expected tag names and permitted changed files are reviewable before publication. Only allowlisted module go.mod/go.sum files whose changes are required for coherent release dependency manifests can enter a candidate commit. No broad `git add .`, no publishing arbitrary local tags/branches. Tags point to the exact candidate commit. Source is pushed to refs/heads/main and candidate to root/submodule tags in the same atomic transaction; examples receive no tags. Development replacements remain in main and are removed in the tagged manifests. Existing release tags pointing to a different candidate are collisions, never overwritten. Main is updated only by fast-forward; no force is allowed. Existing matching refs are idempotent evidence, not a reason to advance the version.
 
 A persistent candidate record is written before publication and binds:
 
@@ -101,20 +101,20 @@ A persistent candidate record is written before publication and binds:
 | Version / release kind | Chosen candidate; retry uses this exact version |
 | Reviewed source SHA / candidate SHA | Exact source and derived manifest commit |
 | Publishable modules / changed-file allowlist | Fixed reviewed release scope |
-| Intended refs and expected object IDs | Exact root/module tags, including tag-object IDs if annotated |
+| Intended refs and expected object IDs | Source SHA for refs/heads/main and candidate identities for exact root/module tags |
 | Local created refs | Only refs owned by this candidate, distinct from preexisting user refs |
-| Remote identity / observed refs | Publication destination and reconciliation evidence |
-| Publication status / observation time | none, complete, partial or unknown; no inference from command exit alone |
+| Remote identity / observed refs | Publication destination, observed remote main and reconciliation evidence |
+| Record format / publication status | Versioned plain-text format; none, complete, partial, collision or unknown, never inferred from command exit alone |
 
-Use atomic push for the complete intended ref transaction. Unsupported atomic capability is an explicit failure; no automatic non-atomic fallback. Inspection still handles partial preexisting/external publication and unknown transport outcomes. Remote observation compares exact objects (including peeled candidate commit where needed), not only tag names. Failed/unobservable inspection means unknown. Preexisting unrelated refs remain intact. Do not delete tags blindly to recover a version.
+Use atomic push for the complete intended ref transaction. Unsupported atomic capability is an explicit failure; no automatic non-atomic fallback. Inspection still handles partial preexisting/external publication and unknown transport outcomes. Remote observation compares exact tag objects and verifies source ancestry in main. Main may advance after a successful release; recovery must not rewind it. Failed/unobservable inspection means unknown. Preexisting unrelated refs remain intact. Do not delete tags blindly to recover a version.
 
 | State | Meaning | Recovery |
 |---|---|---|
-| none | Successful remote inspection proves none of the intended refs published | Retry the same persisted candidate after fixing the cause |
-| complete | All intended refs match the candidate | Idempotent completion; do not republish/increment implicitly |
-| partial | Successful inspection proves a proper subset matches; remaining expected refs absent | Reconcile the same candidate; push only the missing exact refs atomically after collision checks |
+| none | Successful inspection finds no release tags; main may already contain source | Retry the same persisted candidate after fixing the cause |
+| complete | All release tags match candidate and remote main equals or descends from source | Idempotent completion; do not republish/increment implicitly |
+| partial | Some release tags match, or all tags match but source delivery through main is unconfirmed | Reconcile the same candidate; push explicit refs atomically after collision and main fast-forward checks |
 | unknown | Destination inspection unavailable or outcome not established | Explicit inspect before any further publication; preserve candidate |
-| collision | Any intended ref exists with a different object | Stop; require explicit host resolution; never force/delete unrelated refs |
+| collision | An intended release tag exists with a different object | Stop; require explicit host resolution; never force/delete unrelated refs |
 
 Candidate calculation cannot rely on an unpublished failed local tag as the latest published release. Any outstanding record must be inspected/resumed or explicitly resolved before a new candidate is created. A failure before creating tags still leaves sufficient record/state to preserve source/version or prove no candidate existed. Clean consumer GOWORK=off install/build is performed against the isolated release candidate/module graph, with exact manifests and submodule versions; it does not require real remote publication.
 
