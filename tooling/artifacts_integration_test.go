@@ -19,7 +19,7 @@ import (
 
 func artifactProxy(t *testing.T, source, version, proxy string) []string {
 	t.Helper()
-	dirs := strings.Fields(string(read(t, filepath.Join(source, "scripts/release-modules.txt"))))
+	dirs := strings.Fields(command(t, source, nil, "make", "--no-print-directory", "-s", "release-modules"))
 	paths := make([]string, 0, len(dirs))
 	for _, dir := range dirs {
 		base := filepath.Join(source, dir)
@@ -185,7 +185,7 @@ func sourceCandidate(t *testing.T, root string) string {
 		}
 		write(t, filepath.Join(target, name), data)
 	}
-	for dir := range strings.FieldsSeq(string(read(t, filepath.Join(target, "scripts/release-modules.txt")))) {
+	for dir := range strings.FieldsSeq(command(t, target, nil, "make", "--no-print-directory", "-s", "release-modules")) {
 		rewriteFixtureManifest(t, filepath.Join(target, dir))
 	}
 
@@ -198,7 +198,7 @@ func TestPublishedRelease(t *testing.T) {
 		version = "v0.8.1"
 	} // Explicit published baseline; release supplies its exact new version.
 	root := repoRoot(t)
-	dirs := strings.Fields(string(read(t, filepath.Join(root, "scripts/release-modules.txt"))))
+	dirs := strings.Fields(command(t, root, nil, "make", "--no-print-directory", "-s", "release-modules"))
 	paths := make([]string, 0, len(dirs))
 	for _, dir := range dirs {
 		m, err := modfile.Parse("go.mod", read(t, filepath.Join(root, dir, "go.mod")), nil)

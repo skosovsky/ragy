@@ -12,7 +12,7 @@ import (
 func TestPublishableModuleInventory(t *testing.T) {
 	// Arrange: tracked source is the inventory authority, not ignored build artifacts.
 	root := repoRoot(t)
-	publish := strings.Fields(string(read(t, filepath.Join(root, "scripts/release-modules.txt"))))
+	publish := strings.Fields(command(t, root, nil, "make", "--no-print-directory", "-s", "release-modules"))
 	paths := strings.Split(
 		command(
 			t,

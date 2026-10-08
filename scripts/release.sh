@@ -78,7 +78,7 @@ load() {
 validate() {
   local candidate parent changed path expected module ref allowed
   for path in modules refs files module-paths; do get "$path" >/dev/null; done
-  [[ "$(git -C "$checkout" show "$source:scripts/release-modules.txt")" == "$(cat "$active/modules")" ]] || fail 'module inventory record changed'
+  [[ "$(cd "$checkout" && unset MAKEFLAGS MAKEOVERRIDES MODULES PUBLISH_MODULES && make --no-print-directory -s release-modules)" == "$(cat "$active/modules")" ]] || fail 'module inventory record changed'
   candidate=$(get candidate)
   [[ "$candidate" =~ ^[0-9a-f]{40}$ && $(git -C "$checkout" rev-parse HEAD) == "$candidate" ]] || fail 'candidate identity changed'
   [[ -z $(git -C "$checkout" status --porcelain --untracked-files=no) ]] || fail 'candidate is dirty'
@@ -199,7 +199,7 @@ case "$operation" in
     for key in user.name user.email user.signingkey commit.gpgsign gpg.format gpg.program gpg.ssh.program; do
       value=$(git config --get "$key" || true); [[ -z "$value" ]] || git -C "$checkout" config "$key" "$value"
     done
-    git show "$source:scripts/release-modules.txt" > "$active/modules"
+    (cd "$checkout" && unset MAKEFLAGS MAKEOVERRIDES MODULES PUBLISH_MODULES && make --no-print-directory -s release-modules) > "$active/modules"
     [[ $(head -n 1 "$active/modules") == . && $(sort "$active/modules" | uniq -d | wc -l | tr -d ' ') == 0 ]] || fail 'invalid release module inventory'
     : > "$active/module-paths"
     while IFS= read -r module; do

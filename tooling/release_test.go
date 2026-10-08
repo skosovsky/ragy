@@ -26,12 +26,6 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 	}
 	command(t, repo, nil, "git", "remote", "add", "origin", remote)
 	write(t, filepath.Join(repo, "scripts/release.sh"), read(t, filepath.Join(repoRoot(t), "scripts/release.sh")))
-	write(
-		t,
-		filepath.Join(repo, "scripts/release-checksums.sh"),
-		read(t, filepath.Join(repoRoot(t), "scripts/release-checksums.sh")),
-	)
-	write(t, filepath.Join(repo, "scripts/release-modules.txt"), []byte(".\npackages/test\n"))
 	write(t, filepath.Join(repo, "go.mod"), []byte("module example.invalid/fixture\n\ngo 1.27.1\n"))
 	write(t, filepath.Join(repo, "fixture.go"), []byte("package fixture\n"))
 	write(
@@ -48,9 +42,10 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 	)
 	write(t, filepath.Join(repo, "Makefile"), []byte(`check:
 	@test ! -f reject-check
+release-modules:
+	@printf '.\npackages/test\n'
 release-prepare-project:
 	@$(MAKE) --no-print-directory release-check-project
-	@bash scripts/release-checksums.sh
 release-check-project:
 	@cd tooling && RAGY_CANDIDATE="$(RELEASE_CANDIDATE_DIR)" RAGY_RELEASE_VERSION="$(RELEASE_VERSION)" RAGY_ARTIFACT_PROXY="$(RELEASE_ARTIFACT_DIR)" go test -count=1 -run TestReleaseArtifacts .
 release-published-project:
@@ -424,6 +419,10 @@ func TestReleasePublishesSourceAndPreparedManifests(t *testing.T) {
 	}
 	if got := command(t, f.repo, nil, "git", "rev-parse", "HEAD"); got != head {
 		t.Fatal("local main moved")
+	}
+	changed := command(t, f.repo, nil, "git", "--git-dir="+f.remote, "diff", "--name-only", "main", "v0.0.1")
+	if strings.Contains(changed, "go.sum") {
+		t.Fatalf("release must not manufacture library checksums: %s", changed)
 	}
 	sourceMod := command(t, f.repo, nil, "git", "--git-dir="+f.remote, "show", "main:packages/test/go.mod")
 	candidateMod := command(t, f.repo, nil, "git", "--git-dir="+f.remote, "show", "v0.0.1:packages/test/go.mod")

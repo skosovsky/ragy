@@ -2,8 +2,8 @@
 
 Run `make check` before release. Make invokes Go and the pinned linter directly;
 there is no Python verification runner. Go/tooling versions are in
-`scripts/toolchain.mk`. All modules run with GOWORK=off. Development modules are discovered from go.mod files, excluding hidden directories and vendor.
-Only the publication inventory is explicit, checked against tracked root/adapter modules by Go tests.
+`Makefile`. All modules run with GOWORK=off. Development modules are discovered from go.mod files, excluding hidden directories and vendor.
+Publication modules are also discovered automatically: project.mk selects root/adapter modules and excludes development modules. `make release-modules` shows the result; Go tests check it against tracked manifests.
 
 | Command | Scope |
 |---|---|

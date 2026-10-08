@@ -18,7 +18,7 @@ jobs:
       - id: toolchain
         shell: bash
         run: |
-          awk '$1 == "GO_VERSION" {print "go=" $3} $1 == "LINT_VERSION" {print "lint=" $3}' scripts/toolchain.mk >> "$GITHUB_OUTPUT"
+          awk '$1 == "GO_VERSION" {print "go=" $3} $1 == "LINT_VERSION" {print "lint=" $3}' Makefile >> "$GITHUB_OUTPUT"
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ steps.toolchain.outputs.go }}

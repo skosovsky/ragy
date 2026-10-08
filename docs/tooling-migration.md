@@ -7,7 +7,7 @@ Make is the developer interface. `test` runs race tests in every development mod
 builds, real PostgreSQL, exact-source consumers and isolated release tests.
 `test-integration` runs the latter profiles explicitly. Missing prerequisites fail.
 `bench`, `fuzz`, `cover` and paid `test-live` are separate commands.
-Development modules are discovered automatically from go.mod files (excluding hidden/vendor directories). Only publishable modules retain an explicit inventory, verified against tracked root/adapter manifests. This supersedes the initial proposal for a manual development inventory.
+Development modules are discovered automatically from go.mod files (excluding hidden/vendor directories). Publication modules are selected automatically by the project rule and verified against tracked root/adapter manifests. This supersedes the initial proposal for manual module inventories.
 All commands use GOWORK=off. Tooling dependencies belong to the unpublished tooling
 module. CI invokes the same Make targets. No production publication is authorized
 by this migration.

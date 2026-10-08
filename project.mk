@@ -1,4 +1,5 @@
 # ragy-specific checks. The common Makefile also works without this file.
+PUBLISH_MODULES := $(filter . adapters/%,$(MODULES))
 .PHONY: prerequisites-project examples-project check-project test-pdf release-prepare-project release-check-project release-published-project
 
 prerequisites-project:
@@ -28,8 +29,7 @@ test-pdf:
 
 # Inputs are supplied by the release transaction, always in its isolated checkout.
 release-prepare-project:
-	@$(MAKE) --no-print-directory release-check-project
-	@bash scripts/release-checksums.sh
+	@:
 
 release-check-project:
 	@cd tooling && RAGY_CANDIDATE="$(RELEASE_CANDIDATE_DIR)" RAGY_RELEASE_VERSION="$(RELEASE_VERSION)" RAGY_ARTIFACT_PROXY="$(RELEASE_ARTIFACT_DIR)" \

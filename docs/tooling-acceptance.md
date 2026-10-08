@@ -59,3 +59,18 @@ rejection, remote advancement, interrupted/unknown publication and immutable
 candidate recovery. Recursive Make target preflight and recovery after an initial
 missing remote main are covered. No production refs or sibling repositories were
 modified, and no paid-provider tests were executed.
+
+### Removal of redundant configuration and checksum preparation
+
+The subsequent cleanup removes the publication TXT, toolchain include and custom
+checksum preparation script. Make discovers publication modules using the project
+rule; compiler/linter pins live directly in Makefile and CI reads them there.
+
+Targeted validation after this cleanup passed: all tooling tests with fresh race
+execution, the complete tooling integration profile (candidate artifacts, exact
+published consumers and pinned context peers), lint for both build profiles, Make
+version/module outputs and shell syntax. Release fixtures assert that preparing a
+release does not manufacture go.sum changes. Real artifact consumers install and
+compile without precomputing future root checksums in adapter manifests.
+The full macOS/Linux gate above applies to runtime commit 653ae36; it was not
+repeated for this follow-up.

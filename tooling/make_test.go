@@ -13,7 +13,7 @@ import (
 func makeFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	for _, path := range []string{"Makefile", "scripts/toolchain.mk"} {
+	for _, path := range []string{"Makefile"} {
 		write(t, filepath.Join(root, path), read(t, filepath.Join(repoRoot(t), path)))
 	}
 	write(t, filepath.Join(root, "go.mod"), []byte("module example.invalid/root\n"))
@@ -159,5 +159,19 @@ func TestCommonMakeOptionalAndFailingProjectHooks(t *testing.T) {
 				t.Fatalf("project failure swallowed: %s", out)
 			}
 		})
+	}
+}
+
+func TestMakePublicationExcludesDevelopmentModules(t *testing.T) {
+	// Arrange: automatic discovery includes development modules only in ordinary checks.
+	root := makeFixture(t)
+	for _, dir := range []string{"packages/new", "examples/demo", "tooling", "vendor/ignored", ".cache/ignored"} {
+		write(t, filepath.Join(root, dir, "go.mod"), []byte("module example.invalid/fixture\n"))
+	}
+	// Act.
+	actual := command(t, root, nil, "make", "--no-print-directory", "-s", "release-modules")
+	// Assert: a new library module requires no manually maintained list.
+	if actual != ".\npackages/new" {
+		t.Fatalf("publication modules: %q", actual)
 	}
 }

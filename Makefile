@@ -9,7 +9,9 @@ export GO
 MODULES := $(sort $(patsubst ./%,%,$(shell find . -type d \( -name '.*' ! -name '.' -o -name vendor \) -prune -o -type f -name go.mod -exec dirname {} \;)))
 TEST_FLAGS ?=
 FUZZ_SECONDS ?= 30
-include scripts/toolchain.mk
+GO_VERSION := 1.27.1
+LINT_VERSION := 2.14.0
+PUBLISH_MODULES ?= $(filter-out examples/% tooling,$(MODULES))
 ifeq ($(V),1)
 .SHELLFLAGS := -eux -o pipefail -c
 endif
@@ -96,3 +98,7 @@ release-inspect release-resume release-finish:
 prerequisites-project examples-project check-project:
 
 -include project.mk
+
+.PHONY: release-modules
+release-modules:
+	@printf '%s\n' $(PUBLISH_MODULES)

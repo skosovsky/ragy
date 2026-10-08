@@ -24,13 +24,14 @@ unchanged throughout the transaction.
 
 Versions come from remote root tags. Patch increments patch; break increments
 minor before v1. A breaking transition from v1 to v2 is blocked until an import-path
-migration is implemented. The explicit publication inventory excludes development
-modules. Root tags use `vX.Y.Z`; nested module tags use their directory prefix.
+migration is implemented. The selected source's `make release-modules` discovers
+publication modules using the project rule, excluding development modules. Root tags
+use `vX.Y.Z`; nested module tags use their directory prefix.
 
 The release runs the selected source's `make check` in an independent checkout.
 It updates internal requirements to the new version and removes internal development
-replacements only there. The project prepares checksums and validates artifacts and
-consumers; only publishable go.mod/go.sum files may change in the release commit.
+replacements only there. The project validates artifacts and consumers; only
+publishable go.mod/go.sum files may change in the release commit.
 A failed prerequisite, source gate, preparation or candidate check prevents push.
 
 After displaying the source, candidate, destination and exact refs for confirmation,
@@ -54,15 +55,17 @@ script requires these additional targets in the selected source:
 
 | Target | Contract |
 |---|---|
-| `release-prepare-project` | Prepare candidate checksums/artifacts; may change only the allowed manifests in the isolated checkout. |
+| `release-prepare-project` | Optional project preparation (a no-op in ragy); any changes are limited to allowed manifests in the isolated checkout. |
 | `release-check-project` | Validate the final candidate without changing it. |
 | `release-published-project` | Verify exact-version public consumers without publishing refs. |
 
 All three receive `RELEASE_SOURCE` (source SHA), `RELEASE_CANDIDATE_DIR` (absolute
 checkout directory), `RELEASE_VERSION` and `RELEASE_ARTIFACT_DIR` (private artifact
 scratch directory). Missing targets fail before publication. The current ragy
-implementation delegates validation to Go integration tests and root dependency
-checksum preparation to a small project script. These tests are not a release CLI.
+implementation delegates validation to Go integration tests. Consumers resolve
+dependencies and generate their own go.sum using standard Go commands; release
+does not precompute future dependency checksums in library manifests. These tests
+are not a release CLI.
 
 ## Recovery
 
