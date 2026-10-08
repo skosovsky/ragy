@@ -11,7 +11,8 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 ready=0
 for ((attempt=0; attempt<60; attempt++)); do
-  if docker exec "$container" pg_isready -U postgres -d ragy >/dev/null 2>&1; then ready=1; break; fi
+  # The entrypoint's temporary initdb server has only a Unix socket, not TCP.
+  if docker exec "$container" pg_isready -h 127.0.0.1 -U postgres -d ragy >/dev/null 2>&1; then ready=1; break; fi
   if [[ $(docker inspect --format '{{.State.Running}}' "$container") != true ]]; then
     docker logs "$container" >&2; echo 'PostgreSQL exited before readiness' >&2; exit 1
   fi
