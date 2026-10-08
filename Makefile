@@ -26,6 +26,8 @@ prerequisites: versions
 	@command -v git >/dev/null
 	@command -v docker >/dev/null || { echo 'make check requires Docker' >&2; exit 1; }
 	@docker info >/dev/null
+	@test -n "$${RAGY_PDF_PYTHON:-}" || { echo 'PDF migration blocked: set RAGY_PDF_PYTHON; see docs/pdf-go-feasibility.md' >&2; exit 1; }
+	@command -v "$${RAGY_PDF_PYTHON}" >/dev/null || { echo 'Retained PDF interpreter is unavailable' >&2; exit 1; }
 	@cd tooling && $(GO) test -count=1 -run '^TestModuleInventory$$' ./...
 
 check:
