@@ -272,7 +272,7 @@ func (b *resultPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithFallback(
 func (b *resultPipelineBuilder[TIntent, TRequestMeta, TMeta]) WithRescue(
 	primary, secondary resultNode[TIntent, TRequestMeta, TMeta],
 ) *resultPipelineBuilder[TIntent, TRequestMeta, TMeta] {
-	b.root = resultRescueNode[TIntent, TRequestMeta, TMeta]{ //nolint:exhaustruct // Resolver injected in Build()
+	b.root = resultRescueNode[TIntent, TRequestMeta, TMeta]{ //nolint:exhaustruct_v5 // Resolver injected in Build()
 		Primary:   primary,
 		Secondary: secondary,
 	}
