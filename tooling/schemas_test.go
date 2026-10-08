@@ -1,6 +1,9 @@
+//go:build !integration
+
 package tooling_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"path/filepath"
 	"testing"
@@ -201,4 +204,15 @@ func checkSchemaCases(t *testing.T, schema *jsonschema.Schema, cases []struct {
 			t.Errorf("case %d valid=%v: %v", i, c.Valid, err)
 		}
 	}
+}
+
+func decode(t *testing.T, data []byte) any {
+	t.Helper()
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		t.Fatal(err)
+	}
+	return value
 }

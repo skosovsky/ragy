@@ -7,6 +7,7 @@ Make is the developer interface. `test` runs race tests in every development mod
 builds, real PostgreSQL, exact-source consumers and isolated release tests.
 `test-integration` runs the latter profiles explicitly. Missing prerequisites fail.
 `bench`, `fuzz`, `cover` and paid `test-live` are separate commands.
+Development modules are discovered automatically from go.mod files (excluding hidden/vendor directories). Only publishable modules retain an explicit inventory, verified against tracked root/adapter manifests. This supersedes the initial proposal for a manual development inventory.
 All commands use GOWORK=off. Tooling dependencies belong to the unpublished tooling
 module. CI invokes the same Make targets. No production publication is authorized
 by this migration.
@@ -68,3 +69,11 @@ retained actual parser and fails explicitly when its prerequisite is absent. Thi
 is a partial migration, not a Python-free acceptance claim.
 
 Final tooling checks and their scope are recorded in [acceptance](tooling-acceptance.md).
+
+## Shared library infrastructure follow-up
+
+The reusable Makefile now delegates repository checks to `project.mk`. The common
+release protocol publishes source to remote main and prepared candidate to exact
+tags in one atomic push, with format-2 recovery records. Only ragy is migrated;
+sibling library checkouts are references, not mutation targets. See the release
+runbook for branch selection, project hooks and recovery compatibility.

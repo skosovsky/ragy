@@ -10,12 +10,15 @@ repo=$(git rev-parse --show-toplevel)
 cd "$repo"
 common=$(git rev-parse --git-common-dir)
 [[ "$common" = /* ]] || common="$repo/$common"
-base="$common/ragy-releases"
+base="$common/library-releases"
 [[ ! -L "$base" ]] || fail 'state directory must not be a symlink'
 mkdir -p "$base"
-[[ ! -e "$base/active" ]] || fail 'legacy active release exists; inspect/finish with the previous tooling revision before migration'
-active="$base/shell-active"
-lock="$base/shell-lock"
+for legacy in "$common"/*-releases; do
+  [[ "$legacy" == "$base" ]] && continue
+  [[ ! -e "$legacy/active" && ! -e "$legacy/shell-active" ]] || fail "legacy active release at $legacy; inspect/finish with the previous tooling revision"
+done
+active="$base/active"
+lock="$base/lock"
 mkdir "$lock" 2>/dev/null || fail "another release is running; inspect stale lock manually: $lock"
 trap 'rmdir "$lock" 2>/dev/null || true' EXIT
 trap 'exit 130' INT
@@ -26,11 +29,29 @@ put() {
 }
 get() { [[ -f "$active/$1" && ! -L "$active/$1" ]] || fail "invalid record $1"; cat "$active/$1"; }
 clean() { [[ -z $(git status --porcelain --untracked-files=no) ]] || fail 'tracked files and index must be clean'; }
+main_source() {
+  [[ $(git symbolic-ref --quiet HEAD) == refs/heads/main ]] || fail 'release requires local main checkout'
+  git merge-base --is-ancestor "$source" refs/heads/main || fail 'source must belong to local main'
+}
 remote=$(git remote get-url --push --all origin)
 [[ -n "$remote" && "$remote" != *$'\n'* ]] || fail 'exactly one origin push destination required'
 case "$remote" in /*|*:* ) ;; *) remote="$repo/$remote";; esac
+remote_main() {
+  local rows
+  rows=$(git ls-remote --refs -- "$remote" refs/heads/main) || return 1
+  remote_oid=$(printf '%s\n' "$rows" | awk '$2=="refs/heads/main" {print $1}')
+  [[ "$remote_oid" =~ ^[0-9a-f]{40}$ ]] || return 1
+  git -C "$checkout" fetch --quiet --no-tags -- "$remote" "$remote_oid" || return 1
+}
+fast_forward() {
+  remote_main || fail 'cannot read existing remote main'
+  git -C "$checkout" merge-base --is-ancestor "$remote_oid" "$source" || fail 'remote main cannot fast-forward to selected source'
+  put remote-main "$remote_oid"
+}
 observe() {
-  local rows ref oid found count=0 total=0
+  local rows ref oid found count=0 total=0 delivered=0
+  if ! remote_main; then put status unknown; return 1; fi
+  if git -C "$checkout" merge-base --is-ancestor "$source" "$remote_oid"; then delivered=1; fi
   if ! rows=$(git ls-remote --refs -- "$remote" 'refs/tags/*'); then put status unknown; return 1; fi
   while IFS=' ' read -r ref oid; do
     [[ -n "$ref" ]] || continue
@@ -39,12 +60,14 @@ observe() {
     if [[ -n "$found" && "$found" != "$oid" ]]; then put status collision; return 1; fi
     [[ -z "$found" ]] || count=$((count+1))
   done < "$active/refs"
-  if (( count == total )); then put status complete
+  if (( count == total && delivered == 1 )); then put status complete
   elif (( count == 0 )); then put status none
   else put status partial; fi
 }
 load() {
   [[ -d "$active" && ! -L "$active" ]] || fail 'no active shell release'
+  [[ $(get format) == 2 ]] || fail 'unsupported active record format; recover using its original tooling revision'
+  [[ $(get branch) == refs/heads/main ]] || fail 'release branch record changed'
   [[ $(get remote) == "$remote" ]] || fail 'origin destination changed'
   source=$(get source); version=$(get version); kind=$(get kind)
   [[ "$source" =~ ^[0-9a-f]{40}$ && "$version" =~ ^v[01]\.[0-9]+\.[0-9]+$ ]] || fail 'invalid source/version record'
@@ -69,7 +92,7 @@ validate() {
   done < "$active/modules")
   [[ "$(cat "$active/refs")" == "$expected" ]] || fail 'ref inventory record changed'
   allowed=$(while IFS= read -r module; do
-    if [[ "$module" == . ]]; then printf 'go.mod\n'; else printf '%s/go.mod\n%s/go.sum\n' "$module" "$module"; fi
+    if [[ "$module" == . ]]; then printf 'go.mod\ngo.sum\n'; else printf '%s/go.mod\n%s/go.sum\n' "$module" "$module"; fi
   done < "$active/modules")
   [[ "$(cat "$active/files")" == "$allowed" ]] || fail 'manifest allowlist record changed'
   changed=$(git -C "$checkout" diff --name-only "$source" "$candidate")
@@ -81,9 +104,9 @@ validate() {
     [[ $(git -C "$checkout" rev-parse "$ref") == "$candidate" ]] || fail 'candidate tag changed'
   done < "$active/refs"
 }
-artifacts() {
-  (cd "$checkout/tooling" && RAGY_CANDIDATE="$checkout" RAGY_RELEASE_VERSION="$version" RAGY_ARTIFACT_PROXY="$active/proxy" \
-    "${GO:-go}" test -count=1 -timeout=20m -tags=integration -run '^TestReleaseArtifacts$' .)
+project() {
+  (cd "$checkout" && RELEASE_SOURCE="$source" RELEASE_CANDIDATE_DIR="$checkout" RELEASE_VERSION="$version" RELEASE_ARTIFACT_DIR="$active/proxy" \
+    make --no-print-directory "$1")
 }
 seal() {
   local module ref oid existing
@@ -98,14 +121,19 @@ seal() {
   done < "$active/modules"
 }
 prepare() {
-  local module modpath dependency canonical sumjson sum modsum file
+  local module modpath dependency canonical file
   # Rebuild incomplete preparation from the same immutable source in the owned checkout.
   git -C "$checkout" reset --hard --quiet "$source"
   git -C "$checkout" clean -fdq
+  for target in release-prepare-project release-check-project release-published-project; do
+    result=0
+    (cd "$checkout" && make -q "$target") || result=$?
+    (( result < 2 )) || fail "required project target is unavailable: $target"
+  done
   (cd "$checkout" && make check)
   : > "$active/files"
   while IFS= read -r module; do
-    [[ "$module" == . || "$module" =~ ^adapters/[a-z0-9_/-]+$ ]] || fail "invalid module: $module"
+    [[ "$module" == . || "$module" =~ ^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$ ]] || fail "invalid module: $module"
     [[ "$module" != *..* ]] || fail 'invalid module traversal'
     modpath="$checkout/$module/go.mod"
     [[ -f "$modpath" && ! -L "$modpath" ]] || fail "invalid manifest: $module"
@@ -119,29 +147,17 @@ prepare() {
     done < "$active/module-paths"
     file=go.mod; [[ "$module" == . ]] || file="$module/go.mod"
     printf '%s\n' "$file" >> "$active/files"
-    if [[ "$module" != . ]]; then printf '%s/go.sum\n' "$module" >> "$active/files"; fi
+    if [[ "$module" == . ]]; then printf 'go.sum\n' >> "$active/files"; else printf '%s/go.sum\n' "$module" >> "$active/files"; fi
   done < "$active/modules"
-  # First artifact test prepares a disposable proxy and checks all consumers.
-  artifacts
-  rootpath=$(head -n 1 "$active/module-paths")
-  sumjson=$(cd "$active" && GOPROXY="file://$active/proxy" GONOSUMDB="$rootpath,$rootpath/*" "${GO:-go}" mod download -json "$rootpath@$version")
-  sum=$(printf '%s\n' "$sumjson" | sed -n 's/^[[:space:]]*"Sum": "\([^"]*\)".*/\1/p')
-  modsum=$(printf '%s\n' "$sumjson" | sed -n 's/^[[:space:]]*"GoModSum": "\([^"]*\)".*/\1/p')
-  [[ "$sum" == h1:* && "$modsum" == h1:* ]] || fail 'missing candidate root checksums'
-  while IFS= read -r module; do
-    [[ "$module" != . ]] || continue
-    file="$checkout/$module/go.sum"
-    [[ ! -L "$file" ]] || fail 'checksum file must not be a symlink'
-    [[ -f "$file" ]] || : > "$file"
-    awk -v p="$rootpath" -v v="$version" '!($1==p && ($2==v || $2==v"/go.mod"))' "$file" > "$file.tmp"
-    printf '%s %s %s\n%s %s/go.mod %s\n' "$rootpath" "$version" "$sum" "$rootpath" "$version" "$modsum" >> "$file.tmp"
-    LC_ALL=C sort -u "$file.tmp" > "$file"; rm "$file.tmp"
-  done < "$active/modules"
-  while IFS= read -r file; do git -C "$checkout" add -- "$file"; done < "$active/files"
+  project release-prepare-project
+  while IFS= read -r file; do
+    [[ ! -L "$checkout/$file" ]] || fail "manifest must not be a symlink: $file"
+    if [[ -f "$checkout/$file" ]]; then git -C "$checkout" add -- "$file"; fi
+  done < "$active/files"
   if ! git -C "$checkout" diff --cached --quiet; then git -C "$checkout" commit --quiet -m "chore: release $version"; fi
   put candidate "$(git -C "$checkout" rev-parse HEAD)"
   seal
-  artifacts
+  project release-check-project
   put phase prepared
 }
 operation=${1:-}
@@ -149,7 +165,7 @@ case "$operation" in
  inspect)
   load
   if [[ -f "$active/refs" ]]; then observe || true; fi
-  for field in source version kind phase candidate status; do [[ ! -f "$active/$field" ]] || printf '%s: %s\n' "$field" "$(get "$field")"; done
+  for field in format branch remote-main source version kind phase candidate status; do [[ ! -f "$active/$field" ]] || printf '%s: %s\n' "$field" "$(get "$field")"; done
   exit 0;;
  finish)
   load; clean; validate; observe || fail 'cannot confirm publication'
@@ -157,12 +173,13 @@ case "$operation" in
   [[ $(get smoke-passed) == "$(get candidate)" ]] || fail 'smoke identity changed'
   mkdir -p "$base/history"; mv "$active" "$base/history/$version-$(get candidate)-shell"; exit 0;;
  resume)
-  load; clean
+  load; clean; main_source
   [[ $(get status) != unknown && $(get status) != collision ]] || fail 'run inspect before resuming an unknown/colliding publication';;
  patch|break)
   clean
   [[ -z ${2:-} || "$2" =~ ^[0-9a-f]{40}$ ]] || fail 'RELEASE_SOURCE must be a full commit SHA'
   requested=$(git rev-parse --verify "${2:-HEAD}^{commit}")
+  source="$requested"; main_source
   if [[ -e "$active" ]]; then
     load
     [[ "$source" == "$requested" && "$kind" == "$operation" ]] || fail 'finish or resume the existing candidate first'
@@ -174,11 +191,13 @@ case "$operation" in
     if [[ "$operation" == patch ]]; then patch=$((patch+1)); elif (( major == 0 )); then minor=$((minor+1)); patch=0; else fail 'v2+ requires a semantic import-version migration'; fi
     version="v$major.$minor.$patch"; source="$requested"; kind="$operation"
     mkdir "$active"
+    put format 2; put branch refs/heads/main
     put source "$source"; put version "$version"; put kind "$kind"; put remote "$remote"; put phase preparing; put status none
     checkout="$active/checkout"
     git init --quiet "$checkout"
     git -C "$checkout" fetch --quiet --no-tags "$repo" "$source"
     git -C "$checkout" checkout --quiet --detach "$source"
+    fast_forward
     git -C "$checkout" config core.hooksPath /dev/null
     for key in user.name user.email user.signingkey commit.gpgsign gpg.format gpg.program gpg.ssh.program; do
       value=$(git config --get "$key" || true); [[ -z "$value" ]] || git -C "$checkout" config "$key" "$value"
@@ -187,7 +206,7 @@ case "$operation" in
     [[ $(head -n 1 "$active/modules") == . && $(sort "$active/modules" | uniq -d | wc -l | tr -d ' ') == 0 ]] || fail 'invalid release module inventory'
     : > "$active/module-paths"
     while IFS= read -r module; do
-      [[ "$module" == . || "$module" =~ ^adapters/[a-z0-9_/-]+$ ]] || fail 'invalid module directory'
+      [[ "$module" == . || "$module" =~ ^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$ ]] || fail 'invalid module directory'
       [[ "$module" != *..* ]] || fail 'invalid module traversal'
       file=go.mod; [[ "$module" == . ]] || file="$module/go.mod"
       mode=$(git -C "$checkout" ls-tree "$source" -- "$file" | awk '{print $1}')
@@ -206,17 +225,20 @@ if [[ $(get phase) != prepared ]]; then
   if [[ -f "$active/candidate" ]]; then
     [[ $(git -C "$checkout" rev-parse HEAD) == "$(get candidate)" ]] || fail 'interrupted candidate identity changed'
     [[ -z $(git -C "$checkout" status --porcelain --untracked-files=no) ]] || fail 'interrupted candidate is dirty'
-    seal; validate; artifacts; put phase prepared
+    seal; validate; project release-check-project; put phase prepared
   else prepare; fi
 fi
 validate
 observe || fail "publication $(get status); inspect before retry"
 if [[ $(get status) != complete ]]; then
+  fast_forward
   printf 'Source: %s\nCandidate: %s\nVersion: %s\nDestination: %s\n' "$source" "$(get candidate)" "$version" "$remote"
+  printf 'refs/heads/main %s\n' "$source"
   cat "$active/refs"
   read -r -p 'Publish these exact refs? [y/N] ' answer
   [[ "$answer" == y || "$answer" == Y ]] || fail 'aborted; candidate retained'
-  refs=()
+  fast_forward
+  refs=("$source:refs/heads/main")
   while IFS=' ' read -r ref oid; do refs+=("$ref:$ref"); done < "$active/refs"
   put status unknown
   git -C "$checkout" push --atomic -- "$remote" "${refs[@]}" || true
@@ -226,7 +248,7 @@ fi
 smoke=0
 for delay in 0 2 5; do
   (( delay == 0 )) || sleep "$delay"
-  if (cd "$checkout/tooling" && RAGY_PUBLISHED_VERSION="$version" "${GO:-go}" test -count=1 -timeout=20m -tags=integration -run '^TestPublishedRelease$' .); then smoke=1; break; fi
+  if project release-published-project; then smoke=1; break; fi
 done
 (( smoke == 1 )) || fail 'refs published, but exact-version smoke failed; candidate retained for resume'
 

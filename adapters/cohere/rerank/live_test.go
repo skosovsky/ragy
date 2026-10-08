@@ -10,7 +10,7 @@ import (
 	"github.com/skosovsky/ragy/retrieval"
 )
 
-func TestProviderSmoke(t *testing.T) {
+func TestLiveProviderSmoke(t *testing.T) {
 	// Arrange. A paid call requires explicit opt-in and host-selected model.
 	key, model := os.Getenv("COHERE_API_KEY"), os.Getenv("COHERE_RERANK_MODEL")
 	if os.Getenv("RAGY_PROVIDER_SMOKE") != "1" || key == "" || model == "" {

@@ -1,11 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 export GOWORK=off
-seconds=${1:-30}
-case "$seconds" in ''|*[!0-9]*) echo 'FUZZ_SECONDS must be an integer from 1 to 300' >&2; exit 1;; esac
-(( seconds >= 1 && seconds <= 300 )) || exit 1
+(( $# >= 2 )) || { echo 'usage: fuzz.sh SECONDS MODULE...' >&2; exit 1; }
+seconds=$1
+shift
+case "$seconds" in ''|*[!0-9]*) echo 'FUZZ_SECONDS must be a positive integer' >&2; exit 1;; esac
+seconds=$((10#$seconds))
+(( seconds > 0 )) || { echo 'FUZZ_SECONDS must be positive' >&2; exit 1; }
 root=$(cd "$(dirname "$0")/.." && pwd)
-while IFS= read -r module; do
+for module in "$@"; do
   cd "$root/$module"
   packages=$("${GO:-go}" list -tags=fuzz ./...)
   for package in $packages; do
@@ -13,7 +16,7 @@ while IFS= read -r module; do
     while IFS= read -r name; do
       case "$name" in Fuzz*) ;; *) continue;; esac
       case "$name" in *[[:space:]]*) continue;; esac
-      "${GO:-go}" test -tags=fuzz -run='^$' -fuzz="^${name}$" -fuzztime="${seconds}s" -timeout="$((seconds+60))s" -parallel=2 "$package"
+      "${GO:-go}" test -tags=fuzz -run='^$' -fuzz="^${name}$" -fuzztime="${seconds}s" -timeout="$((seconds+60))s" "$package"
     done <<< "$names"
   done
-done < "$root/scripts/check-modules.txt"
+done

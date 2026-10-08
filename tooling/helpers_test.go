@@ -3,7 +3,6 @@ package tooling_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,15 +57,4 @@ func write(t *testing.T, path string, data []byte) {
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func decode(t *testing.T, data []byte) any {
-	t.Helper()
-	var value any
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := decoder.Decode(&value); err != nil {
-		t.Fatal(err)
-	}
-	return value
 }

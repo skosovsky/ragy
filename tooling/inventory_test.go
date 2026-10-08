@@ -1,3 +1,5 @@
+//go:build !integration
+
 package tooling_test
 
 import (
@@ -7,10 +9,9 @@ import (
 	"testing"
 )
 
-func TestModuleInventory(t *testing.T) {
+func TestPublishableModuleInventory(t *testing.T) {
 	// Arrange: tracked source is the inventory authority, not ignored build artifacts.
 	root := repoRoot(t)
-	listed := strings.Fields(string(read(t, filepath.Join(root, "scripts/check-modules.txt"))))
 	publish := strings.Fields(string(read(t, filepath.Join(root, "scripts/release-modules.txt"))))
 	paths := strings.Split(
 		command(
@@ -33,30 +34,14 @@ func TestModuleInventory(t *testing.T) {
 			found = append(found, filepath.ToSlash(filepath.Dir(path)))
 		}
 	}
-	sorted := slices.Clone(listed)
-	slices.Sort(sorted)
-	slices.Sort(found)
-	// Assert.
-	if len(listed) == 0 || listed[0] != "." || !slices.Equal(sorted, found) {
-		t.Fatalf("module inventory: listed %v; actual %v", listed, found)
-	}
-	for i, module := range sorted {
-		if i > 0 && sorted[i-1] == module {
-			t.Fatalf("duplicate %s", module)
-		}
-	}
-	for _, module := range publish {
-		if !slices.Contains(listed, module) || strings.HasPrefix(module, "examples/") || module == "tooling" {
-			t.Fatalf("invalid publishable module %s", module)
-		}
-	}
 	// Every root/adapter module is publishable; examples and tooling are development-only.
-	wantPublish := make([]string, 0, len(listed))
-	for _, module := range listed {
+	wantPublish := make([]string, 0, len(found))
+	for _, module := range found {
 		if module == "." || strings.HasPrefix(module, "adapters/") {
 			wantPublish = append(wantPublish, module)
 		}
 	}
+	// Assert.
 	slices.Sort(wantPublish)
 	slices.Sort(publish)
 	if !slices.Equal(publish, wantPublish) {

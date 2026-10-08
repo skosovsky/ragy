@@ -1,3 +1,5 @@
+//go:build !integration
+
 package tooling_test
 
 import (
@@ -10,7 +12,7 @@ import (
 	"time"
 )
 
-type releaseFixture struct{ repo, remote, source string }
+type releaseFixture struct{ repo, remote, source, initialRefs string }
 
 func newReleaseFixture(t *testing.T) releaseFixture {
 	t.Helper()
@@ -18,28 +20,41 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 	repo := filepath.Join(base, "caller")
 	remote := filepath.Join(base, "remote.git")
 	command(t, base, nil, "git", "init", "--bare", "--quiet", remote)
-	command(t, base, nil, "git", "init", "--quiet", repo)
+	command(t, base, nil, "git", "init", "--quiet", "-b", "main", repo)
 	for _, pair := range [][2]string{{"user.name", "Fixture"}, {"user.email", "fixture@example.invalid"}, {"commit.gpgsign", "false"}, {"tag.gpgsign", "false"}} {
 		command(t, repo, nil, "git", "config", pair[0], pair[1])
 	}
 	command(t, repo, nil, "git", "remote", "add", "origin", remote)
 	write(t, filepath.Join(repo, "scripts/release.sh"), read(t, filepath.Join(repoRoot(t), "scripts/release.sh")))
-	write(t, filepath.Join(repo, "scripts/release-modules.txt"), []byte(".\nadapters/test\n"))
+	write(
+		t,
+		filepath.Join(repo, "scripts/release-checksums.sh"),
+		read(t, filepath.Join(repoRoot(t), "scripts/release-checksums.sh")),
+	)
+	write(t, filepath.Join(repo, "scripts/release-modules.txt"), []byte(".\npackages/test\n"))
 	write(t, filepath.Join(repo, "go.mod"), []byte("module example.invalid/fixture\n\ngo 1.27.1\n"))
 	write(t, filepath.Join(repo, "fixture.go"), []byte("package fixture\n"))
 	write(
 		t,
-		filepath.Join(repo, "adapters/test/go.mod"),
+		filepath.Join(repo, "packages/test/go.mod"),
 		[]byte(
-			"module example.invalid/fixture/adapters/test\n\ngo 1.27.1\n\nrequire example.invalid/fixture v0.0.0\n\nreplace example.invalid/fixture => ../..\n",
+			"module example.invalid/fixture/packages/test\n\ngo 1.27.1\n\nrequire example.invalid/fixture v0.0.0\n\nreplace example.invalid/fixture => ../..\n",
 		),
 	)
 	write(
 		t,
-		filepath.Join(repo, "adapters/test/adapter.go"),
+		filepath.Join(repo, "packages/test/adapter.go"),
 		[]byte("package adapter\nimport _ \"example.invalid/fixture\"\n"),
 	)
-	write(t, filepath.Join(repo, "Makefile"), []byte("check:\n\t@test ! -f reject-check\n"))
+	write(t, filepath.Join(repo, "Makefile"), []byte(`check:
+	@test ! -f reject-check
+release-prepare-project: release-check-project
+	@bash scripts/release-checksums.sh
+release-check-project:
+	@cd tooling && RAGY_CANDIDATE="$(RELEASE_CANDIDATE_DIR)" RAGY_RELEASE_VERSION="$(RELEASE_VERSION)" RAGY_ARTIFACT_PROXY="$(RELEASE_ARTIFACT_DIR)" go test -count=1 -run TestReleaseArtifacts .
+release-published-project:
+	@cd tooling && RAGY_PUBLISHED_VERSION="$(RELEASE_VERSION)" go test -count=1 -run TestPublishedRelease .
+`))
 	write(t, filepath.Join(repo, "tooling/go.mod"), []byte("module example.invalid/tooling\n\ngo 1.27.1\n"))
 	// The release protocol is exercised independently of the expensive artifact suite.
 	// This fixture exports a root module and an adapter depending on that root.
@@ -48,7 +63,7 @@ import("archive/zip";"bytes";"fmt";"os";"path/filepath";"strings";"testing")
 func TestReleaseArtifacts(t *testing.T){
  proxy:=os.Getenv("RAGY_ARTIFACT_PROXY");v:=os.Getenv("RAGY_RELEASE_VERSION");s:=os.Getenv("RAGY_CANDIDATE")
  if proxy==""||v==""||s==""{t.Fatal("missing artifact inputs")}
- for dir,file:=range map[string]string{".":"fixture.go","adapters/test":"adapter.go"}{
+ for dir,file:=range map[string]string{".":"fixture.go","packages/test":"adapter.go"}{
   m,err:=os.ReadFile(filepath.Join(s,dir,"go.mod"));if err!=nil{t.Fatal(err)}
   path:=strings.Fields(string(m))[1];p:=filepath.Join(proxy,path,"@v")
   if err:=os.MkdirAll(p,0755);err!=nil{t.Fatal(err)}
@@ -64,8 +79,13 @@ func TestPublishedRelease(t *testing.T){if os.Getenv("RAGY_PUBLISHED_VERSION")==
 `))
 	command(t, repo, nil, "git", "add", ".")
 	command(t, repo, nil, "git", "commit", "--quiet", "-m", "fixture")
+	command(t, repo, nil, "git", "push", "origin", "main")
+	initialRefs := command(t, repo, nil, "git", "ls-remote", "--refs", remote)
+	write(t, filepath.Join(repo, "source.txt"), []byte("unpublished source\n"))
+	command(t, repo, nil, "git", "add", "source.txt")
+	command(t, repo, nil, "git", "commit", "--quiet", "-m", "source")
 	source := command(t, repo, nil, "git", "rev-parse", "HEAD")
-	return releaseFixture{repo: repo, remote: remote, source: source}
+	return releaseFixture{repo: repo, remote: remote, source: source, initialRefs: initialRefs}
 }
 
 func (f releaseFixture) invoke(t *testing.T, args ...string) (string, error) {
@@ -133,7 +153,7 @@ func TestReleaseRejectsDirtySourceAndFailedGate(t *testing.T) {
 			if err == nil {
 				t.Fatalf("unexpected success: %s", out)
 			}
-			if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != "" {
+			if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != f.initialRefs {
 				t.Fatalf("gate published %s", refs)
 			}
 		})
@@ -153,7 +173,7 @@ func TestReleaseRecoveryAfterRejectedPush(t *testing.T) {
 	if err == nil {
 		t.Fatalf("rejected push succeeded: %s", out)
 	}
-	record := filepath.Join(f.repo, ".git/ragy-releases/shell-active")
+	record := filepath.Join(f.repo, ".git/library-releases/active")
 	candidate := string(read(t, filepath.Join(record, "candidate")))
 	if err = os.Remove(hook); err != nil {
 		t.Fatal(err)
@@ -186,7 +206,7 @@ func TestReleaseRejectsChangedCandidateAndUnknownOutcome(t *testing.T) {
 			if out, err := f.invoke(t, "patch", f.source); err == nil {
 				t.Fatalf("expected rejection: %s", out)
 			}
-			record := filepath.Join(f.repo, ".git/ragy-releases/shell-active")
+			record := filepath.Join(f.repo, ".git/library-releases/active")
 			switch mode {
 			case "candidate":
 				write(t, filepath.Join(record, "checkout/fixture.go"), []byte("package changed\n"))
@@ -220,7 +240,7 @@ func TestReleaseChecksSelectedSource(t *testing.T) {
 	if err == nil {
 		t.Fatalf("unverified source published: %s", out)
 	}
-	if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != "" {
+	if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != f.initialRefs {
 		t.Fatal(refs)
 	}
 }
@@ -235,7 +255,7 @@ func TestReleaseRequiresAtomicPush(t *testing.T) {
 	if err == nil {
 		t.Fatalf("non-atomic release succeeded: %s", out)
 	}
-	if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != "" {
+	if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != f.initialRefs {
 		t.Fatal(refs)
 	}
 }
@@ -259,7 +279,7 @@ func TestReleaseUnknownRequiresSuccessfulInspection(t *testing.T) {
 	if out, err := f.invoke(t, "inspect"); err != nil {
 		t.Fatalf("%v %s", err, out)
 	}
-	record := filepath.Join(f.repo, ".git/ragy-releases/shell-active")
+	record := filepath.Join(f.repo, ".git/library-releases/active")
 	if strings.TrimSpace(string(read(t, filepath.Join(record, "status")))) != "unknown" {
 		t.Fatal("unknown not retained")
 	}
@@ -292,7 +312,7 @@ func TestReleaseRetainsInterruptedCandidate(t *testing.T) {
 	if out, err := f.invoke(t, "patch", f.source); err == nil {
 		t.Fatal(out)
 	}
-	record := filepath.Join(f.repo, ".git/ragy-releases/shell-active")
+	record := filepath.Join(f.repo, ".git/library-releases/active")
 	candidate := string(read(t, filepath.Join(record, "candidate")))
 	write(t, filepath.Join(record, "phase"), []byte("preparing\n"))
 	if err := os.Remove(hook); err != nil {
@@ -314,7 +334,7 @@ func TestReleaseRejectsExistingTags(t *testing.T) {
 		t.Run(location, func(t *testing.T) {
 			// Arrange: an annotated tag already reserves the next adapter version.
 			f := newReleaseFixture(t)
-			tag := "adapters/test/v0.0.1"
+			tag := "packages/test/v0.0.1"
 			command(t, f.repo, nil, "git", "tag", "-a", tag, "-m", "reserved")
 			if location == "remote" {
 				command(t, f.repo, nil, "git", "push", "origin", "refs/tags/"+tag)
@@ -378,9 +398,140 @@ func TestReleaseBreakVersionPolicy(t *testing.T) {
 				if err == nil || !strings.Contains(out, "import-version migration") || refs != before {
 					t.Fatalf("unprepared major migration: %v %s", err, out)
 				}
-			} else if err != nil || !strings.Contains(refs, "refs/tags/adapters/test/v0.9.0") {
+			} else if err != nil || !strings.Contains(refs, "refs/tags/packages/test/v0.9.0") {
 				t.Fatalf("incorrect v0 break: %v %s", err, out)
 			}
 		})
+	}
+}
+
+func TestReleasePublishesSourceAndPreparedManifests(t *testing.T) {
+	// Arrange: release an older ancestor while the caller remains ahead.
+	f := newReleaseFixture(t)
+	write(t, filepath.Join(f.repo, "later.txt"), []byte("later\n"))
+	command(t, f.repo, nil, "git", "add", "later.txt")
+	command(t, f.repo, nil, "git", "commit", "--quiet", "-m", "later")
+	head := command(t, f.repo, nil, "git", "rev-parse", "HEAD")
+	// Act.
+	out, err := f.invoke(t, "patch", f.source)
+	// Assert.
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if got := command(t, f.repo, nil, "git", "--git-dir="+f.remote, "rev-parse", "main"); got != f.source {
+		t.Fatalf("main = %s, want source %s", got, f.source)
+	}
+	if got := command(t, f.repo, nil, "git", "rev-parse", "HEAD"); got != head {
+		t.Fatal("local main moved")
+	}
+	sourceMod := command(t, f.repo, nil, "git", "--git-dir="+f.remote, "show", "main:packages/test/go.mod")
+	candidateMod := command(t, f.repo, nil, "git", "--git-dir="+f.remote, "show", "v0.0.1:packages/test/go.mod")
+	if !strings.Contains(sourceMod, "replace") || strings.Contains(candidateMod, "replace") ||
+		!strings.Contains(candidateMod, "v0.0.1") {
+		t.Fatalf("source/candidate manifests: %s / %s", sourceMod, candidateMod)
+	}
+}
+
+func TestReleaseRejectsInvalidMain(t *testing.T) {
+	for _, mode := range []string{"detached", "feature", "foreign-source", "diverged", "missing-remote-main", "missing-hook", "legacy-record"} {
+		t.Run(mode, func(t *testing.T) {
+			// Arrange.
+			f := newReleaseFixture(t)
+			switch mode {
+			case "detached":
+				command(t, f.repo, nil, "git", "checkout", "--detach")
+			case "feature":
+				command(t, f.repo, nil, "git", "checkout", "-b", "feature")
+			case "foreign-source":
+				command(t, f.repo, nil, "git", "checkout", "-b", "feature")
+				command(t, f.repo, nil, "git", "commit", "--allow-empty", "-m", "foreign")
+				f.source = command(t, f.repo, nil, "git", "rev-parse", "HEAD")
+				command(t, f.repo, nil, "git", "checkout", "main")
+			case "diverged":
+				command(t, f.repo, nil, "git", "checkout", "-b", "remote-change", "HEAD^")
+				command(t, f.repo, nil, "git", "commit", "--allow-empty", "-m", "remote")
+				command(t, f.repo, nil, "git", "push", "origin", "HEAD:main")
+				command(t, f.repo, nil, "git", "checkout", "main")
+			case "missing-remote-main":
+				command(t, f.repo, nil, "git", "--git-dir="+f.remote, "update-ref", "-d", "refs/heads/main")
+			case "missing-hook":
+				data := string(read(t, filepath.Join(f.repo, "Makefile")))
+				write(
+					t,
+					filepath.Join(f.repo, "Makefile"),
+					[]byte(strings.ReplaceAll(data, "release-published-project:", "unavailable:")),
+				)
+				command(t, f.repo, nil, "git", "add", "Makefile")
+				command(t, f.repo, nil, "git", "commit", "-m", "missing hook")
+				f.source = command(t, f.repo, nil, "git", "rev-parse", "HEAD")
+			case "legacy-record":
+				if err := os.MkdirAll(filepath.Join(f.repo, ".git/ragy-releases/shell-active"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote)
+			// Act.
+			out, err := f.invoke(t, "patch", f.source)
+			// Assert.
+			if err == nil {
+				t.Fatalf("unsafe release: %s", out)
+			}
+			if got := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); got != before {
+				t.Fatal("remote changed")
+			}
+		})
+	}
+}
+
+func TestReleaseRecoveryAfterMainAdvances(t *testing.T) {
+	// Arrange: complete a publication, then move remote main forward.
+	f := newReleaseFixture(t)
+	if out, err := f.invoke(t, "patch", f.source); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	record := filepath.Join(f.repo, ".git/library-releases/active")
+	candidate := string(read(t, filepath.Join(record, "candidate")))
+	command(t, f.repo, nil, "git", "commit", "--allow-empty", "-m", "next work")
+	command(t, f.repo, nil, "git", "push", "origin", "main")
+	before := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote)
+	// Act.
+	out, err := f.invoke(t, "resume")
+	// Assert: ancestry proves source delivery; recovery must never rewind main.
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if got := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); got != before {
+		t.Fatal("recovery changed refs")
+	}
+	if got := string(read(t, filepath.Join(record, "candidate"))); got != candidate {
+		t.Fatal("candidate changed")
+	}
+}
+
+func TestReleaseRejectsMainAdvancingDuringPreparation(t *testing.T) {
+	// Arrange: a prepared candidate was retained after rejected push.
+	f := newReleaseFixture(t)
+	hook := filepath.Join(f.remote, "hooks/pre-receive")
+	write(t, hook, []byte("#!/bin/sh\nexit 1\n"))
+	if err := os.Chmod(hook, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := f.invoke(t, "patch", f.source); err == nil {
+		t.Fatal(out)
+	}
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	command(t, f.repo, nil, "git", "commit", "--allow-empty", "-m", "newer main")
+	command(t, f.repo, nil, "git", "push", "origin", "main")
+	before := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote)
+	// Act.
+	out, err := f.invoke(t, "resume")
+	// Assert: unpublished tags cannot cause the branch to rewind to the older source.
+	if err == nil || !strings.Contains(out, "fast-forward") {
+		t.Fatalf("%v %s", err, out)
+	}
+	if got := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); got != before {
+		t.Fatal("remote changed")
 	}
 }

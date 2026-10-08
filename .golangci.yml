@@ -21,6 +21,7 @@ issues:
 formatters:
   exclusions:
     paths:
+      # Project-specific historical audit fixtures.
       - docs/task12/audits/
   enable:
     - goimports # checks if the code and import statements are formatted according to the 'goimports' command
@@ -38,6 +39,7 @@ formatters:
       # A list of prefixes, which, if set, checks import paths
       # with the given prefixes are grouped after 3rd-party packages.
       # Default: []
+      # Project-specific import grouping; keep shared lint rules unchanged.
       local-prefixes:
         - github.com/skosovsky/ragy
 
@@ -513,5 +515,6 @@ linters:
           - noctx
           - wrapcheck
           - exhaustruct_v5
+      # Project-specific contract fixtures.
       - path: 'contracttest/'
         linters: [ exhaustruct_v5 ]
