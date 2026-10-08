@@ -361,3 +361,26 @@ esac
 		t.Fatalf("publication was not observed: %v %s", err, out)
 	}
 }
+
+func TestReleaseBreakVersionPolicy(t *testing.T) {
+	for _, baseline := range []string{"v0.8.1", "v1.2.3"} {
+		t.Run(baseline, func(t *testing.T) {
+			// Arrange: version selection must use the destination's root tags.
+			f := newReleaseFixture(t)
+			command(t, f.repo, nil, "git", "tag", baseline)
+			command(t, f.repo, nil, "git", "push", "origin", "refs/tags/"+baseline)
+			before := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote)
+			// Act.
+			out, err := f.invoke(t, "break", f.source)
+			// Assert.
+			refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote)
+			if baseline == "v1.2.3" {
+				if err == nil || !strings.Contains(out, "import-version migration") || refs != before {
+					t.Fatalf("unprepared major migration: %v %s", err, out)
+				}
+			} else if err != nil || !strings.Contains(refs, "refs/tags/adapters/test/v0.9.0") {
+				t.Fatalf("incorrect v0 break: %v %s", err, out)
+			}
+		})
+	}
+}
