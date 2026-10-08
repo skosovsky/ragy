@@ -126,9 +126,7 @@ prepare() {
   git -C "$checkout" reset --hard --quiet "$source"
   git -C "$checkout" clean -fdq
   for target in release-prepare-project release-check-project release-published-project; do
-    result=0
-    (cd "$checkout" && make -q "$target") || result=$?
-    (( result < 2 )) || fail "required project target is unavailable: $target"
+    (cd "$checkout" && make -n "$target" >/dev/null) || fail "required project target is unavailable: $target"
   done
   (cd "$checkout" && make check)
   : > "$active/files"

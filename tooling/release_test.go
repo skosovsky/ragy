@@ -48,7 +48,8 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 	)
 	write(t, filepath.Join(repo, "Makefile"), []byte(`check:
 	@test ! -f reject-check
-release-prepare-project: release-check-project
+release-prepare-project:
+	@$(MAKE) --no-print-directory release-check-project
 	@bash scripts/release-checksums.sh
 release-check-project:
 	@cd tooling && RAGY_CANDIDATE="$(RELEASE_CANDIDATE_DIR)" RAGY_RELEASE_VERSION="$(RELEASE_VERSION)" RAGY_ARTIFACT_PROXY="$(RELEASE_ARTIFACT_DIR)" go test -count=1 -run TestReleaseArtifacts .
