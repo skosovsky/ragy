@@ -66,3 +66,5 @@ see [the feasibility report](pdf-go-feasibility.md). No public PDF API or limits
 were weakened. Until the owner resolves that blocker, `make check` requires the
 retained actual parser and fails explicitly when its prerequisite is absent. This
 is a partial migration, not a Python-free acceptance claim.
+
+Final tooling checks and their scope are recorded in [acceptance](tooling-acceptance.md).
