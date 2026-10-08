@@ -1,0 +1,363 @@
+package tooling_test
+
+import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+type releaseFixture struct{ repo, remote, source string }
+
+func newReleaseFixture(t *testing.T) releaseFixture {
+	t.Helper()
+	base := t.TempDir()
+	repo := filepath.Join(base, "caller")
+	remote := filepath.Join(base, "remote.git")
+	command(t, base, nil, "git", "init", "--bare", "--quiet", remote)
+	command(t, base, nil, "git", "init", "--quiet", repo)
+	for _, pair := range [][2]string{{"user.name", "Fixture"}, {"user.email", "fixture@example.invalid"}, {"commit.gpgsign", "false"}, {"tag.gpgsign", "false"}} {
+		command(t, repo, nil, "git", "config", pair[0], pair[1])
+	}
+	command(t, repo, nil, "git", "remote", "add", "origin", remote)
+	write(t, filepath.Join(repo, "scripts/release.sh"), read(t, filepath.Join(repoRoot(t), "scripts/release.sh")))
+	write(t, filepath.Join(repo, "scripts/release-modules.txt"), []byte(".\nadapters/test\n"))
+	write(t, filepath.Join(repo, "go.mod"), []byte("module example.invalid/fixture\n\ngo 1.27.1\n"))
+	write(t, filepath.Join(repo, "fixture.go"), []byte("package fixture\n"))
+	write(
+		t,
+		filepath.Join(repo, "adapters/test/go.mod"),
+		[]byte(
+			"module example.invalid/fixture/adapters/test\n\ngo 1.27.1\n\nrequire example.invalid/fixture v0.0.0\n\nreplace example.invalid/fixture => ../..\n",
+		),
+	)
+	write(
+		t,
+		filepath.Join(repo, "adapters/test/adapter.go"),
+		[]byte("package adapter\nimport _ \"example.invalid/fixture\"\n"),
+	)
+	write(t, filepath.Join(repo, "Makefile"), []byte("check:\n\t@test ! -f reject-check\n"))
+	write(t, filepath.Join(repo, "tooling/go.mod"), []byte("module example.invalid/tooling\n\ngo 1.27.1\n"))
+	// The release protocol is exercised independently of the expensive artifact suite.
+	// This fixture exports a root module and an adapter depending on that root.
+	write(t, filepath.Join(repo, "tooling/artifacts_test.go"), []byte(`package fixture
+import("archive/zip";"bytes";"fmt";"os";"path/filepath";"strings";"testing")
+func TestReleaseArtifacts(t *testing.T){
+ proxy:=os.Getenv("RAGY_ARTIFACT_PROXY");v:=os.Getenv("RAGY_RELEASE_VERSION");s:=os.Getenv("RAGY_CANDIDATE")
+ if proxy==""||v==""||s==""{t.Fatal("missing artifact inputs")}
+ for dir,file:=range map[string]string{".":"fixture.go","adapters/test":"adapter.go"}{
+  m,err:=os.ReadFile(filepath.Join(s,dir,"go.mod"));if err!=nil{t.Fatal(err)}
+  path:=strings.Fields(string(m))[1];p:=filepath.Join(proxy,path,"@v")
+  if err:=os.MkdirAll(p,0755);err!=nil{t.Fatal(err)}
+  source,err:=os.ReadFile(filepath.Join(s,dir,file));if err!=nil{t.Fatal(err)}
+  var b bytes.Buffer;z:=zip.NewWriter(&b)
+  for n,d:=range map[string][]byte{"go.mod":m,file:source}{w,e:=z.Create(path+"@"+v+"/"+n);if e!=nil{t.Fatal(e)};if _,e=w.Write(d);e!=nil{t.Fatal(e)}}
+  if err:=z.Close();err!=nil{t.Fatal(err)}
+  for n,d:=range map[string][]byte{v+".mod":m,v+".zip":b.Bytes(),v+".info":[]byte(fmt.Sprintf("{\"Version\":%q,\"Time\":\"2026-01-01T00:00:00Z\"}",v)),"list":[]byte(v+"\n")}{if err:=os.WriteFile(filepath.Join(p,n),d,0600);err!=nil{t.Fatal(err)}}
+ }
+}
+
+func TestPublishedRelease(t *testing.T){if os.Getenv("RAGY_PUBLISHED_VERSION")==""{t.Fatal("missing exact published version")}}
+`))
+	command(t, repo, nil, "git", "add", ".")
+	command(t, repo, nil, "git", "commit", "--quiet", "-m", "fixture")
+	source := command(t, repo, nil, "git", "rev-parse", "HEAD")
+	return releaseFixture{repo: repo, remote: remote, source: source}
+}
+
+func (f releaseFixture) invoke(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", append([]string{"scripts/release.sh"}, args...)...)
+	isolateProcess(cmd)
+	cmd.Dir = f.repo
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GONOSUMDB=example.invalid/*")
+	cmd.Stdin = strings.NewReader("y\n")
+	cmd.WaitDelay = 5 * time.Second
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func TestReleasePreservesCallerAndPublishesExactRefs(t *testing.T) {
+	// Arrange: unrelated local tag and private untracked contents.
+	f := newReleaseFixture(t)
+	command(t, f.repo, nil, "git", "tag", "unrelated")
+	write(t, filepath.Join(f.repo, "private.txt"), []byte("private"))
+	before := command(t, f.repo, nil, "git", "status", "--porcelain")
+	// Act.
+	out, err := f.invoke(t, "patch", f.source)
+	// Assert.
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if got := command(t, f.repo, nil, "git", "rev-parse", "HEAD"); got != f.source {
+		t.Fatal("caller HEAD changed")
+	}
+	if got := command(t, f.repo, nil, "git", "status", "--porcelain"); got != before {
+		t.Fatal("caller contents changed")
+	}
+	refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote)
+	if !strings.Contains(refs, "refs/tags/v0.0.1") || strings.Contains(refs, "unrelated") {
+		t.Fatalf("wrong refs %s", refs)
+	}
+	for _, op := range []string{"inspect", "resume", "finish"} {
+		if out, err := f.invoke(t, op); err != nil {
+			t.Fatalf("%s: %v\n%s", op, err, out)
+		}
+	}
+}
+
+func TestReleaseRejectsDirtySourceAndFailedGate(t *testing.T) {
+	for _, mode := range []string{"dirty", "staged", "gate"} {
+		t.Run(mode, func(t *testing.T) {
+			// Arrange.
+			f := newReleaseFixture(t)
+			if mode == "gate" {
+				write(t, filepath.Join(f.repo, "reject-check"), []byte("fail"))
+				command(t, f.repo, nil, "git", "add", "reject-check")
+				command(t, f.repo, nil, "git", "commit", "--quiet", "-m", "reject gate")
+				f.source = command(t, f.repo, nil, "git", "rev-parse", "HEAD")
+			} else {
+				write(t, filepath.Join(f.repo, "fixture.go"), []byte("package changed\n"))
+				if mode == "staged" {
+					command(t, f.repo, nil, "git", "add", "fixture.go")
+				}
+			}
+			// Act.
+			out, err := f.invoke(t, "patch", f.source)
+			// Assert.
+			if err == nil {
+				t.Fatalf("unexpected success: %s", out)
+			}
+			if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != "" {
+				t.Fatalf("gate published %s", refs)
+			}
+		})
+	}
+}
+
+func TestReleaseRecoveryAfterRejectedPush(t *testing.T) {
+	// Arrange: actual remote rejecting hook.
+	f := newReleaseFixture(t)
+	hook := filepath.Join(f.remote, "hooks/pre-receive")
+	write(t, hook, []byte("#!/bin/sh\nexit 1\n"))
+	if err := os.Chmod(hook, 0700); err != nil {
+		t.Fatal(err)
+	}
+	// Act: failure keeps immutable candidate; subsequent retry publishes that same object.
+	out, err := f.invoke(t, "patch", f.source)
+	if err == nil {
+		t.Fatalf("rejected push succeeded: %s", out)
+	}
+	record := filepath.Join(f.repo, ".git/ragy-releases/shell-active")
+	candidate := string(read(t, filepath.Join(record, "candidate")))
+	if err = os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	if out, err = f.invoke(t, "resume"); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	// Assert.
+	if string(read(t, filepath.Join(record, "candidate"))) != candidate {
+		t.Fatal("retry replaced candidate")
+	}
+	if !strings.Contains(
+		command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote),
+		strings.TrimSpace(candidate),
+	) {
+		t.Fatal("wrong published object")
+	}
+}
+
+func TestReleaseRejectsChangedCandidateAndUnknownOutcome(t *testing.T) {
+	for _, mode := range []string{"candidate", "unknown", "destination", "collision"} {
+		t.Run(mode, func(t *testing.T) {
+			// Arrange: retain a candidate after rejecting publication.
+			f := newReleaseFixture(t)
+			hook := filepath.Join(f.remote, "hooks/pre-receive")
+			write(t, hook, []byte("#!/bin/sh\nexit 1\n"))
+			if err := os.Chmod(hook, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if out, err := f.invoke(t, "patch", f.source); err == nil {
+				t.Fatalf("expected rejection: %s", out)
+			}
+			record := filepath.Join(f.repo, ".git/ragy-releases/shell-active")
+			switch mode {
+			case "candidate":
+				write(t, filepath.Join(record, "checkout/fixture.go"), []byte("package changed\n"))
+			case "unknown":
+				write(t, filepath.Join(record, "status"), []byte("unknown\n"))
+			case "destination":
+				command(t, f.repo, nil, "git", "remote", "set-url", "origin", f.remote+"-other")
+			case "collision":
+				write(t, filepath.Join(record, "refs"), []byte("refs/tags/v0.0.1 "+strings.Repeat("0", 40)+"\n"))
+			}
+			// Act / Assert.
+			if out, err := f.invoke(t, "resume"); err == nil {
+				t.Fatalf("unsafe resume: %s", out)
+			}
+		})
+	}
+}
+
+func TestReleaseChecksSelectedSource(t *testing.T) {
+	// Arrange: current HEAD differs from the explicitly selected, failing source.
+	f := newReleaseFixture(t)
+	write(t, filepath.Join(f.repo, "reject-check"), []byte("failure"))
+	command(t, f.repo, nil, "git", "add", "reject-check")
+	command(t, f.repo, nil, "git", "commit", "--quiet", "-m", "failing source")
+	selected := command(t, f.repo, nil, "git", "rev-parse", "HEAD")
+	command(t, f.repo, nil, "git", "rm", "reject-check")
+	command(t, f.repo, nil, "git", "commit", "--quiet", "-m", "passing head")
+	// Act.
+	out, err := f.invoke(t, "patch", selected)
+	// Assert: checking only the current passing HEAD would incorrectly publish.
+	if err == nil {
+		t.Fatalf("unverified source published: %s", out)
+	}
+	if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != "" {
+		t.Fatal(refs)
+	}
+}
+
+func TestReleaseRequiresAtomicPush(t *testing.T) {
+	// Arrange: server does not advertise the required atomic capability.
+	f := newReleaseFixture(t)
+	command(t, f.repo, nil, "git", "--git-dir="+f.remote, "config", "receive.advertiseAtomic", "false")
+	// Act.
+	out, err := f.invoke(t, "patch", f.source)
+	// Assert: no silent fallback to non-atomic publication.
+	if err == nil {
+		t.Fatalf("non-atomic release succeeded: %s", out)
+	}
+	if refs := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); refs != "" {
+		t.Fatal(refs)
+	}
+}
+
+func TestReleaseUnknownRequiresSuccessfulInspection(t *testing.T) {
+	// Arrange: prepared candidate after server rejection.
+	f := newReleaseFixture(t)
+	hook := filepath.Join(f.remote, "hooks/pre-receive")
+	write(t, hook, []byte("#!/bin/sh\nexit 1\n"))
+	if err := os.Chmod(hook, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := f.invoke(t, "patch", f.source); err == nil {
+		t.Fatal(out)
+	}
+	moved := f.remote + "-offline"
+	if err := os.Rename(f.remote, moved); err != nil {
+		t.Fatal(err)
+	}
+	// Act: unavailable remote observation records unknown.
+	if out, err := f.invoke(t, "inspect"); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	record := filepath.Join(f.repo, ".git/ragy-releases/shell-active")
+	if strings.TrimSpace(string(read(t, filepath.Join(record, "status")))) != "unknown" {
+		t.Fatal("unknown not retained")
+	}
+	if err := os.Rename(moved, f.remote); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	// Assert: resume remains blocked until inspect resolves uncertainty.
+	if out, err := f.invoke(t, "resume"); err == nil {
+		t.Fatalf("unknown resume succeeded: %s", out)
+	}
+	if out, err := f.invoke(t, "inspect"); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if out, err := f.invoke(t, "resume"); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+}
+
+func TestReleaseRetainsInterruptedCandidate(t *testing.T) {
+	// Arrange: emulate interruption after candidate/ref creation, before phase bookkeeping.
+	f := newReleaseFixture(t)
+	hook := filepath.Join(f.remote, "hooks/pre-receive")
+	write(t, hook, []byte("#!/bin/sh\nexit 1\n"))
+	if err := os.Chmod(hook, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := f.invoke(t, "patch", f.source); err == nil {
+		t.Fatal(out)
+	}
+	record := filepath.Join(f.repo, ".git/ragy-releases/shell-active")
+	candidate := string(read(t, filepath.Join(record, "candidate")))
+	write(t, filepath.Join(record, "phase"), []byte("preparing\n"))
+	if err := os.Remove(hook); err != nil {
+		t.Fatal(err)
+	}
+	// Act.
+	out, err := f.invoke(t, "resume")
+	// Assert.
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if string(read(t, filepath.Join(record, "candidate"))) != candidate {
+		t.Fatal("candidate replaced after interruption")
+	}
+}
+
+func TestReleaseRejectsExistingTags(t *testing.T) {
+	for _, location := range []string{"local", "remote"} {
+		t.Run(location, func(t *testing.T) {
+			// Arrange: an annotated tag already reserves the next adapter version.
+			f := newReleaseFixture(t)
+			tag := "adapters/test/v0.0.1"
+			command(t, f.repo, nil, "git", "tag", "-a", tag, "-m", "reserved")
+			if location == "remote" {
+				command(t, f.repo, nil, "git", "push", "origin", "refs/tags/"+tag)
+				command(t, f.repo, nil, "git", "tag", "-d", tag)
+			}
+			before := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote)
+			// Act.
+			out, err := f.invoke(t, "patch", f.source)
+			// Assert: no overwritten tag and no partial root publication.
+			if err == nil || !strings.Contains(out, "tag collision") {
+				t.Fatalf("collision accepted: %v %s", err, out)
+			}
+			if got := command(t, f.repo, nil, "git", "ls-remote", "--refs", f.remote); got != before {
+				t.Fatal("remote changed after collision")
+			}
+		})
+	}
+}
+
+func TestReleaseObservesSuccessfulPushDespiteTransportError(t *testing.T) {
+	// Arrange: transport reports failure after the real atomic push has completed.
+	f := newReleaseFixture(t)
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	shim := filepath.Join(bin, "git")
+	write(t, shim, []byte(`#!/bin/bash
+case " $* " in
+*' push --atomic '*) "$REAL_GIT" "$@"; exit 75 ;;
+*) exec "$REAL_GIT" "$@" ;;
+esac
+`))
+	if err = os.Chmod(shim, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("REAL_GIT", realGit)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// Act.
+	out, err := f.invoke(t, "patch", f.source)
+	// Assert: exact remote identities resolve ambiguity, without a second candidate.
+	if err != nil || !strings.Contains(out, "Published and verified") {
+		t.Fatalf("publication was not observed: %v %s", err, out)
+	}
+}
