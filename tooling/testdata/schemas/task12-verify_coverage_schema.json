@@ -1,0 +1,175 @@
+[
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "partial",
+      "skipped_branches": [
+        "optional-graph"
+      ]
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "unobserved",
+      "skipped_branches": null
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "unobserved",
+      "skipped_branches": []
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "complete",
+      "skipped_branches": null
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "complete",
+      "skipped_branches": []
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "unrestricted",
+      "skipped_branches": null
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "unrestricted",
+      "skipped_branches": []
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "incompatible",
+      "state": "partial",
+      "skipped_branches": [
+        "optional-graph"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "unsupported",
+      "skipped_branches": [
+        "optional-graph"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "",
+      "skipped_branches": [
+        "optional-graph"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "partial",
+      "skipped_branches": []
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "partial",
+      "skipped_branches": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "partial",
+      "skipped_branches": [
+        "a",
+        "a"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "partial",
+      "skipped_branches": [
+        "private\nidentifier"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "complete",
+      "skipped_branches": [
+        "optional-graph"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "partial",
+      "skipped_branches": [
+        "optional-graph"
+      ],
+      "private_ids": [
+        "secret"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "state": "partial",
+      "skipped_branches": [
+        "optional-graph"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "skipped_branches": [
+        "optional-graph"
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.read-coverage/admission",
+      "state": "partial"
+    }
+  }
+]

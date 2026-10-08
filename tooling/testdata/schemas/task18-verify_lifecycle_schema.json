@@ -1,0 +1,4488 @@
+[
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": false,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "unknown",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": [
+        {
+          "kind": "delta",
+          "watermark": "observed-1",
+          "fingerprint": "fixture-confirmed-envelope",
+          "coverage": "partial",
+          "targets": [
+            "lexical"
+          ],
+          "imported": [
+            "publication-1"
+          ],
+          "unmanaged": [
+            {
+              "target": "lexical",
+              "key": "legacy-unknown-record"
+            }
+          ],
+          "missing": null
+        }
+      ],
+      "pins": null
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": true,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "tensor",
+              "required": true,
+              "state": "failed",
+              "revision": "",
+              "artifacts": []
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": null,
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": true,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "unknown",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": -1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 18446744073709551616,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "unknown",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "surprise",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "staging",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "failed",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": []
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null,
+      "private_payload": "not a contract field"
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": false,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "unknown",
+              "attempts": 1,
+              "next_at": "invalid-date"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": ""
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": 123
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            },
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ]
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "unknown",
+          "checkpoint": "published",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": true,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "unknown",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": null,
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical",
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            ""
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": [
+                {
+                  "reference": {
+                    "namespace": "n",
+                    "source": "policy",
+                    "revision": "r1",
+                    "transformation": "chunk",
+                    "access_fingerprint": "acl",
+                    "artifact": "p1",
+                    "representation": "text"
+                  },
+                  "supports": [
+                    {
+                      "namespace": "n",
+                      "source": "policy",
+                      "revision": "r1",
+                      "transformation": "chunk",
+                      "access_fingerprint": "acl",
+                      "artifact": "p1",
+                      "representation": "text"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "publication-1"
+        }
+      ],
+      "cleanups": null,
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "current",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": false
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ],
+          "private_payload": true
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true,
+          "private_payload": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5"
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl",
+              "private_payload": true
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  },
+  {
+    "valid": false,
+    "value": {
+      "schema": "ragy.lifecycle/v2",
+      "namespace": "n",
+      "generation": 1,
+      "manifests": [
+        {
+          "id": "publication-1",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "request-1",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "",
+          "tombstone": false,
+          "partial": false,
+          "state": "published",
+          "checkpoint": "",
+          "targets": [
+            {
+              "name": "lexical",
+              "required": true,
+              "state": "ready",
+              "revision": "r1",
+              "artifacts": null
+            }
+          ],
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": true,
+          "artifact_fences": [
+            {
+              "target": "lexical",
+              "digest": "9080f6efc68c33d13e532ace46e221410da7a9c8acfd5a5d9f7a87a608c344b5",
+              "private_payload": true
+            }
+          ]
+        },
+        {
+          "id": "deleted",
+          "identity": {
+            "namespace": "n",
+            "source": "policy",
+            "revision": "r1",
+            "content_fingerprint": "content",
+            "transformation": "chunk",
+            "access_fingerprint": "acl"
+          },
+          "idempotency_key": "delete-key",
+          "payload_fingerprint": "payload-1",
+          "expected_publication": "publication-1",
+          "tombstone": true,
+          "partial": false,
+          "state": "cleanup-pending",
+          "checkpoint": "",
+          "targets": null,
+          "published_at": "1970-01-01T00:01:40Z",
+          "retired": false,
+          "artifact_fences": null
+        }
+      ],
+      "publications": [
+        {
+          "source": "policy",
+          "manifest": "deleted"
+        }
+      ],
+      "cleanups": [
+        {
+          "owner": "deleted",
+          "started_at": "1970-01-01T00:01:40Z",
+          "deadline": "1970-01-01T00:02:40Z",
+          "overdue": false,
+          "complete": true,
+          "items": [
+            {
+              "manifest": "publication-1",
+              "target": "lexical",
+              "state": "complete",
+              "attempts": 1,
+              "next_at": "1970-01-01T00:01:40Z"
+            }
+          ]
+        }
+      ],
+      "inventories": null,
+      "pins": [
+        {
+          "id": "reader-1",
+          "publication": "publication-1",
+          "requested_targets": [
+            "lexical"
+          ],
+          "targets": [
+            {
+              "target": "lexical",
+              "namespace": "n",
+              "source": "policy",
+              "revision": "r1",
+              "transformation": "chunk",
+              "access_fingerprint": "acl"
+            }
+          ],
+          "released": true
+        }
+      ]
+    }
+  }
+]
