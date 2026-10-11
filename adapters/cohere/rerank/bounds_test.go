@@ -26,7 +26,7 @@ func fixtureDocs() retrieval.ResultSet[struct{}] {
 
 // Official wire source: https://docs.cohere.com/v2/reference/rerank
 // Verified 2026-10-06. Fixtures test protocol; they do not claim a live call.
-func TestOfficialWireAndObservedSearchUnits(t *testing.T) {
+func TestIntegrationSDKCohereRerank(t *testing.T) {
 	// Arrange.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/v2/rerank" ||
@@ -38,7 +38,7 @@ func TestOfficialWireAndObservedSearchUnits(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Error(err)
 		}
-		if len(body) != 3 || body["model"] != "fixture-model" || body["query"] != "query" {
+		if len(body) != 4 || body["model"] != "fixture-model" || body["query"] != "query" {
 			t.Errorf("wrong body: %#v", body)
 		}
 		docs, ok := body["documents"].([]any)
@@ -51,7 +51,7 @@ func TestOfficialWireAndObservedSearchUnits(t *testing.T) {
 		)
 	}))
 	defer server.Close()
-	client, err := New[struct{}](Config{APIKey: "fixture-key", Model: "fixture-model", BaseURL: server.URL + "/v2"})
+	client, err := New[struct{}](Config{SDK: newSDK("fixture-key", server.URL, nil), Model: "fixture-model"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,8 +75,8 @@ func TestAdversarialResponse(t *testing.T) {
 		{"negative-usage", `{"results":[],"meta":{"billed_units":{"search_units":-1}}}`, false, false},
 		{"wrong-model", `{"model":"other","results":[]}`, false, false},
 		{"duplicate", `{"results":[{"index":0,"relevance_score":0},{"index":0,"relevance_score":1}]}`, false, false},
-		{"missing-index", `{"results":[{"relevance_score":0},{"index":1,"relevance_score":1}]}`, false, false},
-		{"missing-score", `{"results":[{"index":0},{"index":1,"relevance_score":1}]}`, false, false},
+		{"missing-index", `{"results":[{"relevance_score":0},{"index":1,"relevance_score":1}]}`, true, false},
+		{"missing-score", `{"results":[{"index":0},{"index":1,"relevance_score":1}]}`, true, false},
 		{"out-of-range", `{"results":[{"index":-1,"relevance_score":0},{"index":1,"relevance_score":1}]}`, false, false},
 		{"nonfinite", `{"results":[{"index":0,"relevance_score":1e1000},{"index":1,"relevance_score":1}]}`, false, false},
 		{"refusal", `{"message":"secret"}`, false, false},
@@ -87,7 +87,7 @@ func TestAdversarialResponse(t *testing.T) {
 				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, tc.body) }),
 			)
 			defer server.Close()
-			client, err := New[struct{}](Config{APIKey: "key", Model: "fixture-model", BaseURL: server.URL})
+			client, err := New[struct{}](Config{SDK: newSDK("key", server.URL, nil), Model: "fixture-model"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -115,7 +115,7 @@ func TestLocalLimitsPreventDispatch(t *testing.T) {
 		// Arrange.
 		var calls atomic.Int64
 		server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { calls.Add(1) }))
-		client, err := New[struct{}](Config{APIKey: "secret-key", Model: "model", BaseURL: server.URL, Limits: limits})
+		client, err := New[struct{}](Config{SDK: newSDK("secret-key", server.URL, nil), Model: "model", Limits: limits})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -139,10 +139,9 @@ func TestTransportBoundsAndSanitization(t *testing.T) {
 			defer server.Close()
 			client, err := New[struct{}](
 				Config{
-					APIKey:  "secret-key",
-					Model:   "model",
-					BaseURL: server.URL,
-					Limits:  embedding.Limits{MaxResponseBytes: 32, Timeout: 20 * time.Millisecond},
+					SDK:    newSDK("secret-key", server.URL, nil),
+					Model:  "model",
+					Limits: embedding.Limits{MaxResponseBytes: 32, Timeout: 20 * time.Millisecond},
 				},
 			)
 			if err != nil {

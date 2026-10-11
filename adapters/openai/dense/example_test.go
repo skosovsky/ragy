@@ -5,24 +5,24 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+
 	client "github.com/skosovsky/ragy/adapters/openai/dense"
 	root "github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/embedding"
 )
 
 func ExampleClient_Embed() {
-	encoder, err := client.New(client.Config{
-		APIKey: "host-credential",
-		Space: embedding.Space{
-			Model:         "text-embedding-3-small",
-			ModelRevision: "host-pinned",
-			Configuration: "host-preprocessing-v1",
-			VectorSpace:   "query-document-pair",
-			Dimension:     2,
-			Metric:        embedding.Dot,
-		},
-		Limits: embedding.Limits{MaxInputs: 2},
-	})
+	sdk := openai.NewClient(option.WithAPIKey("host-credential"), option.WithMaxRetries(0))
+	encoder, err := client.New(client.Config{SDK: &sdk, Space: embedding.Space{
+		Model:         "text-embedding-3-small",
+		ModelRevision: "host-pinned",
+		Configuration: "host-preprocessing-v1",
+		VectorSpace:   "query-document-pair",
+		Dimension:     2,
+		Metric:        embedding.Dot,
+	}, Limits: embedding.Limits{MaxInputs: 2}})
 	if err != nil {
 		panic(err)
 	}

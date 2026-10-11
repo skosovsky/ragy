@@ -1,4 +1,4 @@
-// Package structured provides bounded, single-dispatch structured completions.
+// Package structured provides structured completions through a borrowed official SDK.
 // Domain schemas, validation, tokenization and prices belong to the host.
 package structured
 
@@ -7,14 +7,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"math"
 	"net/http"
+
+	"math"
 	"strings"
 	"time"
 
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/shared"
+
+	"github.com/skosovsky/ragy/internal/providerpolicy"
+
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/internal/providerhttp"
+
 	"github.com/skosovsky/ragy/recipe/budget"
 )
 
@@ -27,10 +33,8 @@ var (
 // Callbacks must be pure, bounded and safe for concurrent use. CountTokens counts
 // the complete serialized provider request, including instructions and schema.
 type Config struct {
-	APIKey           string
+	SDK              *openai.Client
 	Model            string
-	BaseURL          string
-	HTTPClient       *http.Client
 	Instructions     string
 	SchemaName       string
 	Schema           json.RawMessage
@@ -42,9 +46,8 @@ type Config struct {
 }
 
 type Client[T any] struct {
-	config   Config
-	http     *http.Client
-	endpoint string
+	config Config
+	sdk    *openai.Client
 }
 
 type Limits struct {
@@ -58,7 +61,7 @@ type Usage struct {
 }
 
 func New[T any](cfg Config) (*Client[T], error) {
-	if providerhttp.ValidateAPIKey(cfg.APIKey) != nil ||
+	if cfg.SDK == nil ||
 		strings.TrimSpace(cfg.Model) == "" || cfg.Instructions == "" || !validName(cfg.SchemaName) ||
 		cfg.MaxRequestBytes <= 0 || cfg.MaxResponseBytes <= 0 || cfg.MaxResponseBytes == math.MaxInt || cfg.Duration <= 0 ||
 		cfg.Validate == nil || cfg.CountTokens == nil {
@@ -67,22 +70,8 @@ func New[T any](cfg Config) (*Client[T], error) {
 	if !validSchema(cfg.Schema, cfg.MaxRequestBytes) {
 		return nil, ragy.ErrInvalidArgument
 	}
-	base := cfg.BaseURL
-	if base == "" {
-		base = "https://api.openai.com/v1"
-	}
-	endpoint, err := providerhttp.Endpoint(base, "/chat/completions")
-	if err != nil {
-		return nil, err
-	}
-	client := http.Client{}
-	if cfg.HTTPClient != nil {
-		client = *cfg.HTTPClient
-	}
-	// Redirects cannot dispatch a second call or forward credentials elsewhere.
-	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	cfg.Schema = bytes.Clone(cfg.Schema)
-	return &Client[T]{config: cfg, http: &client, endpoint: endpoint}, nil
+	return &Client[T]{config: cfg, sdk: cfg.SDK}, nil
 }
 
 func validSchema(schema json.RawMessage, limit int) bool {
@@ -103,46 +92,43 @@ func validName(value string) bool {
 	return true
 }
 
-type message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-type schemaFormat struct {
-	Name   string          `json:"name"`
-	Strict bool            `json:"strict"`
-	Schema json.RawMessage `json:"schema"`
-}
-type responseFormat struct {
-	Type       string       `json:"type"`
-	JSONSchema schemaFormat `json:"json_schema"`
-}
-type request struct {
-	Model               string         `json:"model"`
-	Messages            []message      `json:"messages"`
-	ResponseFormat      responseFormat `json:"response_format"`
-	MaxCompletionTokens uint64         `json:"max_completion_tokens"`
-	Store               bool           `json:"store"`
+func (c *Client[T]) params(input any, outputTokens uint64) (openai.ChatCompletionNewParams, error) {
+	if c == nil || outputTokens == 0 || outputTokens > math.MaxInt64 {
+		return openai.ChatCompletionNewParams{}, ragy.ErrInvalidArgument
+	}
+	content, err := json.Marshal(input)
+	if err != nil || len(content) > c.config.MaxRequestBytes {
+		return openai.ChatCompletionNewParams{}, ragy.ErrInvalidArgument
+	}
+	//nolint:exhaustruct_v5 // SDK serializer supplies the discriminator; description is host optional.
+	format := shared.ResponseFormatJSONSchemaParam{
+		//nolint:exhaustruct_v5 // Only the supplied executable schema is sent.
+		JSONSchema: shared.ResponseFormatJSONSchemaJSONSchemaParam{
+			Name:   c.config.SchemaName,
+			Strict: openai.Bool(true),
+			Schema: c.config.Schema,
+		},
+	}
+	//nolint:exhaustruct_v5 // Structured port intentionally excludes optional tools/sampling settings.
+	return openai.ChatCompletionNewParams{
+		Model: c.config.Model,
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.SystemMessage(c.config.Instructions),
+			openai.UserMessage(string(content)),
+		},
+		//nolint:exhaustruct_v5 // SDK union selects strict JSON schema.
+		ResponseFormat:      openai.ChatCompletionNewParamsResponseFormatUnion{OfJSONSchema: &format},
+		MaxCompletionTokens: openai.Int(int64(outputTokens)),
+		Store:               openai.Bool(false),
+	}, nil
 }
 
 func (c *Client[T]) body(input any, outputTokens uint64) ([]byte, error) {
-	if c == nil || outputTokens == 0 || outputTokens > math.MaxInt64 {
-		return nil, ragy.ErrInvalidArgument
-	}
-	content, err := json.Marshal(input)
+	params, err := c.params(input, outputTokens)
 	if err != nil {
-		return nil, ragy.ErrInvalidArgument
+		return nil, err
 	}
-	if len(content) > c.config.MaxRequestBytes {
-		return nil, ragy.ErrInvalidArgument
-	}
-	body, err := json.Marshal(request{
-		Model:    c.config.Model,
-		Messages: []message{{Role: "system", Content: c.config.Instructions}, {Role: "user", Content: string(content)}},
-		ResponseFormat: responseFormat{Type: "json_schema", JSONSchema: schemaFormat{
-			Name: c.config.SchemaName, Strict: true, Schema: c.config.Schema,
-		}},
-		MaxCompletionTokens: outputTokens, Store: false,
-	})
+	body, err := json.Marshal(params)
 	if err != nil || len(body) > c.config.MaxRequestBytes {
 		return nil, ragy.ErrInvalidArgument
 	}
@@ -163,8 +149,8 @@ func (c *Client[T]) CountInputTokens(input any, outputTokens uint64) (uint64, er
 	return tokens, nil
 }
 
-// Call sends one POST. Usage remains available on refusal, truncation, validation
-// failure and token overrun. Errors never contain request, response or credentials.
+// Call performs one SDK operation with SDK retries disabled. Usage remains available on refusal, truncation, validation
+// failure and token overrun. Error strings suppress private payloads; SDK causes are private diagnostics.
 func (c *Client[T]) Call(ctx context.Context, input any, limits Limits) (T, Usage, error) {
 	return c.call(ctx, input, limits, nil)
 }
@@ -178,10 +164,7 @@ func (c *Client[T]) call(
 	admit func(context.Context) error,
 ) (T, Usage, error) {
 	var empty T
-	if ctx == nil || limits.InputTokens == 0 {
-		return empty, Usage{}, ragy.ErrInvalidArgument
-	}
-	if c == nil {
+	if ctx == nil || limits.InputTokens == 0 || c == nil {
 		return empty, Usage{}, ragy.ErrInvalidArgument
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.config.Duration)
@@ -189,7 +172,14 @@ func (c *Client[T]) call(
 	if err := ctx.Err(); err != nil {
 		return empty, Usage{}, err
 	}
-	body, err := c.body(input, limits.OutputTokens)
+	params, err := c.params(input, limits.OutputTokens)
+	if err != nil {
+		return empty, Usage{}, err
+	}
+	body, err := json.Marshal(params)
+	if err == nil && len(body) > c.config.MaxRequestBytes {
+		err = ragy.ErrInvalidArgument
+	}
 	if err != nil {
 		return empty, Usage{}, err
 	}
@@ -206,46 +196,32 @@ func (c *Client[T]) call(
 	if err = checkAdmission(ctx, admit); err != nil {
 		return empty, Usage{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
+	// SDK-L06/L07: SDK owns cancellation response cleanup and endpoint resolution.
+	var httpResponse *http.Response
+	// Public SDK status observation only; no body capture or parser.
+	decoded, err := c.sdk.Chat.Completions.New(
+		ctx,
+		params,
+		option.WithMaxRetries(0),
+		option.WithResponseInto(&httpResponse),
+	)
 	if err != nil {
-		return empty, Usage{}, ragy.ErrInvalidArgument
-	}
-	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	return c.exchange(ctx, req, limits)
-}
+		status := 0
+		if httpResponse != nil {
+			status = httpResponse.StatusCode
+		}
+		if apiErr, ok := errors.AsType[*openai.Error](err); ok {
+			status = apiErr.StatusCode
+		}
 
-func (c *Client[T]) exchange(ctx context.Context, req *http.Request, limits Limits) (T, Usage, error) {
-	var empty T
-	resp, err := c.http.Do(req)
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
+		return empty, Usage{}, providerpolicy.Failure(ctx, err, status)
 	}
-	if err != nil {
-		return empty, Usage{}, providerhttp.SanitizedError(ctx, err, ragy.ErrUnavailable)
-	}
-	if err = ctx.Err(); err != nil {
-		return empty, Usage{}, err
-	}
-	if resp == nil || resp.Body == nil {
+	if decoded == nil {
 		return empty, Usage{}, ragy.ErrProtocol
 	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return empty, Usage{}, ragy.ErrorFromHTTPResponse(resp.StatusCode, "openai structured", "")
-	}
-	payload, err := io.ReadAll(io.LimitReader(resp.Body, int64(c.config.MaxResponseBytes)+1))
-	if err != nil {
-		return empty, Usage{}, providerhttp.SanitizedError(ctx, err, ragy.ErrProtocol)
-	}
-	if err = ctx.Err(); err != nil {
-		return empty, Usage{}, err
-	}
-	if len(payload) > c.config.MaxResponseBytes {
-		return empty, Usage{}, ragy.ErrProtocol
-	}
-	output, usage, err := c.decode(payload, limits)
-	if ctx.Err() != nil {
-		return empty, usage, ctx.Err()
+	output, usage, err := c.decode(*decoded, limits)
+	if gateErr := ctx.Err(); gateErr != nil {
+		return empty, usage, errors.Join(gateErr, err)
 	}
 	return output, usage, err
 }

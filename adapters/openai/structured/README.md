@@ -1,3 +1,13 @@
+# Official SDK migration
+
+Inject `Config.SDK *openai.Client` (openai-go/v3 v3.76.0), with host-owned credentials,
+endpoint and HTTP lifecycle. Public SDK chat/completions remains the operation.
+Byte caps bound SDK representations; provider envelope fidelity is SDK-limited.
+Host schema/content validation, CountTokens, refusal/incomplete semantics,
+protected delivery and observed usage remain in ragy.
+See [migration](../../../docs/provider-sdk/migration.md) and
+[limitations](../../../docs/provider-sdk/limitations.md).
+
 # Bounded structured completions
 
 This optional adapter uses one Chat Completions POST with a host-selected model,
@@ -25,15 +35,16 @@ The caller reserves the model call and host-defined cost before `Call`; the adap
 does not introduce a billing catalog. Completion usage includes the provider's
 reported completion total, rather than visible content length.
 
-The client bounds the response body, rejects malformed JSON, duplicate keys,
-invalid UTF-8, trailing data, missing/inconsistent usage, excess token counts and
-unsupported response shape. Typed output uses `UseNumber` and rejects unknown
-fields. Domain validation receives an independent byte copy. Context cancellation
-after validation still suppresses output. All transport/protocol errors omit
-response content, refusal text, queries, credentials and callback diagnostics.
+The client bounds retained public SDK representations. Provider envelope decoding
+belongs to the SDK, including its documented normalization limitations. Domain
+content rejects duplicate keys, invalid UTF-8, trailing data and excessive depth;
+missing/inconsistent usage, token overrun and unsupported choice shape reject.
+Typed output uses UseNumber and rejects unknown fields. Domain validation receives
+an independent byte copy. Post-validation cancellation suppresses output.
+Error strings omit provider/private payloads; SDK errors.As causes are private.
 
-The HTTP client configuration is copied and redirects disabled. There are no
-adapter retries, fallback calls or background tasks. Custom `Transport` and all
+The SDK client is borrowed without copying or mutation. SDK retries are disabled
+per call. Host transport must disable redirects and hidden retries. Custom
 host callbacks must be bounded, concurrency-safe and perform no hidden retries;
 arbitrary injected Go implementations cannot be sandboxed. A timeout bounds the
 attempt, in addition to any earlier parent deadline. Provider token caps do not
@@ -98,14 +109,12 @@ These optional bindings do not supply a model choice, exact tokenizer, instructi
 executable schema or price policy. Live comparative recipe acceptance still requires
 that explicit host configuration and execution.
 
-BaseURL is parsed through the shared internal provider URL policy: absolute HTTP(S), no credentials, query (including bare `?`), fragment or opaque payload. Endpoints append to the parsed base path with one separator; custom and escaped path segments remain intact. Admission errors occur before dispatch.
+Endpoint, URL policy and credentials belong to the host SDK configuration.
+See SDK-L07 for escaped/custom URL differences. No adapter BaseURL/HTTPClient
+fallback remains. Context cancellation wins at delivery and SDK error causes are
+preserved behind sanitized strings. SDK-L06 documents a headers-cancel body-close
+limitation; this adapter does not promise that defect is fixed.
 
-Transport and response-body failures prioritize request context cancellation/deadline, including wrapped context sentinels. Ordinary transport failures are sanitized ErrUnavailable; body-read failures are ErrProtocol. Incomplete transport returns zero typed output and unknown usage even when some response bytes were read; response bodies close and no retry occurs. Cancellation observed on receipt of headers also wins over HTTP status classification. Complete decoded envelopes retain the usage policy described above.
-
-Provider choice `index` is required and must be nonnull zero. Missing/null index
-rejects ErrProtocol with valid observed usage retained. Envelope unknown fields
-are allowed; decoded duplicate keys and nesting beyond 64 reject. Field-name case
-aliases and escaped unpaired surrogates retain encoding/json normalization
-(case-insensitive matching and U+FFFD replacement). This is separate from the host
-executable content schema. Credentials reject blank, invalid UTF-8 and ASCII
-control/DEL values at construction. [Shared units and ownership](../../../embedding/README.md).
+Choice index is required/nonnull zero using public SDK metadata. Content/schema
+validation is independent of envelope decoding. See the limitation registry for
+accepted envelope normalization and upgrade fixtures.

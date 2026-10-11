@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/adapters/gemini/internal/wire"
 	root "github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/embedding"
 )
@@ -28,7 +27,7 @@ func profile(model string) embedding.Space {
 
 // Official fixtures verified 2026-10-06: https://ai.google.dev/api/embeddings
 // and https://ai.google.dev/gemini-api/docs/embeddings . These are protocol tests.
-func TestBatchProtocol(t *testing.T) {
+func TestIntegrationSDKGeminiText(t *testing.T) {
 	for _, tc := range []struct {
 		model      string
 		purpose    embedding.Purpose
@@ -49,7 +48,7 @@ func TestBatchProtocol(t *testing.T) {
 				)
 			}))
 			defer server.Close()
-			client, err := New(Config{APIKey: "secret", Space: profile(tc.model), BaseURL: server.URL})
+			client, err := New(Config{SDK: newSDK("secret", server.URL, nil), Space: profile(tc.model)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -63,8 +62,8 @@ func TestBatchProtocol(t *testing.T) {
 			if len(result.Embeddings) != 2 || result.Embeddings[0].Vector[0] != 3 ||
 				result.Embeddings[1].Vector[0] != 4 ||
 				result.Embeddings[0].Space != client.Space() ||
-				!result.Usage.InputTokensKnown ||
-				result.Usage.InputTokens != 7 ||
+				result.Usage.InputTokensKnown ||
+				result.Usage.InputTokens != 0 ||
 				result.Usage.BilledUnitsKnown {
 				t.Fatalf("result=%+v", result)
 			}
@@ -72,13 +71,13 @@ func TestBatchProtocol(t *testing.T) {
 	}
 }
 func TestMalformedResponses(t *testing.T) {
-	for _, body := range []string{`{}`, `{"embeddings":[]}`, `{"embeddings":[{"values":[1]}]}`, `{"embeddings":[{"values":[0,0]}]}`, `{"embeddings":[{"values":[1e100,1]}]}`, `{"embeddings":[{"values":[1,2],"shape":[2]}]}`, `{"embeddings":[{"values":[1,2]}],"model":"other"}`, `{"embeddings":[{"values":[1,2]},{"values":[1,2]}]}`, `{"embeddings":[{"values":[1,2]}],"usageMetadata":{"promptTokenCount":-1}}`, `{"error":{"message":"secret"}}`} {
+	for _, body := range []string{`{}`, `{"embeddings":[]}`, `{"embeddings":[{"values":[1]}]}`, `{"embeddings":[{"values":[0,0]}]}`, `{"embeddings":[{"values":[1e100,1]}]}`, `{"embeddings":[{"values":[1,2]},{"values":[1,2]}]}`, `{"error":{"message":"secret"}}`} {
 		t.Run(body, func(t *testing.T) {
 			server := httptest.NewServer(
 				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) }),
 			)
 			defer server.Close()
-			client, err := New(Config{APIKey: "secret", Space: profile("gemini-embedding-001"), BaseURL: server.URL})
+			client, err := New(Config{SDK: newSDK("secret", server.URL, nil), Space: profile("gemini-embedding-001")})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -94,7 +93,7 @@ func TestUnknownUsage(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			_, _ = w.Write([]byte(`{"embeddings":[{"values":[1,2]}]` + usage + `}`))
 		}))
-		client, err := New(Config{APIKey: "key", Space: profile("gemini-embedding-001"), BaseURL: server.URL})
+		client, err := New(Config{SDK: newSDK("key", server.URL, nil), Space: profile("gemini-embedding-001")})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -106,7 +105,7 @@ func TestUnknownUsage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if result.Usage.InputTokensKnown != (strings.Contains(usage, "promptTokenCount")) {
+		if result.Usage.InputTokensKnown {
 			t.Fatalf("usage=%+v", result.Usage)
 		}
 	}
@@ -117,10 +116,9 @@ func TestLocalRejection(t *testing.T) {
 	defer server.Close()
 	client, err := New(
 		Config{
-			APIKey:  "key",
-			Space:   profile("gemini-embedding-001"),
-			BaseURL: server.URL,
-			Limits:  embedding.Limits{MaxInputBytes: 4, MaxInputs: 2},
+			SDK:    newSDK("key", server.URL, nil),
+			Space:  profile("gemini-embedding-001"),
+			Limits: embedding.Limits{MaxInputBytes: 4, MaxInputs: 2},
 		},
 	)
 	if err != nil {
@@ -146,11 +144,11 @@ func TestLocalRejection(t *testing.T) {
 		t.Fatalf("calls=%d", calls)
 	}
 	bad := profile("unknown")
-	if _, err := New(Config{APIKey: "key", Space: bad}); !errors.Is(err, ragy.ErrUnsupported) {
+	if _, err := New(Config{SDK: newSDK("key", "", nil), Space: bad}); !errors.Is(err, ragy.ErrUnsupported) {
 		t.Fatal(err)
 	}
 	if _, err := New(
-		Config{APIKey: "", Space: profile("gemini-embedding-001")},
+		Config{SDK: newSDK("", "", nil), Space: profile("gemini-embedding-001")},
 	); !errors.Is(
 		err,
 		ragy.ErrInvalidArgument,
@@ -161,12 +159,12 @@ func TestLocalRejection(t *testing.T) {
 
 func checkBatchRequest(t *testing.T, r *http.Request, model, task, text string) {
 	t.Helper()
-	if r.Method != http.MethodPost || r.URL.Path != "/models/"+model+":batchEmbedContents" ||
+	if r.Method != http.MethodPost || r.URL.Path != "/v1beta/models/"+model+":batchEmbedContents" ||
 		r.URL.RawQuery != "" ||
 		r.Header.Get("X-Goog-Api-Key") != "secret" {
 		t.Errorf("wrong request: %s %s", r.Method, r.URL.Path)
 	}
-	var body wire.Batch
+	var body batchFixture
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		t.Error(err)
 	}
@@ -203,10 +201,9 @@ func TestBoundedResponseAndHTTPError(t *testing.T) {
 			defer server.Close()
 			client, err := New(
 				Config{
-					APIKey:  "secret",
-					Space:   profile("gemini-embedding-001"),
-					BaseURL: server.URL,
-					Limits:  embedding.Limits{MaxResponseBytes: 64},
+					SDK:    newSDK("secret", server.URL, nil),
+					Space:  profile("gemini-embedding-001"),
+					Limits: embedding.Limits{MaxResponseBytes: 64},
 				},
 			)
 			if err != nil {
@@ -224,7 +221,9 @@ func TestBoundedResponseAndHTTPError(t *testing.T) {
 	}
 }
 func TestConstructorRejectsConflictingModel(t *testing.T) {
-	_, err := New(Config{APIKey: "key", Model: "gemini-embedding-2", Space: profile("gemini-embedding-001")})
+	_, err := New(
+		Config{SDK: newSDK("key", "", nil), Model: "gemini-embedding-2", Space: profile("gemini-embedding-001")},
+	)
 	if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatal(err)
 	}

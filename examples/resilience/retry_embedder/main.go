@@ -9,6 +9,9 @@ import (
 	"net/http/httptest"
 	"time"
 
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/adapters/openai/dense"
 	rootdense "github.com/skosovsky/ragy/dense"
@@ -24,10 +27,11 @@ const (
 func main() {
 	var attempts int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		attempts++
 		if attempts < successAfterAttempts {
 			w.WriteHeader(http.StatusTooManyRequests)
-			_, _ = w.Write([]byte(`{"error":"rate_limited"}`))
+			_, _ = w.Write([]byte(`{"error":{"message":"rate_limited","type":"rate_limit_error"}}`))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -35,9 +39,10 @@ func main() {
 	}))
 	defer server.Close()
 
+	sdk := openai.NewClient(option.WithAPIKey("example"), option.WithBaseURL(server.URL), option.WithMaxRetries(0))
 	emb, err := dense.New(dense.Config{
-		APIKey: "example",
-		Model:  "text-embedding-3-small",
+		SDK:   &sdk,
+		Model: "text-embedding-3-small",
 		Space: embedding.Space{
 			Model:         "text-embedding-3-small",
 			ModelRevision: "host-v1",
@@ -46,8 +51,6 @@ func main() {
 			Dimension:     2,
 			Metric:        embedding.Dot,
 		},
-		BaseURL:    server.URL,
-		HTTPClient: nil,
 	})
 	if err != nil {
 		panic(err)

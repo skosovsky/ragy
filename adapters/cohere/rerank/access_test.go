@@ -74,7 +74,7 @@ func TestModelRerankerGateBeforeDispatchAndAfterIO(t *testing.T) {
 				_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":2}]}`))
 			}))
 			defer server.Close()
-			client, err := New[struct{}](Config{APIKey: "fixture-key", Model: "fixture-model", BaseURL: server.URL})
+			client, err := New[struct{}](Config{SDK: newSDK("fixture-key", server.URL, nil), Model: "fixture-model"})
 			if err != nil {
 				t.Fatal(err)
 			}

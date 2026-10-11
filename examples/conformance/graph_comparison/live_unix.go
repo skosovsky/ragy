@@ -11,8 +11,6 @@ import (
 	"strings"
 
 	"github.com/skosovsky/ragy/examples/conformance/internal/modelcounter"
-
-	"github.com/skosovsky/ragy/adapters/openai/structured"
 )
 
 var errLiveConfiguration = errors.New(
@@ -39,7 +37,7 @@ func liveCaptureFile(ctx context.Context, path, model, counterPath, tokenizerIde
 	}
 	defer func() { _ = os.RemoveAll(root) }()
 	counter := modelcounter.Counter{Program: counterPath, Model: model, Identity: tokenizerIdentity}
-	cfg := structured.Config{APIKey: key, Model: model}
+	cfg := hostProviderConfig{APIKey: key, Model: model}
 	factories := captureFactories{
 		extraction: func(attempt context.Context) (extractionPorts, error) {
 			return newProviderExtractionPorts(attempt, cfg, counter.Count)

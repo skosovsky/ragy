@@ -7,59 +7,44 @@ import (
 	"math"
 	"unicode/utf8"
 
+	"github.com/openai/openai-go/v3"
+
+	"github.com/skosovsky/ragy/internal/providerpolicy"
+
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/recipe/budget"
 )
 
-type response struct {
-	Choices []struct {
-		Index        *int   `json:"index"`
-		FinishReason string `json:"finish_reason"`
-		Message      struct {
-			Role    string  `json:"role"`
-			Content *string `json:"content"`
-			Refusal *string `json:"refusal"`
-		} `json:"message"`
-	} `json:"choices"`
-	Usage *struct {
-		PromptTokens     *uint64 `json:"prompt_tokens"`
-		CompletionTokens *uint64 `json:"completion_tokens"`
-		TotalTokens      *uint64 `json:"total_tokens"`
-	} `json:"usage"`
-}
-
 const maxJSONDepth = 64
 
-func (c *Client[T]) decode(payload []byte, limits Limits) (T, Usage, error) {
+func (c *Client[T]) decode(wire openai.ChatCompletion, limits Limits) (T, Usage, error) {
 	var empty T
-	if err := validJSON(payload); err != nil {
-		return empty, Usage{}, ragy.ErrProtocol
+	usage := readCompletionUsage(wire.Usage)
+	// SDK-L02: envelope normalization belongs to SDK; validate domain content below.
+	// SDK-L01: public representation cap, not wire retention.
+	if err := providerpolicy.Size(wire, int64(c.config.MaxResponseBytes), ragy.ErrProtocol); err != nil {
+		return empty, usage, err
 	}
-	var wire response
-	if err := json.Unmarshal(payload, &wire); err != nil {
-		return empty, Usage{}, ragy.ErrProtocol
-	}
-	usage := wire.usage()
 	if !usage.Known {
 		return empty, usage, ragy.ErrProtocol
 	}
 	if usage.InputTokens > limits.InputTokens || usage.OutputTokens > limits.OutputTokens {
 		return empty, usage, budget.ErrUsageExceeded
 	}
-	if len(wire.Choices) != 1 || wire.Choices[0].Index == nil || *wire.Choices[0].Index != 0 {
+	if len(wire.Choices) != 1 || !wire.Choices[0].JSON.Index.Valid() || wire.Choices[0].Index != 0 {
 		return empty, usage, ragy.ErrProtocol
 	}
 	choice := wire.Choices[0]
-	if choice.Message.Refusal != nil {
+	if choice.Message.JSON.Refusal.Valid() {
 		return empty, usage, ErrRefused
 	}
 	if choice.FinishReason == "length" {
 		return empty, usage, ErrIncomplete
 	}
-	if choice.FinishReason != "stop" || choice.Message.Role != "assistant" || choice.Message.Content == nil {
+	if choice.FinishReason != "stop" || choice.Message.Role != "assistant" || !choice.Message.JSON.Content.Valid() {
 		return empty, usage, ragy.ErrProtocol
 	}
-	content := []byte(*choice.Message.Content)
+	content := []byte(choice.Message.Content)
 	if err := validJSON(content); err != nil {
 		return empty, usage, ragy.ErrProtocol
 	}
@@ -76,13 +61,16 @@ func (c *Client[T]) decode(payload []byte, limits Limits) (T, Usage, error) {
 	return output, usage, nil
 }
 
-func (r response) usage() Usage {
-	u := r.Usage
-	if u == nil || u.PromptTokens == nil || u.CompletionTokens == nil || u.TotalTokens == nil ||
-		*u.PromptTokens > math.MaxUint64-*u.CompletionTokens || *u.TotalTokens != *u.PromptTokens+*u.CompletionTokens {
+func readCompletionUsage(u openai.CompletionUsage) Usage {
+	if !u.JSON.PromptTokens.Valid() || !u.JSON.CompletionTokens.Valid() || !u.JSON.TotalTokens.Valid() ||
+		u.PromptTokens < 0 ||
+		u.CompletionTokens < 0 ||
+		u.TotalTokens < 0 ||
+		u.PromptTokens > math.MaxInt64-u.CompletionTokens ||
+		u.TotalTokens != u.PromptTokens+u.CompletionTokens {
 		return Usage{}
 	}
-	return Usage{InputTokens: *u.PromptTokens, OutputTokens: *u.CompletionTokens, Known: true}
+	return Usage{InputTokens: uint64(u.PromptTokens), OutputTokens: uint64(u.CompletionTokens), Known: true}
 }
 
 // validJSON rejects duplicate members, invalid UTF-8, trailing data and excessive

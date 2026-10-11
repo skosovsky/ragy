@@ -26,6 +26,7 @@ func TestCoreExtractionHTTPAdmissionAndLedger(t *testing.T) {
 			// Arrange: real HTTP transport, mandatory scope and retained original mapping.
 			var calls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
 				calls.Add(1)
 				body, err := io.ReadAll(r.Body)
 				if err != nil {

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/adapters/gemini/internal/wire"
 	"github.com/skosovsky/ragy/embedding"
 	root "github.com/skosovsky/ragy/multimodal"
 )
@@ -28,13 +27,13 @@ func profile() embedding.Space {
 
 // Official multimodal batch fixture: https://ai.google.dev/gemini-api/docs/embeddings
 // verified 2026-10-06. Inline parts are aggregated into one embedding per input.
-func TestMultimodalBatchProtocol(t *testing.T) {
+func TestIntegrationSDKGeminiMultimodal(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/models/gemini-embedding-2:batchEmbedContents" || r.URL.RawQuery != "" ||
+		if r.URL.Path != "/v1beta/models/gemini-embedding-2:batchEmbedContents" || r.URL.RawQuery != "" ||
 			r.Header.Get("X-Goog-Api-Key") != "key" {
 			t.Errorf("request=%s", r.URL.Path)
 		}
-		var body wire.Batch
+		var body batchFixture
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Error(err)
 		}
@@ -61,7 +60,7 @@ func TestMultimodalBatchProtocol(t *testing.T) {
 		)
 	}))
 	defer server.Close()
-	client, err := New(Config{APIKey: "key", Space: profile(), BaseURL: server.URL})
+	client, err := New(Config{SDK: newSDK("key", server.URL, nil), Space: profile()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,8 +84,8 @@ func TestMultimodalBatchProtocol(t *testing.T) {
 	}
 	if len(result.Embeddings) != 2 || result.Embeddings[1].Vector[0] != 3 ||
 		result.Embeddings[0].Space != client.Space() ||
-		!result.Usage.InputTokensKnown ||
-		result.Usage.InputTokens != 11 {
+		result.Usage.InputTokensKnown ||
+		result.Usage.InputTokens != 0 {
 		t.Fatalf("result=%+v", result)
 	}
 }
@@ -95,7 +94,7 @@ func TestMultimodalLocalRejection(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { calls++ }))
 	defer server.Close()
 	client, err := New(
-		Config{APIKey: "key", Space: profile(), BaseURL: server.URL, Limits: embedding.Limits{MaxInputBytes: 64}},
+		Config{SDK: newSDK("key", server.URL, nil), Space: profile(), Limits: embedding.Limits{MaxInputBytes: 64}},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -143,12 +142,12 @@ func TestMultimodalLocalRejection(t *testing.T) {
 	}
 	space := profile()
 	space.Model = "gemini-embedding-001"
-	if _, err := New(Config{APIKey: "key", Space: space}); !errors.Is(err, ragy.ErrUnsupported) {
+	if _, err := New(Config{SDK: newSDK("key", "", nil), Space: space}); !errors.Is(err, ragy.ErrUnsupported) {
 		t.Fatal(err)
 	}
 }
 func TestMultimodalImageLimit(t *testing.T) {
-	client, err := New(Config{APIKey: "key", Space: profile()})
+	client, err := New(Config{SDK: newSDK("key", "", nil), Space: profile()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +174,7 @@ func TestUntrustedPartKindIsBoundedAndSanitizedBeforeDispatch(t *testing.T) {
 	)
 	defer server.Close()
 	client, err := New(
-		Config{APIKey: "secret", Space: profile(), BaseURL: server.URL, Limits: embedding.Limits{MaxInputBytes: 16}},
+		Config{SDK: newSDK("secret", server.URL, nil), Space: profile(), Limits: embedding.Limits{MaxInputBytes: 16}},
 	)
 	if err != nil {
 		t.Fatal(err)

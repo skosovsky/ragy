@@ -31,13 +31,13 @@ func testSpace() embedding.Space {
 }
 func testClient(t *testing.T, url string, limits embedding.Limits) *Client {
 	t.Helper()
-	c, err := New(Config{APIKey: "secret", Space: testSpace(), BaseURL: url, Limits: limits})
+	c, err := New(Config{SDK: newSDK("secret", url, nil), Space: testSpace(), Limits: limits})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return c
 }
-func TestDocumentedWire(t *testing.T) {
+func TestIntegrationSDKOpenAIEmbeddings(t *testing.T) {
 	for _, purpose := range []embedding.Purpose{embedding.Query, embedding.Document} {
 		t.Run(string(purpose), func(t *testing.T) {
 			server := httptest.NewServer(wireHandler(t, purpose))
@@ -78,7 +78,10 @@ func TestAdversarialResponses(t *testing.T) {
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
 			server := httptest.NewServer(
-				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) }),
+				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(body))
+				}),
 			)
 			defer server.Close()
 			c := testClient(t, server.URL, embedding.Limits{})
@@ -86,6 +89,12 @@ func TestAdversarialResponses(t *testing.T) {
 				context.Background(),
 				rootdense.Request{Inputs: []string{"hello"}, Purpose: embedding.Query},
 			)
+			if name == "trailing" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
 			if !errors.Is(err, ragy.ErrProtocol) {
 				t.Fatalf("error %v", err)
 			}
@@ -95,7 +104,10 @@ func TestAdversarialResponses(t *testing.T) {
 func TestDuplicateAndMissingOutput(t *testing.T) {
 	for _, body := range []string{`{"data":[{"index":0,"embedding":[1,0]},{"index":0,"embedding":[1,0]}]}`, `{"data":[{"index":0,"embedding":[1,0]}]}`} {
 		server := httptest.NewServer(
-			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) }),
+			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(body))
+			}),
 		)
 		c := testClient(t, server.URL, embedding.Limits{})
 		_, err := c.Embed(
@@ -110,6 +122,7 @@ func TestDuplicateAndMissingOutput(t *testing.T) {
 }
 func TestUnknownUsage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":[{"index":0,"embedding":[1,0]}]}`))
 	}))
 	defer server.Close()
@@ -126,6 +139,7 @@ func TestLocalRejectionBeforeDispatch(t *testing.T) {
 	var calls atomic.Int64
 	server := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
 			calls.Add(1)
 			w.WriteHeader(http.StatusInternalServerError)
 		}),
@@ -165,6 +179,7 @@ func TestBoundsAndSanitizedErrors(t *testing.T) {
 		t.Run(strconv.Itoa(status), func(t *testing.T) {
 			var calls atomic.Int64
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
 				calls.Add(1)
 				w.Header().Set("Location", "/leak")
 				w.WriteHeader(status)
@@ -201,11 +216,11 @@ func TestTimeout(t *testing.T) {
 func TestInvalidConfiguration(t *testing.T) {
 	space := testSpace()
 	space.Model = "unsupported"
-	if _, err := New(Config{APIKey: "key", Space: space}); !errors.Is(err, ragy.ErrUnsupported) {
+	if _, err := New(Config{SDK: newSDK("key", "", nil), Space: space}); !errors.Is(err, ragy.ErrUnsupported) {
 		t.Fatal(err)
 	}
 	if _, err := New(
-		Config{APIKey: "key", Model: "mismatch", Space: testSpace()},
+		Config{SDK: newSDK("key", "", nil), Model: "mismatch", Space: testSpace()},
 	); !errors.Is(
 		err,
 		ragy.ErrInvalidArgument,
@@ -220,6 +235,7 @@ func TestInvalidConfiguration(t *testing.T) {
 func wireHandler(t *testing.T, _ embedding.Purpose) http.HandlerFunc {
 	t.Helper()
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		if r.Method != http.MethodPost || r.URL.Path != "/embeddings" ||
 			r.Header.Get("Authorization") != "Bearer secret" ||
 			r.Header.Get("Content-Type") != "application/json" {
@@ -250,7 +266,7 @@ func wireHandler(t *testing.T, _ embedding.Purpose) http.HandlerFunc {
 func TestUnsupportedDimension(t *testing.T) {
 	space := testSpace()
 	space.Dimension = 1537
-	if _, err := New(Config{APIKey: "key", Space: space}); !errors.Is(err, ragy.ErrUnsupported) {
+	if _, err := New(Config{SDK: newSDK("key", "", nil), Space: space}); !errors.Is(err, ragy.ErrUnsupported) {
 		t.Fatal(err)
 	}
 }

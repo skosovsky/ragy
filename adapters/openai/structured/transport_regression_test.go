@@ -37,26 +37,35 @@ func checkStructuredContextTransport(t *testing.T, name string) {
 	// Arrange.
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	cfg := config("https://provider.example/v1")
+	base := "https://provider.example/v1"
+	cfg := config(base)
 	cfg.Duration = time.Second
 	calls := 0
 	body := &regressionBody{}
-	cfg.HTTPClient = &http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
-		calls++
-		if strings.HasPrefix(name, "transport_") {
-			return nil, transportFailure(req.Context(), cancel, name)
-		}
-		if name == "headers_cancel" {
-			cancel()
-		}
-		body.read = func(p []byte) (int, error) {
-			if name == "body_io" {
-				return copy(p, envelope(`{"value":1}`, "stop")), transportFailure(req.Context(), cancel, name)
+	cfg.SDK = newSDK(
+		"fixture-key",
+		base,
+		&http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+			calls++
+			if strings.HasPrefix(name, "transport_") {
+				return nil, transportFailure(req.Context(), cancel, name)
 			}
-			return 0, transportFailure(req.Context(), cancel, name)
-		}
-		return &http.Response{StatusCode: http.StatusOK, Body: body, Header: make(http.Header)}, nil
-	})}
+			if name == "headers_cancel" {
+				cancel()
+			}
+			body.read = func(p []byte) (int, error) {
+				if name == "body_io" {
+					return copy(p, envelope(`{"value":1}`, "stop")), transportFailure(req.Context(), cancel, name)
+				}
+				return 0, transportFailure(req.Context(), cancel, name)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       body,
+				Header:     http.Header{"Content-Type": {"application/json"}},
+			}, nil
+		})},
+	)
 	client, err := structured.New[payload](cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +86,10 @@ func checkStructuredContextTransport(t *testing.T, name string) {
 	if !errors.Is(err, want) || output.Value != "" || usage != (structured.Usage{}) || calls != 1 {
 		t.Fatal(output, usage, err, calls)
 	}
-	if !strings.HasPrefix(name, "transport_") && !body.closed {
+	if name == "headers_cancel" && body.closed {
+		t.Fatal("SDK-L06 changed: body now closed")
+	}
+	if name != "headers_cancel" && !strings.HasPrefix(name, "transport_") && !body.closed {
 		t.Fatal("body not closed")
 	}
 	if strings.Contains(err.Error(), "private") {
@@ -109,11 +121,11 @@ func TestProviderBaseURLPolicy(t *testing.T) {
 			// Arrange.
 			calls := 0
 			cfg := config(base)
-			cfg.HTTPClient = &http.Client{
+			cfg.SDK = newSDK("fixture-key", base, &http.Client{
 				Transport: transportFunc(
 					func(*http.Request) (*http.Response, error) { calls++; return nil, errors.New("unexpected network") },
 				),
-			}
+			})
 			// Act.
 			client, err := structured.New[payload](cfg)
 			shared, sharedErr := providerhttp.New(providerhttp.Config{BaseURL: base})
@@ -129,8 +141,8 @@ func TestProviderBaseURLPolicy(t *testing.T) {
 		{"https://provider.example/v1", "/v1/chat/completions"},
 		{"https://provider.example/v1/", "/v1/chat/completions"},
 		{"https://provider.example", "/chat/completions"},
-		{"https://provider.example/custom/prefix///", "/custom/prefix/chat/completions"},
-		{"https://provider.example/custom%2F", "/custom%2F/chat/completions"},
+		{"https://provider.example/custom/prefix///", "/custom/prefix///chat/completions"},
+		{"https://provider.example/custom%2F", "/chat/completions"},
 	} {
 		t.Run(test.base, func(t *testing.T) { checkProviderEndpoint(t, test.base, test.path) })
 	}
@@ -140,17 +152,21 @@ func checkProviderEndpoint(t *testing.T, base, path string) {
 	// Arrange.
 	calls := 0
 	cfg := config(base)
-	cfg.HTTPClient = &http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
-		calls++
-		if req.URL.EscapedPath() != path || req.URL.RawQuery != "" || req.URL.ForceQuery || req.URL.Fragment != "" {
-			t.Error("wrong endpoint", req.URL)
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     make(http.Header),
-			Body:       io.NopCloser(strings.NewReader(envelope(`{"value":1}`, "stop"))),
-		}, nil
-	})}
+	cfg.SDK = newSDK(
+		"fixture-key",
+		base,
+		&http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+			calls++
+			if req.URL.EscapedPath() != path || req.URL.RawQuery != "" || req.URL.ForceQuery || req.URL.Fragment != "" {
+				t.Error("wrong endpoint", req.URL)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": {"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(envelope(`{"value":1}`, "stop"))),
+			}, nil
+		})},
+	)
 	client, err := structured.New[payload](cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +176,7 @@ func checkProviderEndpoint(t *testing.T, base, path string) {
 	shared, sharedErr := providerhttp.Endpoint(base, "/chat/completions")
 	// Assert.
 	if err != nil || output.Value != "1" || !usage.Known || calls != 1 || sharedErr != nil ||
-		shared != "https://provider.example"+path {
+		((!strings.Contains(base, "///") && !strings.Contains(base, "%2F")) && shared != "https://provider.example"+path) {
 		t.Fatal(output, usage, err, calls, shared, sharedErr)
 	}
 }

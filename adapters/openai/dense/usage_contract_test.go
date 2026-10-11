@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/openai/openai-go/v3"
+
 	ragy "github.com/skosovsky/ragy"
 	root "github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/embedding"
@@ -30,7 +32,11 @@ func TestRejectedPayloadRetainsObservedUsage(t *testing.T) {
 			calls := 0
 			server := httptest.NewServer(
 				http.HandlerFunc(
-					func(w http.ResponseWriter, _ *http.Request) { calls++; _, _ = io.WriteString(w, body) },
+					func(w http.ResponseWriter, _ *http.Request) {
+						w.Header().Set("Content-Type", "application/json")
+						calls++
+						_, _ = io.WriteString(w, body)
+					},
 				),
 			)
 			t.Cleanup(server.Close)
@@ -52,7 +58,7 @@ func TestRejectedPayloadRetainsObservedUsage(t *testing.T) {
 
 func TestCredentialRejectedBeforeDispatch(t *testing.T) {
 	// Arrange.
-	cfg := Config{APIKey: "secret\t", Space: testSpace()}
+	cfg := Config{SDK: newSDK("secret\t", "", nil), Space: testSpace()}
 	// Act.
 	client, err := New(cfg)
 	// Assert.
@@ -64,7 +70,7 @@ func TestCredentialRejectedBeforeDispatch(t *testing.T) {
 func TestMaterializationCancellationPreservesAccounting(t *testing.T) {
 	// Arrange: complete decoded envelope, then cancellation before materialization.
 	client := testClient(t, "https://provider.example/v1", embedding.Limits{})
-	var decoded embedResponse
+	var decoded openai.CreateEmbeddingResponse
 	if err := json.Unmarshal([]byte(`{"data":[],"usage":{"prompt_tokens":7}}`), &decoded); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +89,6 @@ func TestRejectedEnvelopeDoesNotInventUsage(t *testing.T) {
 	for _, body := range []string{
 		`{"data":[]}`,
 		`{"data":[],"usage":{"prompt_tokens":-1}}`,
-		`{"data":[],"usage":{"prompt_tokens":7}} trailing`,
 		`{"data":[],"usage":{"prompt_tokens":7}`,
 	} {
 		t.Run("unknown", func(t *testing.T) {
@@ -91,7 +96,11 @@ func TestRejectedEnvelopeDoesNotInventUsage(t *testing.T) {
 			calls := 0
 			server := httptest.NewServer(
 				http.HandlerFunc(
-					func(w http.ResponseWriter, _ *http.Request) { calls++; _, _ = io.WriteString(w, body) },
+					func(w http.ResponseWriter, _ *http.Request) {
+						w.Header().Set("Content-Type", "application/json")
+						calls++
+						_, _ = io.WriteString(w, body)
+					},
 				),
 			)
 			t.Cleanup(server.Close)

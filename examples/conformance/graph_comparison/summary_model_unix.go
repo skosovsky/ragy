@@ -14,7 +14,7 @@ import (
 // Each factory binds the context-free counter to this particular host attempt.
 func newProviderSummaryPorts(
 	ctx context.Context,
-	cfg structured.Config,
+	host hostProviderConfig,
 	counter func(context.Context, []byte) (uint64, error),
 ) (summaryModelPorts, error) {
 	if ctx == nil || counter == nil {
@@ -23,6 +23,7 @@ func newProviderSummaryPorts(
 	if _, ok := ctx.Deadline(); !ok {
 		return summaryModelPorts{}, errInvalid
 	}
+	cfg := structured.Config{Model: host.Model}
 	cfg.CountTokens = func(request []byte) (uint64, error) { return counter(ctx, request) }
 	cfg.Instructions = summaryInstructions
 	cfg.SchemaName = "graph_summary"
@@ -31,8 +32,9 @@ func newProviderSummaryPorts(
 	cfg.Duration = attemptDuration
 	cfg.MaxRequestBytes = summaryInputBytes
 	cfg.MaxResponseBytes = summaryInputBytes
-	client, transportCalls := observeModelClient(cfg.HTTPClient)
-	cfg.HTTPClient = client
+	client, transportCalls := observeModelClient(host.HTTPClient)
+	sdk := newProviderSDK(host.APIKey, host.BaseURL, client)
+	cfg.SDK = &sdk
 	summarizer, err := structured.NewSummarizer(
 		cfg,
 		func(structured.Usage) (uint64, error) { return summaryCallCost, nil },
@@ -46,7 +48,7 @@ func newProviderSummaryPorts(
 		quote:          summaryQuote,
 		transportCalls: transportCalls,
 		modelIdentity:  cfg.Model,
-		configuration:  providerSummaryIdentity(cfg.Model, cfg.BaseURL),
+		configuration:  providerSummaryIdentity(cfg.Model, host.BaseURL),
 	}, nil
 }
 func summaryQuote(_ context.Context, stage graphsummary.Stage) (budget.Reservation, error) {

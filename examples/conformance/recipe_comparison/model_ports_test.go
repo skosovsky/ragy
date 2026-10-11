@@ -19,6 +19,7 @@ func TestModelPortsUseActualTransportAndHostCounter(t *testing.T) {
 	// Arrange: HTTP protocol and local counter fixtures; no live model quality claim.
 	var calls atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		body, err := io.ReadAll(io.LimitReader(r.Body, maxCounterRequest+1))
 		if err != nil || len(body) > maxCounterRequest || strings.Contains(string(body), "fixture-key") {
 			t.Error("invalid model request")

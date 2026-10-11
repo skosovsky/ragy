@@ -2,77 +2,55 @@ package rerank
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
-	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"unicode/utf8"
 
+	cohere "github.com/cohere-ai/cohere-go/v2"
+	cohereclient "github.com/cohere-ai/cohere-go/v2/client"
+	"github.com/cohere-ai/cohere-go/v2/core"
+	"github.com/cohere-ai/cohere-go/v2/option"
+
+	"github.com/skosovsky/ragy/internal/providerpolicy"
+
 	ragy "github.com/skosovsky/ragy"
 	"github.com/skosovsky/ragy/access"
 	"github.com/skosovsky/ragy/embedding"
-	"github.com/skosovsky/ragy/internal/providerhttp"
+
 	"github.com/skosovsky/ragy/retrieval"
 )
 
 // DefaultBaseURL is the default Cohere API endpoint.
-const DefaultBaseURL = "https://api.cohere.com/v2"
+const DefaultBaseURL = "https://api.cohere.com"
 
-// Doer executes one HTTP exchange. Implementations must honor cancellation and
-// must not hide retries or redirects.
-type Doer interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-// Config configures the Cohere reranker.
 type Config struct {
-	APIKey     string
-	Model      string
-	BaseURL    string
-	HTTPClient Doer
-	Limits     embedding.Limits
+	SDK    *cohereclient.Client
+	Model  string
+	Limits embedding.Limits
 }
-
-// Client is a Cohere query-aware reranker.
 type Client[TMeta any] struct {
-	apiKey string
 	model  string
-	client *providerhttp.Client
+	sdk    *cohereclient.Client
+	limits embedding.Limits
 }
 
 // New constructs a reranker.
 func New[TMeta any](cfg Config) (*Client[TMeta], error) {
-	if providerhttp.ValidateAPIKey(cfg.APIKey) != nil {
-		return nil, fmt.Errorf("%w: cohere api key", ragy.ErrInvalidArgument)
+	if cfg.SDK == nil || cfg.SDK.V2 == nil || strings.TrimSpace(cfg.Model) == "" || !utf8.ValidString(cfg.Model) {
+		return nil, ragy.ErrInvalidArgument
 	}
-
-	if strings.TrimSpace(cfg.Model) == "" {
-		return nil, fmt.Errorf("%w: cohere model", ragy.ErrInvalidArgument)
-	}
-
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		baseURL = DefaultBaseURL
-	}
-
-	transport, err := providerhttp.New(
-		providerhttp.Config{BaseURL: baseURL, HTTPClient: cfg.HTTPClient, Limits: cfg.Limits},
-	)
+	limits, err := cfg.Limits.Resolve()
 	if err != nil {
 		return nil, err
 	}
-	if len(cfg.Model) > transport.Limits().MaxInputBytes || len(cfg.APIKey) > transport.Limits().MaxInputBytes ||
-		!utf8.ValidString(cfg.Model) {
+	if len(cfg.Model) > limits.MaxInputBytes {
 		return nil, ragy.ErrInvalidArgument
 	}
-	return &Client[TMeta]{apiKey: cfg.APIKey, model: cfg.Model, client: transport}, nil
-}
-
-type rerankRequest struct {
-	Model     string   `json:"model"`
-	Query     string   `json:"query"`
-	Documents []string `json:"documents"`
+	return &Client[TMeta]{model: cfg.Model, sdk: cfg.SDK, limits: limits}, nil
 }
 
 // Result retains the ordinary retrieval result and observed provider accounting.
@@ -80,19 +58,6 @@ type rerankRequest struct {
 type Result[TMeta any] struct {
 	Documents retrieval.ResultSet[TMeta]
 	Usage     embedding.Usage
-}
-
-type rerankResponse struct {
-	Model string `json:"model"`
-	Meta  struct {
-		BilledUnits struct {
-			SearchUnits *int64 `json:"search_units"`
-		} `json:"billed_units"`
-	} `json:"meta"`
-	Results []struct {
-		Index *int     `json:"index"`
-		Score *float64 `json:"relevance_score"`
-	} `json:"results"`
 }
 
 func emptyResultSet[TMeta any](resolver retrieval.IdentityResolver[TMeta]) retrieval.ResultSet[TMeta] {
@@ -122,31 +87,35 @@ func (c *Client[TMeta]) postRerank(
 	ctx context.Context,
 	query string,
 	payloadDocs []string,
-) (rerankResponse, error) {
-	var decoded rerankResponse
-	headers := http.Header{"Authorization": []string{"Bearer " + c.apiKey}}
-	err := c.client.Post(
-		ctx,
-		"/rerank",
-		headers,
-		rerankRequest{Model: c.model, Query: query, Documents: payloadDocs},
-		&decoded,
-	)
+) (*cohere.V2RerankResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.limits.Timeout)
+	defer cancel()
+	topN := len(payloadDocs)
+	//nolint:exhaustruct_v5 // SDK options outside the complete-ranking domain profile remain omitted.
+	body := &cohere.V2RerankRequest{Model: c.model, Query: query, Documents: payloadDocs, TopN: &topN}
+	// SDK-L01: public representation cap, not wire retention.
+	if err := providerpolicy.Size(body, c.limits.MaxRequestBytes, ragy.ErrInvalidArgument); err != nil {
+		return nil, err
+	}
+	decoded, err := c.sdk.V2.Rerank(ctx, body, option.WithMaxAttempts(1))
+	// SDK-L08: typed decode failure exposes no completed usage DTO.
 	if err != nil {
-		return rerankResponse{}, err
-	}
-	if decoded.Model != "" && decoded.Model != c.model {
-		return rerankResponse{}, ragy.ErrProtocol
-	}
-	if decoded.Meta.BilledUnits.SearchUnits != nil && *decoded.Meta.BilledUnits.SearchUnits < 0 {
-		return rerankResponse{}, ragy.ErrProtocol
+		status := 0
+		if apiErr, ok := errors.AsType[*core.APIError](err); ok {
+			status = apiErr.StatusCode
+		} else {
+			if _, ok := errors.AsType[*url.Error](err); !ok {
+				status = 200
+			}
+		}
+		return nil, providerpolicy.Failure(ctx, err, status)
 	}
 	return decoded, nil
 }
 
 func applyRerankResults[TMeta any](
 	normalizedDocs []retrieval.Document[TMeta],
-	decoded rerankResponse,
+	decoded *cohere.V2RerankResponse,
 ) ([]retrieval.Document[TMeta], error) {
 	if len(decoded.Results) != len(normalizedDocs) {
 		return nil, fmt.Errorf("%w: rerank cardinality mismatch", ragy.ErrProtocol)
@@ -155,20 +124,20 @@ func applyRerankResults[TMeta any](
 	out := make([]retrieval.Document[TMeta], len(normalizedDocs))
 	seen := make([]bool, len(normalizedDocs))
 	for _, result := range decoded.Results {
-		if result.Index == nil || result.Score == nil || math.IsNaN(*result.Score) || math.IsInf(*result.Score, 0) {
+		if result == nil || math.IsNaN(result.RelevanceScore) || math.IsInf(result.RelevanceScore, 0) {
 			return nil, ragy.ErrProtocol
 		}
-		if *result.Index < 0 || *result.Index >= len(normalizedDocs) || seen[*result.Index] {
+		if result.Index < 0 || result.Index >= len(normalizedDocs) || seen[result.Index] {
 			return nil, fmt.Errorf("%w: rerank index", ragy.ErrProtocol)
 		}
 
-		doc := normalizedDocs[*result.Index]
+		doc := normalizedDocs[result.Index]
 		doc.ScoreHistory = doc.ObservedScores()
-		doc.Score = *result.Score
+		doc.Score = result.RelevanceScore
 		doc.ScoreState = retrieval.ScorePresent
 		doc.ScoreSemantics = "rerank.model-native"
-		out[*result.Index] = doc
-		seen[*result.Index] = true
+		out[result.Index] = doc
+		seen[result.Index] = true
 	}
 
 	for _, ok := range seen {
@@ -218,7 +187,7 @@ func (c *Client[TMeta]) rerank(
 	rs retrieval.ResultSet[TMeta],
 	usage *embedding.Usage,
 ) (retrieval.ResultSet[TMeta], error) {
-	if c == nil || c.client == nil {
+	if c == nil || c.sdk == nil {
 		return emptyResultSet[TMeta](retrieval.ResolverFor(rs)), ragy.ErrInvalidArgument
 	}
 	if err := read.Check(ctx); err != nil {
@@ -231,7 +200,7 @@ func (c *Client[TMeta]) rerank(
 		return emptyResultSet[TMeta](retrieval.ResolverFor(rs)), nil
 	}
 
-	if rs.Len() > c.client.Limits().MaxInputs {
+	if rs.Len() > c.limits.MaxInputs {
 		return retrieval.PreserveResultOnError(rs, ragy.ErrInvalidArgument, retrieval.ResolverFor(rs))
 	}
 	normalizedDocs, payloadDocs, err := c.prepareRerankPayload(rs)
@@ -243,7 +212,7 @@ func (c *Client[TMeta]) rerank(
 
 	texts := append([]string{query}, payloadDocs...)
 	// The query participates in aggregate bytes; MaxInputs counts query plus documents.
-	if validationErr := c.client.ValidateTexts(ctx, texts); validationErr != nil {
+	if validationErr := providerpolicy.ValidateTexts(ctx, texts, c.limits); validationErr != nil {
 		return retrieval.PreserveResultOnError(rs, validationErr, resolver)
 	}
 	if gateErr := read.Check(ctx); gateErr != nil {
@@ -254,10 +223,25 @@ func (c *Client[TMeta]) rerank(
 		return retrieval.PreserveResultOnError(rs, err, resolver)
 	}
 
-	if decoded.Meta.BilledUnits.SearchUnits != nil {
-		usage.BilledUnits = *decoded.Meta.BilledUnits.SearchUnits
-		usage.BilledUnitsKnown = true
+	if decoded == nil {
+		return retrieval.PreserveResultOnError(rs, ragy.ErrProtocol, resolver)
 	}
+	observed, usageErr := readRerankUsage(decoded)
+	if usageErr != nil {
+		return retrieval.PreserveResultOnError(rs, usageErr, resolver)
+	}
+	*usage = observed
+	if gateErr := ctx.Err(); gateErr != nil {
+		return retrieval.PreserveResultOnError(rs, gateErr, resolver)
+	}
+	// SDK-L01: public representation cap, not wire retention.
+	if sizeErr := providerpolicy.Size(decoded, c.limits.MaxResponseBytes, ragy.ErrProtocol); sizeErr != nil {
+		return retrieval.PreserveResultOnError(rs, sizeErr, resolver)
+	}
+	if model, ok := decoded.GetExtraProperties()["model"]; ok && model != c.model {
+		return retrieval.PreserveResultOnError(rs, ragy.ErrProtocol, resolver)
+	}
+	// SDK-L05: required scalar absence decodes to zero; no public presence API.
 	out, err := applyRerankResults(normalizedDocs, decoded)
 	if err != nil {
 		return retrieval.PreserveResultOnError(rs, err, resolver)
@@ -267,3 +251,18 @@ func (c *Client[TMeta]) rerank(
 }
 
 var _ retrieval.QueryReranker[any] = (*Client[any])(nil)
+
+func readRerankUsage(decoded *cohere.V2RerankResponse) (embedding.Usage, error) {
+	var usage embedding.Usage
+	// SDK-L04: float64 counters cannot promise lossless integer precision.
+	if decoded.Meta != nil && decoded.Meta.BilledUnits != nil && decoded.Meta.BilledUnits.SearchUnits != nil {
+		value := *decoded.Meta.BilledUnits.SearchUnits
+		if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || value >= float64(math.MaxInt64) ||
+			math.Trunc(value) != value {
+			return usage, ragy.ErrProtocol
+		}
+		usage.BilledUnits = int64(value)
+		usage.BilledUnitsKnown = true
+	}
+	return usage, nil
+}

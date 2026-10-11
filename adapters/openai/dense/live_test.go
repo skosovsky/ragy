@@ -19,7 +19,7 @@ func TestLiveProviderSmoke(t *testing.T) {
 	if key == "" {
 		t.Fatal("provider credentials absent")
 	}
-	c, err := New(Config{APIKey: key, Space: testSpace()})
+	c, err := New(Config{SDK: newSDK(key, "", nil), Space: testSpace()})
 	if err != nil {
 		t.Fatal(err)
 	}

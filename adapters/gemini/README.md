@@ -1,40 +1,18 @@
-# Gemini embedding adapter
+# Gemini text and multimodal embeddings
 
-Protocol verified against [API reference](https://ai.google.dev/api/embeddings) and
-[embedding guide](https://ai.google.dev/gemini-api/docs/embeddings) on 2026-10-06.
-Both adapters use `models/{model}:batchEmbedContents`, ordered requests with
-`content.parts` and ordered `embeddings.values`. Keys are headers, never URL parameters.
+Official SDK pin: genai v1.73.0. Inject `Config.SDK *genai.Client` configured with BackendGeminiAPI. Dense supports gemini-embedding-001 task types and gemini-embedding-2 text prefixes. Multimodal model2 supports text/inline PNG/JPEG, six images per input, preserving MIME/bytes/order. URL/file/audio/video/PDF and Vertex profiles are unsupported before I/O. One SDK batch operation; no text-only substitution. Usage/echo fields are SDK-limited and remain unknown.
 
-Supply an explicit `embedding.Space` and finite `embedding.Limits`. Zero limits
-select core defaults: 128 inputs, 1 MiB aggregate input, 2 MiB request, 16 MiB
-response and 30 seconds. Space configuration must identify this preprocessing
-policy; compatible query/document profiles must use the same identity.
-No vectors are silently normalized. Results carry provider token usage when
-`usageMetadata.promptTokenCount` exists; otherwise token usage is unknown.
-Billed units remain unknown. Hard remote token bounds are unsupported and fail
-before dispatch. A custom HTTP Doer must honor cancellation and perform exactly
-one exchange without retries or redirects.
+MaxInputs/MaxInputBytes are local admission. MaxRequestBytes/MaxResponseBytes now
+bound public SDK representations, not retained network bytes or peak allocation.
+Timeout and caller cancellation apply. Byte caps are not token/billing caps;
+RequireRemoteTokenBound embedding requests reject before dispatch.
 
-Dense supports explicitly `gemini-embedding-001` and `gemini-embedding-2`.
-Model 001 sends `RETRIEVAL_QUERY`, `RETRIEVAL_DOCUMENT` or `SEMANTIC_SIMILARITY`.
-Model 2 does not support taskType: text query uses the documented search prefix,
-document uses `title: none | text:`, similarity uses sentence similarity prefix.
-Dimension is explicit, at most 3072. Model availability is provider-owned.
+Retries are disabled per SDK operation through public options. Host must disable
+redirects/hidden transport retries. Borrowed SDK clients are never closed or
+mutated; concurrent use requires a concurrency-safe host client and immutable inputs.
+Errors preserve SDK causes behind a sanitized Error string; private SDK diagnostic
+payloads must not be publicly logged.
 
-Multimodal supports model 2 and a deliberately bounded subset: UTF-8 text and
-inline PNG/JPEG, maximum six images per input. Each input aggregates its parts
-into one embedding. Text-only inputs use the same model 2 purpose prefixes;
-inputs containing images preserve original parts without task instructions,
-as recommended by the guide. Query/document purposes therefore share the
-model's cross-modal space. URLs, uploaded-file references, audio, video and PDF
-are locally unsupported: the library neither uploads files nor decodes media
-or attests remote duration/page limits. The host owns valid image payloads.
-
-Protocol fixtures do not claim live provider execution. Live smoke tests require
-`RAGY_LIVE_GEMINI=1` and `GEMINI_API_KEY`; multimodal additionally requires
-`RAGY_GEMINI_IMAGE` pointing to a PNG. They explicitly skip otherwise.
-
-See [identity, units, JSON normalization, accounting and ownership](../../embedding/README.md).
-Valid observed usage survives rejected vector/result materialization; error
-results carry no successful embeddings. Inspect errors before using payloads.
-Credentials are admitted before dispatch; clients are concurrent when host Doers are.
+See [migration](../../docs/provider-sdk/migration.md), [contract](../../docs/provider-sdk/contract.md),
+[capability matrix](../../docs/provider-sdk/matrix.md), and [accepted limitations / upgrade checks](../../docs/provider-sdk/limitations.md).
+Local HTTP fixtures are offline evidence, not paid live certification.

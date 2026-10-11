@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/skosovsky/ragy/adapters/openai/structured"
 	"github.com/skosovsky/ragy/graphingest/extraction"
 	"github.com/skosovsky/ragy/recipe/graphsummary"
 )
@@ -22,6 +21,7 @@ func graphCaptureContractServer(t *testing.T, f fixture, calls *atomic.Uint64) *
 	t.Helper()
 	outputs := extractionOutputs(t, f)
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		body, err := io.ReadAll(io.LimitReader(r.Body, summaryInputBytes+1))
 		if err != nil || len(body) > summaryInputBytes {
 			t.Error("unbounded request")
@@ -72,7 +72,7 @@ func TestCompleteGraphCaptureExecutesAllProducersAndSeparatePreparation(t *testi
 	var calls atomic.Uint64
 	server := graphCaptureContractServer(t, f, &calls)
 	defer server.Close()
-	cfg := structured.Config{
+	cfg := hostProviderConfig{
 		APIKey:     "fixture-key",
 		Model:      "contract-model",
 		BaseURL:    server.URL,

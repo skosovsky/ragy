@@ -304,6 +304,7 @@ func TestThreeRecipesScopedBM25ThroughHTTPModels(t *testing.T) {
 			var revoked atomic.Bool
 			var calls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
 				call := calls.Add(1)
 				body, err := io.ReadAll(r.Body)
 				if err != nil {
@@ -372,6 +373,7 @@ func TestHTTPPlannerRevocationFailsCombinedRecipeClosed(t *testing.T) {
 	var revoked atomic.Bool
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		calls.Add(1)
 		revoked.Store(true)
 		_, _ = io.WriteString(w, envelope(`{"queries":["возврат оплаты срок"]}`, "stop"))
@@ -420,6 +422,7 @@ func TestHTTPRecipeRecordingPolicies(t *testing.T) {
 			var calls atomic.Int32
 			var revoked atomic.Bool
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
 				call := calls.Add(1)
 				body, err := io.ReadAll(r.Body)
 				if err != nil {
@@ -538,6 +541,7 @@ func TestHTTPFailedAssessmentRetainsRecipeJournal(t *testing.T) {
 	var calls atomic.Int32
 	var revoked atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		call := calls.Add(1)
 		body, err := io.ReadAll(r.Body)
 		if err != nil {

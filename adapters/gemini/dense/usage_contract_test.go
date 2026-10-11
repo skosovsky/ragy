@@ -32,7 +32,7 @@ func TestRejectedPayloadRetainsObservedUsage(t *testing.T) {
 				),
 			)
 			t.Cleanup(server.Close)
-			client, err := New(Config{APIKey: "secret", Space: profile("gemini-embedding-001"), BaseURL: server.URL})
+			client, err := New(Config{SDK: newSDK("secret", server.URL, nil), Space: profile("gemini-embedding-001")})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -42,8 +42,8 @@ func TestRejectedPayloadRetainsObservedUsage(t *testing.T) {
 				root.Request{Inputs: []string{"text"}, Purpose: embedding.Query},
 			)
 			// Assert.
-			if !errors.Is(err, ragy.ErrProtocol) || len(out.Embeddings) != 0 || !out.Usage.InputTokensKnown ||
-				out.Usage.InputTokens != 7 ||
+			if !errors.Is(err, ragy.ErrProtocol) || len(out.Embeddings) != 0 || out.Usage.InputTokensKnown ||
+				out.Usage.InputTokens != 0 ||
 				calls != 1 {
 				t.Fatalf("usage: %#v %v calls=%d", out, err, calls)
 			}
@@ -67,7 +67,7 @@ func TestRejectedEnvelopeDoesNotInventUsage(t *testing.T) {
 				),
 			)
 			t.Cleanup(server.Close)
-			client, err := New(Config{APIKey: "secret", Space: profile("gemini-embedding-001"), BaseURL: server.URL})
+			client, err := New(Config{SDK: newSDK("secret", server.URL, nil), Space: profile("gemini-embedding-001")})
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -11,7 +11,7 @@ import (
 
 func newProviderExtractionPorts(
 	ctx context.Context,
-	cfg structured.Config,
+	host hostProviderConfig,
 	counter func(context.Context, []byte) (uint64, error),
 ) (extractionPorts, error) {
 	if ctx == nil || counter == nil {
@@ -20,6 +20,7 @@ func newProviderExtractionPorts(
 	if _, ok := ctx.Deadline(); !ok {
 		return extractionPorts{}, errInvalid
 	}
+	cfg := structured.Config{Model: host.Model}
 	cfg.CountTokens = func(request []byte) (uint64, error) { return counter(ctx, request) }
 	cfg.Instructions = extractionInstructions
 	cfg.SchemaName = "graph_extraction"
@@ -28,8 +29,9 @@ func newProviderExtractionPorts(
 	cfg.Duration = attemptDuration
 	cfg.MaxRequestBytes = summaryInputBytes
 	cfg.MaxResponseBytes = summaryInputBytes
-	client, transportCalls := observeModelClient(cfg.HTTPClient)
-	cfg.HTTPClient = client
+	client, transportCalls := observeModelClient(host.HTTPClient)
+	sdk := newProviderSDK(host.APIKey, host.BaseURL, client)
+	cfg.SDK = &sdk
 	model, err := structured.NewExtractor[string, string, graphAttributes](
 		cfg,
 		func(structured.Usage) (uint64, error) { return summaryCallCost, nil },
@@ -41,7 +43,7 @@ func newProviderExtractionPorts(
 		model:          model.Model,
 		count:          model.CountInputTokens,
 		transportCalls: transportCalls,
-		configuration:  providerExtractionIdentity(cfg.Model, cfg.BaseURL),
+		configuration:  providerExtractionIdentity(cfg.Model, host.BaseURL),
 		modelIdentity:  cfg.Model,
 	}, nil
 }

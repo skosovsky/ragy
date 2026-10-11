@@ -17,6 +17,7 @@ func TestActualBM25RecipesToCompleteContractCapture(t *testing.T) {
 	// Arrange: actual BM25 and actual transport; model/tokenizer outputs are protocol fixtures.
 	var calls atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		body, err := io.ReadAll(io.LimitReader(r.Body, maxCounterRequest+1))
 		if err != nil || strings.Contains(string(body), "private payload") ||
 			strings.Contains(string(body), "foreign") ||
@@ -122,6 +123,7 @@ func TestFailedHTTPAttemptRetainsActualDispatchAndUnknownUsage(t *testing.T) {
 	// Arrange: actual scoped corpus and failing single-dispatch provider fixture.
 	var calls atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		calls.Add(1)
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))

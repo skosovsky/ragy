@@ -22,7 +22,7 @@ func TestNewRejectsEmptyAPIKey(t *testing.T) {
 
 func TestNewRejectsEmptyModel(t *testing.T) {
 	t.Parallel()
-	if _, err := New[contracttest.StructMeta](Config{APIKey: "key"}); err == nil {
+	if _, err := New[contracttest.StructMeta](Config{SDK: newSDK("key", "", nil)}); err == nil {
 		t.Fatal("New() error = nil, want error")
 	} else if !errors.Is(err, ragy.ErrInvalidArgument) {
 		t.Fatalf("New() error = %v, want invalid argument", err)
@@ -35,7 +35,7 @@ func TestRerankUsesProviderIndexes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := New[contracttest.StructMeta](Config{APIKey: "key", Model: "rerank-v3.5", BaseURL: server.URL})
+	client, err := New[contracttest.StructMeta](Config{SDK: newSDK("key", server.URL, nil), Model: "rerank-v3.5"})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -64,7 +64,7 @@ func TestRerankPreservesMeta(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := New[contracttest.StructMeta](Config{APIKey: "key", Model: "rerank-v3.5", BaseURL: server.URL})
+	client, err := New[contracttest.StructMeta](Config{SDK: newSDK("key", server.URL, nil), Model: "rerank-v3.5"})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -90,7 +90,7 @@ func TestRerankPreservesMeta(t *testing.T) {
 func TestRerankPreservesResolverOnEmptyQuery(t *testing.T) {
 	t.Parallel()
 
-	client, err := New[contracttest.StructMeta](Config{APIKey: "key", Model: "rerank-v3.5", BaseURL: "http://example"})
+	client, err := New[contracttest.StructMeta](Config{SDK: newSDK("key", "http://example", nil), Model: "rerank-v3.5"})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -129,11 +129,9 @@ func TestRerankPreservesResolverOnEmptyQuery(t *testing.T) {
 func TestRerankNilResultSetReturnsEmpty(t *testing.T) {
 	t.Parallel()
 
-	client, err := New[contracttest.StructMeta](Config{
-		APIKey:  "key",
-		Model:   "rerank-v3.5",
-		BaseURL: "http://127.0.0.1:1",
-	})
+	client, err := New[contracttest.StructMeta](
+		Config{SDK: newSDK("key", "http://127.0.0.1:1", nil), Model: "rerank-v3.5"},
+	)
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -154,7 +152,7 @@ func TestRerankReturnsErrorOnHTTP4xx(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := New[contracttest.StructMeta](Config{APIKey: "key", Model: "rerank-v3.5", BaseURL: server.URL})
+	client, err := New[contracttest.StructMeta](Config{SDK: newSDK("key", server.URL, nil), Model: "rerank-v3.5"})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -181,7 +179,7 @@ func TestRerankRejectsCardinalityMismatch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := New[contracttest.StructMeta](Config{APIKey: "key", Model: "rerank-v3.5", BaseURL: server.URL})
+	client, err := New[contracttest.StructMeta](Config{SDK: newSDK("key", server.URL, nil), Model: "rerank-v3.5"})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -220,11 +218,9 @@ func TestRerankPreservesInputOnTransportError(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client, err := New[contracttest.StructMeta](Config{
-				APIKey:  "key",
-				Model:   "rerank-v3.5",
-				BaseURL: server.URL,
-			})
+			client, err := New[contracttest.StructMeta](
+				Config{SDK: newSDK("key", server.URL, nil), Model: "rerank-v3.5"},
+			)
 			if err != nil {
 				t.Fatalf("New(): %v", err)
 			}
@@ -253,11 +249,7 @@ func TestRerankReturnsErrorOnTransportFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	server.Close()
 
-	client, err := New[contracttest.StructMeta](Config{
-		APIKey:  "key",
-		Model:   "rerank-v3.5",
-		BaseURL: server.URL,
-	})
+	client, err := New[contracttest.StructMeta](Config{SDK: newSDK("key", server.URL, nil), Model: "rerank-v3.5"})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -286,7 +278,7 @@ func TestRerankPreservesInputResolver(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := New[contracttest.StructMeta](Config{APIKey: "key", Model: "rerank-v3.5", BaseURL: server.URL})
+	client, err := New[contracttest.StructMeta](Config{SDK: newSDK("key", server.URL, nil), Model: "rerank-v3.5"})
 	if err != nil {
 		t.Fatalf("New(): %v", err)
 	}
@@ -338,11 +330,9 @@ func TestRerankPreservesInputResolver(t *testing.T) {
 func TestRerankPartialConformance(t *testing.T) {
 	contracttest.RunRerankPartialSuite(t, func(t *testing.T) contracttest.QueryRerankerLike[contracttest.StructMeta] {
 		t.Helper()
-		client, err := New[contracttest.StructMeta](Config{
-			APIKey:  "key",
-			Model:   "rerank-v3.5",
-			BaseURL: "http://example",
-		})
+		client, err := New[contracttest.StructMeta](
+			Config{SDK: newSDK("key", "http://example", nil), Model: "rerank-v3.5"},
+		)
 		if err != nil {
 			t.Fatalf("New(): %v", err)
 		}

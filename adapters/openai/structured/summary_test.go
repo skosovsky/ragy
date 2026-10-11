@@ -44,6 +44,7 @@ func TestHTTPCommunityAndReduceBinding(t *testing.T) {
 	// Arrange.
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		calls.Add(1)
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -113,6 +114,7 @@ func TestHTTPSummaryIncompletePreservesUsageWithoutRetry(t *testing.T) {
 	// Arrange.
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		calls.Add(1)
 		_, _ = io.WriteString(w, envelope(`{"text":"partial","selected":[0]}`, "length"))
 	}))

@@ -16,7 +16,7 @@ func TestLiveProviderSmoke(t *testing.T) {
 	if os.Getenv("RAGY_PROVIDER_SMOKE") != "1" || key == "" || model == "" {
 		t.Fatal("set RAGY_PROVIDER_SMOKE=1, COHERE_API_KEY and COHERE_RERANK_MODEL for a paid live call")
 	}
-	client, err := New[struct{}](Config{APIKey: key, Model: model})
+	client, err := New[struct{}](Config{SDK: newSDK(key, "", nil), Model: model})
 	if err != nil {
 		t.Fatal(err)
 	}

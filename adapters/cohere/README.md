@@ -1,16 +1,18 @@
 # Cohere reranking
 
-`rerank.New[TMeta]` implements the Cohere v2 `/rerank` protocol with explicit host model selection. `Rerank` satisfies the query reranker interface; `RerankWithUsage` also returns actual `meta.billed_units.search_units` as `Usage.BilledUnits`. Missing counters remain unknown. No input-token estimate or price is fabricated. Observed usage can remain available when delivery is revoked or malformed ranked results are rejected after a successful provider envelope.
+Official SDK pin: cohere-go/v2 v2.19.0. Inject `Config.SDK *client.Client`; host owns token/endpoint/transport. V2.Rerank requests top_n=document count. Complete finite ranking preserves original documents/metadata/resolver/score history and protected delivery. Partial replies reject with error and independently observed billing. Scores are model-native, not probabilities. Search units use SDK float64 precision; input tokens remain unknown.
 
-`Config.Limits` bounds local work. Zero values select 128 inputs (query plus documents), 1 MiB aggregate UTF-8 text, 2 MiB request, 16 MiB response, and 30 seconds. The token-matrix row limit does not apply to reranking. There is one dispatch and no library retry; standard HTTP clients are cloned with redirects disabled. Custom Doer implementations must honor cancellation and must not hide retries or redirects. Raw bodies, credentials, URLs and transport diagnostics are excluded from returned errors. Parent cancellation and deadlines propagate.
+MaxInputs/MaxInputBytes are local admission. MaxRequestBytes/MaxResponseBytes now
+bound public SDK representations, not retained network bytes or peak allocation.
+Timeout and caller cancellation apply. Byte caps are not token/billing caps;
+RequireRemoteTokenBound embedding requests reject before dispatch.
 
-These bounds are not a hard remote token or billing limit. Cohere may truncate documents according to its service policy. The adapter preserves original document content, metadata, resolver, score history and protected delivery behavior. Returned model-native scores are finite and retained without assuming normalization.
+Retries are disabled per SDK operation through public options. Host must disable
+redirects/hidden transport retries. Borrowed SDK clients are never closed or
+mutated; concurrent use requires a concurrency-safe host client and immutable inputs.
+Errors preserve SDK causes behind a sanitized Error string; private SDK diagnostic
+payloads must not be publicly logged.
 
-Protocol fixtures are grounded in [Cohere v2 rerank reference](https://docs.cohere.com/v2/reference/rerank), verified 2026-10-06. Ordinary tests use local fixtures and adversarial HTTP servers. Live smoke is explicitly skipped unless `RAGY_PROVIDER_SMOKE=1`, `COHERE_API_KEY`, and host-selected `COHERE_RERANK_MODEL` are supplied; enabling it authorizes a paid call.
-
-See [identity, units, JSON normalization, accounting and ownership](../../embedding/README.md).
-Valid billing survives rejected ranked-result materialization. Original input or
-validated prefix retained with error is not successful reranking. Inspect errors
-before using scores. MaxInputs includes query: default maximum documents127,
-MaxInputs1 admits no nonempty rerank.
-Credentials are admitted before dispatch; clients are concurrent when host Doers are.
+See [migration](../../docs/provider-sdk/migration.md), [contract](../../docs/provider-sdk/contract.md),
+[capability matrix](../../docs/provider-sdk/matrix.md), and [accepted limitations / upgrade checks](../../docs/provider-sdk/limitations.md).
+Local HTTP fixtures are offline evidence, not paid live certification.

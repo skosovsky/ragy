@@ -2,44 +2,41 @@ package dense
 
 import (
 	"context"
-	"encoding/json"
+
 	"errors"
 	"net/http"
+
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+
+	"github.com/skosovsky/ragy/internal/providerpolicy"
 
 	ragy "github.com/skosovsky/ragy"
 	rootdense "github.com/skosovsky/ragy/dense"
 	"github.com/skosovsky/ragy/embedding"
-	"github.com/skosovsky/ragy/internal/providerhttp"
 )
 
 const smallDimension = 1536
 const largeDimension = 3072
 const DefaultBaseURL = "https://api.openai.com/v1"
 
-// Doer must honor context and perform no hidden retries or redirects.
-type Doer = providerhttp.Doer
-
 // Config declares the host-owned space and finite local work limits. Model, when
 // supplied, must equal Space.Model. No normalization or remote token cap is inferred.
 type Config struct {
-	APIKey     string
-	Model      string
-	Space      embedding.Space
-	Limits     embedding.Limits
-	BaseURL    string
-	HTTPClient Doer
+	SDK    *openai.Client
+	Model  string
+	Space  embedding.Space
+	Limits embedding.Limits
 }
-
-// Client captures configuration and supports concurrent calls when its Doer does.
 type Client struct {
-	apiKey string
+	sdk    *openai.Client
 	space  embedding.Space
-	http   *providerhttp.Client
+	limits embedding.Limits
 }
 
-// New validates credentials, space, supported profile and finite local limits.
+// New validates the borrowed SDK client, space, profile and finite local limits.
 func New(cfg Config) (*Client, error) {
-	if providerhttp.ValidateAPIKey(cfg.APIKey) != nil || (cfg.Model != "" && cfg.Model != cfg.Space.Model) {
+	if cfg.SDK == nil || (cfg.Model != "" && cfg.Model != cfg.Space.Model) {
 		return nil, ragy.ErrInvalidArgument
 	}
 	if err := cfg.Space.Validate(); err != nil {
@@ -61,39 +58,15 @@ func New(cfg Config) (*Client, error) {
 	default:
 		return nil, ragy.ErrUnsupported
 	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = DefaultBaseURL
-	}
-	client, err := providerhttp.New(
-		providerhttp.Config{BaseURL: cfg.BaseURL, HTTPClient: cfg.HTTPClient, Limits: cfg.Limits},
-	)
+	limits, err := cfg.Limits.Resolve()
 	if err != nil {
 		return nil, err
 	}
-	return &Client{apiKey: cfg.APIKey, space: cfg.Space, http: client}, nil
+	return &Client{sdk: cfg.SDK, space: cfg.Space, limits: limits}, nil
 }
 
 // Space returns the host-declared identity, not a remote revision attestation.
 func (c *Client) Space() embedding.Space { return c.space }
-
-type embedRequest struct {
-	Model          string   `json:"model"`
-	Input          []string `json:"input"`
-	Dimensions     int      `json:"dimensions,omitempty"`
-	EncodingFormat string   `json:"encoding_format"`
-}
-type embedItem struct {
-	Index     *int      `json:"index"`
-	Embedding []float32 `json:"embedding"`
-}
-type embedResponse struct {
-	Model json.RawMessage `json:"model"`
-	Data  json.RawMessage `json:"data"`
-	Usage *struct {
-		PromptTokens     *int64 `json:"prompt_tokens"`
-		TotalTokensCheck *int64 `json:"total_tokens"`
-	} `json:"usage"`
-}
 
 // Embed borrows immutable inputs during one exchange and transfers successful
 // embeddings to caller. On rejected materialization it returns no embeddings,
@@ -108,35 +81,50 @@ func (c *Client) Embed(ctx context.Context, request rootdense.Request) (rootdens
 	if err := request.Validate(); err != nil {
 		return rootdense.Result{}, err
 	}
-	if err := c.http.ValidateTexts(ctx, request.Inputs); err != nil {
+	if err := providerpolicy.ValidateTexts(ctx, request.Inputs, c.limits); err != nil {
 		return rootdense.Result{}, err
 	}
-	body := embedRequest{Model: c.space.Model, Input: request.Inputs, Dimensions: c.space.Dimension, EncodingFormat: ""}
-	body.EncodingFormat = "float"
-	if c.space.Model == "text-embedding-ada-002" {
-		body.Dimensions = 0
+	//nolint:exhaustruct_v5 // Domain text embeddings omit unrelated SDK options.
+	body := openai.EmbeddingNewParams{
+		Model: c.space.Model,
+		//nolint:exhaustruct_v5 // The SDK union selects ordered text input.
+		Input:          openai.EmbeddingNewParamsInputUnion{OfArrayOfStrings: request.Inputs},
+		EncodingFormat: openai.EmbeddingNewParamsEncodingFormatFloat,
 	}
-	var decoded embedResponse
-	if err := c.http.Post(
-		ctx,
-		"/embeddings",
-		http.Header{"Authorization": {"Bearer " + c.apiKey}},
-		body,
-		&decoded,
-	); err != nil {
-		// Post only returns a context error with populated output after complete
-		// JSON admission; earlier transport/read failures leave decoded zero.
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			if usage, usageErr := readUsage(decoded); usageErr == nil {
-				return rootdense.Result{Embeddings: nil, Usage: usage}, err
-			}
+	if c.space.Model != "text-embedding-ada-002" {
+		body.Dimensions = openai.Int(int64(c.space.Dimension))
+	}
+	// SDK-L01: public representation cap, not wire retention.
+	if err := providerpolicy.Size(body, c.limits.MaxRequestBytes, ragy.ErrInvalidArgument); err != nil {
+		return rootdense.Result{}, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, c.limits.Timeout)
+	defer cancel()
+	var httpResponse *http.Response
+	// Public SDK status observation only; no body capture or parser.
+	decoded, err := c.sdk.Embeddings.New(ctx, body, option.WithMaxRetries(0), option.WithResponseInto(&httpResponse))
+	if err != nil {
+		status := 0
+		if httpResponse != nil {
+			status = httpResponse.StatusCode
 		}
-		return rootdense.Result{}, err
+		if apiErr, ok := errors.AsType[*openai.Error](err); ok {
+			status = apiErr.StatusCode
+		}
+
+		return rootdense.Result{}, providerpolicy.Failure(ctx, err, status)
 	}
-	return c.materialize(ctx, len(request.Inputs), decoded)
+	if decoded == nil {
+		return rootdense.Result{}, ragy.ErrProtocol
+	}
+	return c.materialize(ctx, len(request.Inputs), *decoded)
 }
 
-func (c *Client) materialize(ctx context.Context, inputCount int, decoded embedResponse) (rootdense.Result, error) {
+func (c *Client) materialize(
+	ctx context.Context,
+	inputCount int,
+	decoded openai.CreateEmbeddingResponse,
+) (rootdense.Result, error) {
 	usage, err := readUsage(decoded)
 	if gateErr := ctx.Err(); gateErr != nil {
 		return rootdense.Result{Embeddings: nil, Usage: usage}, gateErr
@@ -144,24 +132,18 @@ func (c *Client) materialize(ctx context.Context, inputCount int, decoded embedR
 	if err != nil {
 		return rootdense.Result{Embeddings: nil, Usage: usage}, err
 	}
-	model, present, modelErr := providerhttp.ModelEcho(decoded.Model)
-	if gateErr := ctx.Err(); gateErr != nil {
-		return rootdense.Result{Embeddings: nil, Usage: usage}, gateErr
-	}
-	if modelErr != nil {
-		return rootdense.Result{Embeddings: nil, Usage: usage}, modelErr
-	}
-	if present && model != c.space.Model {
+	// SDK-L02: use public field metadata; never parse RawJSON to bypass SDK.
+	if decoded.JSON.Model.Valid() && decoded.Model != c.space.Model {
 		return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 	}
-	var data []embedItem
-	decodeErr := json.Unmarshal(decoded.Data, &data)
-	if gateErr := ctx.Err(); gateErr != nil {
-		return rootdense.Result{Embeddings: nil, Usage: usage}, gateErr
-	}
-	if decodeErr != nil {
+	if decoded.JSON.Model.Raw() != "" && !decoded.JSON.Model.Valid() {
 		return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 	}
+	// SDK-L01: public representation cap, not wire retention.
+	if err := providerpolicy.Size(decoded, c.limits.MaxResponseBytes, ragy.ErrProtocol); err != nil {
+		return rootdense.Result{Embeddings: nil, Usage: usage}, err
+	}
+	data := decoded.Data
 	if len(data) != inputCount {
 		return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 	}
@@ -171,15 +153,21 @@ func (c *Client) materialize(ctx context.Context, inputCount int, decoded embedR
 		if err := ctx.Err(); err != nil {
 			return rootdense.Result{Embeddings: nil, Usage: usage}, err
 		}
-		if item.Index == nil || *item.Index < 0 || *item.Index >= len(seen) || seen[*item.Index] {
+		if !item.JSON.Embedding.Valid() || !item.JSON.Index.Valid() || item.Index < 0 ||
+			item.Index >= int64(len(seen)) ||
+			seen[item.Index] {
 			return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 		}
-		value := rootdense.Embedding{Space: c.space, Vector: item.Embedding}
+		vector := make([]float32, len(item.Embedding))
+		for i, v := range item.Embedding {
+			vector[i] = float32(v)
+		}
+		value := rootdense.Embedding{Space: c.space, Vector: vector}
 		if err := value.Validate(); err != nil {
 			return rootdense.Result{Embeddings: nil, Usage: usage}, ragy.ErrProtocol
 		}
-		out.Embeddings[*item.Index] = value
-		seen[*item.Index] = true
+		out.Embeddings[item.Index] = value
+		seen[item.Index] = true
 	}
 	if err := ctx.Err(); err != nil {
 		return rootdense.Result{Embeddings: nil, Usage: usage}, err
@@ -189,17 +177,20 @@ func (c *Client) materialize(ctx context.Context, inputCount int, decoded embedR
 
 var _ rootdense.Embedder = (*Client)(nil)
 
-func readUsage(decoded embedResponse) (embedding.Usage, error) {
+func readUsage(decoded openai.CreateEmbeddingResponse) (embedding.Usage, error) {
 	usage := unknownUsage()
-	if decoded.Usage != nil {
-		if decoded.Usage.TotalTokensCheck != nil && *decoded.Usage.TotalTokensCheck < 0 {
-			return embedding.Usage{}, ragy.ErrProtocol
-		}
-		if decoded.Usage.PromptTokens != nil {
-			usage.InputTokens = *decoded.Usage.PromptTokens
-			usage.InputTokensKnown = true
-		}
+	if (decoded.Usage.JSON.PromptTokens.Raw() != "" && !decoded.Usage.JSON.PromptTokens.Valid()) ||
+		(decoded.Usage.JSON.TotalTokens.Raw() != "" && !decoded.Usage.JSON.TotalTokens.Valid()) {
+		return embedding.Usage{}, ragy.ErrProtocol
 	}
+	if decoded.Usage.JSON.TotalTokens.Valid() && decoded.Usage.TotalTokens < 0 {
+		return embedding.Usage{}, ragy.ErrProtocol
+	}
+	if decoded.Usage.JSON.PromptTokens.Valid() {
+		usage.InputTokens = decoded.Usage.PromptTokens
+		usage.InputTokensKnown = true
+	}
+
 	if err := usage.Validate(); err != nil {
 		return embedding.Usage{}, err
 	}

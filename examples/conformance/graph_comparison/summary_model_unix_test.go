@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/skosovsky/ragy/adapters/openai/structured"
 	"github.com/skosovsky/ragy/recipe/graphsummary"
 )
 
@@ -25,6 +24,7 @@ func TestSummaryProviderTransportUsesScopedOriginalsAndActualUsage(t *testing.T)
 	}
 	var dispatches, counters atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		body, bodyErr := io.ReadAll(io.LimitReader(r.Body, summaryInputBytes+1))
 		if bodyErr != nil || len(body) > summaryInputBytes || strings.Contains(string(body), "fixture-key") ||
 			strings.Contains(string(body), "staging") || r.Header.Get("Authorization") != "Bearer fixture-key" {
@@ -47,7 +47,7 @@ func TestSummaryProviderTransportUsesScopedOriginalsAndActualUsage(t *testing.T)
 	defer cancel()
 	ports, err := newProviderSummaryPorts(
 		ctx,
-		structured.Config{
+		hostProviderConfig{
 			APIKey:     "fixture-key",
 			Model:      "contract-model",
 			BaseURL:    server.URL,
@@ -99,7 +99,7 @@ func TestSummaryProviderSchemaAndStageQuotes(t *testing.T) {
 	if _, err := summaryQuote(t.Context(), "invalid"); err == nil {
 		t.Fatal("invalid stage")
 	}
-	if _, err := newProviderSummaryPorts(context.Background(), structured.Config{}, nil); err == nil {
+	if _, err := newProviderSummaryPorts(context.Background(), hostProviderConfig{}, nil); err == nil {
 		t.Fatal("unbounded attempt")
 	}
 }

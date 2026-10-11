@@ -1,3 +1,14 @@
+# Official SDK adapter contract amendment (2026-10-11)
+
+For OpenAI/Gemini/Cohere, the [SDK contract](../docs/provider-sdk/contract.md)
+and [limitations](../docs/provider-sdk/limitations.md) supersede the legacy HTTP
+transport/envelope/wire-byte promises below. Host injects SDK clients; per-call SDK
+retries are disabled, host owns redirects/transport retries and lifecycle. Gemini
+embedding tokens are Unknown because genai discards usageMetadata. Cohere integer
+billing precision is SDK float64-limited. No envelope reparsing/capture fallback.
+The legacy transport policy below still applies to the inventory-exempt Jina
+adapters. Identity, domain validation and core delivery guarantees are unchanged.
+
 # Provider identity, limits and accounting
 
 `Space` is the host declaration of model, revision, preprocessing configuration,

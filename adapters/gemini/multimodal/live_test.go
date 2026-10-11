@@ -21,7 +21,7 @@ func TestLiveGeminiMultimodal(t *testing.T) {
 	}
 	space := profile()
 	space.Dimension = 768
-	client, err := New(Config{APIKey: os.Getenv("GEMINI_API_KEY"), Space: space})
+	client, err := New(Config{SDK: newSDK(os.Getenv("GEMINI_API_KEY"), "", nil), Space: space})
 	if err != nil {
 		t.Fatal(err)
 	}

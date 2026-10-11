@@ -43,6 +43,7 @@ func TestHTTPExtractionHistoryPublicationAndRetainedCleanup(t *testing.T) {
 	// Arrange: HTTP is a protocol fixture, not a live quality experiment.
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		calls.Add(1)
 		_, _ = io.WriteString(
 			w,

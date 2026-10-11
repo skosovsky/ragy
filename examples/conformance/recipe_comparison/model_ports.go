@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+
 	"github.com/skosovsky/ragy/adapters/openai/structured"
 	"github.com/skosovsky/ragy/recipe"
 	"github.com/skosovsky/ragy/retrieval"
@@ -63,11 +66,16 @@ func newLiveModelPorts(ctx context.Context, cfg liveModelConfig, strategy recipe
 	if _, present := ctx.Deadline(); !present {
 		return liveModelPorts{}, errCounter
 	}
-	common := structured.Config{
-		APIKey:           cfg.apiKey,
+	opts := []option.RequestOption{option.WithAPIKey(cfg.apiKey), option.WithMaxRetries(0)}
+	if cfg.baseURL != "" {
+		opts = append(opts, option.WithBaseURL(cfg.baseURL))
+	}
+	if cfg.client != nil {
+		opts = append(opts, option.WithHTTPClient(cfg.client))
+	}
+	sdk := openai.NewClient(opts...)
+	common := structured.Config{SDK: &sdk,
 		Model:            cfg.counter.model,
-		BaseURL:          cfg.baseURL,
-		HTTPClient:       cfg.client,
 		MaxRequestBytes:  maxCounterRequest,
 		MaxResponseBytes: maxInputBytes,
 		Duration:         attemptDuration,

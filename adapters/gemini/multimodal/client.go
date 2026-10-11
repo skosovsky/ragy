@@ -6,37 +6,34 @@ import (
 	"unicode/utf8"
 
 	ragy "github.com/skosovsky/ragy"
-	"github.com/skosovsky/ragy/adapters/gemini/internal/wire"
+	"github.com/skosovsky/ragy/adapters/gemini/internal/binding"
 	"github.com/skosovsky/ragy/embedding"
-	"github.com/skosovsky/ragy/internal/providerhttp"
 	root "github.com/skosovsky/ragy/multimodal"
 )
 
-const DefaultBaseURL = wire.DefaultBaseURL
+const DefaultBaseURL = binding.DefaultBaseURL
 const maxImages = 6
 
-type Doer = providerhttp.Doer
-
 // Config declares authoritative host space, optional equal Model and finite limits.
-type Config = wire.Config
+type Config = binding.Config
 
-// Client supports concurrent calls when the host Doer does.
-type Client struct{ wire *wire.Client }
+// Client supports concurrent calls when the host SDK client does.
+type Client struct{ binding *binding.Client }
 
-// New validates credentials, declared identity and the supported wire profile.
+// New validates the borrowed SDK, declared identity and supported profile.
 func New(cfg Config) (*Client, error) {
 	if cfg.Space.Model != "gemini-embedding-2" {
 		return nil, ragy.ErrUnsupported
 	}
-	client, err := wire.New(cfg)
+	client, err := binding.New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{wire: client}, nil
+	return &Client{binding: client}, nil
 }
 
 // Space returns the host attestation without asserting remote revision.
-func (c *Client) Space() embedding.Space { return c.wire.Space() }
+func (c *Client) Space() embedding.Space { return c.binding.Space() }
 
 // Embed borrows immutable input payloads during one exchange; successful vectors
 // transfer to caller. Errors suppress vectors and retain independently known usage.
@@ -53,25 +50,25 @@ func (c *Client) Embed(ctx context.Context, request root.Request) (root.Result, 
 	if err := c.validateInputs(ctx, request.Inputs); err != nil {
 		return root.Result{}, err
 	}
-	items := make([]wire.Item, len(request.Inputs))
+	items := make([]binding.Item, len(request.Inputs))
 	for i, input := range request.Inputs {
-		parts := make([]wire.Part, len(input.Parts))
+		parts := make([]binding.Part, len(input.Parts))
 		for j, part := range input.Parts {
 			if err := ctx.Err(); err != nil {
 				return root.Result{}, err
 			}
 			if part.Kind == root.PartText {
-				parts[j] = wire.Part{Text: part.Text, InlineData: nil}
+				parts[j] = binding.Part{Text: part.Text, InlineData: nil}
 			} else {
-				parts[j] = wire.Part{Text: "", InlineData: &wire.InlineData{MIME: part.MIME, Data: part.Bytes}}
+				parts[j] = binding.Part{Text: "", InlineData: &binding.InlineData{MIME: part.MIME, Data: part.Bytes}}
 			}
 		}
-		items[i] = c.wire.Item(parts, request.Purpose)
+		items[i] = c.binding.Item(parts, request.Purpose)
 	}
-	return c.wire.Embed(ctx, items)
+	return c.binding.Embed(ctx, items)
 }
 func (c *Client) validateInputs(ctx context.Context, inputs []root.Input) error {
-	limits := c.wire.Limits()
+	limits := c.binding.Limits()
 	if len(inputs) > limits.MaxInputs {
 		return ragy.ErrInvalidArgument
 	}

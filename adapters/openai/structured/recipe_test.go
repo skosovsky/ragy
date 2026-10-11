@@ -124,6 +124,7 @@ func TestRecipeHTTPInvalidOutputsRetainUsage(t *testing.T) {
 			// Arrange.
 			var calls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
 				calls.Add(1)
 				_, _ = io.WriteString(w, envelope(payload, "stop"))
 			}))
@@ -156,6 +157,7 @@ func TestRecipeHTTPPreflightAndForeignSelection(t *testing.T) {
 	// Arrange.
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		calls.Add(1)
 		_, _ = io.WriteString(w, envelope(`{"selected":[99],"sufficient":true}`, "stop"))
 	}))
@@ -199,6 +201,7 @@ func TestRecipeHTTPPreflightAndForeignSelection(t *testing.T) {
 func recipeHandler(t *testing.T, strategy recipe.Strategy, calls *atomic.Int32) http.HandlerFunc {
 	t.Helper()
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		call := calls.Add(1)
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -302,6 +305,7 @@ func TestRecipeHTTPTokenCounterRevocationPreventsDispatch(t *testing.T) {
 	var calls atomic.Int32
 	var revoked atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		calls.Add(1)
 		_, _ = io.WriteString(w, envelope(`{"queries":["derived"]}`, "stop"))
 	}))
