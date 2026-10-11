@@ -280,7 +280,7 @@ func TestRecoveredRescuePolicy(t *testing.T) {
 			// Arrange.
 			primaryCause, secondaryCause := errors.New("primary policy"), errors.New("secondary policy")
 			schema := newScopeFixture(t, allowAuthority()).schema
-			var primaryErr error = primaryCause
+			primaryErr := primaryCause
 			primaryDocs := retrieval.NewResultSet[accessMeta](nil, nil)
 			switch policy {
 			case "partial-primary":
@@ -392,7 +392,7 @@ func TestRecoveredDeliveryTypedIdentityAndSerialization(t *testing.T) {
 	}
 	// Act: exclude the existing textual branch trace; serialize the private carrier.
 	result.BranchTrace = nil
-	serialized, err := json.Marshal(result)
+	serialized, err := json.Marshal(result) //nolint:musttag // Verify unexported diagnostics without changing the public JSON contract.
 	if err != nil {
 		t.Fatal(err)
 	}
