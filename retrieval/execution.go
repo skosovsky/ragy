@@ -57,15 +57,18 @@ func pipelineErrorTrace(node string, err error) []BranchStep {
 
 // RetrievalResult is the typed result envelope for execution-aware pipelines.
 // ResultSet carries retrieved documents; Executed is caller-owned metadata for
-// route decisions, side outputs, and execution summaries.
+// route decisions, side outputs, and execution summaries. Retain this envelope
+// through DeliverExecutionRead: reconstructing it from public fields discards
+// recovered error identities. Private diagnostics are never serialized.
 //
 //nolint:revive // RetrievalResult is the public contract name used by the task and docs.
 type RetrievalResult[TMeta, TExecMeta any] struct {
-	Coverage    ReadCoverage
-	ResultSet   ResultSet[TMeta]
-	Executed    TExecMeta
-	Diagnostics []ExecutionDiagnostic
-	BranchTrace []BranchStep
+	Coverage       ReadCoverage
+	ResultSet      ResultSet[TMeta]
+	Executed       TExecMeta
+	Diagnostics    []ExecutionDiagnostic
+	BranchTrace    []BranchStep
+	recoveredCause error // Execution-local diagnostics, never a success return error.
 }
 
 // Documents returns the result documents for callers that do not need direct
@@ -239,11 +242,12 @@ func (n RequestBackendNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 		return emptyRetrievalResult(resolver, exec), err
 	}
 	result := RetrievalResult[TMeta, TExecMeta]{
-		Coverage:    UnobservedReadCoverage(),
-		ResultSet:   ensureResultSet(rs, resolver),
-		Executed:    exec,
-		Diagnostics: nil,
-		BranchTrace: []BranchStep{nodeBranchStep(n.Name, resultState(rs, err), err)},
+		recoveredCause: nil,
+		Coverage:       UnobservedReadCoverage(),
+		ResultSet:      ensureResultSet(rs, resolver),
+		Executed:       exec,
+		Diagnostics:    nil,
+		BranchTrace:    []BranchStep{nodeBranchStep(n.Name, resultState(rs, err), err)},
 	}
 	if err != nil {
 		result.ResultSet, _ = preserveResultOnError(result.ResultSet, err, resolver)
@@ -332,7 +336,7 @@ func (n RequestFallbackNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 	primary.ResultSet = ensureResultSet(primary.ResultSet, resolver)
 	if err != nil {
 		if access.IsProtectionFailure(err) {
-			return emptyRetrievalResult(resolver, exec), err
+			return suppressExecutionRead(primary, err, resolver)
 		}
 		if partialSuccessRS(primary.ResultSet, err) {
 			primary.ResultSet, _ = preserveResultOnError(primary.ResultSet, err, resolver)
@@ -454,7 +458,7 @@ func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 		return primary, nil
 	}
 	if access.IsProtectionFailure(err) {
-		return emptyRetrievalResult(resolver, exec), err
+		return suppressExecutionRead(primary, err, resolver)
 	}
 	if nonRescuablePartial(primary.ResultSet, err) {
 		primary.ResultSet, _ = preserveResultOnError(primary.ResultSet, err, resolver)
@@ -479,6 +483,7 @@ func (n RequestRescueNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 	if merged.ResultSet.IsEmpty() {
 		return merged, fmt.Errorf("%w: rescue secondary empty", err)
 	}
+	merged.recoveredCause = combineRecoveredCauses(merged.recoveredCause, err)
 	return merged, nil
 }
 
@@ -677,11 +682,12 @@ func (n requestNodeExecutionAdapter[TIntent, TRequestMeta, TMeta, TExecMeta]) ex
 	}
 	rs, err := n.Node.Retrieve(ctx, req)
 	result := RetrievalResult[TMeta, TExecMeta]{
-		Coverage:    UnobservedReadCoverage(),
-		ResultSet:   ensureResultSet(rs, resolver),
-		Executed:    exec,
-		Diagnostics: nil,
-		BranchTrace: []BranchStep{nodeBranchStep(n.Name, resultState(rs, err), err)},
+		recoveredCause: nil,
+		Coverage:       UnobservedReadCoverage(),
+		ResultSet:      ensureResultSet(rs, resolver),
+		Executed:       exec,
+		Diagnostics:    nil,
+		BranchTrace:    []BranchStep{nodeBranchStep(n.Name, resultState(rs, err), err)},
 	}
 	if err != nil {
 		result.ResultSet, _ = preserveResultOnError(result.ResultSet, err, resolver)
@@ -808,7 +814,12 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 		},
 	)
 	if err != nil {
-		return emptyRetrievalResult(resolver, exec), err
+		result := emptyRetrievalResult(resolver, exec)
+		for _, child := range children {
+			result.recoveredCause = combineRecoveredCauses(result.recoveredCause, child.result.recoveredCause)
+			err = combineRecoveredCauses(err, child.err)
+		}
+		return suppressExecutionRead(result, err, resolver)
 	}
 	return n.finalizeExecutionAggregate(ctx, children, exec, resolver)
 }
@@ -837,13 +848,15 @@ func (n RequestExecutionAggregateNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	sets := make([]aggregateChildResult[TMeta], 0, len(children))
 	result := RetrievalResult[TMeta, TExecMeta]{
-		Coverage:    UnobservedReadCoverage(),
-		ResultSet:   NewResultSet[TMeta](nil, resolver),
-		Executed:    exec,
-		Diagnostics: nil,
-		BranchTrace: []BranchStep{nodeBranchStep(n.Name, BranchStateSelected, nil)},
+		recoveredCause: nil,
+		Coverage:       UnobservedReadCoverage(),
+		ResultSet:      NewResultSet[TMeta](nil, resolver),
+		Executed:       exec,
+		Diagnostics:    nil,
+		BranchTrace:    []BranchStep{nodeBranchStep(n.Name, BranchStateSelected, nil)},
 	}
 	for i, child := range children {
+		result.recoveredCause = combineRecoveredCauses(result.recoveredCause, child.result.recoveredCause)
 		sets = append(sets, aggregateChildResult[TMeta]{rs: child.result.ResultSet, err: child.err})
 		result.Diagnostics = append(result.Diagnostics, child.result.Diagnostics...)
 		result.BranchTrace = append(result.BranchTrace, aggregateChildTrace(i, child)...)
@@ -967,12 +980,10 @@ func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 	}
 	result, err := n.Backend.Retrieve(ctx, req, exec)
 	if gateErr := req.Read.Check(ctx); gateErr != nil {
-		var zero TExecMeta
-		return emptyRetrievalResult(resolver, zero), errors.Join(gateErr, err)
+		return suppressExecutionRead(result, errors.Join(gateErr, err), resolver)
 	}
 	if access.IsProtectionFailure(err) {
-		var zero TExecMeta
-		return emptyRetrievalResult(resolver, zero), err
+		return suppressExecutionRead(result, err, resolver)
 	}
 	result.ResultSet = ensureResultSet(result.ResultSet, resolver)
 	result.BranchTrace = append(
@@ -1209,11 +1220,12 @@ func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) exec
 	req, diagnostics, err = p.planAndBind(ctx, req, exec)
 	if err != nil {
 		return RetrievalResult[TMeta, TExecMeta]{
-			Coverage:    UnobservedReadCoverage(),
-			ResultSet:   NewResultSet[TMeta](nil, p.resolver),
-			Executed:    exec,
-			Diagnostics: diagnostics,
-			BranchTrace: pipelineErrorTrace(plannerStage, err),
+			recoveredCause: nil,
+			Coverage:       UnobservedReadCoverage(),
+			ResultSet:      NewResultSet[TMeta](nil, p.resolver),
+			Executed:       exec,
+			Diagnostics:    diagnostics,
+			BranchTrace:    pipelineErrorTrace(plannerStage, err),
 		}, err
 	}
 	if p.binder != nil {
@@ -1221,11 +1233,12 @@ func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) exec
 		diagnostics = append(diagnostics, bound.Diagnostics...)
 		if bindErr != nil {
 			return RetrievalResult[TMeta, TExecMeta]{
-				Coverage:    UnobservedReadCoverage(),
-				ResultSet:   NewResultSet[TMeta](nil, p.resolver),
-				Executed:    bound.Executed,
-				Diagnostics: diagnostics,
-				BranchTrace: pipelineErrorTrace("binder", bindErr),
+				recoveredCause: nil,
+				Coverage:       UnobservedReadCoverage(),
+				ResultSet:      NewResultSet[TMeta](nil, p.resolver),
+				Executed:       bound.Executed,
+				Diagnostics:    diagnostics,
+				BranchTrace:    pipelineErrorTrace("binder", bindErr),
 			}, bindErr
 		}
 		bound.Request.Read = trustedRead
@@ -1234,18 +1247,18 @@ func (p *RequestExecutionPipeline[TIntent, TRequestMeta, TMeta, TExecMeta]) exec
 	}
 	if err := validateReadRequest(ctx, req, p.root); err != nil {
 		return RetrievalResult[TMeta, TExecMeta]{
-			Coverage:    UnobservedReadCoverage(),
-			ResultSet:   NewResultSet[TMeta](nil, p.resolver),
-			Executed:    exec,
-			Diagnostics: diagnostics,
-			BranchTrace: pipelineErrorTrace("options", err),
+			recoveredCause: nil,
+			Coverage:       UnobservedReadCoverage(),
+			ResultSet:      NewResultSet[TMeta](nil, p.resolver),
+			Executed:       exec,
+			Diagnostics:    diagnostics,
+			BranchTrace:    pipelineErrorTrace("options", err),
 		}, err
 	}
 
 	result, retrieveErr := p.root.Execute(ctx, req, exec)
 	if readErr := readDeliveryError(ctx, trustedRead, retrieveErr); readErr != nil {
-		var zero TExecMeta
-		return emptyRetrievalResult(p.resolver, zero), readErr
+		return suppressExecutionRead(result, readErr, p.resolver)
 	}
 
 	result.ResultSet = ensureResultSet(result.ResultSet, p.resolver)
@@ -1344,11 +1357,12 @@ func emptyRetrievalResult[TMeta, TExecMeta any](
 	exec TExecMeta,
 ) RetrievalResult[TMeta, TExecMeta] {
 	return RetrievalResult[TMeta, TExecMeta]{
-		Coverage:    UnobservedReadCoverage(),
-		ResultSet:   NewResultSet[TMeta](nil, resolver),
-		Executed:    exec,
-		Diagnostics: nil,
-		BranchTrace: nil,
+		recoveredCause: nil,
+		Coverage:       UnobservedReadCoverage(),
+		ResultSet:      NewResultSet[TMeta](nil, resolver),
+		Executed:       exec,
+		Diagnostics:    nil,
+		BranchTrace:    nil,
 	}
 }
 
@@ -1365,7 +1379,8 @@ func mergeExecutionBranchResult[TMeta, TExecMeta any](
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	afterTrace := append([]BranchStep(nil), after.BranchTrace...)
 	after.ResultSet = ensureResultSet(after.ResultSet, resolver)
-	after.Diagnostics = append(before.Diagnostics, after.Diagnostics...)
+	after.Diagnostics = append(append([]ExecutionDiagnostic(nil), before.Diagnostics...), after.Diagnostics...)
+	after.recoveredCause = combineRecoveredCauses(before.recoveredCause, after.recoveredCause)
 	trace := append([]BranchStep(nil), before.BranchTrace...)
 	trace = append(trace, step)
 	trace = append(trace, afterTrace...)
@@ -1459,4 +1474,15 @@ func resultState[TMeta any](rs ResultSet[TMeta], err error) string {
 		return BranchStateEmpty
 	}
 	return BranchStateReturned
+}
+
+// combineRecoveredCauses keeps execution order without wrapping nil operands.
+func combineRecoveredCauses(before, after error) error {
+	if before == nil {
+		return after
+	}
+	if after == nil {
+		return before
+	}
+	return errors.Join(before, after)
 }

@@ -47,3 +47,38 @@ A threshold names its ScoreState and ScoreSemantics and is an inclusive minimum 
 `DefaultArtifactRenderer` receives context, the original Read binding, the returned ResultSet and `ArtifactRenderOptions[TMeta]`. Configure `Resource`, `CloneMeta`, formatting and dedup policies explicitly. Resource measurement includes the complete formatted output and names host unit/profile. Measurement/candidate/byte caps bound packing work and delivered serialization, not arbitrary callback CPU or process memory.
 
 Artifact mapping coordinates address snippet Content, not generated labels. RenderedSpan identifies its placement in the rendered output. Contributors identify actual input positions; FullDocument and DeliveryUncertain describe delivery, not semantic sufficiency. UntrustedDataBoundary is a presentation marker, not a model injection defense or factual judge. Keep exact mappings/supports and use [source authority](../source/README.md) for admitted retained text. [Ownership](ownership.md) describes borrowed metadata and explicit captures.
+
+### Execution envelope delivery
+
+Retain the `RetrievalResult` returned by an execution pipeline until the final
+host publication boundary, including any domain mapping and late authority gates.
+A successful rescue returns `nil` error; its recovered primary errors remain
+private, execution-local diagnostics. They neither trigger retries nor enter
+serialized output or observation telemetry automatically.
+
+```go
+result, err := pipeline.Execute(ctx, request)
+// Map domain payloads while retaining result, rather than reconstructing its envelope.
+result, err = retrieval.DeliverExecutionRead(ctx, request.Read, result, err, resolver)
+if err != nil {
+    // Clear any already mapped domain documents and side outputs before publication.
+    return emptyDomainResult, err
+}
+return mapDomainResult(result), nil
+```
+
+The final gate executes even after a successful pipeline. Protection, freshness,
+cancellation or deadline rejection clears the envelope, including `Executed`,
+`Diagnostics` and `BranchTrace`, and preserves recovered identities through
+`errors.Is`/`errors.As` in the returned error. SDK partial/fusion diagnostic views
+are suppressed without mutating caller errors. Arbitrary caller-owned error types
+must protect their own payloads; BYOT does not provide universal error redaction.
+Use the returned envelope for subsequent delivery calls. Its rejected diagnostics
+have already moved into the error and are not re-added. `DeliverRead` remains the
+ResultSet-only boundary and cannot restore a discarded execution envelope.
+
+This change requires a breaking v0 minor release: `RetrievalResult` now contains
+private diagnostics, so external positional literals must migrate to keyed
+literals. No `ResultSet` interface change is required. Copying the envelope by
+value retains diagnostics; constructing a new envelope from public fields loses
+them. Replacing only `result.ResultSet` during projection preserves diagnostics.

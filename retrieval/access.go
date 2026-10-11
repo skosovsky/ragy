@@ -172,10 +172,40 @@ func finishReadResult[TMeta, TExecMeta any](
 	resolver IdentityResolver[TMeta],
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	if readErr := readDeliveryError(ctx, binding, err); readErr != nil {
-		var zero TExecMeta
-		empty := emptyRetrievalResult[TMeta](resolver, zero)
-		return empty, suppressErrorPayload(readErr, empty.ResultSet)
+		return suppressExecutionRead(result, readErr, resolver)
 	}
 	result.Coverage = BindPublicationCoverage(binding, result.Coverage)
 	return result, syncPartialFailureResult(err, result.ResultSet)
+}
+
+// DeliverExecutionRead checks the final publication gate while retaining recovered
+// execution causes. A successful rescue remains successful. Callers must retain
+// the original envelope until publication and use the returned envelope thereafter.
+// On rejection all documents, execution metadata and diagnostic payload views are
+// suppressed; recovered identities are transferred into the returned error.
+// Caller-owned error types remain responsible for their own private payloads.
+func DeliverExecutionRead[TMeta, TExecMeta any](
+	ctx context.Context,
+	binding access.Binding,
+	result RetrievalResult[TMeta, TExecMeta],
+	err error,
+	resolver IdentityResolver[TMeta],
+) (RetrievalResult[TMeta, TExecMeta], error) {
+	resolver = executionResolver(resolver)
+	if nilvalue.IsNil(result.ResultSet) {
+		result.ResultSet = NewResultSet[TMeta](nil, resolver)
+	}
+	return finishReadResult(ctx, binding, result, err, resolver)
+}
+
+// suppressExecutionRead handles an already detected rejection without another gate.
+func suppressExecutionRead[TMeta, TExecMeta any](
+	result RetrievalResult[TMeta, TExecMeta],
+	readErr error,
+	resolver IdentityResolver[TMeta],
+) (RetrievalResult[TMeta, TExecMeta], error) {
+	terminal := combineRecoveredCauses(readErr, result.recoveredCause)
+	var zero TExecMeta
+	empty := emptyRetrievalResult[TMeta](resolver, zero)
+	return empty, suppressErrorPayload(terminal, empty.ResultSet)
 }

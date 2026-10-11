@@ -470,8 +470,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	err error,
 ) (RetrievalResult[TMeta, TExecMeta], error) {
 	if readErr := readDeliveryError(ctx, req.Read, err); readErr != nil {
-		var zero TExecMeta
-		return emptyRetrievalResult(executionResolver(n.Resolver), zero), readErr
+		return suppressExecutionRead(result, readErr, executionResolver(n.Resolver))
 	}
 	resolver := n.Resolver
 	resolver = DefaultResolver(resolver)
@@ -500,6 +499,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 		observation.StageRetrieval,
 	)
 	child, err := c.Node.Execute(childCtx, req, result.Executed)
+	child.recoveredCause = combineRecoveredCauses(result.recoveredCause, child.recoveredCause)
 	child, err = finishReadResult(ctx, req.Read, child, err, resolver)
 	childSpan.End(observationCompletion(err, child.ResultSet))
 	child.ResultSet = ensureResultSet(child.ResultSet, resolver)
@@ -514,9 +514,9 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 		caseStep.Error = err.Error()
 	}
 	child.BranchTrace = append([]BranchStep{caseStep}, child.BranchTrace...)
-	child.Diagnostics = append(result.Diagnostics, child.Diagnostics...)
+	child.Diagnostics = append(append([]ExecutionDiagnostic(nil), result.Diagnostics...), child.Diagnostics...)
 	child.Coverage = MergeReadCoverage(result.Coverage, child.Coverage)
-	child.BranchTrace = append(result.BranchTrace, child.BranchTrace...)
+	child.BranchTrace = append(append([]BranchStep(nil), result.BranchTrace...), child.BranchTrace...)
 	return child, err
 }
 
@@ -542,6 +542,7 @@ func (n RequestRouteSwitchNode[TIntent, TRequestMeta, TRoute, TSignal, TMeta, TE
 	if rescued.ResultSet.IsEmpty() {
 		return rescued, fmt.Errorf("%w: route rescue empty", primaryErr)
 	}
+	rescued.recoveredCause = combineRecoveredCauses(rescued.recoveredCause, primaryErr)
 	return rescued, nil
 }
 

@@ -238,9 +238,7 @@ func TestCallbackCauseConcurrentGate(t *testing.T) {
 	}
 }
 
-// TestCallbackCauseRescueLateGateParity records the consumer cleanup boundary.
-// Successful rescue may leave a primary cause only in diagnostics. This bugfix
-// does not promise an error history through later SDK or host delivery gates.
+// TestCallbackCauseRescueLateGateParity checks all SDK gates and final host delivery.
 //
 //nolint:gocognit // Keep the public-node/gate matrix and its AAA assertions together.
 func TestCallbackCauseRescueLateGateParity(t *testing.T) {
@@ -279,8 +277,11 @@ func TestCallbackCauseRescueLateGateParity(t *testing.T) {
 					t.Fatal(err)
 				}
 				result, err := pipeline.Execute(t.Context(), callbackRequest(read))
-				rs, err := retrieval.DeliverRead(t.Context(), read, result.ResultSet, err, nil)
-				return int(checks.Load()), called, rs, err
+				result, err = retrieval.DeliverExecutionRead(t.Context(), read, result, err, nil)
+				if err != nil {
+					assertCallbackProtection(t, result, err, denied)
+				}
+				return int(checks.Load()), called, result.ResultSet, err
 			}
 			total, called, rs, err := run(0)
 			if err != nil || !called || rs.IsEmpty() || total == 0 {
@@ -302,16 +303,16 @@ func TestCallbackCauseRescueLateGateParity(t *testing.T) {
 					}
 				}
 			}
-			if preserved == 0 || lost == 0 || errors.Is(err, cause) {
+			if preserved == 0 || lost != 0 || !errors.Is(err, cause) {
 				t.Fatalf(
-					"expected immediate parity and late/host gap: preserved=%d lost=%d final=%v",
+					"expected all callback identities through final delivery: preserved=%d lost=%d final=%v",
 					preserved,
 					lost,
 					err,
 				)
 			}
 			t.Logf(
-				"cleanup blocked: checked %d gates, preserved=%d unavailable=%d after callback",
+				"checked %d gates, preserved=%d unavailable=%d after callback",
 				total,
 				preserved,
 				lost,
