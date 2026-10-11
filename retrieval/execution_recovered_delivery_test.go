@@ -392,7 +392,8 @@ func TestRecoveredDeliveryTypedIdentityAndSerialization(t *testing.T) {
 	}
 	// Act: exclude the existing textual branch trace; serialize the private carrier.
 	result.BranchTrace = nil
-	serialized, err := json.Marshal(result) //nolint:musttag // Verify unexported diagnostics without changing the public JSON contract.
+	//nolint:musttag // Test private diagnostics without changing public JSON.
+	serialized, err := json.Marshal(result)
 	if err != nil {
 		t.Fatal(err)
 	}
