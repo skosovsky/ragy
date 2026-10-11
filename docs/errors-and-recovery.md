@@ -24,3 +24,7 @@ Raw administration and scoped reads are different operations. A RawStore or back
 For release unknown/partial/collision states use the [release runbook](release/runbook.md). For lifecycle replay, permanent artifact reservations, pins and cleanup eligibility use the lifecycle guide. Neither successful command exit nor a freshness check establishes future availability, erasure of external sources or a distributed commit.
 
 Callbacks and error methods are cooperative host code. Cancellation gates stop later work and reject returned payload; they cannot preempt arbitrary callbacks. Avoid formatting arbitrary raw provider/host errors into public logs. Use classification and a host-approved diagnostic policy.
+
+`RequestBackendNode.Execute` and `RequestExecutionRetrieverNode.Execute` preserve both a callback failure and subsequent cancellation or authority denial through `errors.Is`. Protection still suppresses the entire result, execution metadata and payload-bearing partial/fusion diagnostic views. An ordinary callback failure with valid read authority retains the existing partial-result contract; callbacks are not retried.
+
+This does not provide error history after a successful native rescue. A recovered primary cause can remain only in diagnostics and become unavailable through `errors.Is` at a later SDK or host delivery gate. Consumers such as Kosmify must retain their host protection for recovered diagnostics until that separate late-gate parity is established; immediate callback/gate parity alone does not authorize removing all host cause capture.

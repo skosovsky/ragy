@@ -233,7 +233,7 @@ func (n RequestBackendNode[TIntent, TRequestMeta, TMeta, TExecMeta]) execute(
 	}
 	rs, err := n.Backend.Retrieve(ctx, req)
 	if gateErr := req.Read.Check(ctx); gateErr != nil {
-		return emptyRetrievalResult(resolver, exec), gateErr
+		return emptyRetrievalResult(resolver, exec), errors.Join(gateErr, err)
 	}
 	if access.IsProtectionFailure(err) {
 		return emptyRetrievalResult(resolver, exec), err
@@ -968,7 +968,7 @@ func (n RequestExecutionRetrieverNode[TIntent, TRequestMeta, TMeta, TExecMeta]) 
 	result, err := n.Backend.Retrieve(ctx, req, exec)
 	if gateErr := req.Read.Check(ctx); gateErr != nil {
 		var zero TExecMeta
-		return emptyRetrievalResult(resolver, zero), gateErr
+		return emptyRetrievalResult(resolver, zero), errors.Join(gateErr, err)
 	}
 	if access.IsProtectionFailure(err) {
 		var zero TExecMeta
