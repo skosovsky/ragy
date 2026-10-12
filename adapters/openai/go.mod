@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/openai/openai-go/v3 v3.76.0
-	github.com/skosovsky/ragy v0.0.0
+	github.com/skosovsky/ragy v0.11.1
 )
 
 require (
@@ -14,5 +14,3 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 )
-
-replace github.com/skosovsky/ragy => ../..
