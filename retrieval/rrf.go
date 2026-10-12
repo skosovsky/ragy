@@ -17,8 +17,9 @@ type ReciprocalRankFusion[TMeta any] struct {
 }
 
 type fusedState[TMeta any] struct {
-	doc   Document[TMeta]
-	score float64
+	doc      Document[TMeta]
+	score    float64
+	evidence *winnerEvidence
 }
 
 // NewReciprocalRankFusion constructs an RRF merger.
@@ -163,7 +164,11 @@ func (r *ReciprocalRankFusion[TMeta]) mergeList(
 		}
 
 		if current.doc.ID != doc.ID || current.score > 0 {
-			current.doc.SourceSupports = combineLocatorSupports(current.doc.SourceLocations(), doc.SourceLocations())
+			if current.evidence == nil {
+				current.evidence = new(winnerEvidence)
+				current.evidence.supports.add(current.doc.SourceLocations(), false)
+			}
+			current.evidence.supports.add(doc.SourceLocations(), false)
 			current.doc.ScoreHistory = append(current.doc.ScoreHistory, doc.ObservedScores()...)
 		}
 		// Convert operands before addition: a valid positive k may be MaxInt.
@@ -210,6 +215,9 @@ func buildMergedDocuments[TMeta any](
 	for _, key := range keys {
 		item := seen[key]
 		doc := item.doc
+		if item.evidence != nil {
+			doc.SourceSupports = item.evidence.locations()
+		}
 		if maxScore > 0 {
 			doc.Score = item.score / maxScore
 			doc.ScoreSemantics = semantics

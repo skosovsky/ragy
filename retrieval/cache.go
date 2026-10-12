@@ -32,16 +32,23 @@ type ResultCache[TMeta any] interface {
 
 type memoryCacheItem[TMeta any] struct {
 	entry CacheEntry[TMeta]
-	used  uint64
+	key   string
+	prev  *memoryCacheItem[TMeta]
+	next  *memoryCacheItem[TMeta]
 }
 
 // MemoryCache is a bounded in-process cache with host clock and metadata snapshots.
 // It has no workers, retries or hidden refreshes; expiry is enforced on each load.
+// LRU bookkeeping adds a key string header and two pointers per entry (32 bytes
+// on 64-bit hosts), replacing the old 8-byte sequence. Nodes are reused on eviction
+// and retained only while present in entries; document/key backing storage and map
+// overhead depend on the host input and capacity. Host callbacks run outside mu.
 type MemoryCache[TMeta any] struct {
 	mu         sync.Mutex
-	entries    map[string]memoryCacheItem[TMeta]
+	entries    map[string]*memoryCacheItem[TMeta]
 	maxEntries int
-	sequence   uint64
+	oldest     *memoryCacheItem[TMeta]
+	newest     *memoryCacheItem[TMeta]
 	now        func() time.Time
 	clone      MetadataCloner[TMeta]
 }
@@ -57,9 +64,10 @@ func NewMemoryCache[TMeta any](
 	}
 	return &MemoryCache[TMeta]{
 		mu:         sync.Mutex{},
-		entries:    map[string]memoryCacheItem[TMeta]{},
+		entries:    map[string]*memoryCacheItem[TMeta]{},
 		maxEntries: maxEntries,
-		sequence:   0,
+		oldest:     nil,
+		newest:     nil,
 		now:        now,
 		clone:      clone,
 	}, nil
@@ -70,26 +78,36 @@ func (m *MemoryCache[TMeta]) Load(ctx context.Context, key string) (CacheEntry[T
 	if err := ctx.Err(); err != nil {
 		return CacheEntry[TMeta]{}, false, err
 	}
+	now := m.now()
+	if err := ctx.Err(); err != nil {
+		return CacheEntry[TMeta]{}, false, err
+	}
 	m.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		m.mu.Unlock()
+		return CacheEntry[TMeta]{}, false, err
+	}
 	item, exists := m.entries[key]
-	if exists && !m.now().Before(item.entry.ExpiresAt) {
+	if exists && !now.Before(item.entry.ExpiresAt) {
+		m.unlink(item)
 		delete(m.entries, key)
 		exists = false
 	}
+	var entry CacheEntry[TMeta]
 	if exists {
-		m.sequence++
-		item.used = m.sequence
-		m.entries[key] = item
+		m.promote(item)
+		// Copy the immutable snapshot under lock: eviction can reuse item after unlock.
+		entry = item.entry
 	}
 	m.mu.Unlock()
 	if !exists {
 		return CacheEntry[TMeta]{}, false, nil
 	}
-	docs, err := cloneCacheDocuments(ctx, item.entry.Documents, m.clone)
+	docs, err := cloneCacheDocuments(ctx, entry.Documents, m.clone)
 	if err != nil {
 		return CacheEntry[TMeta]{}, false, err
 	}
-	return CacheEntry[TMeta]{Documents: docs, ExpiresAt: item.entry.ExpiresAt}, true, nil
+	return CacheEntry[TMeta]{Documents: docs, ExpiresAt: entry.ExpiresAt}, true, nil
 }
 
 // Store snapshots outside the cache lock and evicts the least recently used entry.
@@ -104,28 +122,64 @@ func (m *MemoryCache[TMeta]) Store(ctx context.Context, key string, entry CacheE
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	now := m.now()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if !m.now().Before(entry.ExpiresAt) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !now.Before(entry.ExpiresAt) {
 		return nil
 	}
-	if _, exists := m.entries[key]; !exists && len(m.entries) >= m.maxEntries {
-		oldestKey := ""
-		oldest := ^uint64(0)
-		for existing, item := range m.entries {
-			if item.used < oldest {
-				oldest = item.used
-				oldestKey = existing
-			}
+	item, exists := m.entries[key]
+	if !exists {
+		if len(m.entries) >= m.maxEntries {
+			item = m.oldest
+			m.unlink(item)
+			delete(m.entries, item.key)
+		} else {
+			item = new(memoryCacheItem[TMeta])
 		}
-		delete(m.entries, oldestKey)
+		item.key = key
+		m.entries[key] = item
 	}
-	m.sequence++
-	m.entries[key] = memoryCacheItem[TMeta]{
-		entry: CacheEntry[TMeta]{Documents: docs, ExpiresAt: entry.ExpiresAt},
-		used:  m.sequence,
-	}
+	item.entry = CacheEntry[TMeta]{Documents: docs, ExpiresAt: entry.ExpiresAt}
+	m.promote(item)
 	return nil
+}
+
+// unlink removes a live node without retaining it in a detached list.
+func (m *MemoryCache[TMeta]) unlink(item *memoryCacheItem[TMeta]) {
+	if item.prev != nil {
+		item.prev.next = item.next
+	} else {
+		m.oldest = item.next
+	}
+	if item.next != nil {
+		item.next.prev = item.prev
+	} else {
+		m.newest = item.prev
+	}
+	item.prev, item.next = nil, nil
+}
+
+func (m *MemoryCache[TMeta]) promote(item *memoryCacheItem[TMeta]) {
+	if m.newest == item {
+		return
+	}
+	if item.prev != nil || item.next != nil || m.oldest == item {
+		m.unlink(item)
+	}
+	item.prev = m.newest
+	if m.newest != nil {
+		m.newest.next = item
+	} else {
+		m.oldest = item
+	}
+	m.newest = item
 }
 
 func cloneCacheDocuments[TMeta any](
@@ -146,6 +200,9 @@ func cloneCacheDocuments[TMeta any](
 			return nil, ragy.WrapProjectionError(err, "cache metadata snapshot")
 		}
 		out[i].Meta = meta
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

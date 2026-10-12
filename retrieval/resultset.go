@@ -86,69 +86,64 @@ func (r sliceResultSet[TMeta]) IsEmpty() bool {
 // When scores tie, the first seen document wins (not newest-by-timestamp).
 // Returns ErrInvalidArgument when a custom resolver returns an empty MergeKey.
 func (r sliceResultSet[TMeta]) Merge(other ResultSet[TMeta]) (ResultSet[TMeta], error) {
-	byKey := make(map[string]Document[TMeta], len(r.docs)+other.Len())
-	for _, doc := range r.docs {
-		if err := ValidateDocument(doc); err != nil {
-			return resultSetFromByKey(byKey, r.resolver), ragy.WrapProjectionError(err, "merge validate")
-		}
-		key := r.resolver.Resolve(doc).MergeKey
-		if err := validateMergeKey(key, doc.ID); err != nil {
-			return resultSetFromByKey(byKey, r.resolver), err
-		}
-		for _, reference := range byKey {
-			if err := validateComparable([]Document[TMeta]{reference, doc}); err != nil {
-				return resultSetFromByKey(byKey, r.resolver), err
-			}
-			break
-		}
-		keepWinner(byKey, key, doc)
-	}
-	for _, doc := range other.Documents() {
-		if err := ValidateDocument(doc); err != nil {
-			return resultSetFromByKey(byKey, r.resolver), ragy.WrapProjectionError(err, "merge validate")
-		}
-		key := r.resolver.Resolve(doc).MergeKey
-		if err := validateMergeKey(key, doc.ID); err != nil {
-			return resultSetFromByKey(byKey, r.resolver), err
-		}
-		for _, reference := range byKey {
-			if err := validateComparable([]Document[TMeta]{reference, doc}); err != nil {
-				return resultSetFromByKey(byKey, r.resolver), err
-			}
-			break
-		}
-		keepWinner(byKey, key, doc)
-	}
-
-	return NewResultSet(sortedDocumentsFromByKey(byKey), r.resolver), nil
+	return r.aggregate("merge validate", len(r.docs)+other.Len(), other.Documents)
 }
 
 // Dedup removes duplicate MergeKey entries, keeping the highest score.
 // Output is sorted by Score descending (stable). Returns ErrInvalidArgument on empty MergeKey.
 func (r sliceResultSet[TMeta]) Dedup() (ResultSet[TMeta], error) {
-	if r.IsEmpty() {
-		return NewResultSet(nil, r.resolver), nil
-	}
+	return r.aggregate("dedup validate", len(r.docs), nil)
+}
 
-	byKey := make(map[string]Document[TMeta], len(r.docs))
-	for _, doc := range r.docs {
-		if err := ValidateDocument(doc); err != nil {
-			return resultSetFromByKey(byKey, r.resolver), ragy.WrapProjectionError(err, "dedup validate")
+func (r sliceResultSet[TMeta]) aggregate(
+	operation string,
+	capacity int,
+	additional func() []Document[TMeta],
+) (ResultSet[TMeta], error) {
+	byKey := make(map[string]Document[TMeta], capacity)
+	var accumulated map[string]*winnerEvidence
+	var reference *Document[TMeta]
+	finish := func() ResultSet[TMeta] {
+		for key, evidence := range accumulated {
+			doc := byKey[key]
+			doc.SourceSupports = evidence.locations()
+			doc.ScoreHistory = evidence.history.snapshot()
+			byKey[key] = doc
 		}
-		key := r.resolver.Resolve(doc).MergeKey
-		if err := validateMergeKey(key, doc.ID); err != nil {
-			return resultSetFromByKey(byKey, r.resolver), err
-		}
-		for _, reference := range byKey {
-			if err := validateComparable([]Document[TMeta]{reference, doc}); err != nil {
-				return resultSetFromByKey(byKey, r.resolver), err
+		return resultSetFromByKey(byKey, r.resolver)
+	}
+	docs := r.docs
+	for {
+		for i := range docs {
+			doc := docs[i]
+			if err := ValidateDocument(doc); err != nil {
+				return finish(), ragy.WrapProjectionError(err, operation)
 			}
+			key := r.resolver.Resolve(doc).MergeKey
+			if err := validateMergeKey(key, doc.ID); err != nil {
+				return finish(), err
+			}
+			// Each original input is validated once. The reference scale cannot change
+			// during aggregation, so accumulated evidence needs no repeated validation.
+			if reference != nil &&
+				!sameScoreScale(*reference, doc) {
+				return finish(), fmt.Errorf(
+					"%w: incompatible score scales; use explicit rank fusion or normalization",
+					ragy.ErrInvalidArgument,
+				)
+			}
+			if reference == nil {
+				reference = &docs[i]
+			}
+			accumulated = accumulateWinner(byKey, accumulated, key, doc)
+		}
+		if additional == nil {
 			break
 		}
-		keepWinner(byKey, key, doc)
+		docs = additional()
+		additional = nil
 	}
-
-	return NewResultSet(sortedDocumentsFromByKey(byKey), r.resolver), nil
+	return finish(), nil
 }
 
 func resultSetFromByKey[TMeta any](
@@ -185,30 +180,6 @@ func validateMergeKey(key, docID string) error {
 	return nil
 }
 
-func keepWinner[TMeta any](byKey map[string]Document[TMeta], key string, doc Document[TMeta]) {
-	current, ok := byKey[key]
-	if !ok {
-		byKey[key] = doc
-		return
-	}
-	if !samePayload(doc, current) {
-		// A business merge key does not attest equality of source evidence.
-		if rankedDocumentLess(doc, current) {
-			byKey[key] = doc
-		}
-		return
-	}
-	if rankedDocumentLess(doc, current) {
-		doc.SourceSupports = combineLocatorSupports(doc.SourceLocations(), current.SourceLocations())
-		doc.ScoreHistory = append(append([]ScoreObservation(nil), doc.ScoreHistory...), current.ObservedScores()...)
-		byKey[key] = doc
-	} else {
-		current.SourceSupports = combineLocatorSupports(current.SourceLocations(), doc.SourceLocations())
-		current.ScoreHistory = append(append([]ScoreObservation(nil), current.ScoreHistory...), doc.ObservedScores()...)
-		byKey[key] = current
-	}
-}
-
 func rankedDocumentLess[TMeta any](left, right Document[TMeta]) bool {
 	leftScored := left.ScoreState.IsScored()
 	rightScored := right.ScoreState.IsScored()
@@ -240,4 +211,51 @@ func copyDocuments[TMeta any](docs []Document[TMeta]) []Document[TMeta] {
 		out[i].ScoreHistory = append([]ScoreObservation(nil), out[i].ScoreHistory...)
 	}
 	return out
+}
+
+// accumulateWinner preserves the eager winner's evidence order using immutable segments.
+func accumulateWinner[TMeta any](
+	byKey map[string]Document[TMeta],
+	accumulated map[string]*winnerEvidence,
+	key string,
+	doc Document[TMeta],
+) map[string]*winnerEvidence {
+	current, exists := byKey[key]
+	if !exists {
+		byKey[key] = doc
+		return accumulated
+	}
+	if !samePayload(doc, current) {
+		if rankedDocumentLess(doc, current) {
+			byKey[key] = doc
+			delete(accumulated, key)
+		}
+		return accumulated
+	}
+	if accumulated == nil {
+		accumulated = make(map[string]*winnerEvidence)
+	}
+	evidence := accumulated[key]
+	if evidence == nil {
+		evidence = new(winnerEvidence)
+		evidence.supports.add(current.SourceLocations(), false)
+		evidence.history.add(current.ScoreHistory, false)
+		accumulated[key] = evidence
+	}
+	if rankedDocumentLess(doc, current) {
+		evidence.supports.add(doc.SourceLocations(), true)
+		evidence.history.add(doc.ScoreHistory, true)
+		observeWinner(evidence, current)
+		byKey[key] = doc
+	} else {
+		evidence.supports.add(doc.SourceLocations(), false)
+		evidence.history.add(doc.ScoreHistory, false)
+		observeWinner(evidence, doc)
+	}
+	return accumulated
+}
+
+// sameScoreScale compares already-validated inputs without rescanning evidence.
+func sameScoreScale[TMeta any](left, right Document[TMeta]) bool {
+	return left.ScoreState == right.ScoreState && left.ScoreSemantics == right.ScoreSemantics
 }

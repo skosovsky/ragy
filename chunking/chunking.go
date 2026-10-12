@@ -59,6 +59,18 @@ func validateSource[TMeta any](ctx context.Context, doc retrieval.Document[TMeta
 	return doc, nil
 }
 
+// validateSnapshotSpan checks each interval against the immutable UTF-8 snapshot
+// admitted by validateSource. It deliberately does not rescan the full input.
+func validateSnapshotSpan(span source.ByteSpan, text string) error {
+	if span.Start < 0 || span.End <= span.Start || span.End > len(text) {
+		return fmt.Errorf("%w: source locator", ragy.ErrInvalidArgument)
+	}
+	if !utf8.RuneStart(text[span.Start]) || (span.End < len(text) && !utf8.RuneStart(text[span.End])) {
+		return fmt.Errorf("%w: source locator", ragy.ErrInvalidArgument)
+	}
+	return nil
+}
+
 func buildChunks[TMeta any](
 	ctx context.Context,
 	doc retrieval.Document[TMeta],
@@ -69,7 +81,7 @@ func buildChunks[TMeta any](
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if err := span.ValidateText(doc.Content); err != nil {
+		if err := validateSnapshotSpan(span, doc.Content); err != nil {
 			return nil, err
 		}
 		var mapping source.MappedText

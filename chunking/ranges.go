@@ -171,7 +171,7 @@ func markdownRanges(ctx context.Context, text string) ([]source.ByteSpan, error)
 }
 
 func sentenceTexts(ctx context.Context, text string, spans []source.ByteSpan) ([]string, error) {
-	if len(spans) == 0 {
+	if len(spans) == 0 || !utf8.ValidString(text) {
 		return nil, ragy.ErrProtocol
 	}
 	out := make([]string, len(spans))
@@ -180,7 +180,7 @@ func sentenceTexts(ctx context.Context, text string, spans []source.ByteSpan) ([
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if span.Start < previous || span.ValidateText(text) != nil ||
+		if span.Start < previous || validateSnapshotSpan(span, text) != nil ||
 			strings.TrimSpace(text[previous:span.Start]) != "" ||
 			strings.TrimSpace(text[span.Start:span.End]) == "" {
 			return nil, ragy.ErrProtocol

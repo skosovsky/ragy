@@ -46,10 +46,12 @@ func DefaultMergeStrategy[TMeta any]() MergeStrategy[TMeta] {
 		merged.SourceMapping = mapping
 		merged.SourceSupports = nil
 		merged.ScoreHistory = nil
+		var evidence winnerEvidence
 		for _, doc := range docs {
-			merged.SourceSupports = combineLocatorSupports(merged.SourceSupports, doc.SourceLocations())
+			evidence.supports.add(doc.SourceLocations(), false)
 			merged.ScoreHistory = append(merged.ScoreHistory, doc.ObservedScores()...)
 		}
+		merged.SourceSupports = evidence.locations()
 		merged.Content = strings.Join(parts, "\n\n")
 		return merged, ragy.WrapProjectionError(ValidateDocument(merged), "merge strategy validate")
 	}
@@ -169,9 +171,12 @@ func (p groupByProcessor[TMeta]) process(
 		if err != nil {
 			return preserveResultOnError(NewResultSet(out, p.resolver), err, p.resolver)
 		}
+		var evidence winnerEvidence
+		evidence.supports.add(merged.SourceSupports, false)
 		for _, input := range groups[key] {
-			merged.SourceSupports = combineLocatorSupports(merged.SourceSupports, input.SourceLocations())
+			evidence.supports.add(input.SourceLocations(), false)
 		}
+		merged.SourceSupports = evidence.locations()
 		if err := ValidateDocument(merged); err != nil {
 			return preserveResultOnError(NewResultSet(out, p.resolver), err, p.resolver)
 		}

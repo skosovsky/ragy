@@ -42,6 +42,9 @@ type MappedFragment struct {
 type MappedText struct {
 	text      string
 	fragments []MappedFragment
+	// validated is set only after structural validation of this private immutable
+	// snapshot. No public method exposes its backing slices for mutation.
+	validated bool
 }
 
 // OriginalText extracts one exact span from the retained source representation.
@@ -84,7 +87,7 @@ func originalValidText(location Locator, retainedText string) (MappedText, error
 		return MappedText{}, err
 	}
 	text := retainedText[location.Span.Start:location.Span.End]
-	return MappedText{text: text, fragments: []MappedFragment{{
+	return MappedText{text: text, validated: true, fragments: []MappedFragment{{
 		Rendered: ByteSpan{Start: 0, End: len(text)}, Precision: ExactPrecision, Origin: OriginalContent,
 		Location: location, Supports: []Locator{location},
 	}}}, nil
@@ -111,7 +114,8 @@ func supportedText(text string, origin ContentOrigin, supports []Locator) (Mappe
 	}
 	var inactive Locator
 	return MappedText{
-		text: text,
+		text:      text,
+		validated: true,
 		fragments: []MappedFragment{
 			{
 				Rendered:  ByteSpan{Start: 0, End: len(text)},
@@ -149,6 +153,9 @@ func (m MappedText) Supports() []Locator {
 // Validate checks complete, ordered coverage and the exact/derived distinction.
 // Zero MappedText means absent mapping and must not be treated as exact evidence.
 func (m MappedText) Validate() error {
+	if m.validated {
+		return nil
+	}
 	if m.text == "" || !utf8.ValidString(m.text) || len(m.fragments) == 0 {
 		return invalidLocation()
 	}
@@ -212,10 +219,10 @@ func (m MappedText) Slice(span ByteSpan) (MappedText, error) {
 	if err := m.Validate(); err != nil {
 		return MappedText{}, err
 	}
-	if err := span.ValidateText(m.text); err != nil {
+	if err := span.validateValidText(m.text); err != nil {
 		return MappedText{}, err
 	}
-	out := MappedText{text: m.text[span.Start:span.End], fragments: nil}
+	out := MappedText{text: m.text[span.Start:span.End], fragments: nil, validated: false}
 	for _, fragment := range m.fragments {
 		start, end := max(span.Start, fragment.Rendered.Start), min(span.End, fragment.Rendered.End)
 		if start >= end {
@@ -234,7 +241,11 @@ func (m MappedText) Slice(span ByteSpan) (MappedText, error) {
 		}
 		out.fragments = append(out.fragments, owned)
 	}
-	return out, out.Validate()
+	if err := out.Validate(); err != nil {
+		return MappedText{}, err
+	}
+	out.validated = true
+	return out, nil
 }
 
 // JoinMapped joins multiple retained/derived fragments. Separator bytes are
@@ -249,7 +260,7 @@ func JoinMapped(separator string, parts ...MappedText) (MappedText, error) {
 		}
 	}
 	var builder strings.Builder
-	out := MappedText{text: "", fragments: nil}
+	out := MappedText{text: "", fragments: nil, validated: false}
 	for i, part := range parts {
 		if i > 0 && separator != "" {
 			supports := uniqueSupports(append(parts[i-1].Supports(), part.Supports()...))
@@ -262,7 +273,11 @@ func JoinMapped(separator string, parts ...MappedText) (MappedText, error) {
 		appendMapped(&builder, &out, part)
 	}
 	out.text = builder.String()
-	return out, out.Validate()
+	if err := out.Validate(); err != nil {
+		return MappedText{}, err
+	}
+	out.validated = true
+	return out, nil
 }
 
 func appendMapped(builder *strings.Builder, out *MappedText, part MappedText) {

@@ -63,10 +63,11 @@ func (m *MappedText) UnmarshalJSON(data []byte) error {
 			return invalidLocation()
 		}
 	case "mapped":
-		snapshot = MappedText{text: wire.Text, fragments: wire.Fragments}
+		snapshot = MappedText{text: wire.Text, fragments: wire.Fragments, validated: false}
 		if err := snapshot.Validate(); err != nil {
 			return err
 		}
+		snapshot.validated = true
 	default:
 		return invalidLocation()
 	}
